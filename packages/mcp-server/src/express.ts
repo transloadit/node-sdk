@@ -3,7 +3,12 @@ import type { TransloaditMcpHttpOptions } from './http.ts'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import express from 'express'
 
-import { isBasicAuthorized } from './http-helpers.ts'
+import {
+  applyCorsHeaders,
+  isBasicAuthorized,
+  rejectMissingBearerToken,
+  resolveAllowedOrigins,
+} from './http-helpers.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
 import { createTransloaditMcpServer } from './server.ts'
 import { buildServerCard, serverCardPath } from './server-card.ts'
@@ -18,9 +23,15 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   const metricsPath =
     options.metricsPath === false ? undefined : (options.metricsPath ?? '/metrics')
   const metricsAuth = options.metricsAuth
+  // Only hosted mode adds an Origin policy here; embedders keep owning CORS otherwise.
+  const hostedOrigins = options.resourceMetadataUrl ? resolveAllowedOrigins(options) : undefined
 
   const serverCardJson = JSON.stringify(
-    buildServerCard(routePath, { authKey: options.authKey, authSecret: options.authSecret }),
+    buildServerCard(routePath, {
+      authKey: options.authKey,
+      authSecret: options.authSecret,
+      resourceMetadataUrl: options.resourceMetadataUrl,
+    }),
   )
 
   const sendServerCard = (res: express.Response, includeBody: boolean) => {
@@ -59,12 +70,20 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   })
 
   router.all(routePath, async (req: express.Request, res: express.Response) => {
+    if (hostedOrigins && !applyCorsHeaders(req, res, hostedOrigins)) {
+      return
+    }
+
     if (req.method !== 'POST') {
       res.status(405).json({
         jsonrpc: '2.0',
         error: { code: -32000, message: 'Method not allowed.' },
         id: null,
       })
+      return
+    }
+
+    if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) {
       return
     }
 

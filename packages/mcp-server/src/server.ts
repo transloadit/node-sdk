@@ -1,9 +1,17 @@
+import type { ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
 import type {
   AssemblyInstructionsInput,
+  AssemblyStatus,
   CreateAssemblyParams,
+  InputFile,
   LintAssemblyInstructionsResult,
 } from '@transloadit/node'
+import type { ZodObject } from 'zod'
+
+import type { ListedTool } from './tool-list.ts'
+import type { ToolName } from './tool-metadata.ts'
+import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import {
@@ -19,18 +27,30 @@ import {
 import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
-import { extractBearerToken } from './http-helpers.ts'
+import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
+import { installToolListHandler } from './tool-list.ts'
+import { buildToolMeta, toolMetadata } from './tool-metadata.ts'
+import { registerAssemblyResultWidget, widgetContextMetaKey } from './ui/assembly-result-widget.ts'
 
 export type TransloaditMcpServerOptions = {
   authKey?: string
   authSecret?: string
   mcpToken?: string
+  /**
+   * Protected-resource metadata URL of the hosted deployment. When set, auth failures carry an
+   * RFC 6750 challenge that points OAuth clients at API2 (`TRANSLOADIT_MCP_RESOURCE_METADATA_URL`).
+   */
+  resourceMetadataUrl?: string
+  /** Console origin used for widget deep links; defaults to the public website. */
+  consoleUrl?: string
   endpoint?: string
   serverName?: string
   serverVersion?: string
   clientName?: string
   clientSuffix?: string
 }
+
+const defaultConsoleUrl = 'https://transloadit.com'
 
 type LintIssueOutput = {
   path: string
@@ -149,9 +169,23 @@ const inputFileSchema = z.discriminatedUnion('kind', [
   }),
 ])
 
+// Exactly the file object ChatGPT hydrates for `_meta["openai/fileParams"]`: the two ids are
+// required, the descriptive fields optional, and nothing else is allowed.
+const hostFileSchema = z
+  .object({
+    download_url: z.string(),
+    file_id: z.string(),
+    mime_type: z.string().optional(),
+    file_name: z.string().optional(),
+  })
+  .strict()
+
+type HostFile = z.infer<typeof hostFileSchema>
+
 const createAssemblyInputSchema = z.object({
   instructions: z.unknown().optional(),
   files: z.array(inputFileSchema).optional(),
+  attachments: z.array(hostFileSchema).optional(),
   fields: z.record(z.string(), z.unknown()).optional(),
   wait_for_completion: z.boolean().optional(),
   wait_timeout_ms: z.number().int().positive().optional(),
@@ -245,6 +279,19 @@ const lintAssemblyOutputSchema = z.object({
   normalized_instructions: z.unknown().optional(),
 })
 
+const getProfileInputSchema = z.object({}).strict()
+
+// Shape ChatGPT expects from a profile tool: an opaque stable id plus optional display fields.
+const getProfileOutputSchema = z
+  .object({
+    id: z.string().min(1).regex(/\S/),
+    name: z.string().optional(),
+    nickname: z.string().optional(),
+  })
+  .strict()
+
+type WorkspaceProfile = z.infer<typeof getProfileOutputSchema>
+
 const toLintIssues = (issues: LintAssemblyInstructionsResult['issues']): LintIssueOutput[] =>
   issues.map((issue) => ({
     path: issue.stepName ? `steps.${issue.stepName}` : 'instructions',
@@ -261,7 +308,16 @@ const safeJsonParse = (value: string): unknown => {
   }
 }
 
-const buildToolResponse = (payload: Record<string, unknown>): CallToolResult => {
+type ToolResponseExtras = {
+  /** Result `_meta`, delivered to widgets and hosts but hidden from the model. */
+  meta?: Record<string, unknown>
+  isError?: boolean
+}
+
+const buildToolResponse = (
+  payload: Record<string, unknown>,
+  extras: ToolResponseExtras = {},
+): CallToolResult => {
   const content: TextContent = {
     type: 'text',
     text: JSON.stringify(payload),
@@ -270,8 +326,53 @@ const buildToolResponse = (payload: Record<string, unknown>): CallToolResult => 
   return {
     content: [content],
     structuredContent: payload,
+    ...(extras.isError ? { isError: true } : {}),
+    ...(extras.meta ? { _meta: extras.meta } : {}),
   }
 }
+
+type AuthErrorInput = {
+  code: 'mcp_missing_auth' | 'mcp_auth_rejected' | 'mcp_insufficient_scope'
+  oauthError: 'invalid_token' | 'insufficient_scope'
+  message: string
+  hint?: string
+}
+
+/**
+ * Tool-level auth failure. `_meta["mcp/www_authenticate"]` mirrors the HTTP challenge so ChatGPT
+ * and Claude open their account-linking UI; the text content keeps the reason readable.
+ */
+const buildAuthError = (
+  options: TransloaditMcpServerOptions,
+  input: AuthErrorInput,
+): CallToolResult =>
+  buildToolResponse(
+    {
+      status: 'error',
+      errors: [{ code: input.code, message: input.message, hint: input.hint }],
+    },
+    {
+      isError: true,
+      meta: {
+        'mcp/www_authenticate': [
+          buildBearerChallenge({
+            resourceMetadataUrl: options.resourceMetadataUrl,
+            error: { code: input.oauthError, description: input.message },
+          }),
+        ],
+      },
+    },
+  )
+
+const buildMissingAuthError = (options: TransloaditMcpServerOptions): CallToolResult =>
+  buildAuthError(options, {
+    code: 'mcp_missing_auth',
+    oauthError: 'insufficient_scope',
+    message: 'Sign in to Transloadit to use this tool.',
+    hint: options.resourceMetadataUrl
+      ? 'Connect your Transloadit account through OAuth, then retry.'
+      : 'Set TRANSLOADIT_KEY/TRANSLOADIT_SECRET or send an Authorization: Bearer token.',
+  })
 
 const buildToolError = (
   code: string,
@@ -344,12 +445,7 @@ const createLiveClient = (
   }
 
   if (!options.authKey || !options.authSecret) {
-    return {
-      error: buildToolError(
-        'mcp_missing_auth',
-        'Missing TRANSLOADIT_KEY/TRANSLOADIT_SECRET or Authorization: Bearer token for live API calls.',
-      ),
-    }
+    return { error: buildMissingAuthError(options) }
   }
 
   return {
@@ -396,6 +492,63 @@ const getHttpStatusCode = (error: unknown): number | undefined => {
 
 const isErrnoException = (value: unknown): value is NodeJS.ErrnoException =>
   isRecord(value) && typeof value.code === 'string'
+
+/**
+ * Maps API2 rejections of the forwarded credentials to a tool auth error. Other failures are
+ * left to the caller so they keep surfacing as ordinary tool errors.
+ */
+const toAuthRejection = (
+  options: TransloaditMcpServerOptions,
+  error: unknown,
+): CallToolResult | undefined => {
+  const status = getHttpStatusCode(error)
+  if (status === 401) {
+    return buildAuthError(options, {
+      code: 'mcp_auth_rejected',
+      oauthError: 'invalid_token',
+      message: 'Transloadit rejected the credentials; the token may have expired.',
+      hint: 'Reconnect your Transloadit account and retry.',
+    })
+  }
+  const scopeRejected =
+    status === 403 && error instanceof ApiError && /SCOPE|BEARER_TOKEN/.test(error.code ?? '')
+  if (scopeRejected) {
+    return buildAuthError(options, {
+      code: 'mcp_insufficient_scope',
+      oauthError: 'insufficient_scope',
+      message: 'The connected credentials lack the scope this tool needs.',
+      hint: 'Reconnect your Transloadit account and grant the requested access.',
+    })
+  }
+  return undefined
+}
+
+const trimTrailingSlash = (value: string): string => value.replace(/\/$/, '')
+
+/** Widget-only context: whether the caller is signed in and where the Console deep links go. */
+const buildWidgetContext = (
+  options: TransloaditMcpServerOptions,
+  assembly: AssemblyStatus,
+): WidgetContext => {
+  const consoleUrl = trimTrailingSlash(options.consoleUrl || defaultConsoleUrl)
+  const slug = isNonEmptyString(assembly.account_slug) ? assembly.account_slug : undefined
+  const assemblyId = isNonEmptyString(assembly.assembly_id) ? assembly.assembly_id : undefined
+  const templateId = isNonEmptyString(assembly.template_id) ? assembly.template_id : undefined
+  if (!slug) return { authenticated: true }
+
+  const workspaceUrl = `${consoleUrl}/c/${encodeURIComponent(slug)}`
+  const newTemplateUrl = new URL(`${workspaceUrl}/templates/new`)
+  if (templateId && !isBuiltinTemplateId(templateId)) {
+    newTemplateUrl.searchParams.set('duplicateFrom', templateId)
+  }
+  return {
+    authenticated: true,
+    assembly_console_url: assemblyId
+      ? `${workspaceUrl}/assemblies/${encodeURIComponent(assemblyId)}`
+      : undefined,
+    new_template_url: newTemplateUrl.toString(),
+  }
+}
 
 const isHttpImportStep = (value: unknown): value is Record<string, unknown> =>
   isRecord(value) && value.robot === '/http/import'
@@ -571,6 +724,7 @@ const apiTemplateSchema = z
     description: z.string().optional(),
     builtin_version: z.string().optional(),
     content: z.unknown().optional(),
+    account_id: z.string().nullable().optional(),
   })
   .passthrough()
 
@@ -614,6 +768,47 @@ const loadTemplateSteps = async (
   return extractTemplateSteps(full.content)
 }
 
+/**
+ * API2 has no userinfo endpoint yet, so the Workspace behind the credentials is read from the
+ * caller's own Assemblies (id, name and slug) or, failing that, from an owned Template (id only).
+ */
+const resolveWorkspaceProfile = async (
+  client: Transloadit,
+): Promise<WorkspaceProfile | undefined> => {
+  const assemblies = await client.listAssemblies({ pagesize: 1 })
+  const latest = assemblies.items[0]
+  if (latest?.id) {
+    const status = await client.getAssembly(latest.id)
+    const id = isNonEmptyString(status.account_id) ? status.account_id : latest.account_id
+    if (isNonEmptyString(id)) {
+      return {
+        id,
+        name: isNonEmptyString(status.account_name) ? status.account_name : undefined,
+        nickname: isNonEmptyString(status.account_slug) ? status.account_slug : undefined,
+      }
+    }
+  }
+
+  const templates = listTemplatesResponseSchema.safeParse(
+    await client.listTemplates({ pagesize: 1 }),
+  )
+  const template = templates.success ? templates.data.items?.[0] : undefined
+  if (template && isNonEmptyString(template.account_id)) {
+    return { id: template.account_id }
+  }
+  return undefined
+}
+
+/** Host-attached files become URL inputs; `file_id` is opaque, so the field name is positional. */
+const toAttachmentInputs = (attachments: HostFile[]): InputFile[] =>
+  attachments.map((attachment, index) => ({
+    kind: 'url',
+    field: `attachment_${index + 1}`,
+    url: attachment.download_url,
+    filename: attachment.file_name,
+    contentType: attachment.mime_type,
+  }))
+
 const looksLikeAssemblyParams = (input: Record<string, unknown>): boolean => {
   return (
     'steps' in input ||
@@ -656,16 +851,40 @@ export const createTransloaditMcpServer = (
     version: options.serverVersion ?? packageJson.version,
   })
 
+  const listedTools: ListedTool[] = []
+  const register = <Input extends ZodObject, Output extends ZodObject>(
+    name: ToolName,
+    inputSchema: Input,
+    outputSchema: Output,
+    callback: ToolCallback<Input>,
+  ): void => {
+    const metadata = toolMetadata[name]
+    const registered = server.registerTool(
+      name,
+      {
+        title: metadata.title,
+        description: metadata.description,
+        inputSchema,
+        outputSchema,
+        annotations: metadata.annotations,
+        _meta: buildToolMeta(metadata),
+      },
+      callback,
+    )
+    listedTools.push({
+      name,
+      inputSchema,
+      outputSchema,
+      securitySchemes: metadata.securitySchemes,
+      registered,
+    })
+  }
+
   // Builtin templates supersede the old golden template tool; no legacy alias by design.
-  server.registerTool(
+  register(
     'transloadit_lint_assembly_instructions',
-    {
-      title: 'Lint Assembly Instructions',
-      description:
-        'Lint Assembly Instructions without creating an Assembly. Returns structured issues.',
-      inputSchema: lintAssemblyInputSchema,
-      outputSchema: lintAssemblyOutputSchema,
-    },
+    lintAssemblyInputSchema,
+    lintAssemblyOutputSchema,
     async ({ instructions, strict, return_fixed }) => {
       const client = createLintClient(options)
       const assemblyInstructions =
@@ -689,19 +908,15 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_create_assembly',
-    {
-      title: 'Create or resume an Assembly',
-      description:
-        'Create or resume an Assembly, optionally uploading files and waiting for completion.',
-      inputSchema: createAssemblyInputSchema,
-      outputSchema: createAssemblyOutputSchema,
-    },
+    createAssemblyInputSchema,
+    createAssemblyOutputSchema,
     async (
       {
         instructions,
         files,
+        attachments,
         fields,
         wait_for_completion,
         wait_timeout_ms,
@@ -724,7 +939,7 @@ export const createTransloaditMcpServer = (
       let templatePathHint: string | undefined
 
       try {
-        const fileInputs = files ?? []
+        const fileInputs: InputFile[] = [...(files ?? []), ...toAttachmentInputs(attachments ?? [])]
         const urlInputs = fileInputs.filter((file) => file.kind === 'url')
         const hasUrlInputs = urlInputs.length > 0
         let inputFilesForPrep = fileInputs
@@ -940,32 +1155,42 @@ export const createTransloaditMcpServer = (
           ? []
           : ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status']
 
-        return buildToolResponse({
-          status: 'ok',
-          assembly,
-          upload: uploadSummary,
-          next_steps: nextSteps,
-          warnings: warnings.length > 0 ? warnings : undefined,
-        })
+        return buildToolResponse(
+          {
+            status: 'ok',
+            assembly,
+            upload: uploadSummary,
+            next_steps: nextSteps,
+            warnings: warnings.length > 0 ? warnings : undefined,
+          },
+          { meta: { [widgetContextMetaKey]: buildWidgetContext(options, assembly) } },
+        )
+      } catch (error) {
+        const rejection = toAuthRejection(options, error)
+        if (rejection) return rejection
+        throw error
       } finally {
         await Promise.all(tempCleanups.map((cleanup) => cleanup()))
       }
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_get_assembly_status',
-    {
-      title: 'Get Assembly status',
-      description: 'Fetch the latest Assembly status by URL or ID.',
-      inputSchema: getAssemblyStatusInputSchema,
-      outputSchema: getAssemblyStatusOutputSchema,
-    },
+    getAssemblyStatusInputSchema,
+    getAssemblyStatusOutputSchema,
     async ({ assembly_url, assembly_id }, extra) => {
       const access = resolveAssemblyAccess(options, extra, { assembly_url, assembly_id })
       if ('error' in access) return access.error
 
-      const assembly = await access.client.getAssembly(access.assemblyId)
+      let assembly: AssemblyStatus
+      try {
+        assembly = await access.client.getAssembly(access.assemblyId)
+      } catch (error) {
+        const rejection = toAuthRejection(options, error)
+        if (rejection) return rejection
+        throw error
+      }
 
       return buildToolResponse({
         status: 'ok',
@@ -974,42 +1199,44 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_wait_for_assembly',
-    {
-      title: 'Wait for Assembly completion',
-      description: 'Polls until the Assembly completes or timeout is reached.',
-      inputSchema: waitForAssemblyInputSchema,
-      outputSchema: waitForAssemblyOutputSchema,
-    },
+    waitForAssemblyInputSchema,
+    waitForAssemblyOutputSchema,
     async ({ assembly_url, assembly_id, timeout_ms, poll_interval_ms }, extra) => {
       const access = resolveAssemblyAccess(options, extra, { assembly_url, assembly_id })
       if ('error' in access) return access.error
 
       const start = Date.now()
-      const assembly = await access.client.awaitAssemblyCompletion(access.assemblyId, {
-        timeout: timeout_ms,
-        interval: poll_interval_ms,
-        assemblyUrl: access.assemblyUrl,
-      })
+      let assembly: AssemblyStatus
+      try {
+        assembly = await access.client.awaitAssemblyCompletion(access.assemblyId, {
+          timeout: timeout_ms,
+          interval: poll_interval_ms,
+          assemblyUrl: access.assemblyUrl,
+        })
+      } catch (error) {
+        const rejection = toAuthRejection(options, error)
+        if (rejection) return rejection
+        throw error
+      }
       const waited_ms = Date.now() - start
 
-      return buildToolResponse({
-        status: 'ok',
-        assembly,
-        waited_ms,
-      })
+      return buildToolResponse(
+        {
+          status: 'ok',
+          assembly,
+          waited_ms,
+        },
+        { meta: { [widgetContextMetaKey]: buildWidgetContext(options, assembly) } },
+      )
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_list_robots',
-    {
-      title: 'List Transloadit robots',
-      description: 'Returns a filtered list of robots with short summaries.',
-      inputSchema: listRobotsInputSchema,
-      outputSchema: listRobotsOutputSchema,
-    },
+    listRobotsInputSchema,
+    listRobotsOutputSchema,
     ({ category, search, limit, cursor }) => {
       const result = listRobots({ category, search, limit, cursor })
 
@@ -1021,14 +1248,10 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_get_robot_help',
-    {
-      title: 'Get robot parameter help',
-      description: 'Returns a robot summary and parameter details.',
-      inputSchema: getRobotHelpInputSchema,
-      outputSchema: getRobotHelpOutputSchema,
-    },
+    getRobotHelpInputSchema,
+    getRobotHelpOutputSchema,
     ({ robot_name, robot_names }) => {
       const splitComma = (value: string): string[] =>
         value
@@ -1094,30 +1317,13 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_list_templates',
-    {
-      title: 'List templates',
-      description:
-        'List Assembly Templates (owned and/or builtin). Tip: pass include_builtin: "exclusively-latest" to list builtins only.',
-      inputSchema: listTemplatesInputSchema,
-      outputSchema: listTemplatesOutputSchema,
-    },
+    listTemplatesInputSchema,
+    listTemplatesOutputSchema,
     async ({ page, page_size, sort, order, keywords, include_builtin, include_content }, extra) => {
       const liveClient = createLiveClient(options, extra)
-      if ('error' in liveClient) {
-        return buildToolResponse({
-          status: 'error',
-          templates: [],
-          errors: [
-            {
-              code: 'mcp_missing_auth',
-              message:
-                'Missing TRANSLOADIT_KEY/TRANSLOADIT_SECRET or Authorization: Bearer token for live API calls.',
-            },
-          ],
-        })
-      }
+      if ('error' in liveClient) return liveClient.error
 
       try {
         const response = await liveClient.client.listTemplates({
@@ -1153,6 +1359,8 @@ export const createTransloaditMcpServer = (
           total: parsed.data.count ?? items.length,
         })
       } catch (error) {
+        const rejection = toAuthRejection(options, error)
+        if (rejection) return rejection
         const message = error instanceof Error ? error.message : 'Failed to list templates.'
         return buildToolResponse({
           status: 'error',
@@ -1167,6 +1375,46 @@ export const createTransloaditMcpServer = (
       }
     },
   )
+
+  register(
+    'transloadit_get_profile',
+    getProfileInputSchema,
+    getProfileOutputSchema,
+    async (_args, extra) => {
+      const liveClient = createLiveClient(options, extra)
+      if ('error' in liveClient) return liveClient.error
+
+      let profile: WorkspaceProfile | undefined
+      try {
+        profile = await resolveWorkspaceProfile(liveClient.client)
+      } catch (error) {
+        const rejection = toAuthRejection(options, error)
+        if (rejection) return rejection
+        throw error
+      }
+
+      if (!profile) {
+        // The strict profile output schema has no error shape, so this must be an error result.
+        return buildToolResponse(
+          {
+            status: 'error',
+            errors: [
+              {
+                code: 'mcp_profile_unavailable',
+                message: 'Could not determine the Workspace behind these credentials yet.',
+                hint: 'Create an Assembly or a Template first, then call this tool again.',
+              },
+            ],
+          },
+          { isError: true },
+        )
+      }
+      return buildToolResponse(profile)
+    },
+  )
+
+  registerAssemblyResultWidget(server)
+  installToolListHandler(server, listedTools)
 
   return server
 }

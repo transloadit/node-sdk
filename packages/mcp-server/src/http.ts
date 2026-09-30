@@ -8,10 +8,12 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 
 import {
   applyCorsHeaders,
-  isAuthorized,
   isBasicAuthorized,
   normalizePath,
   parsePathname,
+  rejectMissingBearerToken,
+  rejectMissingMcpToken,
+  resolveAllowedOrigins,
 } from './http-helpers.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
 import { createTransloaditMcpServer } from './server.ts'
@@ -71,9 +73,14 @@ export function createTransloaditMcpHttpHandler(
   const metricsPath =
     options.metricsPath === false ? undefined : normalizePath(options.metricsPath ?? '/metrics')
   const metricsAuth = options.metricsAuth
+  const allowedOrigins = resolveAllowedOrigins(options)
 
   const serverCardJson = JSON.stringify(
-    buildServerCard(expectedPath, { authKey: options.authKey, authSecret: options.authSecret }),
+    buildServerCard(expectedPath, {
+      authKey: options.authKey,
+      authSecret: options.authSecret,
+      resourceMetadataUrl: options.resourceMetadataUrl,
+    }),
   )
 
   const handler = (async (req, res) => {
@@ -131,7 +138,7 @@ export function createTransloaditMcpHttpHandler(
       return
     }
 
-    if (!applyCorsHeaders(req, res, options.allowedOrigins)) {
+    if (!applyCorsHeaders(req, res, allowedOrigins)) {
       return
     }
 
@@ -141,10 +148,7 @@ export function createTransloaditMcpHttpHandler(
       return
     }
 
-    if (options.mcpToken && !isAuthorized(req, options.mcpToken)) {
-      res.statusCode = 401
-      res.setHeader('WWW-Authenticate', 'Bearer')
-      res.end('Unauthorized')
+    if (rejectMissingMcpToken(req, res, options.mcpToken)) {
       return
     }
 
@@ -162,6 +166,10 @@ export function createTransloaditMcpHttpHandler(
           docs: 'https://transloadit.com/docs/sdks/mcp-server/',
         }),
       )
+      return
+    }
+
+    if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) {
       return
     }
 

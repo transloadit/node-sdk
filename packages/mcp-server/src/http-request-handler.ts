@@ -3,7 +3,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import type { SevLogger } from '@transloadit/sev-logger'
 
-import { applyCorsHeaders, isAuthorized, normalizePath, parsePathname } from './http-helpers.ts'
+import {
+  applyCorsHeaders,
+  normalizePath,
+  parsePathname,
+  rejectMissingBearerToken,
+  rejectMissingMcpToken,
+  resolveAllowedOrigins,
+} from './http-helpers.ts'
 import { buildRedactor, getLogger } from './logger.ts'
 
 type PathPolicy = {
@@ -14,6 +21,7 @@ type PathPolicy = {
 type RequestHandlerOptions = {
   allowedOrigins?: string[]
   mcpToken?: string
+  resourceMetadataUrl?: string
   path: PathPolicy
   logger?: SevLogger
   redactSecrets?: Array<string | undefined>
@@ -27,6 +35,7 @@ export const createMcpRequestHandler = (
   const allowRoot = options.path.allowRoot ?? false
   const logger = options.logger ?? getLogger().nest('http')
   const redact = buildRedactor(options.redactSecrets ?? [])
+  const allowedOrigins = resolveAllowedOrigins(options)
 
   return async (req: IncomingMessage, res: ServerResponse) => {
     const pathname = normalizePath(parsePathname(req.url, expectedPath))
@@ -36,7 +45,7 @@ export const createMcpRequestHandler = (
       return
     }
 
-    if (!applyCorsHeaders(req, res, options.allowedOrigins)) {
+    if (!applyCorsHeaders(req, res, allowedOrigins)) {
       return
     }
 
@@ -46,10 +55,7 @@ export const createMcpRequestHandler = (
       return
     }
 
-    if (options.mcpToken && !isAuthorized(req, options.mcpToken)) {
-      res.statusCode = 401
-      res.setHeader('WWW-Authenticate', 'Bearer')
-      res.end('Unauthorized')
+    if (rejectMissingMcpToken(req, res, options.mcpToken)) {
       return
     }
 
@@ -68,6 +74,10 @@ export const createMcpRequestHandler = (
           docs: 'https://transloadit.com/docs/sdks/mcp-server/',
         }),
       )
+      return
+    }
+
+    if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) {
       return
     }
 

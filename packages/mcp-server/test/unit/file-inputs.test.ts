@@ -602,4 +602,90 @@ describe('MCP file inputs', () => {
       }),
     )
   })
+
+  it('maps host-attached files onto the URL import path', async () => {
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { source: { robot: '/http/import' } } },
+        attachments: [
+          {
+            download_url: 'https://example.com/attached.jpg',
+            file_id: 'file_123',
+            mime_type: 'image/jpeg',
+            file_name: 'attached.jpg',
+          },
+        ],
+      },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(Transloadit.prototype.createAssembly).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({
+          steps: { source: { robot: '/http/import', url: 'https://example.com/attached.jpg' } },
+        }),
+      }),
+    )
+  })
+
+  it('downloads host-attached files for upload templates alongside legacy inputs', async () => {
+    const download = nock('https://example.com').get('/attached.txt').reply(200, fixtureContent)
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { ':original': { robot: '/upload/handle' } } },
+        files: [{ kind: 'base64', field: 'inline', base64: 'aGk=', filename: 'inline.txt' }],
+        attachments: [{ download_url: 'https://example.com/attached.txt', file_id: 'file_1' }],
+        wait_for_completion: true,
+      },
+    })
+    expect(result.structuredContent).toMatchObject({
+      status: 'ok',
+      upload: { status: 'complete', total_files: 2 },
+    })
+    expect(download.isDone()).toBe(true)
+    expect(Transloadit.prototype.createAssembly).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: { inline: expect.any(String), attachment_1: expect.any(String) },
+      }),
+    )
+  })
+
+  it('rejects host file objects with unknown properties before any API call', async () => {
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { source: { robot: '/http/import' } } },
+        attachments: [
+          { download_url: 'https://example.com/a.jpg', file_id: 'file_1', kind: 'url' },
+        ],
+      },
+    })
+    expect(result.isError).toBe(true)
+    expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+  })
+
+  it('hands the widget Console deep links for the Assembly and a new Template', async () => {
+    vi.mocked(Transloadit.prototype.createAssembly).mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      assembly_id: assemblyId,
+      account_slug: 'acme',
+      template_id: 'tpl_1',
+    })
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { resized: { robot: '/image/resize', width: 1 } } },
+        wait_for_completion: true,
+      },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(result._meta).toEqual({
+      'transloadit/widget': {
+        authenticated: true,
+        assembly_console_url: `https://transloadit.com/c/acme/assemblies/${assemblyId}`,
+        new_template_url: 'https://transloadit.com/c/acme/templates/new?duplicateFrom=tpl_1',
+      },
+    })
+  })
 })

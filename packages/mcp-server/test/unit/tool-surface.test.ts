@@ -1,0 +1,213 @@
+import type { AddressInfo } from 'node:net'
+
+import { createServer } from 'node:http'
+
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import { createTransloaditMcpHttpHandler } from '../../src/http.ts'
+import { toolNames } from '../../src/tool-metadata.ts'
+import {
+  assemblyResultOrigins,
+  assemblyResultWidgetMimeType,
+  assemblyResultWidgetUri,
+} from '../../src/ui/assembly-result-widget.ts'
+
+type JsonRecord = Record<string, unknown>
+
+const isRecord = (value: unknown): value is JsonRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const resourceMetadataUrl = 'https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp'
+
+// The SDK client strips unknown Tool fields such as `securitySchemes`, so tools/list is read raw.
+const parseJsonRpcResult = async (response: Response): Promise<JsonRecord> => {
+  const text = await response.text()
+  const payload = response.headers.get('content-type')?.includes('text/event-stream')
+    ? text
+        .split('\n')
+        .filter((line) => line.startsWith('data: '))
+        .map((line) => line.slice('data: '.length))
+        .at(-1)
+    : text
+  if (!payload) throw new Error(`Empty JSON-RPC response: ${text}`)
+  const parsed: unknown = JSON.parse(payload)
+  if (!isRecord(parsed) || !isRecord(parsed.result)) {
+    throw new Error(`Unexpected JSON-RPC response: ${payload}`)
+  }
+  return parsed.result
+}
+
+describe('tool surface', () => {
+  const handler = createTransloaditMcpHttpHandler({ metricsPath: false, resourceMetadataUrl })
+  const httpServer = createServer((req, res) => {
+    void handler(req, res)
+  })
+  let url: URL
+
+  const call = async (method: string, params: JsonRecord = {}): Promise<JsonRecord> => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    })
+    expect(response.status).toBe(200)
+    return parseJsonRpcResult(response)
+  }
+
+  const listTools = async (): Promise<JsonRecord[]> => {
+    const result = await call('tools/list')
+    expect(Array.isArray(result.tools)).toBe(true)
+    return (result.tools as unknown[]).filter(isRecord)
+  }
+
+  const findTool = (tools: JsonRecord[], name: string): JsonRecord => {
+    const tool = tools.find((entry) => entry.name === name)
+    if (!tool) throw new Error(`Tool ${name} is not listed`)
+    return tool
+  }
+
+  beforeAll(async () => {
+    await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve))
+    const { port } = httpServer.address() as AddressInfo
+    url = new URL(`http://127.0.0.1:${port}/mcp`)
+  })
+
+  afterAll(async () => {
+    await handler.close()
+    await new Promise<void>((resolve, reject) =>
+      httpServer.close((error) => (error ? reject(error) : resolve())),
+    )
+  })
+
+  it('lists every tool with a title, annotations and security schemes in both places', async () => {
+    const tools = await listTools()
+    expect(tools.map((tool) => tool.name).sort()).toEqual([...toolNames].sort())
+
+    for (const tool of tools) {
+      expect(typeof tool.title, String(tool.name)).toBe('string')
+      expect(tool.annotations).toMatchObject({
+        readOnlyHint: expect.any(Boolean),
+        destructiveHint: false,
+        openWorldHint: expect.any(Boolean),
+      })
+      expect(Array.isArray(tool.securitySchemes), String(tool.name)).toBe(true)
+      expect(isRecord(tool._meta) ? tool._meta.securitySchemes : undefined).toEqual(
+        tool.securitySchemes,
+      )
+    }
+  })
+
+  it.each([
+    ['transloadit_list_robots', [{ type: 'noauth' }]],
+    ['transloadit_get_robot_help', [{ type: 'noauth' }]],
+    ['transloadit_lint_assembly_instructions', [{ type: 'noauth' }]],
+    ['transloadit_create_assembly', [{ type: 'oauth2', scopes: ['assemblies:write'] }]],
+    ['transloadit_get_assembly_status', [{ type: 'oauth2', scopes: ['assemblies:read'] }]],
+    ['transloadit_wait_for_assembly', [{ type: 'oauth2', scopes: ['assemblies:read'] }]],
+    ['transloadit_list_templates', [{ type: 'oauth2', scopes: ['templates:read'] }]],
+    ['transloadit_get_profile', [{ type: 'oauth2', scopes: [] }]],
+  ])('%s declares %j', async (name, securitySchemes) => {
+    const tool = findTool(await listTools(), name)
+    expect(tool.securitySchemes).toEqual(securitySchemes)
+  })
+
+  it('marks only the Assembly creation as open-world and nothing as destructive', async () => {
+    const tools = await listTools()
+    const openWorld = tools.filter(
+      (tool) => isRecord(tool.annotations) && tool.annotations.openWorldHint === true,
+    )
+    expect(openWorld.map((tool) => tool.name)).toEqual(['transloadit_create_assembly'])
+    const readOnly = tools.filter(
+      (tool) => isRecord(tool.annotations) && tool.annotations.readOnlyHint === true,
+    )
+    expect(readOnly).toHaveLength(tools.length - 1)
+  })
+
+  it('declares ChatGPT file params with exactly the OpenAI file object schema', async () => {
+    const tool = findTool(await listTools(), 'transloadit_create_assembly')
+    expect(isRecord(tool._meta) ? tool._meta['openai/fileParams'] : undefined).toEqual([
+      'attachments',
+    ])
+
+    const inputSchema = isRecord(tool.inputSchema) ? tool.inputSchema : {}
+    const properties = isRecord(inputSchema.properties) ? inputSchema.properties : {}
+    const attachments = isRecord(properties.attachments) ? properties.attachments : {}
+    expect(attachments.type).toBe('array')
+    expect(attachments.items).toEqual({
+      type: 'object',
+      properties: {
+        download_url: { type: 'string' },
+        file_id: { type: 'string' },
+        mime_type: { type: 'string' },
+        file_name: { type: 'string' },
+      },
+      required: ['download_url', 'file_id'],
+      additionalProperties: false,
+    })
+    expect(JSON.stringify(properties.files)).toContain('base64')
+  })
+
+  it('links the Assembly tools to the result widget with short status strings', async () => {
+    const tools = await listTools()
+    for (const name of ['transloadit_create_assembly', 'transloadit_wait_for_assembly']) {
+      const meta = findTool(tools, name)._meta
+      expect(isRecord(meta) ? meta.ui : undefined).toEqual({ resourceUri: assemblyResultWidgetUri })
+      expect(isRecord(meta) ? meta['openai/outputTemplate'] : undefined).toBe(
+        assemblyResultWidgetUri,
+      )
+    }
+    for (const tool of tools) {
+      if (!isRecord(tool._meta)) continue
+      for (const key of ['openai/toolInvocation/invoking', 'openai/toolInvocation/invoked']) {
+        const value = tool._meta[key]
+        if (value === undefined) continue
+        expect(typeof value).toBe('string')
+        expect(String(value).length).toBeLessThanOrEqual(64)
+      }
+    }
+  })
+
+  it('marks the profile tool for multi-account hosts', async () => {
+    const tool = findTool(await listTools(), 'transloadit_get_profile')
+    expect(isRecord(tool._meta) ? tool._meta['openai/profile'] : undefined).toBe(true)
+    expect(tool.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: false })
+    expect(tool.inputSchema).toMatchObject({ type: 'object', additionalProperties: false })
+    expect(tool.outputSchema).toMatchObject({ required: ['id'] })
+  })
+
+  it('lists and serves the Assembly result widget with a CSP for result origins', async () => {
+    const listed = await call('resources/list')
+    const resources = (listed.resources as unknown[]).filter(isRecord)
+    const widget = resources.find((resource) => resource.uri === assemblyResultWidgetUri)
+    expect(widget).toMatchObject({
+      mimeType: assemblyResultWidgetMimeType,
+      _meta: {
+        ui: {
+          csp: { connectDomains: assemblyResultOrigins, resourceDomains: assemblyResultOrigins },
+        },
+        'openai/widgetDescription': expect.any(String),
+        'openai/widgetCSP': {
+          connect_domains: assemblyResultOrigins,
+          resource_domains: assemblyResultOrigins,
+        },
+      },
+    })
+
+    const read = await call('resources/read', { uri: assemblyResultWidgetUri })
+    const contents = (read.contents as unknown[]).filter(isRecord)
+    expect(contents).toHaveLength(1)
+    const html = String(contents[0]?.text)
+    expect(contents[0]).toMatchObject({
+      uri: assemblyResultWidgetUri,
+      mimeType: assemblyResultWidgetMimeType,
+    })
+    expect(html).toContain('<!doctype html>')
+    expect(html).toContain('ui/notifications/tool-result')
+    expect(html).toContain('Save as Template')
+    expect(html).not.toMatch(/<script[^>]+src=/)
+  })
+})

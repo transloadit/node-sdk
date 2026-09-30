@@ -19,6 +19,8 @@ Environment:
   TRANSLOADIT_KEY
   TRANSLOADIT_SECRET
   TRANSLOADIT_MCP_TOKEN
+  TRANSLOADIT_MCP_RESOURCE_METADATA_URL
+  TRANSLOADIT_MCP_CONSOLE_URL
   TRANSLOADIT_ENDPOINT
   TRANSLOADIT_MCP_METRICS_PATH
   TRANSLOADIT_MCP_METRICS_USER
@@ -128,10 +130,18 @@ const main = async (): Promise<void> => {
     const mcpToken = (fileConfig.mcpToken ?? process.env.TRANSLOADIT_MCP_TOKEN) as
       | string
       | undefined
+    const resourceMetadataUrl = (fileConfig.resourceMetadataUrl ??
+      process.env.TRANSLOADIT_MCP_RESOURCE_METADATA_URL) as string | undefined
+    const consoleUrl = (fileConfig.consoleUrl ?? process.env.TRANSLOADIT_MCP_CONSOLE_URL) as
+      | string
+      | undefined
     const clientSuffix = process.env.TRANSLOADIT_CLIENT_SUFFIX as string | undefined
 
-    if (!isLocalHost(host) && !mcpToken) {
-      throw new Error('TRANSLOADIT_MCP_TOKEN is required when binding to non-localhost host.')
+    // Hosted mode delegates token checks to API2, so it may bind publicly without a static token.
+    if (!isLocalHost(host) && !mcpToken && !resourceMetadataUrl) {
+      throw new Error(
+        'TRANSLOADIT_MCP_TOKEN or TRANSLOADIT_MCP_RESOURCE_METADATA_URL is required when binding to a non-localhost host.',
+      )
     }
 
     const handler = await createTransloaditMcpHttpHandler({
@@ -140,6 +150,8 @@ const main = async (): Promise<void> => {
       endpoint,
       clientSuffix,
       mcpToken,
+      resourceMetadataUrl,
+      consoleUrl,
       allowedOrigins: fileConfig.allowedOrigins as string[] | undefined,
       allowedHosts: fileConfig.allowedHosts as string[] | undefined,
       enableDnsRebindingProtection: fileConfig.enableDnsRebindingProtection as boolean | undefined,
