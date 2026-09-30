@@ -2,18 +2,122 @@
 
 Transloadit MCP Server (Streamable HTTP + stdio), built on top of `@transloadit/node`.
 
-## Install
+## Connect by URL (recommended)
+
+The hosted server lives at:
+
+```text
+https://api2.transloadit.com/mcp
+```
+
+Add it to your MCP client by URL. The client discovers API2 as the OAuth authorization server,
+opens a browser consent page in the Transloadit Console, and keeps a short-lived token plus refresh
+token for you. No API keys leave your Workspace.
+
+Browsing Robots (`transloadit_list_robots`, `transloadit_get_robot_help`) and linting Assembly
+Instructions work before you sign in; creating Assemblies and listing Templates ask you to connect
+your Workspace first.
+
+### Claude Code
+
+```bash
+claude mcp add --transport http transloadit https://api2.transloadit.com/mcp
+claude mcp login transloadit
+```
+
+For non-interactive runs (for example `claude -p`), explicitly allow MCP tools:
+
+```bash
+claude -p "List templates" \
+  --allowedTools mcp__transloadit__* \
+  --output-format json
+```
+
+### Claude.ai and Claude Desktop
+
+Settings → Connectors → Add custom connector → enter `https://api2.transloadit.com/mcp`. Claude
+registers itself with API2 and opens the consent page.
+
+### ChatGPT
+
+Settings → Apps & Connectors → Advanced → Developer mode → Create, then enter the URL above with
+authentication set to OAuth. Files you attach in the chat are handed to
+`transloadit_create_assembly` as `attachments`; results render in the Assembly result widget.
+
+The plugin manifest for the ChatGPT and Codex catalog (`plugin.json`, `mcp.json` and the
+`.codex-plugin/plugin.json` fallback) lives in this package directory. It points at the hosted
+server and at the Agent Skills catalog at `https://transloadit.com/.well-known/skills/index.json`
+instead of bundling skill files.
+
+### Codex
+
+```bash
+codex mcp add transloadit --url https://api2.transloadit.com/mcp
+codex mcp login transloadit
+```
+
+Or in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.transloadit]
+url = "https://api2.transloadit.com/mcp"
+```
+
+### Cursor
+
+`~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "transloadit": {
+      "url": "https://api2.transloadit.com/mcp"
+    }
+  }
+}
+```
+
+### MCP Inspector
+
+```bash
+npx @modelcontextprotocol/inspector --cli https://api2.transloadit.com/mcp
+```
+
+## CI and headless agents
+
+Where no browser is available, mint a bearer token from an Auth Key and pass it as
+`Authorization: Bearer <token>`:
+
+```bash
+npx -y @transloadit/node auth token --aud mcp
+```
+
+Generate this token in a trusted environment (backend, CI, or local shell), then hand it to the
+agent runtime. You can mint it via:
+
+- CLI: `npx -y @transloadit/node auth token --aud mcp`
+- API: `POST https://api2.transloadit.com/token` (HTTP Basic Auth with key/secret)
+- Node SDK: instantiate `Transloadit` with `authKey` + `authSecret`, then call
+  `client.mintBearerToken({ aud: 'mcp' })`
+
+Interactive CLI sessions can also run `npx -y @transloadit/node auth login` (device flow) and reuse
+the stored credentials.
+
+Bearer tokens satisfy signature auth on API2 requests; signature checks apply to key/secret
+requests.
+
+## Self-hosted
+
+Run the server where your agent runs, set `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`, and the server
+handles API auth automatically.
+
+### Install
 
 ```bash
 npm install @transloadit/mcp-server
 ```
 
-## Quick start (self-hosted, recommended)
-
-For most teams, self-hosted MCP is the simplest happy path: run the server where your agent runs,
-set `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`, and the server handles API auth automatically.
-
-### Stdio (recommended)
+### Stdio
 
 ```bash
 TRANSLOADIT_KEY=MY_AUTH_KEY TRANSLOADIT_SECRET=MY_SECRET_KEY npx -y @transloadit/mcp-server stdio
@@ -26,7 +130,8 @@ TRANSLOADIT_KEY=MY_AUTH_KEY TRANSLOADIT_SECRET=MY_SECRET_KEY \
 npx -y @transloadit/mcp-server http --host 127.0.0.1 --port 5723
 ```
 
-When binding HTTP mode to non-localhost hosts, `TRANSLOADIT_MCP_TOKEN` is required.
+When binding HTTP mode to non-localhost hosts, `TRANSLOADIT_MCP_TOKEN` (or the hosted-mode
+`TRANSLOADIT_MCP_RESOURCE_METADATA_URL`) is required.
 
 ### Docker
 
@@ -65,36 +170,11 @@ export TRANSLOADIT_MCP_TOKEN="$(openssl rand -hex 32)"
 npx -y @transloadit/mcp-server http --host 0.0.0.0 --port 5723
 ```
 
-## Hosted endpoint
+### Self-hosted client setup
 
-If you cannot run `npx` where the agent runs, use the hosted endpoint:
+Most self-hosted users add the server to their MCP client and let the client start it via stdio.
 
-```text
-https://api2.transloadit.com/mcp
-```
-
-Use `Authorization: Bearer <token>`. Mint a token with:
-
-```bash
-npx -y @transloadit/node auth token --aud mcp
-```
-
-Generate this token in a trusted environment (backend, CI, or local shell), then hand it to the
-agent runtime. You can mint it via:
-
-- CLI: `npx -y @transloadit/node auth token --aud mcp`
-- API: `POST https://api2.transloadit.com/token` (HTTP Basic Auth with key/secret)
-- Node SDK: instantiate `Transloadit` with `authKey` + `authSecret`, then call
-  `client.mintBearerToken({ aud: 'mcp' })`
-
-Bearer tokens satisfy signature auth on API2 requests; signature checks apply to key/secret
-requests.
-
-## Agent client setup
-
-Most users add the server to their MCP client and let the client start it automatically via stdio.
-
-### Claude Code
+#### Claude Code
 
 ```bash
 claude mcp add --transport stdio transloadit \
@@ -103,15 +183,7 @@ claude mcp add --transport stdio transloadit \
   -- npx -y @transloadit/mcp-server stdio
 ```
 
-For non-interactive runs (for example `claude -p`), explicitly allow MCP tools:
-
-```bash
-claude -p "List templates" \
-  --allowedTools mcp__transloadit__* \
-  --output-format json
-```
-
-### Codex CLI
+#### Codex CLI
 
 ```bash
 codex mcp add transloadit \
@@ -129,7 +201,7 @@ args = ["-y", "@transloadit/mcp-server", "stdio"]
 enabled_tools = ["transloadit_list_templates"]
 ```
 
-### Gemini CLI
+#### Gemini CLI
 
 ```bash
 gemini mcp add --scope user transloadit npx -y @transloadit/mcp-server stdio \
@@ -155,7 +227,7 @@ Allowlist tools in `~/.gemini/settings.json`:
 }
 ```
 
-### Cursor
+#### Cursor
 
 `~/.cursor/mcp.json`:
 
@@ -174,7 +246,7 @@ Allowlist tools in `~/.gemini/settings.json`:
 }
 ```
 
-### OpenCode
+#### OpenCode
 
 `~/.config/opencode/opencode.json`:
 
@@ -193,27 +265,21 @@ Allowlist tools in `~/.gemini/settings.json`:
 }
 ```
 
-## Run the server manually
-
-HTTP:
-
-```bash
-npx -y @transloadit/mcp-server http --host 127.0.0.1 --port 5723
-```
-
-Stdio:
-
-```bash
-npx -y @transloadit/mcp-server stdio
-```
-
 ## Auth model
 
 ### Hosted (`https://api2.transloadit.com/mcp`)
 
-- Mint token via `POST https://api2.transloadit.com/token`.
-- Send `Authorization: Bearer <access_token>`.
-- Bearer auth satisfies signature auth; signature checks apply to key/secret requests.
+- Requests without a bearer token get `401` with
+  `WWW-Authenticate: Bearer resource_metadata="https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp"`.
+  MCP clients follow that document to API2's authorization server (authorization code + PKCE,
+  Dynamic Client Registration or Client ID Metadata Documents).
+- Bearer tokens (OAuth or minted with `--aud mcp`) are forwarded to API2, which verifies them on
+  every call. A rejected or expired token yields a tool result with `isError` and
+  `_meta["mcp/www_authenticate"]`, so ChatGPT and Claude prompt you to reconnect.
+- Each tool declares `securitySchemes`: `noauth` for Robot docs and linting, `oauth2` with the
+  scopes it needs (`assemblies:write`, `assemblies:read`, `templates:read`) otherwise.
+- Browser requests must come from ChatGPT, Claude, Transloadit or loopback origins; requests without
+  an `Origin` header (CLIs, servers) are not restricted. Set `allowedOrigins` to change the list.
 
 ### Self-hosted
 
@@ -230,6 +296,10 @@ npx -y @transloadit/mcp-server stdio
 - `TRANSLOADIT_KEY`
 - `TRANSLOADIT_SECRET`
 - `TRANSLOADIT_MCP_TOKEN`
+- `TRANSLOADIT_MCP_RESOURCE_METADATA_URL` (hosted mode: protected-resource metadata URL to
+  advertise in `401` challenges)
+- `TRANSLOADIT_MCP_CONSOLE_URL` (optional, default `https://transloadit.com`; Console origin for
+  widget deep links)
 - `TRANSLOADIT_ENDPOINT` (optional, default `https://api2.transloadit.com`)
 - `TRANSLOADIT_MCP_METRICS_PATH` (optional, default `/metrics`)
 - `TRANSLOADIT_MCP_METRICS_USER` (optional)
@@ -241,20 +311,40 @@ npx -y @transloadit/mcp-server stdio
 - `npx -y @transloadit/mcp-server http --endpoint https://api2.transloadit.com`
 - `npx -y @transloadit/mcp-server http --config path/to/config.json`
 
+The JSON config accepts the same keys as `createTransloaditMcpHttpHandler()`, including
+`allowedOrigins`, `resourceMetadataUrl` and `consoleUrl`.
+
 ## Tool surface
 
-- `transloadit_lint_assembly_instructions`
-- `transloadit_create_assembly`
-- `transloadit_get_assembly_status`
-- `transloadit_wait_for_assembly`
-- `transloadit_list_robots`
-- `transloadit_get_robot_help`
-- `transloadit_list_templates`
+| Tool                                    | Auth                        | Notes                                    |
+| --------------------------------------- | --------------------------- | ---------------------------------------- |
+| `transloadit_lint_assembly_instructions` | none                        | read-only                                |
+| `transloadit_list_robots`               | none                        | read-only                                |
+| `transloadit_get_robot_help`            | none                        | read-only                                |
+| `transloadit_create_assembly`           | `oauth2` `assemblies:write` | open-world (URL imports), result widget  |
+| `transloadit_get_assembly_status`       | `oauth2` `assemblies:read`  | read-only                                |
+| `transloadit_wait_for_assembly`         | `oauth2` `assemblies:read`  | read-only, result widget                 |
+| `transloadit_list_templates`            | `oauth2` `templates:read`   | read-only                                |
+| `transloadit_get_profile`               | `oauth2`                    | read-only, `_meta["openai/profile"]`     |
+
+Every tool carries `title`, `readOnlyHint`, `destructiveHint` (always `false`), `idempotentHint`
+and `openWorldHint` annotations.
 
 `transloadit_list_templates` supports:
 
 - `include_builtin`: `all`, `latest`, `exclusively-all`, `exclusively-latest`
 - `include_content`: include parsed `steps` in each template item
+
+`transloadit_get_profile` returns `{ id, name?, nickname? }` for the Workspace behind the current
+credentials, derived from the Workspace's own Assemblies or Templates.
+
+### Result widget
+
+`transloadit_create_assembly` and `transloadit_wait_for_assembly` link the MCP Apps resource
+`ui://transloadit/assembly-result` (`_meta.ui.resourceUri`, also `_meta["openai/outputTemplate"]`).
+Hosts that support MCP Apps render each Step's results with image, video and audio previews,
+download links, an "Open in Console" link and a "Save as Template" shortcut. The widget only needs
+`https://*.transloadit.com` and `https://*.transloadit.net` in its CSP.
 
 ## Input files
 
@@ -275,6 +365,21 @@ export type InputFile =
       contentType?: string
     }
 ```
+
+Hosts that attach chat files (ChatGPT) pass them under `attachments` instead, as declared by
+`_meta["openai/fileParams"]`:
+
+```ts
+type Attachment = {
+  download_url: string
+  file_id: string
+  mime_type?: string
+  file_name?: string
+}
+```
+
+Each attachment becomes a URL input (`attachment_1`, `attachment_2`, …) and follows the URL rules
+below.
 
 ## Limits
 
@@ -329,7 +434,8 @@ but this does not enable private-network URL file downloads.
 - Disable via `metricsPath: false`.
 - Optional metrics basic auth via `TRANSLOADIT_MCP_METRICS_USER` +
   `TRANSLOADIT_MCP_METRICS_PASSWORD` or `metricsAuth`.
-- Public discovery endpoint at `/.well-known/mcp/server-card.json`.
+- Public discovery endpoint at `/.well-known/mcp/server-card.json`, listing every tool with its
+  annotations and security schemes and, in hosted mode, the OAuth resource metadata URL.
 
 ## MCP vs skills/CLI
 
@@ -388,7 +494,3 @@ corepack yarn --cwd packages/mcp-server test:e2e
 - Add or update tests with behavior changes.
 - Keep README and website docs aligned for user-facing behavior.
 - Open a PR in `transloadit/node-sdk`.
-
-### Roadmap
-
-- Next.js Claude Web flow to mint and hand off bearer tokens for MCP.
