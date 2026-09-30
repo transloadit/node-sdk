@@ -20,6 +20,7 @@ Environment:
   TRANSLOADIT_SECRET
   TRANSLOADIT_MCP_TOKEN
   TRANSLOADIT_MCP_RESOURCE_METADATA_URL
+  TRANSLOADIT_MCP_UPSTREAM_SECRET
   TRANSLOADIT_MCP_CONSOLE_URL
   TRANSLOADIT_ENDPOINT
   TRANSLOADIT_MCP_METRICS_PATH
@@ -132,6 +133,8 @@ const main = async (): Promise<void> => {
       | undefined
     const resourceMetadataUrl = (fileConfig.resourceMetadataUrl ??
       process.env.TRANSLOADIT_MCP_RESOURCE_METADATA_URL) as string | undefined
+    const upstreamSecret = (fileConfig.upstreamSecret ??
+      process.env.TRANSLOADIT_MCP_UPSTREAM_SECRET) as string | undefined
     const consoleUrl = (fileConfig.consoleUrl ?? process.env.TRANSLOADIT_MCP_CONSOLE_URL) as
       | string
       | undefined
@@ -151,6 +154,7 @@ const main = async (): Promise<void> => {
       clientSuffix,
       mcpToken,
       resourceMetadataUrl,
+      upstreamSecret,
       consoleUrl,
       allowedOrigins: fileConfig.allowedOrigins as string[] | undefined,
       allowedHosts: fileConfig.allowedHosts as string[] | undefined,
@@ -198,6 +202,7 @@ main().catch((err) => {
     process.env.TRANSLOADIT_KEY,
     process.env.TRANSLOADIT_SECRET,
     process.env.TRANSLOADIT_MCP_TOKEN,
+    process.env.TRANSLOADIT_MCP_UPSTREAM_SECRET,
   ])
   logger.err('MCP server failed: %s', redact(err))
   process.exit(1)

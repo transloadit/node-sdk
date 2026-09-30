@@ -280,6 +280,8 @@ Allowlist tools in `~/.gemini/settings.json`:
   scopes it needs (`assemblies:write`, `assemblies:read`, `templates:read`) otherwise.
 - Browser requests must come from ChatGPT, Claude, Transloadit or loopback origins; requests without
   an `Origin` header (CLIs, servers) are not restricted. Set `allowedOrigins` to change the list.
+- `TRANSLOADIT_MCP_UPSTREAM_SECRET` is set by Transloadit's own deployment so API2 can tell that a
+  relayed `aud=mcp` token arrives from the hosted service; it is not needed for self-hosting.
 
 ### Self-hosted
 
@@ -298,6 +300,8 @@ Allowlist tools in `~/.gemini/settings.json`:
 - `TRANSLOADIT_MCP_TOKEN`
 - `TRANSLOADIT_MCP_RESOURCE_METADATA_URL` (hosted mode: protected-resource metadata URL to
   advertise in `401` challenges)
+- `TRANSLOADIT_MCP_UPSTREAM_SECRET` (hosted mode only, set by Transloadit's deployment; sent to
+  API2 as `Transloadit-Mcp-Upstream` next to forwarded bearer tokens)
 - `TRANSLOADIT_MCP_CONSOLE_URL` (optional, default `https://transloadit.com`; Console origin for
   widget deep links)
 - `TRANSLOADIT_ENDPOINT` (optional, default `https://api2.transloadit.com`)

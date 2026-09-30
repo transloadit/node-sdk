@@ -459,6 +459,11 @@ type BaseOptions = {
   followRedirects?: boolean
   validateResponses?: boolean
   clientName?: string
+  /**
+   * Fixed headers sent with every API request, for trusted relays such as the Transloadit-hosted
+   * MCP service that must identify itself to API2 next to a forwarded bearer token.
+   */
+  extraHeaders?: Record<string, string>
 }
 
 export type Options = BaseOptions & (AuthKeySecret | AuthToken)
@@ -481,6 +486,8 @@ export class Transloadit {
   private _gotRetry: Partial<RetryOptions>
 
   private _clientName: string
+
+  #extraHeaders: Record<string, string>
 
   private _lastUsedAssemblyUrl = ''
 
@@ -514,6 +521,7 @@ export class Transloadit {
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
     this._clientName = opts.clientName?.trim() || `node-sdk:${version}`
+    this.#extraHeaders = { ...opts.extraHeaders }
 
     // Passed on to got https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md
     this._gotRetry = opts.gotRetry != null ? opts.gotRetry : { limit: 0 }
@@ -1665,6 +1673,7 @@ export class Transloadit {
           'Transloadit-Client': this._clientName,
           'User-Agent': undefined, // Remove got's user-agent
           ...(this._authToken ? { Authorization: `Bearer ${this._authToken}` } : {}),
+          ...this.#extraHeaders,
           ...headers,
         },
         responseType: 'json',

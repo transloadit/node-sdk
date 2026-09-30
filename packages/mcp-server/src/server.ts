@@ -41,6 +41,12 @@ export type TransloaditMcpServerOptions = {
    * RFC 6750 challenge that points OAuth clients at API2 (`TRANSLOADIT_MCP_RESOURCE_METADATA_URL`).
    */
   resourceMetadataUrl?: string
+  /**
+   * Shared secret that identifies the Transloadit-hosted MCP service to API2, which only accepts
+   * relayed `aud=mcp` bearer tokens from that service (`TRANSLOADIT_MCP_UPSTREAM_SECRET`). It is
+   * sent as `Transloadit-Mcp-Upstream` next to a forwarded bearer token and never with key/secret.
+   */
+  upstreamSecret?: string
   /** Console origin used for widget deep links; defaults to the public website. */
   consoleUrl?: string
   endpoint?: string
@@ -51,6 +57,9 @@ export type TransloaditMcpServerOptions = {
 }
 
 const defaultConsoleUrl = 'https://transloadit.com'
+
+/** Header that carries `upstreamSecret` on API2 calls made with a forwarded bearer token. */
+export const upstreamSecretHeader = 'Transloadit-Mcp-Upstream'
 
 type LintIssueOutput = {
   path: string
@@ -440,6 +449,9 @@ const createLiveClient = (
         endpoint: options.endpoint,
         clientName: getClientName(options),
         followRedirects: false,
+        extraHeaders: options.upstreamSecret
+          ? { [upstreamSecretHeader]: options.upstreamSecret }
+          : undefined,
       }),
     }
   }

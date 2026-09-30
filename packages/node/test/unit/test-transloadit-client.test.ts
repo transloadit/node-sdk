@@ -409,6 +409,29 @@ describe('Transloadit', () => {
         expect.objectContaining({ headers: { 'Transloadit-Client': 'mcp-server:1.2.3' } }),
       )
     })
+
+    it('should send extraHeaders next to the bearer token on every request', async () => {
+      const client = new Transloadit({
+        authToken: 'forwarded-token',
+        extraHeaders: { 'Transloadit-Mcp-Upstream': 'shared-secret' },
+      })
+
+      const get = mockGot('get')
+
+      const url = '/some-url'
+      // @ts-expect-error This tests private internals
+      await client._remoteJson({ url, method: 'get', isTrustedUrl: true })
+
+      expect(get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer forwarded-token',
+            'Transloadit-Mcp-Upstream': 'shared-secret',
+          }),
+        }),
+      )
+    })
   })
 
   describe('getSignedSmartCDNUrl', () => {
