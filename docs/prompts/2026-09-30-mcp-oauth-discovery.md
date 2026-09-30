@@ -77,8 +77,17 @@ from the worktree's `api2/node_modules/@transloadit/mcp-server`. To test this br
 cd ~/code/node-sdk && corepack yarn build
 rm -rf ~/code/api2-clone-1/api2/node_modules/@transloadit/mcp-server/dist
 cp -r packages/mcp-server/dist ~/code/api2-clone-1/api2/node_modules/@transloadit/mcp-server/dist
+# The MCP server relies on the `extraHeaders` client option that only exists in this branch's
+# @transloadit/node; the published 4.14.0 in API2's node_modules silently drops the
+# `Transloadit-Mcp-Upstream` header, so copy that dist too.
+rm -rf ~/code/api2-clone-1/api2/node_modules/@transloadit/node/dist
+cp -r packages/node/dist ~/code/api2-clone-1/api2/node_modules/@transloadit/node/dist
 cd ~/code/api2-clone-1 && core/bin/devdock.ts --app api2 restart -s mcp-server
 ```
+
+The service also needs `TRANSLOADIT_MCP_RESOURCE_METADATA_URL`, `TRANSLOADIT_MCP_UPSTREAM_SECRET`
+(matching API2's expected value) and `TRANSLOADIT_ENDPOINT` in its environment; api2's service
+config on `agent/mcp-oauth-authcode` sets them.
 
 Verified on devdock (2026-09-30) with this branch's `dist` and the api2 branch's service environment:
 `POST /mcp` without a token returns `401` with
@@ -89,4 +98,6 @@ at `/.well-known/mcp/server-card.json` is rendered by the API2 process from its 
 package, so it only picks up the new tools and OAuth schemes after API2 restarts with the bumped
 dependency and passes `resourceMetadataUrl` to `buildServerCard()`.
 
-Bump the dependency in API2 once the package is published from this branch.
+Once published from this branch, API2 must bump `@transloadit/node` (patch, brings `extraHeaders`)
+and `@transloadit/mcp-server` (minor) together; bumping only the MCP server leaves the upstream
+header unsent.
