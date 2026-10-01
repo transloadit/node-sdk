@@ -68,6 +68,28 @@ OpenAI file params on `transloadit_create_assembly` and an MCP Apps result widge
       widget resource.
 - [ ] E2e against devdock once the api2 branch serves the metadata.
 
+## QA follow-up (2026-10-01, session 2fe9f3b7)
+
+- [x] Hosted mode answers every unauthenticated request to `/mcp`, including a bare `GET` (Codex
+      probes with `Accept: */*`), with the `401` challenge; the body keeps `name`/`status`/`docs`.
+      Self-hosted and unauthenticated deployments keep the bare-`GET` `200`.
+- [x] Widget handshake matches MCP Apps `2026-01-26` as implemented by ext-apps `82221c0c`
+      (`ui/initialize` with `appInfo`, param-less `ui/notifications/initialized`, `ping` and
+      `ui/resource-teardown` replies, tool-input/cancelled states, failed results shown). The
+      spec prose still shows `clientInfo`; the reference App and AppBridge use `appInfo`.
+- [x] CORS allows `Mcp-Protocol-Version` and exposes `Mcp-Session-Id` and `WWW-Authenticate`.
+- [x] Widget CSP adds `https://*.r2.dev`; `TRANSLOADIT_MCP_RESULT_DOMAINS` / `resultDomains`
+      override it. Previews retry briefly because R2 can lag the Assembly's completion.
+- [x] `TRANSLOADIT_SIGNATURE_ALGORITHM` / `signatureAlgorithm` (`sha1`, `sha256`, `sha384`) reach
+      the SDK; Console keys with Smart CDN signing require `sha256`. `INVALID_SIGNATURE` returns
+      `mcp_invalid_signature` with a hint naming the required algorithm.
+- Verified: devdock bare `GET /mcp` → `401` with the challenge; a self-hosted server with the QA
+  Console key lists templates once `TRANSLOADIT_SIGNATURE_ALGORITHM=sha256` is set; the widget
+  renders both previews in the ext-apps basic host
+  (`/tmp/mcp-oauth/runs/node-sdk-fixes/basic-host-widget.png`). The basic host build bakes its
+  sandbox port, so Content's `mcp-oauth-apps-host.ts --sandbox-port` has no effect with
+  `--skip-build`; use the default ports.
+
 ## Getting a local build into devdock
 
 API2's container bind-mounts the api2 worktree at `/srv/current` and runs the `mcp-server` service
