@@ -106,6 +106,45 @@ Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOA
 `TRANSLOADIT_SECRET`. Commands that mint bearer tokens or generate signatures still require
 `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`.
 
+### Run a Prompt
+
+`run` compiles a natural-language prompt into validated Assembly Instructions and runs them
+immediately:
+
+```bash
+npx -y @transloadit/node run "resize uploaded images to 400px wide" --input image.jpg --output result.jpg
+
+# Print result URLs instead of downloading the output
+npx -y @transloadit/node run "extract a waveform image from this audio" --input audio.mp3 --print-urls
+```
+
+Repeat `--input` for multiple files, or pass a directory. Use `--single-assembly` to process the
+inputs together. `run` also supports `--watch`, `--recursive`, and `--concurrency`.
+
+### Compile Assembly Instructions
+
+`assembly-instructions compile` prints validated Assembly Instructions JSON with a top-level
+`steps` property to stdout. Save it to inspect, lint, or reuse the instructions before processing
+files:
+
+```bash
+npx -y @transloadit/node assembly-instructions compile "resize uploaded images to 400px wide" > instructions.json
+npx -y @transloadit/node assemblies lint --steps instructions.json
+npx -y @transloadit/node assemblies create --steps instructions.json --input image.jpg --output result.jpg
+```
+
+`assemblies create --steps` accepts steps-only JSON or a wrapper containing only `steps`. Set
+Template fields separately with `--field NAME=VALUE`; other wrapper properties are rejected.
+
+Both prompt commands use the credential resolution above and support these compiler options:
+
+| Flag | Description |
+| --- | --- |
+| `--model` | Select the AI model used to compile the instructions. |
+| `--max-attempts` | Limit the number of validation attempts. |
+| `--timeout` | Set the compiler Assembly timeout in milliseconds. |
+| `--mcp-server` | Set the MCP server URL used for Robot documentation and instruction linting. |
+
 ### Storage images for Next.js
 
 `@transloadit/viewer` is a published alpha. Follow the

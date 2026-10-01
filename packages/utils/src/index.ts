@@ -2,7 +2,7 @@ import type { SmartCdnUrlOptions } from './smartCdn.ts'
 
 import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
 
-export type SignatureAlgorithm = 'sha1' | 'sha256' | 'sha384' | 'sha512'
+export type SignatureAlgorithm = 'sha1' | 'sha256' | 'sha384'
 
 export type {
   ParsedSmartCdnUrl,
@@ -39,11 +39,11 @@ const algorithmMap = {
   sha1: 'SHA-1',
   sha256: 'SHA-256',
   sha384: 'SHA-384',
-  sha512: 'SHA-512',
 } as const
 
-const isSignatureAlgorithm = (value: string): value is SignatureAlgorithm =>
-  value === 'sha1' || value === 'sha256' || value === 'sha384' || value === 'sha512'
+/** Checks whether a normalized algorithm is supported for Transloadit API signatures. */
+export const isSignatureAlgorithm = (value: string): value is SignatureAlgorithm =>
+  value === 'sha1' || value === 'sha256' || value === 'sha384'
 
 const getSubtle = (): SubtleCrypto => {
   const subtle = globalThis.crypto?.subtle
