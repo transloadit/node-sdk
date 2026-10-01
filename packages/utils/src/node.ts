@@ -1,4 +1,4 @@
-import type { SignatureAlgorithm } from './index.ts'
+import type { SignatureAlgorithm } from './signatureAlgorithm.ts'
 import type { SmartCdnUrlOptions, SmartCdnUrlParams } from './smartCdn.ts'
 import type { SmartCdnImageCandidates, SmartCdnImagePolicyOptions } from './smartCdnImage.ts'
 import type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
@@ -6,12 +6,12 @@ import type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
 import { Buffer } from 'node:buffer'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { isSignatureAlgorithm } from './index.ts'
+import { isSignatureAlgorithm } from './signatureAlgorithm.ts'
 import { finishSmartCdnUrl, getSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
 import { createSmartCdnImageCandidates, getSmartCdnImageLimits } from './smartCdnImage.ts'
 import { parseStorageGrantClaims } from './storageGrant.ts'
 
-export type { SignatureAlgorithm } from './index.ts'
+export type { SignatureAlgorithm } from './signatureAlgorithm.ts'
 export type {
   ParsedSmartCdnUrl,
   ParseSmartCdnUrlOptions,
