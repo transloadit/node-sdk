@@ -1,5 +1,6 @@
 import type { Readable } from 'node:stream'
 
+import { createHmac } from 'node:crypto'
 import { PassThrough } from 'node:stream'
 
 import FormData from 'form-data'
@@ -408,6 +409,23 @@ describe('Transloadit', () => {
         expect.any(String),
         expect.objectContaining({ headers: { 'Transloadit-Client': 'mcp-server:1.2.3' } }),
       )
+    })
+
+    it.each([
+      ['sha1'],
+      ['sha256'],
+      ['sha384'],
+    ] as const)('should sign params with the configured %s algorithm', (signatureAlgorithm) => {
+      const client = new Transloadit({
+        authKey: 'foo_key',
+        authSecret: 'foo_secret',
+        signatureAlgorithm,
+      })
+
+      const { signature, params } = client.calcSignature({ steps: {} })
+
+      const expected = createHmac(signatureAlgorithm, 'foo_secret').update(params).digest('hex')
+      expect(signature).toBe(`${signatureAlgorithm}:${expected}`)
     })
 
     it('should send extraHeaders next to the bearer token on every request', async () => {

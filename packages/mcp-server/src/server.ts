@@ -47,6 +47,14 @@ export type TransloaditMcpServerOptions = {
    * sent as `Transloadit-Mcp-Upstream` next to a forwarded bearer token and never with key/secret.
    */
   upstreamSecret?: string
+  /**
+   * HMAC algorithm for key/secret signatures (`TRANSLOADIT_SIGNATURE_ALGORITHM`). Must match the
+   * Auth Key's `signature_algo`; Console keys that may sign Smart CDN URLs require `sha256`.
+   * Defaults to the SDK's `sha384`, which ordinary API keys use.
+   */
+  signatureAlgorithm?: McpSignatureAlgorithm
+  /** Origins the result widget may load previews from (`TRANSLOADIT_MCP_RESULT_DOMAINS`). */
+  resultDomains?: string[]
   /** Console origin used for widget deep links; defaults to the public website. */
   consoleUrl?: string
   endpoint?: string
@@ -57,6 +65,11 @@ export type TransloaditMcpServerOptions = {
 }
 
 const defaultConsoleUrl = 'https://transloadit.com'
+
+/** Signature algorithms API2 accepts for Auth Key signatures. */
+export const signatureAlgorithmSchema = z.enum(['sha1', 'sha256', 'sha384'])
+
+export type McpSignatureAlgorithm = z.infer<typeof signatureAlgorithmSchema>
 
 /** Header that carries `upstreamSecret` on API2 calls made with a forwarded bearer token. */
 export const upstreamSecretHeader = 'Transloadit-Mcp-Upstream'
@@ -448,6 +461,7 @@ const createLiveClient = (
         authSecret: options.authSecret,
         endpoint: options.endpoint,
         clientName: getClientName(options),
+        signatureAlgorithm: options.signatureAlgorithm,
         followRedirects: false,
         extraHeaders: options.upstreamSecret
           ? { [upstreamSecretHeader]: options.upstreamSecret }
@@ -466,6 +480,7 @@ const createLiveClient = (
       authSecret: options.authSecret,
       endpoint: options.endpoint,
       clientName: getClientName(options),
+      signatureAlgorithm: options.signatureAlgorithm,
       followRedirects: false,
     }),
   }
@@ -532,7 +547,36 @@ const toAuthRejection = (
       hint: 'Reconnect your Transloadit account and grant the requested access.',
     })
   }
+  if (error instanceof ApiError && error.code === 'INVALID_SIGNATURE') {
+    return buildSignatureError(error)
+  }
   return undefined
+}
+
+/**
+ * Key/secret signatures fail when the configured algorithm differs from the Auth Key's
+ * `signature_algo`; API2 names the required one, so the hint can say exactly what to set.
+ */
+const buildSignatureError = (error: ApiError): CallToolResult => {
+  const required = signatureAlgorithmSchema.safeParse(
+    /requires (sha\d+)/.exec(error.rawMessage ?? '')?.[1],
+  )
+  // An error result, so tools with stricter output schemas (list_templates) can still return it.
+  return buildToolResponse(
+    {
+      status: 'error',
+      errors: [
+        {
+          code: 'mcp_invalid_signature',
+          message: 'Transloadit rejected the request signature for this Auth Key.',
+          hint: required.success
+            ? `This Auth Key signs with ${required.data}: set TRANSLOADIT_SIGNATURE_ALGORITHM=${required.data} (or the signatureAlgorithm option) and restart the MCP server.`
+            : 'Check that TRANSLOADIT_SECRET and TRANSLOADIT_SIGNATURE_ALGORITHM match the Auth Key.',
+        },
+      ],
+    },
+    { isError: true },
+  )
 }
 
 const trimTrailingSlash = (value: string): string => value.replace(/\/$/, '')
@@ -1425,7 +1469,7 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  registerAssemblyResultWidget(server)
+  registerAssemblyResultWidget(server, { resultDomains: options.resultDomains })
   installToolListHandler(server, listedTools)
 
   return server

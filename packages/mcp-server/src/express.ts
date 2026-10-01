@@ -5,6 +5,7 @@ import express from 'express'
 
 import {
   applyCorsHeaders,
+  corsAllowHeaders,
   isBasicAuthorized,
   rejectMissingBearerToken,
   resolveAllowedOrigins,
@@ -37,10 +38,7 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   const sendServerCard = (res: express.Response, includeBody: boolean) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      'Authorization,Content-Type,Mcp-Session-Id,Last-Event-ID',
-    )
+    res.setHeader('Access-Control-Allow-Headers', corsAllowHeaders)
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
     res.setHeader('Cache-Control', 'public, max-age=3600')
     res.setHeader('X-Content-Type-Options', 'nosniff')
@@ -54,10 +52,7 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   router.options(serverCardPath, (_req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      'Authorization,Content-Type,Mcp-Session-Id,Last-Event-ID',
-    )
+    res.setHeader('Access-Control-Allow-Headers', corsAllowHeaders)
     res.status(204).end()
   })
 
@@ -70,8 +65,14 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   })
 
   router.all(routePath, async (req: express.Request, res: express.Response) => {
-    if (hostedOrigins && !applyCorsHeaders(req, res, hostedOrigins)) {
-      return
+    if (hostedOrigins) {
+      if (!applyCorsHeaders(req, res, hostedOrigins)) return
+      if (req.method === 'OPTIONS') {
+        res.status(204).end()
+        return
+      }
+      // Any unauthenticated method gets the OAuth challenge, so GET-probing clients find API2.
+      if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) return
     }
 
     if (req.method !== 'POST') {
@@ -80,10 +81,6 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
         error: { code: -32000, message: 'Method not allowed.' },
         id: null,
       })
-      return
-    }
-
-    if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) {
       return
     }
 

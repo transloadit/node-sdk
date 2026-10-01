@@ -10,6 +10,7 @@ import {
   rejectMissingBearerToken,
   rejectMissingMcpToken,
   resolveAllowedOrigins,
+  sendServerInfoForBareGet,
 } from './http-helpers.ts'
 import { buildRedactor, getLogger } from './logger.ts'
 
@@ -59,25 +60,11 @@ export const createMcpRequestHandler = (
       return
     }
 
-    // Bare GETs without the SSE Accept header are not valid MCP requests (the
-    // Streamable HTTP spec requires Accept: text/event-stream for GET).  Return
-    // a friendly JSON status so directory health-probes (Glama, uptime monitors)
-    // see a 200 instead of the SDK's opaque 406.
-    const accept = req.headers.accept ?? ''
-    if (req.method === 'GET' && !accept.includes('text/event-stream')) {
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'application/json')
-      res.end(
-        JSON.stringify({
-          name: 'Transloadit MCP Server',
-          status: 'ok',
-          docs: 'https://transloadit.com/docs/sdks/mcp-server/',
-        }),
-      )
+    if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) {
       return
     }
 
-    if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) {
+    if (sendServerInfoForBareGet(req, res)) {
       return
     }
 

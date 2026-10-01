@@ -123,6 +123,11 @@ npm install @transloadit/mcp-server
 TRANSLOADIT_KEY=MY_AUTH_KEY TRANSLOADIT_SECRET=MY_SECRET_KEY npx -y @transloadit/mcp-server stdio
 ```
 
+Auth Keys sign with one HMAC algorithm. Keys created in the Console with "Allow signing Smart CDN
+URLs" (the default) require `sha256`, so add `TRANSLOADIT_SIGNATURE_ALGORITHM=sha256`, as the
+Console's snippet for the key shows. Other keys use the default `sha384`. A mismatch fails with
+`mcp_invalid_signature`, and its hint names the algorithm the key requires.
+
 ### HTTP
 
 ```bash
@@ -273,6 +278,10 @@ Allowlist tools in `~/.gemini/settings.json`:
   `WWW-Authenticate: Bearer resource_metadata="https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp"`.
   MCP clients follow that document to API2's authorization server (authorization code + PKCE,
   Dynamic Client Registration or Client ID Metadata Documents).
+- This includes a bare `GET /mcp`, because some clients (Codex) discover the authorization server
+  from that probe. Directory health checks therefore see `401` instead of `200`; the JSON body
+  still carries `name`, `status` and `docs`. Self-hosted and unauthenticated deployments keep
+  answering the bare `GET` with `200`.
 - Bearer tokens (OAuth or minted with `--aud mcp`) are forwarded to API2, which verifies them on
   every call. A rejected or expired token yields a tool result with `isError` and
   `_meta["mcp/www_authenticate"]`, so ChatGPT and Claude prompt you to reconnect.
@@ -297,11 +306,15 @@ Allowlist tools in `~/.gemini/settings.json`:
 
 - `TRANSLOADIT_KEY`
 - `TRANSLOADIT_SECRET`
+- `TRANSLOADIT_SIGNATURE_ALGORITHM` (optional, `sha1`, `sha256` or `sha384`, default `sha384`;
+  must match the Auth Key)
 - `TRANSLOADIT_MCP_TOKEN`
 - `TRANSLOADIT_MCP_RESOURCE_METADATA_URL` (hosted mode: protected-resource metadata URL to
   advertise in `401` challenges)
 - `TRANSLOADIT_MCP_UPSTREAM_SECRET` (hosted mode only, set by Transloadit's deployment; sent to
   API2 as `Transloadit-Mcp-Upstream` next to forwarded bearer tokens)
+- `TRANSLOADIT_MCP_RESULT_DOMAINS` (optional, comma-separated origins the result widget may load
+  previews from; default `https://*.transloadit.com,https://*.transloadit.net,https://*.r2.dev`)
 - `TRANSLOADIT_MCP_CONSOLE_URL` (optional, default `https://transloadit.com`; Console origin for
   widget deep links)
 - `TRANSLOADIT_ENDPOINT` (optional, default `https://api2.transloadit.com`)
@@ -316,7 +329,7 @@ Allowlist tools in `~/.gemini/settings.json`:
 - `npx -y @transloadit/mcp-server http --config path/to/config.json`
 
 The JSON config accepts the same keys as `createTransloaditMcpHttpHandler()`, including
-`allowedOrigins`, `resourceMetadataUrl` and `consoleUrl`.
+`allowedOrigins`, `resourceMetadataUrl`, `signatureAlgorithm`, `resultDomains` and `consoleUrl`.
 
 ## Tool surface
 
@@ -347,8 +360,10 @@ credentials, derived from the Workspace's own Assemblies or Templates.
 `transloadit_create_assembly` and `transloadit_wait_for_assembly` link the MCP Apps resource
 `ui://transloadit/assembly-result` (`_meta.ui.resourceUri`, also `_meta["openai/outputTemplate"]`).
 Hosts that support MCP Apps render each Step's results with image, video and audio previews,
-download links, an "Open in Console" link and a "Save as Template" shortcut. The widget only needs
-`https://*.transloadit.com` and `https://*.transloadit.net` in its CSP.
+download links, an "Open in Console" link and a "Save as Template" shortcut. It speaks the MCP Apps
+`2026-01-26` protocol (`ui/initialize` with `appInfo`) and also reads ChatGPT's `window.openai`.
+Its CSP allows `https://*.transloadit.com`, `https://*.transloadit.net` and `https://*.r2.dev`
+(result buckets); override the list with `TRANSLOADIT_MCP_RESULT_DOMAINS` or `resultDomains`.
 
 ## Input files
 

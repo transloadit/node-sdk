@@ -8,8 +8,21 @@ export const assemblyResultWidgetUri = 'ui://transloadit/assembly-result'
 /** Mime type the MCP Apps spec requires for UI resources. */
 export const assemblyResultWidgetMimeType = 'text/html;profile=mcp-app'
 
-/** Origins that serve Assembly result files (temporary result buckets, demos, Console). */
-export const assemblyResultOrigins = ['https://*.transloadit.com', 'https://*.transloadit.net']
+/**
+ * Origins that serve Assembly result and upload files: Transloadit result buckets and Cloudflare
+ * R2 public buckets (API2's `CLOUDFLARE_R2_PUB_URL_HOST_*`). Override with `resultDomains`.
+ */
+export const defaultResultDomains = [
+  'https://*.transloadit.com',
+  'https://*.transloadit.net',
+  'https://*.r2.dev',
+]
+
+/** MCP Apps protocol revision the widget speaks (ext-apps `LATEST_PROTOCOL_VERSION`). */
+export const widgetProtocolVersion = '2026-01-26'
+
+/** `appInfo` the widget announces in `ui/initialize`. */
+export const widgetAppInfo = { name: 'transloadit-assembly-result', version: packageJson.version }
 
 /** Result `_meta` key that carries widget-only context (never read by the model). */
 export const widgetContextMetaKey = 'transloadit/widget'
@@ -24,21 +37,23 @@ const widgetDescription =
   'Shows each Assembly Step with image, video and audio previews, download links for every result file, and a Save as Template shortcut when the caller is signed in.'
 
 /** Resource `_meta` in both the MCP Apps form and the legacy ChatGPT aliases. */
-export const assemblyResultWidgetMeta = {
+export const buildAssemblyResultWidgetMeta = (
+  resultDomains: string[] = defaultResultDomains,
+): Record<string, unknown> => ({
   ui: {
     csp: {
-      connectDomains: assemblyResultOrigins,
-      resourceDomains: assemblyResultOrigins,
+      connectDomains: resultDomains,
+      resourceDomains: resultDomains,
     },
     prefersBorder: true,
   },
   'openai/widgetDescription': widgetDescription,
   'openai/widgetCSP': {
-    connect_domains: assemblyResultOrigins,
-    resource_domains: assemblyResultOrigins,
+    connect_domains: resultDomains,
+    resource_domains: resultDomains,
   },
   'openai/widgetPrefersBorder': true,
-}
+})
 
 /**
  * The widget document. Everything is inline (no external scripts) so it runs under the
@@ -96,9 +111,11 @@ export const assemblyResultWidgetHtml = `<!doctype html>
 <script>
 (() => {
   const app = document.getElementById('app')
-  const widgetVersion = ${JSON.stringify(packageJson.version)}
+  const appInfo = ${JSON.stringify(widgetAppInfo)}
+  const protocolVersion = ${JSON.stringify(widgetProtocolVersion)}
   const contextKey = ${JSON.stringify(widgetContextMetaKey)}
   const hostCapabilities = { openLinks: false }
+  let hasResult = false
 
   const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value)
   const text = (value) => (typeof value === 'string' ? value : '')
@@ -127,6 +144,11 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     return node
   }
 
+  const showStatus = (message, className) => {
+    app.replaceChildren(el('p', { className: className || 'muted', role: 'status', text: message }))
+  }
+
+  // MCP Apps transport: JSON-RPC 2.0 over postMessage with the host (or its sandbox proxy).
   const post = (message) => {
     if (window.parent === window) return
     window.parent.postMessage(message, '*')
@@ -140,7 +162,10 @@ export const assemblyResultWidgetHtml = `<!doctype html>
       pending.set(id, { resolve, reject })
       post({ jsonrpc: '2.0', id, method, params })
     })
-  const notify = (method, params) => post({ jsonrpc: '2.0', method, params })
+  const notify = (method, params) =>
+    post(params === undefined ? { jsonrpc: '2.0', method } : { jsonrpc: '2.0', method, params })
+  const respond = (id, result) => post({ jsonrpc: '2.0', id, result })
+  const respondError = (id, code, message) => post({ jsonrpc: '2.0', id, error: { code, message } })
 
   const applyHostContext = (context) => {
     if (!isRecord(context)) return
@@ -149,14 +174,15 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     }
   }
 
-  const openLink = async (url) => {
+  // Decided synchronously: preventDefault() after an await would be too late to stop navigation.
+  const openWithHost = (url) => {
     const openai = window.openai
     if (openai && typeof openai.openExternal === 'function') {
-      await openai.openExternal({ href: url })
+      Promise.resolve(openai.openExternal({ href: url })).catch(() => {})
       return true
     }
     if (hostCapabilities.openLinks) {
-      await request('ui/open-link', { url })
+      request('ui/open-link', { url }).catch(() => {})
       return true
     }
     return false
@@ -171,9 +197,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
       text: label,
     })
     anchor.addEventListener('click', (event) => {
-      openLink(url).then((handled) => {
-        if (handled) event.preventDefault()
-      })
+      if (openWithHost(url)) event.preventDefault()
     })
     return anchor
   }
@@ -207,22 +231,32 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     const caption = el('figcaption', {}, [
       el('span', { className: 'name', text: name }),
       el('span', { className: 'muted', text: details.join(' · ') }),
-      url ? el('div', {}, [el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', download: '', text: 'Download' })]) : null,
+      url ? el('div', {}, [el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', download: '', text: 'Download ' + name })]) : null,
     ])
     return el('figure', {}, [preview(isRecord(file) ? file : {}), caption])
   }
 
+  const errorText = (result, payload) => {
+    const errors = Array.isArray(payload.errors) ? payload.errors : []
+    const fromPayload = errors.map((error) => (isRecord(error) ? text(error.message) : '')).filter(Boolean)
+    if (fromPayload.length > 0) return fromPayload.join(' ')
+    const content = Array.isArray(result.content) ? result.content : []
+    return content
+      .map((block) => (isRecord(block) && block.type === 'text' ? text(block.text) : ''))
+      .filter(Boolean)
+      .join(' ')
+  }
+
   const render = (result) => {
     if (!isRecord(result)) return
+    hasResult = true
     app.replaceChildren()
     const payload = isRecord(result.structuredContent) ? result.structuredContent : {}
     const meta = isRecord(result._meta) && isRecord(result._meta[contextKey]) ? result._meta[contextKey] : {}
     const assembly = isRecord(payload.assembly) ? payload.assembly : null
 
     if (!assembly) {
-      const errors = Array.isArray(payload.errors) ? payload.errors : []
-      const message = errors.map((error) => (isRecord(error) ? text(error.message) : '')).filter(Boolean).join(' ')
-      app.append(el('p', { className: 'error', text: message || 'No Assembly result was returned.' }))
+      app.append(el('p', { className: 'error', role: 'alert', text: errorText(result, payload) || 'No Assembly result was returned.' }))
       return
     }
 
@@ -242,7 +276,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     app.append(header)
 
     if (failed && text(assembly.message)) {
-      app.append(el('p', { className: 'error', text: text(assembly.message) }))
+      app.append(el('p', { className: 'error', role: 'alert', text: text(assembly.message) }))
     }
 
     const results = isRecord(assembly.results) ? assembly.results : {}
@@ -269,27 +303,43 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     }
   }
 
+  const handleHostRequest = (message) => {
+    if (message.method === 'ping' || message.method === 'ui/resource-teardown') {
+      respond(message.id, {})
+      return
+    }
+    respondError(message.id, -32601, 'Method not found: ' + text(message.method))
+  }
+
+  const handleHostNotification = (message) => {
+    if (message.method === 'ui/notifications/tool-input') {
+      if (!hasResult) showStatus('Running the Assembly…')
+    } else if (message.method === 'ui/notifications/tool-result') {
+      render(message.params)
+    } else if (message.method === 'ui/notifications/tool-cancelled') {
+      if (!hasResult) showStatus('The tool call was cancelled.')
+    } else if (message.method === 'ui/notifications/host-context-changed') {
+      applyHostContext(message.params)
+    }
+  }
+
   window.addEventListener('message', (event) => {
     if (event.source !== window.parent) return
     const message = event.data
     if (!isRecord(message) || message.jsonrpc !== '2.0') return
-    if ('id' in message && !('method' in message)) {
-      const entry = pending.get(message.id)
-      if (!entry) return
-      pending.delete(message.id)
-      if (message.error) entry.reject(message.error)
-      else entry.resolve(message.result)
+    if (typeof message.method === 'string') {
+      if ('id' in message) handleHostRequest(message)
+      else handleHostNotification(message)
       return
     }
-    if (message.method === 'ui/notifications/tool-result') {
-      render(message.params)
-    } else if (message.method === 'ui/notifications/host-context-changed') {
-      applyHostContext(message.params)
-    } else if (message.method === 'ui/resource-teardown' && 'id' in message) {
-      post({ jsonrpc: '2.0', id: message.id, result: {} })
-    }
+    const entry = pending.get(message.id)
+    if (!entry) return
+    pending.delete(message.id)
+    if (message.error) entry.reject(message.error)
+    else entry.resolve(message.result)
   })
 
+  // ChatGPT also exposes the result through window.openai; render from there when present.
   const renderFromOpenAi = () => {
     const openai = window.openai
     if (!openai) return
@@ -303,18 +353,20 @@ export const assemblyResultWidgetHtml = `<!doctype html>
 
   if (window.parent !== window) {
     request('ui/initialize', {
-      protocolVersion: '2026-01-26',
       appCapabilities: {},
-      clientInfo: { name: 'transloadit-assembly-result', version: widgetVersion },
+      appInfo,
+      protocolVersion,
     })
       .then((result) => {
         if (isRecord(result) && isRecord(result.hostCapabilities)) {
           hostCapabilities.openLinks = Boolean(result.hostCapabilities.openLinks)
         }
         if (isRecord(result)) applyHostContext(result.hostContext)
-        notify('ui/notifications/initialized', {})
+        notify('ui/notifications/initialized')
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!hasResult) showStatus('This host could not start the Assembly result view.', 'error')
+      })
 
     if (typeof ResizeObserver === 'function') {
       new ResizeObserver(() => {
@@ -331,8 +383,21 @@ export const assemblyResultWidgetHtml = `<!doctype html>
 </html>
 `
 
+export type AssemblyResultWidgetOptions = {
+  /** Origins allowed for previews and downloads; defaults to `defaultResultDomains`. */
+  resultDomains?: string[]
+}
+
 /** Registers the widget so hosts can `resources/read` it through `_meta.ui.resourceUri`. */
-export const registerAssemblyResultWidget = (server: McpServer): void => {
+export const registerAssemblyResultWidget = (
+  server: McpServer,
+  options: AssemblyResultWidgetOptions = {},
+): void => {
+  const meta = buildAssemblyResultWidgetMeta(
+    options.resultDomains && options.resultDomains.length > 0
+      ? options.resultDomains
+      : defaultResultDomains,
+  )
   server.registerResource(
     'assembly-result',
     assemblyResultWidgetUri,
@@ -340,7 +405,7 @@ export const registerAssemblyResultWidget = (server: McpServer): void => {
       title: 'Assembly result',
       description: widgetDescription,
       mimeType: assemblyResultWidgetMimeType,
-      _meta: assemblyResultWidgetMeta,
+      _meta: meta,
     },
     () => ({
       contents: [
@@ -348,7 +413,7 @@ export const registerAssemblyResultWidget = (server: McpServer): void => {
           uri: assemblyResultWidgetUri,
           mimeType: assemblyResultWidgetMimeType,
           text: assemblyResultWidgetHtml,
-          _meta: assemblyResultWidgetMeta,
+          _meta: meta,
         },
       ],
     }),

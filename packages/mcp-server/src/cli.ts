@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import type { McpSignatureAlgorithm } from './server.ts'
+
 import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 
@@ -7,6 +9,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 import { createTransloaditMcpHttpHandler, createTransloaditMcpServer } from './index.ts'
 import { buildRedactor, getLogger } from './logger.ts'
+import { signatureAlgorithmSchema } from './server.ts'
 
 const printHelp = (): void => {
   process.stdout.write(`transloadit-mcp
@@ -18,9 +21,11 @@ Usage:
 Environment:
   TRANSLOADIT_KEY
   TRANSLOADIT_SECRET
+  TRANSLOADIT_SIGNATURE_ALGORITHM (sha1, sha256 or sha384; must match the Auth Key)
   TRANSLOADIT_MCP_TOKEN
   TRANSLOADIT_MCP_RESOURCE_METADATA_URL
   TRANSLOADIT_MCP_UPSTREAM_SECRET
+  TRANSLOADIT_MCP_RESULT_DOMAINS (comma-separated origins for result previews)
   TRANSLOADIT_MCP_CONSOLE_URL
   TRANSLOADIT_ENDPOINT
   TRANSLOADIT_MCP_METRICS_PATH
@@ -84,6 +89,26 @@ const parseArgs = (args: string[]): { command: string; config: CliConfig } => {
   return { command, config }
 }
 
+/** Reads the key/secret signature algorithm; an unknown value would only fail later per call. */
+const parseSignatureAlgorithm = (value: unknown): McpSignatureAlgorithm | undefined => {
+  if (value === undefined || value === '') return undefined
+  const parsed = signatureAlgorithmSchema.safeParse(value)
+  if (!parsed.success) {
+    throw new Error('TRANSLOADIT_SIGNATURE_ALGORITHM must be one of sha1, sha256 or sha384.')
+  }
+  return parsed.data
+}
+
+/** Accepts a JSON array (config file) or a comma-separated string (environment). */
+const parseResultDomains = (value: unknown): string[] | undefined => {
+  const entries = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
+  const domains = entries
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+  return domains.length > 0 ? domains : undefined
+}
+
 const isLocalHost = (host: string | undefined): boolean =>
   host === '127.0.0.1' || host === 'localhost' || host === '::1'
 
@@ -138,6 +163,12 @@ const main = async (): Promise<void> => {
     const consoleUrl = (fileConfig.consoleUrl ?? process.env.TRANSLOADIT_MCP_CONSOLE_URL) as
       | string
       | undefined
+    const signatureAlgorithm = parseSignatureAlgorithm(
+      fileConfig.signatureAlgorithm ?? process.env.TRANSLOADIT_SIGNATURE_ALGORITHM,
+    )
+    const resultDomains = parseResultDomains(
+      fileConfig.resultDomains ?? process.env.TRANSLOADIT_MCP_RESULT_DOMAINS,
+    )
     const clientSuffix = process.env.TRANSLOADIT_CLIENT_SUFFIX as string | undefined
 
     // Hosted mode delegates token checks to API2, so it may bind publicly without a static token.
@@ -155,6 +186,8 @@ const main = async (): Promise<void> => {
       mcpToken,
       resourceMetadataUrl,
       upstreamSecret,
+      signatureAlgorithm,
+      resultDomains,
       consoleUrl,
       allowedOrigins: fileConfig.allowedOrigins as string[] | undefined,
       allowedHosts: fileConfig.allowedHosts as string[] | undefined,
@@ -189,7 +222,10 @@ const main = async (): Promise<void> => {
   const server = createTransloaditMcpServer({
     authKey: process.env.TRANSLOADIT_KEY,
     authSecret: process.env.TRANSLOADIT_SECRET,
+    signatureAlgorithm: parseSignatureAlgorithm(process.env.TRANSLOADIT_SIGNATURE_ALGORITHM),
+    resultDomains: parseResultDomains(process.env.TRANSLOADIT_MCP_RESULT_DOMAINS),
     endpoint: process.env.TRANSLOADIT_ENDPOINT,
+    consoleUrl: process.env.TRANSLOADIT_MCP_CONSOLE_URL,
     clientSuffix: process.env.TRANSLOADIT_CLIENT_SUFFIX,
   })
   const transport = new StdioServerTransport()

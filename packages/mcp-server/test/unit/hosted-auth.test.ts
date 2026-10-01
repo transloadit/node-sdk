@@ -71,17 +71,56 @@ describe('hosted MCP endpoint auth', () => {
     )
     expect(response.headers.get('content-type')).toContain('application/json')
     await expect(response.json()).resolves.toMatchObject({
+      name: 'Transloadit MCP Server',
+      status: 'ok',
+      docs: expect.stringContaining('transloadit.com'),
       error: 'unauthorized',
       error_description: expect.stringContaining('OAuth'),
     })
   })
 
-  it('challenges SSE GETs without a bearer token but keeps the bare GET health probe', async () => {
+  it('challenges SSE GETs without a bearer token', async () => {
     running = await start({ resourceMetadataUrl })
 
     const stream = await fetch(running.url, { headers: { Accept: 'text/event-stream' } })
     expect(stream.status).toBe(401)
-    expect(stream.headers.get('www-authenticate')).toContain('resource_metadata=')
+    expect(stream.headers.get('www-authenticate')).toBe(
+      `Bearer resource_metadata="${resourceMetadataUrl}"`,
+    )
+  })
+
+  it('challenges a bare GET discovery probe and keeps the status fields in the body', async () => {
+    running = await start({ resourceMetadataUrl })
+
+    // Codex probes exactly like this before it looks for protected-resource metadata.
+    const probe = await fetch(running.url, {
+      headers: { Accept: '*/*', 'Mcp-Protocol-Version': '2024-11-05' },
+    })
+    expect(probe.status).toBe(401)
+    expect(probe.headers.get('www-authenticate')).toBe(
+      `Bearer resource_metadata="${resourceMetadataUrl}"`,
+    )
+    await expect(probe.json()).resolves.toMatchObject({
+      name: 'Transloadit MCP Server',
+      status: 'ok',
+      error: 'unauthorized',
+    })
+  })
+
+  it('serves the bare GET status to authenticated hosted callers', async () => {
+    running = await start({ resourceMetadataUrl })
+
+    const probe = await fetch(running.url, { headers: { Authorization: 'Bearer token' } })
+    expect(probe.status).toBe(200)
+    await expect(probe.json()).resolves.toEqual({
+      name: 'Transloadit MCP Server',
+      status: 'ok',
+      docs: 'https://transloadit.com/docs/sdks/mcp-server/',
+    })
+  })
+
+  it('keeps the bare GET health probe at 200 outside hosted mode', async () => {
+    running = await start()
 
     const probe = await fetch(running.url)
     expect(probe.status).toBe(200)
@@ -192,6 +231,30 @@ describe('hosted MCP endpoint origins', () => {
     const response = await post(running.url, { Origin: 'https://anything.example' })
     expect(response.status).toBe(200)
     expect(response.headers.get('access-control-allow-origin')).toBe('*')
+  })
+
+  it.each([
+    ['self-hosted', {}],
+    ['hosted', { resourceMetadataUrl }],
+  ])('answers %s preflights for every Streamable HTTP request header', async (_mode, options) => {
+    running = await start(options)
+
+    const preflight = await fetch(running.url, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:8080',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers':
+          'authorization,content-type,mcp-protocol-version,mcp-session-id,last-event-id',
+      },
+    })
+    expect(preflight.status).toBe(204)
+    expect(preflight.headers.get('access-control-allow-headers')).toBe(
+      'Authorization,Content-Type,Mcp-Protocol-Version,Mcp-Session-Id,Last-Event-ID',
+    )
+    expect(preflight.headers.get('access-control-expose-headers')).toBe(
+      'Mcp-Session-Id,WWW-Authenticate',
+    )
   })
 })
 

@@ -2,12 +2,14 @@ import type { AddressInfo } from 'node:net'
 
 import { createServer } from 'node:http'
 
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createTransloaditMcpHttpHandler } from '../../src/http.ts'
+import { createTransloaditMcpServer } from '../../src/server.ts'
 import { toolNames } from '../../src/tool-metadata.ts'
 import {
-  assemblyResultOrigins,
   assemblyResultWidgetMimeType,
   assemblyResultWidgetUri,
 } from '../../src/ui/assembly-result-widget.ts'
@@ -18,6 +20,9 @@ const isRecord = (value: unknown): value is JsonRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const resourceMetadataUrl = 'https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp'
+
+// Transloadit result buckets plus Cloudflare R2 public buckets, where API2 also stores results.
+const resultDomains = ['https://*.transloadit.com', 'https://*.transloadit.net', 'https://*.r2.dev']
 
 // The SDK client strips unknown Tool fields such as `securitySchemes`, so tools/list is read raw.
 const parseJsonRpcResult = async (response: Response): Promise<JsonRecord> => {
@@ -187,12 +192,12 @@ describe('tool surface', () => {
       mimeType: assemblyResultWidgetMimeType,
       _meta: {
         ui: {
-          csp: { connectDomains: assemblyResultOrigins, resourceDomains: assemblyResultOrigins },
+          csp: { connectDomains: resultDomains, resourceDomains: resultDomains },
         },
         'openai/widgetDescription': expect.any(String),
         'openai/widgetCSP': {
-          connect_domains: assemblyResultOrigins,
-          resource_domains: assemblyResultOrigins,
+          connect_domains: resultDomains,
+          resource_domains: resultDomains,
         },
       },
     })
@@ -209,5 +214,30 @@ describe('tool surface', () => {
     expect(html).toContain('ui/notifications/tool-result')
     expect(html).toContain('Save as Template')
     expect(html).not.toMatch(/<script[^>]+src=/)
+  })
+})
+
+describe('result widget domains', () => {
+  it('uses configured result domains for the widget CSP', async () => {
+    const server = createTransloaditMcpServer({ resultDomains: ['https://cdn.example.com'] })
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    const client = new Client({ name: 'result-domains', version: '1.0.0' })
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+
+    const { contents } = await client.readResource({ uri: assemblyResultWidgetUri })
+    expect(contents[0]?._meta).toMatchObject({
+      ui: {
+        csp: {
+          connectDomains: ['https://cdn.example.com'],
+          resourceDomains: ['https://cdn.example.com'],
+        },
+      },
+      'openai/widgetCSP': {
+        connect_domains: ['https://cdn.example.com'],
+        resource_domains: ['https://cdn.example.com'],
+      },
+    })
+    await client.close()
+    await server.close()
   })
 })

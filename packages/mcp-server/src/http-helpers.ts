@@ -151,12 +151,40 @@ export const applyCorsHeaders = (
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Authorization,Content-Type,Mcp-Session-Id,Last-Event-ID',
-  )
-  res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id,WWW-Authenticate')
+  res.setHeader('Access-Control-Allow-Headers', corsAllowHeaders)
+  res.setHeader('Access-Control-Expose-Headers', corsExposeHeaders)
 
+  return true
+}
+
+/**
+ * Request headers browser MCP clients send (Streamable HTTP adds `Mcp-Protocol-Version` after
+ * initialization); preflights that omit one block the client entirely.
+ */
+export const corsAllowHeaders =
+  'Authorization,Content-Type,Mcp-Protocol-Version,Mcp-Session-Id,Last-Event-ID'
+
+/** Response headers browser clients must read: the session id and the OAuth challenge. */
+export const corsExposeHeaders = 'Mcp-Session-Id,WWW-Authenticate'
+
+/** Human-readable status served on bare GETs and kept in the hosted 401 body. */
+export const serverInfo = {
+  name: 'Transloadit MCP Server',
+  status: 'ok',
+  docs: 'https://transloadit.com/docs/sdks/mcp-server/',
+}
+
+/**
+ * Bare GETs without the SSE Accept header are not valid MCP requests (Streamable HTTP requires
+ * `Accept: text/event-stream` for GET). Answer with a friendly status so directory health probes
+ * (Glama, uptime monitors) see a 200 instead of the SDK's opaque 406. Returns `true` when sent.
+ */
+export const sendServerInfoForBareGet = (req: IncomingMessage, res: ServerResponse): boolean => {
+  const accept = req.headers.accept ?? ''
+  if (req.method !== 'GET' || accept.includes('text/event-stream')) return false
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'application/json')
+  res.end(JSON.stringify(serverInfo))
   return true
 }
 
@@ -199,8 +227,10 @@ export const rejectMissingMcpToken = (
 
 /**
  * Hosted policy: a bearer token only has to be present, because API2 verifies it on every
- * forwarded call. Without one, the 401 points OAuth clients at the protected-resource metadata.
- * Returns `true` when the 401 was already sent.
+ * forwarded call. Without one, any request (bare GET probes included, since clients such as Codex
+ * discover the authorization server from an unauthenticated GET) gets a 401 that points OAuth
+ * clients at the protected-resource metadata. The body keeps the friendly server status for
+ * humans. Returns `true` when the 401 was already sent.
  */
 export const rejectMissingBearerToken = (
   req: IncomingMessage,
@@ -213,6 +243,7 @@ export const rejectMissingBearerToken = (
   res.setHeader('Content-Type', 'application/json')
   res.end(
     JSON.stringify({
+      ...serverInfo,
       error: 'unauthorized',
       error_description:
         'This endpoint requires an OAuth bearer token. Discover the authorization server through the resource_metadata URL in the WWW-Authenticate header.',
