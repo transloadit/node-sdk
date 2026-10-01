@@ -15,7 +15,9 @@ const hostInfo = { name: 'TestHost', version: '9.9.9' }
  * Loads the real widget document in a DOM whose `window.parent` is a fake MCP Apps host, so the
  * test sees exactly the JSON-RPC messages the inline script posts.
  */
-const mountWidget = (): {
+const mountWidget = (
+  options: { maxTimeout?: number } = {},
+): {
   window: Window
   sent: JsonRpcMessage[]
   fromHost: (message: JsonRpcMessage) => Promise<void>
@@ -27,6 +29,7 @@ const mountWidget = (): {
     settings: {
       enableJavaScriptEvaluation: true,
       suppressInsecureJavaScriptEnvironmentWarning: true,
+      ...(options.maxTimeout === undefined ? {} : { timer: { maxTimeout: options.maxTimeout } }),
     },
   })
   const sent: JsonRpcMessage[] = []
@@ -182,5 +185,48 @@ describe('assembly result widget handshake (MCP Apps 2026-01-26)', () => {
     })
 
     expect(widget.appText()).toBe('This host could not start the Assembly result view.')
+  })
+})
+
+describe('assembly result widget previews', () => {
+  it('retries a preview that is not readable yet, then says so', async () => {
+    // Collapse the widget's 1 s / 3 s / 6 s retry delays.
+    const widget = mountWidget({ maxTimeout: 0 })
+    const resultUrl = 'https://pub-123.r2.dev/resized.jpg'
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { protocolVersion: '2026-01-26', hostInfo, hostCapabilities: {}, hostContext: {} },
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          assembly: {
+            ok: 'ASSEMBLY_COMPLETED',
+            assembly_id: 'abc123',
+            results: { resized: [{ name: 'resized.jpg', mime: 'image/jpeg', ssl_url: resultUrl }] },
+          },
+        },
+      },
+    })
+
+    const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 5))
+    const image = widget.window.document.querySelector('img')
+    image?.dispatchEvent(new widget.window.Event('error'))
+    await settle()
+    expect(image?.getAttribute('src')).toBe(resultUrl)
+    image?.dispatchEvent(new widget.window.Event('error'))
+    await settle()
+    image?.dispatchEvent(new widget.window.Event('error'))
+    await settle()
+    image?.dispatchEvent(new widget.window.Event('error'))
+    await settle()
+
+    expect(widget.appText()).toContain('Preview not available yet')
+    expect(widget.appText()).toContain('Download resized.jpg')
+    await widget.window.happyDOM.close()
   })
 })

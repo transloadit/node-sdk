@@ -202,17 +202,37 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     return anchor
   }
 
+  // Result files can land on the public bucket a moment after the Assembly reports completion,
+  // and a failed <img>/<video> never retries by itself.
+  const previewRetryDelays = [1000, 3000, 6000]
+  const retryPreview = (media, url) => {
+    let attempt = 0
+    media.addEventListener('error', () => {
+      if (attempt >= previewRetryDelays.length) {
+        media.replaceWith(el('span', { className: 'muted', role: 'status', text: 'Preview not available yet' }))
+        return
+      }
+      setTimeout(() => {
+        media.removeAttribute('src')
+        media.setAttribute('src', url)
+        if (typeof media.load === 'function') media.load()
+      }, previewRetryDelays[attempt])
+      attempt += 1
+    })
+    return media
+  }
+
   const preview = (file) => {
     const url = safeUrl(file.ssl_url) || safeUrl(file.url)
     const mime = text(file.mime)
     const name = text(file.name) || text(file.basename) || 'file'
     const box = el('div', { className: 'preview' })
     if (url && mime.startsWith('image/')) {
-      box.append(el('img', { src: url, alt: name, loading: 'lazy' }))
+      box.append(retryPreview(el('img', { src: url, alt: name, loading: 'lazy' }), url))
     } else if (url && mime.startsWith('video/')) {
-      box.append(el('video', { src: url, controls: '', preload: 'metadata', playsinline: '' }))
+      box.append(retryPreview(el('video', { src: url, controls: '', preload: 'metadata', playsinline: '' }), url))
     } else if (url && mime.startsWith('audio/')) {
-      box.append(el('audio', { src: url, controls: '', preload: 'metadata' }))
+      box.append(retryPreview(el('audio', { src: url, controls: '', preload: 'metadata' }), url))
     } else {
       box.append(el('span', { className: 'file', 'aria-hidden': 'true', text: '📄' }))
     }
