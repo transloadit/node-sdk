@@ -17,6 +17,9 @@ connector requirements.
 - Behavior change for self-hosted servers without credentials: account tools now return an
   `isError` result with `mcp_missing_auth` and a hint naming `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`
   (`transloadit_list_templates` no longer adds an empty `templates` list to that error).
+- Behavior change for Express mounts: explicit `allowedOrigins` are now enforced by the router
+  (wildcards `*.` and `:*` supported) even without DNS rebinding protection, so other browser
+  Origins get HTTP 403 and allowed ones receive CORS headers.
 - New `transloadit_get_profile` tool (`_meta["openai/profile"]`) returns the Workspace behind the
   credentials for multi-account hosts.
 - `transloadit_create_assembly` accepts ChatGPT-attached files through `attachments`
