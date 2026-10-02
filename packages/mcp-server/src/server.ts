@@ -366,6 +366,16 @@ const buildToolResponse = (
   }
 }
 
+/**
+ * The SDK client validates `structuredContent` against a tool's output schema even on `isError`
+ * results, so tools whose schema cannot describe an error (Template lists, the strict profile)
+ * return errors as text only. The text still carries the code and hint as JSON.
+ */
+const withoutStructuredContent = (result: CallToolResult): CallToolResult => {
+  const { structuredContent: _structuredContent, ...rest } = result
+  return rest
+}
+
 type AuthErrorInput = {
   code: 'mcp_missing_auth' | 'mcp_auth_rejected' | 'mcp_insufficient_scope'
   oauthError: 'invalid_token' | 'insufficient_scope'
@@ -1515,7 +1525,7 @@ export const createTransloaditMcpServer = (
     listTemplatesOutputSchema,
     async ({ page, page_size, sort, order, keywords, include_builtin, include_content }, extra) => {
       const liveClient = createLiveClient(options, extra)
-      if ('error' in liveClient) return liveClient.error
+      if ('error' in liveClient) return withoutStructuredContent(liveClient.error)
 
       try {
         const response = await liveClient.client.listTemplates({
@@ -1557,7 +1567,7 @@ export const createTransloaditMcpServer = (
           liveClient.credentials,
           toolMetadata.transloadit_list_templates.scopes,
         )
-        if (rejection) return rejection
+        if (rejection) return withoutStructuredContent(rejection)
         const message = error instanceof Error ? error.message : 'Failed to list templates.'
         return buildToolResponse({
           status: 'error',
@@ -1579,7 +1589,7 @@ export const createTransloaditMcpServer = (
     getProfileOutputSchema,
     async (_args, extra) => {
       const liveClient = createLiveClient(options, extra)
-      if ('error' in liveClient) return liveClient.error
+      if ('error' in liveClient) return withoutStructuredContent(liveClient.error)
 
       let profile: WorkspaceProfile | undefined
       try {
@@ -1591,24 +1601,26 @@ export const createTransloaditMcpServer = (
           liveClient.credentials,
           toolMetadata.transloadit_get_profile.scopes,
         )
-        if (rejection) return rejection
+        if (rejection) return withoutStructuredContent(rejection)
         throw error
       }
 
       if (!profile) {
         // The strict profile output schema has no error shape, so this must be an error result.
-        return buildToolResponse(
-          {
-            status: 'error',
-            errors: [
-              {
-                code: 'mcp_profile_unavailable',
-                message: 'Could not determine the Workspace behind these credentials yet.',
-                hint: 'Create an Assembly or a Template first, then call this tool again.',
-              },
-            ],
-          },
-          { isError: true },
+        return withoutStructuredContent(
+          buildToolResponse(
+            {
+              status: 'error',
+              errors: [
+                {
+                  code: 'mcp_profile_unavailable',
+                  message: 'Could not determine the Workspace behind these credentials yet.',
+                  hint: 'Create an Assembly or a Template first, then call this tool again.',
+                },
+              ],
+            },
+            { isError: true },
+          ),
         )
       }
       return buildToolResponse(profile)

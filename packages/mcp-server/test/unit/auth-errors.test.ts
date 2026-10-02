@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createTransloaditMcpHttpHandler } from '../../src/http.ts'
 import { createTransloaditMcpServer } from '../../src/server.ts'
+import { parseToolPayload } from '../e2e/mcp-client.ts'
 
 const resourceMetadataUrl = 'https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp'
 
@@ -77,12 +78,27 @@ describe('tool auth errors', () => {
           : {},
     })
     expect(result.isError).toBe(true)
-    expect(result.structuredContent).toMatchObject({
+    expect(parseToolPayload(result)).toMatchObject({
       status: 'error',
       errors: [{ code: 'mcp_missing_auth', hint: expect.stringContaining('TRANSLOADIT_KEY') }],
     })
     // There is no authorization server to link an account with, so no OAuth challenge.
     expect(result._meta?.['mcp/www_authenticate']).toBeUndefined()
+  })
+
+  // The SDK client validates structuredContent against the output schema even for isError results
+  // once it has listed the tools, so errors from tools whose schema cannot hold them must still
+  // reach the caller.
+  it.each([
+    'transloadit_list_templates',
+    'transloadit_get_profile',
+  ])('%s returns a readable error to a client that listed the tools', async (name) => {
+    await connect()
+    await client.listTools()
+
+    const result = await client.callTool({ name, arguments: {} })
+    expect(result.isError).toBe(true)
+    expect(parseToolPayload(result)).toMatchObject({ errors: [{ code: 'mcp_missing_auth' }] })
   })
 
   it('asks the host to link an account when a hosted server gets no token', async () => {
@@ -230,8 +246,10 @@ describe('profile tool', () => {
     vi.spyOn(Transloadit.prototype, 'listAssemblies').mockResolvedValue({ items: [], count: 0 })
     vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({ items: [], count: 0 })
 
+    await client.listTools()
     const result = await client.callTool({ name: 'transloadit_get_profile', arguments: {} })
-    expect(result.structuredContent).toMatchObject({
+    expect(result.isError).toBe(true)
+    expect(parseToolPayload(result)).toMatchObject({
       status: 'error',
       errors: [{ code: 'mcp_profile_unavailable' }],
     })

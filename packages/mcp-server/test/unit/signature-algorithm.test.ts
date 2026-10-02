@@ -6,6 +6,7 @@ import nock from 'nock'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { createTransloaditMcpServer } from '../../src/server.ts'
+import { parseToolPayload } from '../e2e/mcp-client.ts'
 
 const endpoint = 'https://api2.transloadit.com'
 
@@ -67,8 +68,10 @@ describe('key/secret signature algorithm', () => {
     })
     client = await connect({})
 
+    await client.listTools()
     const result = await client.callTool({ name: 'transloadit_list_templates', arguments: {} })
-    expect(result.structuredContent).toMatchObject({
+    expect(result.isError).toBe(true)
+    expect(parseToolPayload(result)).toMatchObject({
       status: 'error',
       errors: [
         {
