@@ -14,9 +14,9 @@ Add it to your MCP client by URL. The client discovers API2 as the OAuth authori
 opens a browser consent page in the Transloadit Console, and keeps a short-lived token plus refresh
 token for you. No API keys leave your Workspace.
 
-Browsing Robots (`transloadit_list_robots`, `transloadit_get_robot_help`) and linting Assembly
-Instructions work before you sign in; creating Assemblies and listing Templates ask you to connect
-your Workspace first.
+The hosted endpoint asks you to sign in before any tool runs, Robot docs and linting included,
+because MCP clients only start OAuth when the endpoint challenges them. Robot docs and linting ask
+for no scopes. To use them without an account, run the server yourself (see Self-hosted).
 
 ### Claude Code
 

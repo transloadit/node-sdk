@@ -2,9 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type { SevLogger } from '@transloadit/sev-logger'
 
+import type { RequestTransport } from './request-transport.ts'
 import type { TransloaditMcpServerOptions } from './server.ts'
-
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 
 import {
   applyCorsHeaders,
@@ -18,6 +17,7 @@ import {
   sendServerInfoForBareGet,
 } from './http-helpers.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
+import { createRequestTransport } from './request-transport.ts'
 import { createTransloaditMcpServer } from './server.ts'
 import { buildServerCard, serverCardPath } from './server-card.ts'
 
@@ -68,7 +68,7 @@ export function createTransloaditMcpHttpHandler(
   options: TransloaditMcpHttpOptions = {},
 ): TransloaditMcpHttpHandler {
   const activeRequests = new Set<{
-    transport: StreamableHTTPServerTransport
+    transport: RequestTransport['transport']
     server: Awaited<ReturnType<typeof createTransloaditMcpServer>>
   }>()
   assertSingleAuthMode(options)
@@ -177,12 +177,7 @@ export function createTransloaditMcpHttpHandler(
     }
 
     const parsedBody = await readJsonBody(req)
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      allowedOrigins: options.allowedOrigins,
-      allowedHosts: options.allowedHosts,
-      enableDnsRebindingProtection: options.enableDnsRebindingProtection,
-    })
+    const { transport, handle } = createRequestTransport(options)
     const server = createTransloaditMcpServer(options)
     const activeRequest = { transport, server }
     activeRequests.add(activeRequest)
@@ -195,7 +190,7 @@ export function createTransloaditMcpHttpHandler(
     await server.connect(transport)
 
     try {
-      await transport.handleRequest(req, res, parsedBody)
+      await handle(req, res, parsedBody)
     } catch {
       if (!res.headersSent) {
         res.statusCode = 500

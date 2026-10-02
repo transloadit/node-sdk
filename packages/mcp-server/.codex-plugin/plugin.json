@@ -29,7 +29,7 @@
   "interface": {
     "displayName": "Transloadit",
     "shortDescription": "Encode, resize, transcribe and convert files in the chat.",
-    "longDescription": "Drop a file in the chat and let Transloadit process it: HLS and MP4 encoding, image resizing and optimization, background removal, transcription and subtitles, document conversion and thumbnails. Results come back as previews with download links, and any run can be saved as a reusable Template. Browsing Robots and linting Assembly Instructions works without an account; processing connects to your Transloadit Workspace through OAuth. Agent Skills for these workflows are published at https://transloadit.com/.well-known/skills/index.json (source: https://github.com/transloadit/skills).",
+    "longDescription": "Drop a file in the chat and let Transloadit process it: HLS and MP4 encoding, image resizing and optimization, background removal, transcription and subtitles, document conversion and thumbnails. Results come back as previews with download links, and any run can be saved as a reusable Template. Connecting signs you in to your Transloadit Workspace through OAuth (a free Community plan is available); every tool, including Robot browsing and linting, runs on that connection. Agent Skills for these workflows are published at https://transloadit.com/.well-known/skills/index.json (source: https://github.com/transloadit/skills).",
     "developerName": "Transloadit",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],

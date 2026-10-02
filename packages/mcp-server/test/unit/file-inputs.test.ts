@@ -40,6 +40,7 @@ describe('MCP file inputs', () => {
     delete serverOptions.authSecret
     delete serverOptions.endpoint
     delete serverOptions.mcpToken
+    delete serverOptions.consoleUrl
     fixtureDirectory = await mkdtemp(join(tmpdir(), 'mcp-test-'))
     fixturePath = join(fixtureDirectory, 'fixture.txt')
     await writeFile(fixturePath, fixtureContent)
@@ -698,5 +699,26 @@ describe('MCP file inputs', () => {
         new_template_url: newTemplateUrl,
       },
     })
+  })
+
+  it('still returns the Assembly when the Console URL is malformed', async () => {
+    serverOptions.consoleUrl = 'not a url'
+    vi.mocked(Transloadit.prototype.createAssembly).mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      assembly_id: assemblyId,
+      account_slug: 'acme',
+    })
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { resized: { robot: '/image/resize', width: 1 } } },
+        wait_for_completion: true,
+      },
+    })
+    expect(result.structuredContent).toMatchObject({
+      status: 'ok',
+      assembly: { assembly_id: assemblyId },
+    })
+    expect(result._meta).toEqual({ 'transloadit/widget': { authenticated: true } })
   })
 })

@@ -84,22 +84,6 @@ describe('tool auth errors', () => {
     )
   })
 
-  it('includes the resource metadata URL in the challenge when hosted', async () => {
-    serverOptions.resourceMetadataUrl = resourceMetadataUrl
-    vi.spyOn(Transloadit.prototype, 'listTemplates').mockRejectedValue(apiRejection(401))
-    await connect({ Authorization: 'Bearer expired-token' })
-
-    const result = await client.callTool({ name: 'transloadit_list_templates', arguments: {} })
-    expect(result.isError).toBe(true)
-    expect(result.structuredContent).toMatchObject({
-      status: 'error',
-      errors: [{ code: 'mcp_auth_rejected' }],
-    })
-    expect(wwwAuthenticate(result)).toBe(
-      `Bearer resource_metadata="${resourceMetadataUrl}", error="invalid_token", error_description="Transloadit rejected the credentials; the token may have expired."`,
-    )
-  })
-
   it('reports rejected tokens on Assembly tools without leaking the API response', async () => {
     vi.spyOn(Transloadit.prototype, 'getAssembly').mockRejectedValue(apiRejection(401))
     await connect({ Authorization: 'Bearer expired-token' })
@@ -196,10 +180,20 @@ describe('profile tool', () => {
 
   it('falls back to an owned Template when no Assembly exists', async () => {
     vi.spyOn(Transloadit.prototype, 'listAssemblies').mockResolvedValue({ items: [], count: 0 })
-    vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({
-      items: [{ id: 'tpl_1', name: 'resize', content: {}, account_id: 'ws_2' }],
-      count: 1,
-    })
+    // API2's default Template list fields omit account_id; it is returned only when requested.
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockImplementation((params) =>
+      Promise.resolve({
+        items: [
+          {
+            id: 'tpl_1',
+            name: 'resize',
+            content: {},
+            ...(params?.fields?.includes('account_id') ? { account_id: 'ws_2' } : {}),
+          },
+        ],
+        count: 1,
+      }),
+    )
 
     const result = await client.callTool({ name: 'transloadit_get_profile', arguments: {} })
     expect(result.structuredContent).toEqual({ id: 'ws_2' })

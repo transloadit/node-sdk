@@ -150,6 +150,37 @@ describe('assembly result widget handshake (MCP Apps 2026-01-26)', () => {
     expect(widget.appText()).toContain('Open in Console')
   })
 
+  it('opens download links through the host so sandboxed frames can still download', async () => {
+    await initialize()
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          assembly: {
+            ok: 'ASSEMBLY_COMPLETED',
+            assembly_id: 'abc123',
+            results: {
+              resized: [
+                { name: 'clip.mp4', mime: 'video/mp4', ssl_url: 'https://pub-123.r2.dev/clip.mp4' },
+              ],
+            },
+          },
+        },
+      },
+    })
+
+    const link = widget.window.document.querySelector('a[download]')
+    const click = new widget.window.MouseEvent('click', { bubbles: true, cancelable: true })
+    link?.dispatchEvent(click)
+
+    expect(click.defaultPrevented).toBe(true)
+    expect(widget.sent.find((message) => message.method === 'ui/open-link')).toMatchObject({
+      params: { url: 'https://pub-123.r2.dev/clip.mp4' },
+    })
+  })
+
   it('shows the error text of a failed tool call instead of waiting forever', async () => {
     await initialize()
     await widget.fromHost({

@@ -100,6 +100,8 @@ export type ListTemplatesParams = OptionalAuthParams & {
   todate?: string
   keywords?: string[]
   include_builtin?: 'all' | 'latest' | 'exclusively-all' | 'exclusively-latest'
+  /** Template columns to return, such as `['id', 'account_id']`; API2's default omits some. */
+  fields?: string[]
 }
 
 interface TemplateResponseBase {

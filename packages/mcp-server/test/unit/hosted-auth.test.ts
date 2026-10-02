@@ -303,3 +303,43 @@ describe('matchesOriginPattern', () => {
     expect(matchesOriginPattern(origin, pattern)).toBe(expected)
   })
 })
+
+describe('wildcard origins with DNS rebinding protection', () => {
+  it.each([
+    ['self-hosted', {}],
+    ['hosted', { resourceMetadataUrl }],
+  ])('accepts a %s wildcard origin match while still checking the Host', async (_mode, mode) => {
+    const options: Parameters<typeof createTransloaditMcpHttpHandler>[0] = {
+      metricsPath: false,
+      allowedOrigins: ['http://localhost:*'],
+      enableDnsRebindingProtection: true,
+      ...mode,
+    }
+    const handler = createTransloaditMcpHttpHandler(options)
+    const server = createServer((req, res) => {
+      void handler(req, res)
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const { port } = server.address() as AddressInfo
+    options.allowedHosts = [`127.0.0.1:${port}`]
+    const url = new URL(`http://127.0.0.1:${port}/mcp`)
+
+    const allowed = await post(url, {
+      Origin: 'http://localhost:6274',
+      Authorization: 'Bearer token',
+    })
+    expect(allowed.status).toBe(200)
+
+    options.allowedHosts = ['api2.transloadit.com']
+    const wrongHost = await post(url, {
+      Origin: 'http://localhost:6274',
+      Authorization: 'Bearer token',
+    })
+    expect(wrongHost.status).toBe(403)
+
+    await handler.close()
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    )
+  })
+})

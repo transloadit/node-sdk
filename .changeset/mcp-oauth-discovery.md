@@ -21,6 +21,9 @@ connector requirements.
 - MCP Apps result widget `ui://transloadit/assembly-result` with previews, download links and a
   Save as Template shortcut, linked from the Assembly tools with `_meta.ui.resourceUri`.
 - `plugin.json`, `mcp.json` and `.codex-plugin/plugin.json` describe the ChatGPT and Codex plugin.
+- Hosted mode serves JSON responses and turns an upstream rejection of the forwarded token into
+  HTTP 401 (`invalid_token`) or 403 (`insufficient_scope` with the tool's scopes), so OAuth clients
+  refresh or re-scope instead of retrying a dead token.
 - Hosted mode also challenges bare `GET /mcp` probes (Codex discovers OAuth from them); CORS now
   allows `Mcp-Protocol-Version` so browser hosts can connect.
 - Self-hosted servers sign with `TRANSLOADIT_SIGNATURE_ALGORITHM` (`sha1`, `sha256` or `sha384`),

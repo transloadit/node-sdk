@@ -1,6 +1,5 @@
 import type { TransloaditMcpHttpOptions } from './http.ts'
 
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import express from 'express'
 
 import {
@@ -12,6 +11,7 @@ import {
   resolveAllowedOrigins,
 } from './http-helpers.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
+import { createRequestTransport } from './request-transport.ts'
 import { createTransloaditMcpServer } from './server.ts'
 import { buildServerCard, serverCardPath } from './server-card.ts'
 
@@ -26,8 +26,8 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   const metricsPath =
     options.metricsPath === false ? undefined : (options.metricsPath ?? '/metrics')
   const metricsAuth = options.metricsAuth
-  // Only hosted mode adds an Origin policy here; embedders keep owning CORS otherwise.
-  const hostedOrigins = options.resourceMetadataUrl ? resolveAllowedOrigins(options) : undefined
+  // Explicit `allowedOrigins` or hosted mode add an Origin policy here; embedders own CORS otherwise.
+  const allowedOrigins = resolveAllowedOrigins(options)
 
   const serverCardJson = JSON.stringify(
     buildServerCard(routePath, {
@@ -67,15 +67,16 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   })
 
   router.all(routePath, async (req: express.Request, res: express.Response) => {
-    if (hostedOrigins) {
-      if (!applyCorsHeaders(req, res, hostedOrigins)) return
+    if (allowedOrigins) {
+      if (!applyCorsHeaders(req, res, allowedOrigins)) return
       if (req.method === 'OPTIONS') {
         res.status(204).end()
         return
       }
-      // Any unauthenticated method gets the OAuth challenge, so GET-probing clients find API2.
-      if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) return
     }
+
+    // Any unauthenticated hosted method gets the OAuth challenge, so GET-probing clients find API2.
+    if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) return
 
     if (req.method !== 'POST') {
       res.status(405).json({
@@ -86,12 +87,7 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
       return
     }
 
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      allowedOrigins: options.allowedOrigins,
-      allowedHosts: options.allowedHosts,
-      enableDnsRebindingProtection: options.enableDnsRebindingProtection,
-    })
+    const { transport, handle } = createRequestTransport(options)
     const server = createTransloaditMcpServer(options)
     res.on('close', () => {
       void transport.close()
@@ -99,7 +95,7 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
     })
     await server.connect(transport)
 
-    await transport.handleRequest(req, res, req.body)
+    await handle(req, res, req.body)
   })
 
   if (metricsPath) {

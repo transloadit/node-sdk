@@ -362,6 +362,8 @@ type AuthErrorInput = {
   oauthError: 'invalid_token' | 'insufficient_scope'
   message: string
   hint?: string
+  /** Scopes to request again; only meaningful for `insufficient_scope`. */
+  scopes?: string[]
 }
 
 /**
@@ -384,6 +386,7 @@ const buildAuthError = (
           buildBearerChallenge({
             resourceMetadataUrl: options.resourceMetadataUrl,
             error: { code: input.oauthError, description: input.message },
+            scopes: input.scopes,
           }),
         ],
       },
@@ -539,6 +542,7 @@ const toAuthRejection = (
   options: TransloaditMcpServerOptions,
   error: unknown,
   credentials: CredentialKind,
+  scopes: string[],
 ): CallToolResult | undefined => {
   const status = getHttpStatusCode(error)
   const scopeRejected =
@@ -573,6 +577,7 @@ const toAuthRejection = (
       oauthError: 'insufficient_scope',
       message: 'The connected credentials lack the scope this tool needs.',
       hint: 'Reconnect your Transloadit account and grant the requested access.',
+      scopes,
     })
   }
   if (error instanceof ApiError && error.code === 'INVALID_SIGNATURE') {
@@ -605,24 +610,35 @@ const buildSignatureError = (error: ApiError): CallToolResult => {
   })
 }
 
-const trimTrailingSlash = (value: string): string => value.replace(/\/$/, '')
+/** The Console origin and base path without a trailing slash, or `undefined` when unusable. */
+const parseConsoleUrl = (value: string): string | undefined => {
+  if (!URL.canParse(value)) return undefined
+  const url = new URL(value)
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined
+  return `${url.origin}${url.pathname}`.replace(/\/$/, '')
+}
 
 /** Widget-only context: whether the caller is signed in and where the Console deep links go. */
 const buildWidgetContext = (
   options: TransloaditMcpServerOptions,
   assembly: AssemblyStatus,
 ): WidgetContext => {
-  const consoleUrl = trimTrailingSlash(options.consoleUrl || defaultConsoleUrl)
+  // Links are a convenience: a malformed consoleUrl must not turn an Assembly that was already
+  // created into a failed call, which would invite a retry that processes the files twice.
+  const consoleUrl = parseConsoleUrl(options.consoleUrl || defaultConsoleUrl)
   const slug = isNonEmptyString(assembly.account_slug) ? assembly.account_slug : undefined
   const assemblyId = isNonEmptyString(assembly.assembly_id) ? assembly.assembly_id : undefined
   const templateId = isNonEmptyString(assembly.template_id) ? assembly.template_id : undefined
-  if (!slug) return { authenticated: true }
+  if (!slug || !consoleUrl) return { authenticated: true }
 
   const workspaceUrl = `${consoleUrl}/c/${encodeURIComponent(slug)}`
   const newTemplateUrl = new URL(`${workspaceUrl}/templates/new`)
   // `fromAssembly` lets the Console seed the editor with the Assembly's effective instructions,
-  // overrides included; Content's new-Template page still has to learn that parameter.
-  // `duplicateFrom` is what that page resolves today, so Template-based runs keep a useful seed.
+  // overrides included. Content's new-Template page does not resolve it yet (Content follow-up to
+  // PR #529, routed 2026-10-02); until then inline runs open an empty editor and Template-based
+  // runs are seeded through `duplicateFrom`, without the run's overrides. The action stays visible
+  // on purpose: it already lands signed-in callers in the right Workspace, and the Console gains
+  // the seeding without another MCP release.
   if (assemblyId) {
     newTemplateUrl.searchParams.set('fromAssembly', assemblyId)
   }
@@ -879,8 +895,9 @@ const resolveWorkspaceProfile = async (
     }
   }
 
+  // API2's default Template list fields omit account_id, so request it explicitly.
   const templates = listTemplatesResponseSchema.safeParse(
-    await client.listTemplates({ pagesize: 1 }),
+    await client.listTemplates({ pagesize: 1, fields: ['id', 'account_id'] }),
   )
   const template = templates.success ? templates.data.items?.[0] : undefined
   if (template && isNonEmptyString(template.account_id)) {
@@ -1249,7 +1266,12 @@ export const createTransloaditMcpServer = (
           { meta: { [widgetContextMetaKey]: buildWidgetContext(options, assembly) } },
         )
       } catch (error) {
-        const rejection = toAuthRejection(options, error, credentials)
+        const rejection = toAuthRejection(
+          options,
+          error,
+          credentials,
+          toolMetadata.transloadit_create_assembly.scopes,
+        )
         if (rejection) return rejection
         throw error
       } finally {
@@ -1270,7 +1292,12 @@ export const createTransloaditMcpServer = (
       try {
         assembly = await access.client.getAssembly(access.assemblyId)
       } catch (error) {
-        const rejection = toAuthRejection(options, error, access.credentials)
+        const rejection = toAuthRejection(
+          options,
+          error,
+          access.credentials,
+          toolMetadata.transloadit_get_assembly_status.scopes,
+        )
         if (rejection) return rejection
         throw error
       }
@@ -1299,7 +1326,12 @@ export const createTransloaditMcpServer = (
           assemblyUrl: access.assemblyUrl,
         })
       } catch (error) {
-        const rejection = toAuthRejection(options, error, access.credentials)
+        const rejection = toAuthRejection(
+          options,
+          error,
+          access.credentials,
+          toolMetadata.transloadit_wait_for_assembly.scopes,
+        )
         if (rejection) return rejection
         throw error
       }
@@ -1442,7 +1474,12 @@ export const createTransloaditMcpServer = (
           total: parsed.data.count ?? items.length,
         })
       } catch (error) {
-        const rejection = toAuthRejection(options, error, liveClient.credentials)
+        const rejection = toAuthRejection(
+          options,
+          error,
+          liveClient.credentials,
+          toolMetadata.transloadit_list_templates.scopes,
+        )
         if (rejection) return rejection
         const message = error instanceof Error ? error.message : 'Failed to list templates.'
         return buildToolResponse({
@@ -1471,7 +1508,12 @@ export const createTransloaditMcpServer = (
       try {
         profile = await resolveWorkspaceProfile(liveClient.client)
       } catch (error) {
-        const rejection = toAuthRejection(options, error, liveClient.credentials)
+        const rejection = toAuthRejection(
+          options,
+          error,
+          liveClient.credentials,
+          toolMetadata.transloadit_get_profile.scopes,
+        )
         if (rejection) return rejection
         throw error
       }

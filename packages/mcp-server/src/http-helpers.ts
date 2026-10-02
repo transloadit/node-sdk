@@ -195,6 +195,8 @@ export const sendServerInfoForBareGet = (req: IncomingMessage, res: ServerRespon
 export const buildBearerChallenge = (options: {
   resourceMetadataUrl?: string
   error?: { code: string; description: string }
+  /** Scopes the client should request again (RFC 6750 `scope`, used to re-scope on 403). */
+  scopes?: string[]
 }): string => {
   const parts: string[] = []
   if (options.resourceMetadataUrl) {
@@ -205,6 +207,9 @@ export const buildBearerChallenge = (options: {
       `error="${options.error.code}"`,
       `error_description="${options.error.description.replaceAll('"', "'")}"`,
     )
+  }
+  if (options.scopes && options.scopes.length > 0) {
+    parts.push(`scope="${options.scopes.join(' ')}"`)
   }
   return parts.length > 0 ? `Bearer ${parts.join(', ')}` : 'Bearer'
 }

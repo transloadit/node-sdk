@@ -188,19 +188,18 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     return false
   }
 
-  const linkButton = (label, url, secondary) => {
-    const anchor = el('a', {
-      className: secondary ? 'button secondary' : 'button',
-      href: url,
-      target: '_blank',
-      rel: 'noopener noreferrer',
-      text: label,
-    })
+  // Sandboxed frames often block popups and downloads, so every outgoing link goes through the
+  // host when it offers ui/open-link (or ChatGPT's openExternal).
+  const hostLink = (props, url) => {
+    const anchor = el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', ...props })
     anchor.addEventListener('click', (event) => {
       if (openWithHost(url)) event.preventDefault()
     })
     return anchor
   }
+
+  const linkButton = (label, url, secondary) =>
+    hostLink({ className: secondary ? 'button secondary' : 'button', text: label }, url)
 
   // Result files can land on the public bucket a moment after the Assembly reports completion,
   // and a failed <img>/<video> never retries by itself.
@@ -251,7 +250,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     const caption = el('figcaption', {}, [
       el('span', { className: 'name', text: name }),
       el('span', { className: 'muted', text: details.join(' · ') }),
-      url ? el('div', {}, [el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', download: '', text: 'Download ' + name })]) : null,
+      url ? el('div', {}, [hostLink({ download: '', text: 'Download ' + name }, url)]) : null,
     ])
     return el('figure', {}, [preview(isRecord(file) ? file : {}), caption])
   }
