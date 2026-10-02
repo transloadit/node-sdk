@@ -228,7 +228,8 @@ const createAssemblyInputSchema = z.object({
   upload_concurrency: z.number().int().positive().optional(),
   upload_chunk_size: z.number().int().positive().optional(),
   upload_behavior: z.enum(['await', 'background', 'none']).optional(),
-  expected_uploads: z.number().int().positive().optional(),
+  // Each expected upload becomes an instruction in the response; keep that response bounded.
+  expected_uploads: z.number().int().positive().max(100).optional(),
   assembly_url: z.string().optional(),
 })
 
@@ -1351,7 +1352,13 @@ export const createTransloaditMcpServer = (
         }
 
         const uploadInstructions =
-          outOfBandUploads > 0 ? buildUploadInstructions(assembly, outOfBandUploads) : undefined
+          outOfBandUploads > 0
+            ? buildUploadInstructions(
+                assembly,
+                outOfBandUploads,
+                new Set([...Object.keys(filesMap), ...Object.keys(uploadsMap)]),
+              )
+            : undefined
         if (outOfBandUploads > 0 && !uploadInstructions) {
           warnings.push({
             code: 'mcp_upload_instructions_unavailable',

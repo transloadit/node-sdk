@@ -24,7 +24,11 @@ const hasCurl = spawnSync('curl', ['--version']).status === 0
 // Async on purpose: the tus stub runs in this process, so a synchronous spawn would deadlock.
 const runBash = promisify(execFile)
 
-type RecordedUpload = { headers: Record<string, string | string[] | undefined>; body: Buffer }
+type RecordedUpload = {
+  url: string | undefined
+  headers: Record<string, string | string[] | undefined>
+  body: Buffer
+}
 
 const decodeMetadata = (header: string): Record<string, string> =>
   Object.fromEntries(
@@ -44,7 +48,7 @@ describe('upload_instructions for files that exist only in the caller sandbox', 
       const chunks: Buffer[] = []
       req.on('data', (chunk: Buffer) => chunks.push(chunk))
       req.on('end', () => {
-        recorded.push({ headers: req.headers, body: Buffer.concat(chunks) })
+        recorded.push({ url: req.url, headers: req.headers, body: Buffer.concat(chunks) })
         res.writeHead(201, { 'Upload-Offset': String(Buffer.concat(chunks).length) })
         res.end()
       })
@@ -111,7 +115,9 @@ describe('upload_instructions for files that exist only in the caller sandbox', 
         fieldname: 'file_1',
         tus_endpoint: `${origin}/resumable/files/`,
         metadata: { assembly_url: assemblyUrl, fieldname: 'file_1' },
-        curl: expect.stringContaining(`-X POST '${origin}/resumable/files/'`),
+        curl: expect.stringContaining(
+          `--request-target '/resumable/files/' '${origin}/resumable/files/'`,
+        ),
       },
       {
         fieldname: 'file_2',
@@ -140,6 +146,32 @@ describe('upload_instructions for files that exist only in the caller sandbox', 
     expect(payload.upload_instructions).toHaveLength(1)
   })
 
+  it('skips field names already used by files sent in the same call', async () => {
+    await connect({ Authorization: 'Bearer forwarded-token' })
+
+    const payload = await createWithExpectedUploads({
+      expected_uploads: 2,
+      files: [{ kind: 'base64', field: 'file_1', base64: 'aGk=', filename: 'inline.txt' }],
+    })
+
+    expect(payload.upload_instructions).toEqual([expect.objectContaining({ fieldname: 'file_2' })])
+  })
+
+  it('refuses more expected uploads than one call can describe', async () => {
+    await connect({ Authorization: 'Bearer forwarded-token' })
+
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { ':original': { robot: '/upload/handle' } } },
+        expected_uploads: 101,
+      },
+    })
+
+    expect(result.isError).toBe(true)
+    expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+  })
+
   it('returns no upload instructions without expected_uploads', async () => {
     await connect({ Authorization: 'Bearer forwarded-token' })
 
@@ -165,8 +197,12 @@ describe('upload_instructions for files that exist only in the caller sandbox', 
       await rm(directory, { recursive: true, force: true })
 
       expect(run.stdout.trim()).toBe('201')
+      // Streamed from disk (curl buffers --data-binary files in memory), to the exact tus path.
+      expect(instruction.curl).toContain('-T "$FILE"')
+      expect(instruction.curl).not.toContain('--data-binary')
       expect(recorded).toHaveLength(1)
       const [upload] = recorded
+      expect(upload?.url).toBe('/resumable/files/')
       expect(upload?.headers['tus-resumable']).toBe('1.0.0')
       expect(upload?.headers['content-type']).toBe('application/offset+octet-stream')
       expect(upload?.headers['upload-length']).toBe(String(fileBytes.length))
