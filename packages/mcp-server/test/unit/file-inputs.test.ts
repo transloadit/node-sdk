@@ -725,6 +725,18 @@ describe('MCP file inputs', () => {
     expect(result._meta).toEqual({ 'transloadit/widget': { authenticated: true } })
   })
 
+  it('does not require Template access when /http/import fetches the URL', async () => {
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { source: { robot: '/http/import' } } },
+        files: [{ kind: 'url', field: 'file', url: 'https://example.com/fixture.txt' }],
+      },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(Transloadit.prototype.listTemplates).not.toHaveBeenCalled()
+  })
+
   it('stops downloading a URL input above maxUrlDownloadBytes', async () => {
     serverOptions.maxUrlDownloadBytes = 1024
     nock('http://198.51.100.10').get('/big.bin').reply(200, 'x'.repeat(4096))

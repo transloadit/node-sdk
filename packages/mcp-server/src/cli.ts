@@ -186,9 +186,10 @@ const main = async (): Promise<void> => {
       mcpToken,
       resourceMetadataUrl,
       upstreamSecret,
-      // Validated by the handler, which refuses anything but a positive integer byte count.
+      // Validated by the handler, which refuses anything but positive integers.
       maxRequestBodyBytes: fileConfig.maxRequestBodyBytes as number | undefined,
       maxUrlDownloadBytes: fileConfig.maxUrlDownloadBytes as number | undefined,
+      urlDownloadTimeoutMs: fileConfig.urlDownloadTimeoutMs as number | undefined,
       signatureAlgorithm,
       resultDomains,
       consoleUrl,

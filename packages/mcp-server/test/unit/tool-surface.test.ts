@@ -331,3 +331,18 @@ describe('tools registered after creation', () => {
     await server.close()
   })
 })
+
+describe('direct server construction', () => {
+  it.each([
+    [
+      { maxUrlDownloadBytes: Number.NaN },
+      'maxUrlDownloadBytes must be a positive integer number of bytes.',
+    ],
+    [
+      { urlDownloadTimeoutMs: 0 },
+      'urlDownloadTimeoutMs must be a positive integer number of milliseconds.',
+    ],
+  ])('refuses %j', (options, message) => {
+    expect(() => createTransloaditMcpServer(options)).toThrow(message)
+  })
+})

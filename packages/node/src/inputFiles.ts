@@ -58,6 +58,11 @@ export type PrepareInputFilesOptions = {
   maxUrlDownloadBytes?: number
   /** Abort a URL download that takes longer than this many milliseconds. */
   urlDownloadTimeoutMs?: number
+  /**
+   * Awaited before each URL input is downloaded locally (not for `/http/import`), so a caller can
+   * vouch for the requester first; rejecting aborts preparation.
+   */
+  beforeUrlDownload?: () => Promise<void>
   tempDir?: string
 }
 
@@ -207,6 +212,16 @@ const isPrivateIp = (address: string): boolean => {
   return false
 }
 
+/**
+ * Names a URL in error messages without its query or fragment: input URLs are often presigned
+ * (ChatGPT attachments, S3), and these messages reach logs and model-visible tool results.
+ */
+const describeUrl = (value: string): string => {
+  if (!URL.canParse(value)) return '[unparseable URL]'
+  const url = new URL(value)
+  return `${url.origin}${url.pathname}`
+}
+
 export const resolvePublicDownloadAddresses = async (
   value: string,
 ): Promise<Array<{ address: string; family: 4 | 6 }>> => {
@@ -216,10 +231,10 @@ export const resolvePublicDownloadAddresses = async (
       ? parsed.hostname.slice(1, -1)
       : parsed.hostname
   if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`URL downloads are limited to http/https: ${value}`)
+    throw new Error(`URL downloads are limited to http/https: ${describeUrl(value)}`)
   }
   if (isPrivateIp(hostname)) {
-    throw new Error(`URL downloads are limited to public hosts: ${value}`)
+    throw new Error(`URL downloads are limited to public hosts: ${describeUrl(value)}`)
   }
 
   const literalFamily = isIP(hostname)
@@ -231,11 +246,11 @@ export const resolvePublicDownloadAddresses = async (
           verbatim: true,
         })
   if (resolvedAddresses.some((address) => isPrivateIp(address.address))) {
-    throw new Error(`URL downloads are limited to public hosts: ${value}`)
+    throw new Error(`URL downloads are limited to public hosts: ${describeUrl(value)}`)
   }
 
   if (resolvedAddresses.length === 0) {
-    throw new Error(`Unable to resolve URL hostname: ${value}`)
+    throw new Error(`Unable to resolve URL hostname: ${describeUrl(value)}`)
   }
 
   return resolvedAddresses.map((address) => ({
@@ -382,7 +397,7 @@ const limitDownloadBytes = (maxBytes: number, url: string): Transform => {
     transform(chunk: Buffer, _encoding, callback) {
       received += chunk.length
       if (received > maxBytes) {
-        callback(new Error(`URL download exceeds ${maxBytes} bytes: ${url}`))
+        callback(new Error(`URL download exceeds ${maxBytes} bytes: ${describeUrl(url)}`))
         return
       }
       callback(null, chunk)
@@ -441,7 +456,7 @@ const downloadUrlToFile = async ({
       responseStream.destroy()
       const location = response.headers.location
       if (location == null) {
-        throw new Error(`Redirect response missing Location header: ${currentUrl}`)
+        throw new Error(`Redirect response missing Location header: ${describeUrl(currentUrl)}`)
       }
       currentUrl = new URL(location, currentUrl).toString()
       continue
@@ -449,7 +464,7 @@ const downloadUrlToFile = async ({
 
     if (statusCode >= 400) {
       responseStream.destroy()
-      throw new Error(`Failed to download URL: ${currentUrl} (${statusCode})`)
+      throw new Error(`Failed to download URL: ${describeUrl(currentUrl)} (${statusCode})`)
     }
 
     if (maxBytes === undefined) {
@@ -458,13 +473,13 @@ const downloadUrlToFile = async ({
     }
     if (Number(response.headers['content-length']) > maxBytes) {
       responseStream.destroy()
-      throw new Error(`URL download exceeds ${maxBytes} bytes: ${url}`)
+      throw new Error(`URL download exceeds ${maxBytes} bytes: ${describeUrl(url)}`)
     }
     await pipeline(responseStream, limitDownloadBytes(maxBytes, url), createWriteStream(filePath))
     return
   }
 
-  throw new Error(`Too many redirects while downloading URL input: ${url}`)
+  throw new Error(`Too many redirects while downloading URL input: ${describeUrl(url)}`)
 }
 
 export const prepareInputFiles = async (
@@ -480,6 +495,7 @@ export const prepareInputFiles = async (
     allowPrivateUrls = true,
     maxUrlDownloadBytes,
     urlDownloadTimeoutMs,
+    beforeUrlDownload,
     tempDir,
   } = options
 
@@ -565,6 +581,7 @@ export const prepareInputFiles = async (
           getFilenameFromUrl(file.url) ??
           `${file.field}.bin`
         const filePath = await ensureUniqueTempFilePath(root, filename, usedTempPaths)
+        await beforeUrlDownload?.()
         await downloadUrlToFile({
           allowPrivateUrls,
           filePath,

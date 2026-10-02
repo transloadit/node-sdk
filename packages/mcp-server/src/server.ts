@@ -27,6 +27,7 @@ import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
+import { assertServerLimits } from './options.ts'
 import { mirrorSecuritySchemes } from './tool-list.ts'
 import {
   buildToolMeta,
@@ -675,12 +676,10 @@ const buildWidgetContext = (
 
   const workspaceUrl = `${consoleUrl}/c/${encodeURIComponent(slug)}`
   const newTemplateUrl = new URL(`${workspaceUrl}/templates/new`)
-  // Known, accepted gap (product decision on PR #529, routed to Content on 2026-10-02):
-  // `fromAssembly` lets the Console seed the editor with the Assembly's effective instructions,
-  // overrides included, but Content's new-Template page does not resolve it yet. Until it does,
-  // inline runs open an empty editor and Template-based runs are seeded through `duplicateFrom`
-  // without the run's overrides. The action stays visible on purpose so the Console can start
-  // seeding without another MCP release; hiding or relabeling it is not wanted here.
+  // The Console seeds the editor from `fromAssembly` since transloadit/content#6207, which ships
+  // together with this release: it loads the Assembly's effective instructions, overrides
+  // included. `duplicateFrom` stays as the seed for Consoles that predate it. Hiding or relabeling
+  // the action was considered and rejected in review of transloadit/node-sdk#529.
   if (assemblyId) {
     newTemplateUrl.searchParams.set('fromAssembly', assemblyId)
   }
@@ -997,6 +996,7 @@ const toAssemblyInstructionsInput = (params: CreateAssemblyParams): AssemblyInst
 export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
+  assertServerLimits(options)
   const server = new McpServer({
     name: options.serverName ?? 'Transloadit MCP',
     version: options.serverVersion ?? packageJson.version,
@@ -1202,10 +1202,13 @@ export const createTransloaditMcpServer = (
             )
           }
         }
-        // The hosted gate only checks that a bearer is present. A URL input may be downloaded to
-        // this server's disk, so let API2 vouch for the token first (templates:read is declared).
-        if (credentials === 'bearer' && inputFilesForPrep.some((file) => file.kind === 'url')) {
-          await client.listTemplates({ pagesize: 1 })
+        // The hosted gate only checks that a bearer is present. Before a URL input is downloaded
+        // to this server's disk (not for /http/import), API2 vouches for the token once
+        // (templates:read is declared for this tool).
+        let tokenCheck: Promise<unknown> | undefined
+        const verifyTokenBeforeDownload = async (): Promise<void> => {
+          tokenCheck ??= client.listTemplates({ pagesize: 1 })
+          await tokenCheck
         }
         const prep = await prepareInputFiles({
           inputFiles: inputFilesForPrep,
@@ -1217,7 +1220,10 @@ export const createTransloaditMcpServer = (
           maxBase64Bytes,
           maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
           urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
+          beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
         }).catch((error) => {
+          // API rejections (the token check) are not input mistakes; the outer handler maps them.
+          if (error instanceof ApiError) throw error
           const message = error instanceof Error ? error.message : 'Invalid file input.'
           if (message.startsWith('Duplicate file field')) {
             return buildToolError('mcp_duplicate_field', message, { path: 'files' })

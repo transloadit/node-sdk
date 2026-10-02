@@ -151,6 +151,30 @@ describe('hosted Express router', () => {
     expect(response.status).toBe(413)
   })
 
+  it('refuses unparsed self-hosted bodies above the configured limit', async () => {
+    running = await startHostedRouter({ resourceMetadataUrl: undefined, maxRequestBodyBytes: 1024 })
+
+    const response = await postMcp(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/list',
+        params: { pad: 'x'.repeat(4096) },
+      }),
+    )
+    expect(response.status).toBe(413)
+  })
+
+  it('serves unparsed self-hosted bodies within the limit', async () => {
+    running = await startHostedRouter({ resourceMetadataUrl: undefined })
+
+    const response = await postMcp(
+      JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+    )
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain('transloadit_list_robots')
+  })
+
   it('reads the request body itself when no JSON body parser is installed', async () => {
     const app = express()
     app.use(

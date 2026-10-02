@@ -284,6 +284,32 @@ describe('prepareInputFiles', () => {
     ).rejects.toThrow('URL download exceeds 1024 bytes: http://rebind.test/big')
   })
 
+  it('keeps signed query parameters out of download errors', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
+    nock('http://rebind.test').get('/big').query(true).reply(200, 'x'.repeat(4096))
+    nock('http://rebind.test').get('/gone').query(true).reply(404, 'missing')
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          { kind: 'url', field: 'remote', url: 'http://rebind.test/big?X-Amz-Signature=secret' },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+        maxUrlDownloadBytes: 1024,
+      }),
+    ).rejects.toThrow(/^URL download exceeds 1024 bytes: http:\/\/rebind\.test\/big$/)
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          { kind: 'url', field: 'remote', url: 'http://rebind.test/gone?X-Amz-Signature=secret' },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow(/^Failed to download URL: http:\/\/rebind\.test\/gone \(404\)$/)
+  })
+
   it('aborts a URL download slower than urlDownloadTimeoutMs', async () => {
     lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
     nock('http://rebind.test').get('/slow').delay(500).reply(200, 'late')

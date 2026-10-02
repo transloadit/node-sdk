@@ -11,5 +11,6 @@ Like `Authorization`, these headers are dropped when a redirect leaves the API o
 Template list omits.
 
 `prepareInputFiles()` accepts `maxUrlDownloadBytes` and `urlDownloadTimeoutMs` to bound URL
-downloads, and `createAssembly()` accepts `onAssemblyCreated`, called once API2 accepted the
-creation request.
+downloads and `beforeUrlDownload` to vouch for a requester before a file is fetched locally; its
+download errors name only a URL's origin and path, never presigned query parameters.
+`createAssembly()` accepts `onAssemblyCreated`, called once API2 accepted the creation request.

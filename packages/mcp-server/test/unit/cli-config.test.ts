@@ -44,10 +44,19 @@ describe('transloadit-mcp CLI configuration', { timeout: 20000 }, () => {
     })
   })
 
-  it('refuses a config file whose maxRequestBodyBytes is not a byte count', async () => {
+  it.each([
+    [
+      { maxRequestBodyBytes: '1MB' },
+      'maxRequestBodyBytes must be a positive integer number of bytes.',
+    ],
+    [
+      { urlDownloadTimeoutMs: '10m' },
+      'urlDownloadTimeoutMs must be a positive integer number of milliseconds.',
+    ],
+  ])('refuses the config file %j', async (config, message) => {
     const directory = await mkdtemp(join(tmpdir(), 'mcp-config-'))
     const configPath = join(directory, 'config.json')
-    await writeFile(configPath, JSON.stringify({ maxRequestBodyBytes: '1MB' }))
+    await writeFile(configPath, JSON.stringify(config))
 
     const result = spawnSync(process.execPath, [cliPath, 'http', '--config', configPath], {
       env: process.env,
@@ -58,9 +67,7 @@ describe('transloadit-mcp CLI configuration', { timeout: 20000 }, () => {
     await rm(directory, { recursive: true, force: true })
 
     expect(result.status).toBe(1)
-    expect(`${result.stdout}${result.stderr}`).toContain(
-      'maxRequestBodyBytes must be a positive integer number of bytes.',
-    )
+    expect(`${result.stdout}${result.stderr}`).toContain(message)
   })
 
   it('refuses to start with an unsupported TRANSLOADIT_SIGNATURE_ALGORITHM', () => {

@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import { timingSafeEqual } from 'node:crypto'
 
+import { assertRequestBodyLimit, assertServerLimits } from './options.ts'
+
 export const parsePathname = (url: string | undefined, fallback: string): string => {
   try {
     return new URL(url ?? fallback, 'http://localhost').pathname
@@ -265,14 +267,6 @@ export const sendBodyTooLarge = (res: ServerResponse, maxBytes: number): void =>
   )
 }
 
-/** Byte limits arrive from JSON config files too, where `"1MB"` would silently disable a check. */
-const assertByteCount = (value: unknown, name: string): void => {
-  if (value === undefined) return
-  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`${name} must be a positive integer number of bytes.`)
-  }
-}
-
 /**
  * Refuses HTTP options that would fail silently later. The static-token check runs first and
  * would reject every OAuth token with a bare `Bearer` challenge, so hosted OAuth could never start.
@@ -282,14 +276,16 @@ export const assertHttpOptions = (options: {
   resourceMetadataUrl?: string
   maxRequestBodyBytes?: unknown
   maxUrlDownloadBytes?: unknown
+  urlDownloadTimeoutMs?: unknown
 }): void => {
   if (options.mcpToken && options.resourceMetadataUrl) {
     throw new Error(
       'Configure either TRANSLOADIT_MCP_TOKEN (self-hosted) or TRANSLOADIT_MCP_RESOURCE_METADATA_URL (hosted OAuth), not both.',
     )
   }
-  assertByteCount(options.maxRequestBodyBytes, 'maxRequestBodyBytes')
-  assertByteCount(options.maxUrlDownloadBytes, 'maxUrlDownloadBytes')
+  assertRequestBodyLimit(options.maxRequestBodyBytes)
+  // Also checked per server instance; repeated here so a bad config fails at startup.
+  assertServerLimits(options)
 }
 
 /**
