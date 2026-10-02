@@ -6,10 +6,12 @@ import { createServer } from 'node:http'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { Transloadit } from '@transloadit/node'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createTransloaditMcpHttpHandler } from '../../src/http.ts'
+import { createTransloaditMcpServer } from '../../src/server.ts'
 
 const resourceMetadataUrl = 'https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp'
 
@@ -65,7 +67,7 @@ describe('tool auth errors', () => {
     'transloadit_wait_for_assembly',
     'transloadit_list_templates',
     'transloadit_get_profile',
-  ])('%s asks the host to link an account when no credentials exist', async (name) => {
+  ])('%s names the missing server credentials when self-hosted', async (name) => {
     await connect()
     const result = await client.callTool({
       name,
@@ -77,11 +79,24 @@ describe('tool auth errors', () => {
     expect(result.isError).toBe(true)
     expect(result.structuredContent).toMatchObject({
       status: 'error',
-      errors: [{ code: 'mcp_missing_auth' }],
+      errors: [{ code: 'mcp_missing_auth', hint: expect.stringContaining('TRANSLOADIT_KEY') }],
     })
+    // There is no authorization server to link an account with, so no OAuth challenge.
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined()
+  })
+
+  it('asks the host to link an account when a hosted server gets no token', async () => {
+    const server = createTransloaditMcpServer({ resourceMetadataUrl })
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    client = new Client({ name: 'auth-errors-hosted', version: '1.0.0' })
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+
+    const result = await client.callTool({ name: 'transloadit_list_templates', arguments: {} })
+    expect(result.isError).toBe(true)
     expect(wwwAuthenticate(result)).toMatch(
-      /^Bearer error="insufficient_scope", error_description="[^"]+"$/,
+      /^Bearer resource_metadata="[^"]+", error="insufficient_scope", error_description="[^"]+"$/,
     )
+    await server.close()
   })
 
   it('reports rejected tokens on Assembly tools without leaking the API response', async () => {

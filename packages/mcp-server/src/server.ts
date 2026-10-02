@@ -403,14 +403,19 @@ const buildAuthError = (
   )
 
 const buildMissingAuthError = (options: TransloaditMcpServerOptions): CallToolResult =>
-  buildAuthError(options, {
-    code: 'mcp_missing_auth',
-    oauthError: 'insufficient_scope',
-    message: 'Sign in to Transloadit to use this tool.',
-    hint: options.resourceMetadataUrl
-      ? 'Connect your Transloadit account through OAuth, then retry.'
-      : 'Set TRANSLOADIT_KEY/TRANSLOADIT_SECRET or send an Authorization: Bearer token.',
-  })
+  // Only a hosted server has an authorization server a host could link an account with.
+  options.resourceMetadataUrl
+    ? buildAuthError(options, {
+        code: 'mcp_missing_auth',
+        oauthError: 'insufficient_scope',
+        message: 'Sign in to Transloadit to use this tool.',
+        hint: 'Connect your Transloadit account through OAuth, then retry.',
+      })
+    : buildCredentialError({
+        code: 'mcp_missing_auth',
+        message: 'This server has no Transloadit credentials for this tool.',
+        hint: 'Set TRANSLOADIT_KEY/TRANSLOADIT_SECRET or send an Authorization: Bearer token.',
+      })
 
 const buildToolError = (
   code: string,

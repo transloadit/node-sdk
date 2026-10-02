@@ -14,6 +14,9 @@ connector requirements.
   `_meta.securitySchemes`, that match the deployment: `oauth2` with each tool's full scopes when
   hosted, `noauth` where the server holds an Auth Key or a tool needs no account. Auth failures return `isError` results with
   `_meta["mcp/www_authenticate"]` so hosts show their account-linking UI.
+- Behavior change for self-hosted servers without credentials: account tools now return an
+  `isError` result with `mcp_missing_auth` and a hint naming `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`
+  (`transloadit_list_templates` no longer adds an empty `templates` list to that error).
 - New `transloadit_get_profile` tool (`_meta["openai/profile"]`) returns the Workspace behind the
   credentials for multi-account hosts.
 - `transloadit_create_assembly` accepts ChatGPT-attached files through `attachments`
