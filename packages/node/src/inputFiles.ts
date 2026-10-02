@@ -13,6 +13,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { isIP } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, join, parse } from 'node:path'
+import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 import got from 'got'
@@ -53,6 +54,10 @@ export type PrepareInputFilesOptions = {
   urlStrategy?: UrlStrategy
   maxBase64Bytes?: number
   allowPrivateUrls?: boolean
+  /** Abort a URL download once it exceeds this many bytes (declared or streamed). */
+  maxUrlDownloadBytes?: number
+  /** Abort a URL download that takes longer than this many milliseconds. */
+  urlDownloadTimeoutMs?: number
   tempDir?: string
 }
 
@@ -370,14 +375,33 @@ export function createPinnedDnsLookup(
   return pinnedDnsLookup as PinnedDnsLookup
 }
 
+/** Errors once more than `maxBytes` have streamed through, so the temp file stays bounded. */
+const limitDownloadBytes = (maxBytes: number, url: string): Transform => {
+  let received = 0
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      received += chunk.length
+      if (received > maxBytes) {
+        callback(new Error(`URL download exceeds ${maxBytes} bytes: ${url}`))
+        return
+      }
+      callback(null, chunk)
+    },
+  })
+}
+
 const downloadUrlToFile = async ({
   allowPrivateUrls,
   filePath,
   url,
+  maxBytes,
+  timeoutMs,
 }: {
   allowPrivateUrls: boolean
   filePath: string
   url: string
+  maxBytes?: number
+  timeoutMs?: number
 }): Promise<void> => {
   let currentUrl = url
 
@@ -395,6 +419,7 @@ const downloadUrlToFile = async ({
       followRedirect: false,
       retry: { limit: 0 },
       throwHttpErrors: false,
+      ...(timeoutMs === undefined ? {} : { timeout: { request: timeoutMs } }),
     })
 
     const response = await new Promise<
@@ -427,7 +452,15 @@ const downloadUrlToFile = async ({
       throw new Error(`Failed to download URL: ${currentUrl} (${statusCode})`)
     }
 
-    await pipeline(responseStream, createWriteStream(filePath))
+    if (maxBytes === undefined) {
+      await pipeline(responseStream, createWriteStream(filePath))
+      return
+    }
+    if (Number(response.headers['content-length']) > maxBytes) {
+      responseStream.destroy()
+      throw new Error(`URL download exceeds ${maxBytes} bytes: ${url}`)
+    }
+    await pipeline(responseStream, limitDownloadBytes(maxBytes, url), createWriteStream(filePath))
     return
   }
 
@@ -445,6 +478,8 @@ export const prepareInputFiles = async (
     urlStrategy = 'import',
     maxBase64Bytes,
     allowPrivateUrls = true,
+    maxUrlDownloadBytes,
+    urlDownloadTimeoutMs,
     tempDir,
   } = options
 
@@ -534,6 +569,8 @@ export const prepareInputFiles = async (
           allowPrivateUrls,
           filePath,
           url: file.url,
+          maxBytes: maxUrlDownloadBytes,
+          timeoutMs: urlDownloadTimeoutMs,
         })
         files[file.field] = filePath
       }

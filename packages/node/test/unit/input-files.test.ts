@@ -270,6 +270,34 @@ describe('prepareInputFiles', () => {
     expect(lookupMock).not.toHaveBeenCalled()
   })
 
+  it('aborts a URL download larger than maxUrlDownloadBytes', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
+    nock('http://rebind.test').get('/big').reply(200, 'x'.repeat(4096))
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [{ kind: 'url', field: 'remote', url: 'http://rebind.test/big' }],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+        maxUrlDownloadBytes: 1024,
+      }),
+    ).rejects.toThrow('URL download exceeds 1024 bytes: http://rebind.test/big')
+  })
+
+  it('aborts a URL download slower than urlDownloadTimeoutMs', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
+    nock('http://rebind.test').get('/slow').delay(500).reply(200, 'late')
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [{ kind: 'url', field: 'remote', url: 'http://rebind.test/slow' }],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+        urlDownloadTimeoutMs: 50,
+      }),
+    ).rejects.toThrow(/Timeout/)
+  })
+
   it('pins URL downloads to the validated DNS answer', async () => {
     lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
     const downloadScope = nock('http://rebind.test').get('/public').reply(200, 'public-data')

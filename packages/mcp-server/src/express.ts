@@ -4,7 +4,7 @@ import express from 'express'
 
 import {
   applyCorsHeaders,
-  assertSingleAuthMode,
+  assertHttpOptions,
   corsAllowHeaders,
   isBasicAuthorized,
   rejectMissingBearerToken,
@@ -20,7 +20,7 @@ export type TransloaditMcpExpressOptions = TransloaditMcpHttpOptions & {
 }
 
 export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpressOptions = {}) {
-  assertSingleAuthMode(options)
+  assertHttpOptions(options)
   const router = express.Router()
   const routePath = options.path ?? '/mcp'
   const metricsPath =

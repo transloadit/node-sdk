@@ -219,6 +219,50 @@ describe('upstream token rejections over HTTP', () => {
     expect(response.headers.get('www-authenticate')).toContain('error="invalid_token"')
   })
 
+  it('reports a creation response error itself, not a created-but-unreadable Assembly', async () => {
+    serverOptions.resourceMetadataUrl = resourceMetadataUrl
+    nock(endpoint)
+      .post(/\/assemblies\/[a-f\d]{32}$/)
+      .reply(200, {
+        error: 'INVALID_SIGNATURE',
+        message: 'The given signature does not match ours. This Auth Key requires sha256.',
+      })
+
+    const response = await createAssemblyCall()
+    const body = await response.text()
+    expect(body).toContain('mcp_invalid_signature')
+    expect(body).not.toContain('mcp_assembly_status_unavailable')
+  })
+
+  it('checks a forwarded token before downloading any URL input', async () => {
+    serverOptions.resourceMetadataUrl = resourceMetadataUrl
+    nock(endpoint).get('/templates').query(true).reply(401, { error: 'BEARER_TOKEN_INVALID' })
+    const download = nock('http://198.51.100.10').get('/big.bin').reply(200, 'payload')
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer junk-token-that-api2-rejects',
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'transloadit_create_assembly',
+          arguments: {
+            instructions: { steps: { ':original': { robot: '/upload/handle' } } },
+            files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/big.bin' }],
+          },
+        },
+      }),
+    })
+    expect(response.status).toBe(401)
+    expect(download.isDone()).toBe(false)
+  })
+
   it('keeps self-hosted rejections as tool errors over HTTP 200', async () => {
     nock(endpoint).get('/templates').query(true).reply(401, { error: 'BEARER_TOKEN_EXPIRED' })
 

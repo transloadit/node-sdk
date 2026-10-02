@@ -59,6 +59,10 @@ export type TransloaditMcpServerOptions = {
   signatureAlgorithm?: McpSignatureAlgorithm
   /** Origins the result widget may load previews from (`TRANSLOADIT_MCP_RESULT_DOMAINS`). */
   resultDomains?: string[]
+  /** Largest URL input downloaded for upload Steps; defaults to 1 GiB. */
+  maxUrlDownloadBytes?: number
+  /** Longest a URL input download may take; defaults to 10 minutes. */
+  urlDownloadTimeoutMs?: number
   /** Console origin used for widget deep links; defaults to the public website. */
   consoleUrl?: string
   endpoint?: string
@@ -101,6 +105,10 @@ type ToolExtra = {
 }
 
 const maxBase64Bytes = 512_000
+
+/** URL inputs larger or slower than this are not downloaded to this server's disk. */
+const defaultMaxUrlDownloadBytes = 1024 * 1024 * 1024
+const defaultUrlDownloadTimeoutMs = 10 * 60 * 1000
 
 type LintAssemblyInstructionsInput = Parameters<Transloadit['lintAssemblyInstructions']>[0]
 
@@ -596,10 +604,6 @@ const toAuthRejection = (
   return undefined
 }
 
-/** True when the error came from the Assembly creation request itself, so nothing was created. */
-const isCreationRequestError = (error: unknown): boolean =>
-  error instanceof ApiError && error.cause?.options.method.toUpperCase() === 'POST'
-
 /** The Assembly exists, but its status could not be read with the caller's credentials. */
 const buildCreatedAssemblyUnavailable = (
   options: TransloaditMcpServerOptions,
@@ -671,12 +675,12 @@ const buildWidgetContext = (
 
   const workspaceUrl = `${consoleUrl}/c/${encodeURIComponent(slug)}`
   const newTemplateUrl = new URL(`${workspaceUrl}/templates/new`)
+  // Known, accepted gap (product decision on PR #529, routed to Content on 2026-10-02):
   // `fromAssembly` lets the Console seed the editor with the Assembly's effective instructions,
-  // overrides included. Content's new-Template page does not resolve it yet (Content follow-up to
-  // PR #529, routed 2026-10-02); until then inline runs open an empty editor and Template-based
-  // runs are seeded through `duplicateFrom`, without the run's overrides. The action stays visible
-  // on purpose: it already lands signed-in callers in the right Workspace, and the Console gains
-  // the seeding without another MCP release.
+  // overrides included, but Content's new-Template page does not resolve it yet. Until it does,
+  // inline runs open an empty editor and Template-based runs are seeded through `duplicateFrom`
+  // without the run's overrides. The action stays visible on purpose so the Console can start
+  // seeding without another MCP release; hiding or relabeling it is not wanted here.
   if (assemblyId) {
     newTemplateUrl.searchParams.set('fromAssembly', assemblyId)
   }
@@ -1198,6 +1202,11 @@ export const createTransloaditMcpServer = (
             )
           }
         }
+        // The hosted gate only checks that a bearer is present. A URL input may be downloaded to
+        // this server's disk, so let API2 vouch for the token first (templates:read is declared).
+        if (credentials === 'bearer' && inputFilesForPrep.some((file) => file.kind === 'url')) {
+          await client.listTemplates({ pagesize: 1 })
+        }
         const prep = await prepareInputFiles({
           inputFiles: inputFilesForPrep,
           params,
@@ -1206,6 +1215,8 @@ export const createTransloaditMcpServer = (
           urlStrategy: reference ? 'download' : 'import-if-present',
           allowPrivateUrls: false,
           maxBase64Bytes,
+          maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
+          urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
         }).catch((error) => {
           const message = error instanceof Error ? error.message : 'Invalid file input.'
           if (message.startsWith('Duplicate file field')) {
@@ -1239,6 +1250,8 @@ export const createTransloaditMcpServer = (
         const chunkSize = upload_chunk_size
 
         let assembly: Awaited<ReturnType<typeof client.createAssembly>>
+        // Set by the SDK only after API2 accepted the creation request, so a rejected request
+        // (including an error body with HTTP 200) is never mistaken for an existing Assembly.
         let createdAssemblyId: string | undefined
         try {
           if (reference) {
@@ -1263,19 +1276,17 @@ export const createTransloaditMcpServer = (
               chunkSize,
               uploadBehavior,
               expectedUploads: expected_uploads,
+              onAssemblyCreated: (created) => {
+                createdAssemblyId = created.assembly_id ?? creation.assemblyId
+              },
             })
-            createdAssemblyId = creation.assemblyId
             assembly = await creation
           }
         } catch (error) {
           // Once API2 accepted the creation request, an auth failure (a token expiring while
           // uploads or polling run) must not reach the client as a challenge: it would refresh and
           // replay the call, creating and billing a second Assembly.
-          if (
-            createdAssemblyId &&
-            !isCreationRequestError(error) &&
-            toAuthRejection(options, error, credentials, [])
-          ) {
+          if (createdAssemblyId && toAuthRejection(options, error, credentials, [])) {
             return buildCreatedAssemblyUnavailable(options, createdAssemblyId)
           }
           if (isErrnoException(error) && error.code === 'ENOENT') {

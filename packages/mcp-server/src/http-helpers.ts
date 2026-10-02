@@ -265,19 +265,31 @@ export const sendBodyTooLarge = (res: ServerResponse, maxBytes: number): void =>
   )
 }
 
+/** Byte limits arrive from JSON config files too, where `"1MB"` would silently disable a check. */
+const assertByteCount = (value: unknown, name: string): void => {
+  if (value === undefined) return
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer number of bytes.`)
+  }
+}
+
 /**
- * The static-token check runs first and would reject every OAuth token with a bare `Bearer`
- * challenge, so hosted OAuth could never start. Refuse the combination up front.
+ * Refuses HTTP options that would fail silently later. The static-token check runs first and
+ * would reject every OAuth token with a bare `Bearer` challenge, so hosted OAuth could never start.
  */
-export const assertSingleAuthMode = (options: {
+export const assertHttpOptions = (options: {
   mcpToken?: string
   resourceMetadataUrl?: string
+  maxRequestBodyBytes?: unknown
+  maxUrlDownloadBytes?: unknown
 }): void => {
   if (options.mcpToken && options.resourceMetadataUrl) {
     throw new Error(
       'Configure either TRANSLOADIT_MCP_TOKEN (self-hosted) or TRANSLOADIT_MCP_RESOURCE_METADATA_URL (hosted OAuth), not both.',
     )
   }
+  assertByteCount(options.maxRequestBodyBytes, 'maxRequestBodyBytes')
+  assertByteCount(options.maxUrlDownloadBytes, 'maxUrlDownloadBytes')
 }
 
 /**

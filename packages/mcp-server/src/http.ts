@@ -7,7 +7,7 @@ import type { TransloaditMcpServerOptions } from './server.ts'
 
 import {
   applyCorsHeaders,
-  assertSingleAuthMode,
+  assertHttpOptions,
   isBasicAuthorized,
   normalizePath,
   parsePathname,
@@ -19,6 +19,7 @@ import {
   sendBodyTooLarge,
   sendServerInfoForBareGet,
 } from './http-helpers.ts'
+import { parseJson } from './json.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
 import { createRequestTransport } from './request-transport.ts'
 import { createTransloaditMcpServer } from './server.ts'
@@ -48,15 +49,6 @@ export type TransloaditMcpHttpHandler = ((
 
 const defaultPath = '/mcp'
 
-const parseJson = (text: string): unknown => {
-  if (!text) return undefined
-  try {
-    return JSON.parse(text)
-  } catch {
-    return undefined
-  }
-}
-
 export function createTransloaditMcpHttpHandler(
   options: TransloaditMcpHttpOptions = {},
 ): TransloaditMcpHttpHandler {
@@ -64,7 +56,7 @@ export function createTransloaditMcpHttpHandler(
     transport: RequestTransport['transport']
     server: Awaited<ReturnType<typeof createTransloaditMcpServer>>
   }>()
-  assertSingleAuthMode(options)
+  assertHttpOptions(options)
   const expectedPath = options.path ?? defaultPath
   const metricsPath =
     options.metricsPath === false ? undefined : normalizePath(options.metricsPath ?? '/metrics')

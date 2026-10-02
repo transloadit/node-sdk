@@ -10,6 +10,7 @@ import {
   resolveMaxRequestBodyBytes,
   sendBodyTooLarge,
 } from './http-helpers.ts'
+import { isRecord, parseJson } from './json.ts'
 
 type RequestTransportOptions = {
   resourceMetadataUrl?: string
@@ -25,18 +26,6 @@ export type RequestTransport = {
 }
 
 type UpstreamChallenge = { status: 401 | 403; header: string }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const parseJson = (text: string): unknown => {
-  if (!text) return undefined
-  try {
-    return JSON.parse(text)
-  } catch {
-    return undefined
-  }
-}
 
 /**
  * Finds the challenge a tool attached after API2 rejected the forwarded token. Tool results are

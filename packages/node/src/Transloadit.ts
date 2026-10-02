@@ -302,6 +302,11 @@ export interface CreateAssemblyOptions extends AssemblyUploadOptions {
    * Expected number of tus uploads when files will be uploaded separately.
    */
   expectedUploads?: number
+  /**
+   * Called once API2 has accepted the creation request, before uploads and polling. Callers that
+   * must not create an Assembly twice use it to tell later failures apart from rejected creation.
+   */
+  onAssemblyCreated?: (assembly: AssemblyStatus) => void
 }
 
 export interface ResumeAssemblyUploadsOptions extends AssemblyUploadOptions {
@@ -699,6 +704,7 @@ export class Transloadit {
       uploads = {},
       assemblyId,
       expectedUploads,
+      onAssemblyCreated,
       signal,
       uploadBehavior = 'await',
     } = opts
@@ -770,6 +776,7 @@ export class Transloadit {
           signal,
         })
         checkResult(result)
+        onAssemblyCreated?.(result)
 
         if (Object.keys(allStreamsMap).length > 0) {
           const { uploadUrls } = await sendTusRequest({

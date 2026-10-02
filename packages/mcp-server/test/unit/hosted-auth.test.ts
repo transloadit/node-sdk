@@ -377,6 +377,12 @@ describe('request body limits', () => {
     expect(response.status).toBe(413)
   })
 
+  it.each([0, -1, 1.5, Number.NaN])('refuses maxRequestBodyBytes %s', (maxRequestBodyBytes) => {
+    expect(() => createTransloaditMcpHttpHandler({ maxRequestBodyBytes })).toThrow(
+      'maxRequestBodyBytes must be a positive integer number of bytes.',
+    )
+  })
+
   it('accepts bodies within the limit', async () => {
     running = await start({ maxRequestBodyBytes: 8192, resourceMetadataUrl })
 

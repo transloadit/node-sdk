@@ -41,6 +41,7 @@ describe('MCP file inputs', () => {
     delete serverOptions.endpoint
     delete serverOptions.mcpToken
     delete serverOptions.consoleUrl
+    delete serverOptions.maxUrlDownloadBytes
     fixtureDirectory = await mkdtemp(join(tmpdir(), 'mcp-test-'))
     fixturePath = join(fixtureDirectory, 'fixture.txt')
     await writeFile(fixturePath, fixtureContent)
@@ -58,6 +59,8 @@ describe('MCP file inputs', () => {
     vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
       ok: 'ASSEMBLY_COMPLETED',
     })
+    // Forwarded tokens are checked with a Template list before any URL is downloaded.
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({ items: [], count: 0 })
     vi.spyOn(Transloadit.prototype, 'getTemplate').mockRejectedValue(
       new Error('Unexpected template lookup'),
     )
@@ -720,5 +723,23 @@ describe('MCP file inputs', () => {
       assembly: { assembly_id: assemblyId },
     })
     expect(result._meta).toEqual({ 'transloadit/widget': { authenticated: true } })
+  })
+
+  it('stops downloading a URL input above maxUrlDownloadBytes', async () => {
+    serverOptions.maxUrlDownloadBytes = 1024
+    nock('http://198.51.100.10').get('/big.bin').reply(200, 'x'.repeat(4096))
+
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { ':original': { robot: '/upload/handle' } } },
+        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/big.bin' }],
+      },
+    })
+    expect(result.structuredContent).toMatchObject({
+      status: 'error',
+      errors: [{ message: 'URL download exceeds 1024 bytes: http://198.51.100.10/big.bin' }],
+    })
+    expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
   })
 })

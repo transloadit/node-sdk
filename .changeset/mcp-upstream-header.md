@@ -9,3 +9,7 @@ Like `Authorization`, these headers are dropped when a redirect leaves the API o
 
 `listTemplates()` also accepts `fields`, for API2 columns such as `account_id` that the default
 Template list omits.
+
+`prepareInputFiles()` accepts `maxUrlDownloadBytes` and `urlDownloadTimeoutMs` to bound URL
+downloads, and `createAssembly()` accepts `onAssemblyCreated`, called once API2 accepted the
+creation request.

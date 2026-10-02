@@ -1,9 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
-type RequestHandler = (request: unknown, extra: unknown) => Promise<unknown>
+import { isRecord } from './json.ts'
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
+type RequestHandler = (request: unknown, extra: unknown) => Promise<unknown>
 
 const isRequestHandler = (value: unknown): value is RequestHandler => typeof value === 'function'
 
