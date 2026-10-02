@@ -442,8 +442,9 @@ Set `maxRequestBodyBytes` (handler option or JSON config key) to change the body
 requests get HTTP 413 and are not buffered. Express apps that install their own body parser set
 its limit there.
 
-URL inputs that the server downloads (for templates that expect uploads) are capped at 1 GiB and
-10 minutes; set `maxUrlDownloadBytes` and `urlDownloadTimeoutMs` to change that. On the hosted
+URL inputs that the server downloads (for templates that expect uploads) are capped at 1 GiB in
+total per call and 10 minutes per download, redirects included; set `maxUrlDownloadBytes` and
+`urlDownloadTimeoutMs` to change that. On the hosted
 endpoint the caller's token is checked with API2 before anything is downloaded.
 
 ## URL inputs and template behavior

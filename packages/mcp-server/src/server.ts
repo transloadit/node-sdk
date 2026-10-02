@@ -61,9 +61,9 @@ export type TransloaditMcpServerOptions = {
   signatureAlgorithm?: McpSignatureAlgorithm
   /** Origins the result widget may load previews from (`TRANSLOADIT_MCP_RESULT_DOMAINS`). */
   resultDomains?: string[]
-  /** Largest URL input downloaded for upload Steps; defaults to 1 GiB. */
+  /** Most bytes the URL inputs of one call may download together; defaults to 1 GiB. */
   maxUrlDownloadBytes?: number
-  /** Longest a URL input download may take; defaults to 10 minutes. */
+  /** Longest one URL input download may take, redirects included; defaults to 10 minutes. */
   urlDownloadTimeoutMs?: number
   /** Console origin used for widget deep links; defaults to the public website. */
   consoleUrl?: string
@@ -108,7 +108,7 @@ type ToolExtra = {
 
 const maxBase64Bytes = 512_000
 
-/** URL inputs larger or slower than this are not downloaded to this server's disk. */
+/** URL inputs beyond these limits are not downloaded to this server's disk (per call). */
 const defaultMaxUrlDownloadBytes = 1024 * 1024 * 1024
 const defaultUrlDownloadTimeoutMs = 10 * 60 * 1000
 

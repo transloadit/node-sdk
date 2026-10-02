@@ -750,7 +750,7 @@ describe('MCP file inputs', () => {
     })
     expect(result.structuredContent).toMatchObject({
       status: 'error',
-      errors: [{ message: 'URL download exceeds 1024 bytes: http://198.51.100.10/big.bin' }],
+      errors: [{ message: 'URL downloads exceed 1024 bytes: http://198.51.100.10/big.bin' }],
     })
     expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
   })

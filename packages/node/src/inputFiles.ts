@@ -54,9 +54,9 @@ export type PrepareInputFilesOptions = {
   urlStrategy?: UrlStrategy
   maxBase64Bytes?: number
   allowPrivateUrls?: boolean
-  /** Abort a URL download once it exceeds this many bytes (declared or streamed). */
+  /** Abort once all URL downloads of this call exceed this many bytes together. */
   maxUrlDownloadBytes?: number
-  /** Abort a URL download that takes longer than this many milliseconds. */
+  /** Abort a URL download (DNS checks and redirects included) after this many milliseconds. */
   urlDownloadTimeoutMs?: number
   /**
    * Awaited before each URL input is downloaded locally (not for `/http/import`), so a caller can
@@ -390,41 +390,56 @@ export function createPinnedDnsLookup(
   return pinnedDnsLookup as PinnedDnsLookup
 }
 
-/** Errors once more than `maxBytes` have streamed through, so the temp file stays bounded. */
-const limitDownloadBytes = (maxBytes: number, url: string): Transform => {
-  let received = 0
-  return new Transform({
+/** A budget shared by every URL download of one `prepareInputFiles` call. */
+type DownloadBudget = { totalBytes: number; remainingBytes: number }
+
+const budgetExceeded = (budget: DownloadBudget, url: string): Error =>
+  new Error(`URL downloads exceed ${budget.totalBytes} bytes: ${describeUrl(url)}`)
+
+/** Errors once the budget is used up, so temp files stay bounded while they stream in. */
+const limitDownloadBytes = (budget: DownloadBudget, url: string): Transform =>
+  new Transform({
     transform(chunk: Buffer, _encoding, callback) {
-      received += chunk.length
-      if (received > maxBytes) {
-        callback(new Error(`URL download exceeds ${maxBytes} bytes: ${describeUrl(url)}`))
+      budget.remainingBytes -= chunk.length
+      if (budget.remainingBytes < 0) {
+        callback(budgetExceeded(budget, url))
         return
       }
       callback(null, chunk)
     },
   })
-}
 
 const downloadUrlToFile = async ({
   allowPrivateUrls,
   filePath,
   url,
-  maxBytes,
+  budget,
   timeoutMs,
 }: {
   allowPrivateUrls: boolean
   filePath: string
   url: string
-  maxBytes?: number
+  budget?: DownloadBudget
   timeoutMs?: number
 }): Promise<void> => {
   let currentUrl = url
+  // One deadline for the whole download, so DNS checks and redirects cannot each restart it.
+  const deadline = timeoutMs === undefined ? undefined : Date.now() + timeoutMs
+  const remainingMs = (): number | undefined => {
+    if (deadline === undefined) return undefined
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) {
+      throw new Error(`URL download timed out after ${timeoutMs} ms: ${describeUrl(url)}`)
+    }
+    return remaining
+  }
 
   for (let redirectCount = 0; redirectCount <= MAX_URL_REDIRECTS; redirectCount += 1) {
     let validatedAddresses: Array<{ address: string; family: 4 | 6 }> | null = null
     if (!allowPrivateUrls) {
       validatedAddresses = await resolvePublicDownloadAddresses(currentUrl)
     }
+    const requestTimeoutMs = remainingMs()
 
     const dnsLookup: LookupFunction | undefined =
       validatedAddresses == null ? undefined : createPinnedDnsLookup(validatedAddresses)
@@ -434,7 +449,7 @@ const downloadUrlToFile = async ({
       followRedirect: false,
       retry: { limit: 0 },
       throwHttpErrors: false,
-      ...(timeoutMs === undefined ? {} : { timeout: { request: timeoutMs } }),
+      ...(requestTimeoutMs === undefined ? {} : { timeout: { request: requestTimeoutMs } }),
     })
 
     const response = await new Promise<
@@ -467,15 +482,15 @@ const downloadUrlToFile = async ({
       throw new Error(`Failed to download URL: ${describeUrl(currentUrl)} (${statusCode})`)
     }
 
-    if (maxBytes === undefined) {
+    if (budget === undefined) {
       await pipeline(responseStream, createWriteStream(filePath))
       return
     }
-    if (Number(response.headers['content-length']) > maxBytes) {
+    if (Number(response.headers['content-length']) > budget.remainingBytes) {
       responseStream.destroy()
-      throw new Error(`URL download exceeds ${maxBytes} bytes: ${describeUrl(url)}`)
+      throw budgetExceeded(budget, url)
     }
-    await pipeline(responseStream, limitDownloadBytes(maxBytes, url), createWriteStream(filePath))
+    await pipeline(responseStream, limitDownloadBytes(budget, url), createWriteStream(filePath))
     return
   }
 
@@ -503,6 +518,10 @@ export const prepareInputFiles = async (
   const files: Record<string, string> = {}
   const uploads: Record<string, UploadInput> = {}
   const cleanup: Array<() => Promise<void>> = []
+  const downloadBudget: DownloadBudget | undefined =
+    maxUrlDownloadBytes === undefined
+      ? undefined
+      : { totalBytes: maxUrlDownloadBytes, remainingBytes: maxUrlDownloadBytes }
 
   if (fields && Object.keys(fields).length > 0) {
     nextParams = {
@@ -586,7 +605,7 @@ export const prepareInputFiles = async (
           allowPrivateUrls,
           filePath,
           url: file.url,
-          maxBytes: maxUrlDownloadBytes,
+          budget: downloadBudget,
           timeoutMs: urlDownloadTimeoutMs,
         })
         files[file.field] = filePath

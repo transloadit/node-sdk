@@ -14,6 +14,16 @@ const shellQuote = (value: string): string => `'${value.replaceAll("'", `'\\''`)
 
 const toBase64 = (value: string): string => Buffer.from(value, 'utf8').toString('base64')
 
+/** Field names `file_1`, `file_2`, … that files sent with the same call do not use yet. */
+const pickFieldnames = (count: number, taken: ReadonlySet<string>): string[] => {
+  const fieldnames: string[] = []
+  for (let index = 1; fieldnames.length < count; index += 1) {
+    const fieldname = `file_${index}`
+    if (!taken.has(fieldname)) fieldnames.push(fieldname)
+  }
+  return fieldnames
+}
+
 /**
  * Builds a single `curl` command per expected upload, using tus creation-with-upload (one POST
  * with the file as body), which Transloadit's tusd advertises; it prints `201` on success. The
@@ -26,16 +36,6 @@ const toBase64 = (value: string): string => Buffer.from(value, 'utf8').toString(
  * bearer tokens) must never be added here, because the commands are shown to the model and run
  * in its sandbox.
  */
-/** Field names `file_1`, `file_2`, … that files sent with the same call do not use yet. */
-const pickFieldnames = (count: number, taken: ReadonlySet<string>): string[] => {
-  const fieldnames: string[] = []
-  for (let index = 1; fieldnames.length < count; index += 1) {
-    const fieldname = `file_${index}`
-    if (!taken.has(fieldname)) fieldnames.push(fieldname)
-  }
-  return fieldnames
-}
-
 export const buildUploadInstructions = (
   assembly: { tus_url?: unknown; assembly_ssl_url?: unknown },
   count: number,
