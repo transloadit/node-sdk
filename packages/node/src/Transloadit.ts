@@ -43,6 +43,7 @@ import type {
   TemplateResponse,
 } from './apiTypes.ts'
 import type { BearerTokenResponse, MintBearerTokenOptions } from './bearerToken.ts'
+import type { ContractClientOptions } from './generated-contract/client.ts'
 import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
@@ -95,6 +96,7 @@ import {
 } from './alphalib/types/storageAsset.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import { mintBearerTokenWithCredentials } from './bearerToken.ts'
+import { ContractClient, isContractSignatureAlgorithm } from './generated-contract/client.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
@@ -182,7 +184,7 @@ export { mergeTemplateContent } from './alphalib/templateMerge.ts'
 export * from './apiTypes.ts'
 export { prepareInputFiles } from './inputFiles.ts'
 export { getRobotHelp, isKnownRobot, listRobots } from './robots.ts'
-export { ApiError, InconsistentResponseError }
+export { ApiError, ContractClient, InconsistentResponseError }
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
@@ -304,6 +306,7 @@ export interface ResumeAssemblyUploadsOptions extends AssemblyUploadOptions {
 
 export interface AwaitAssemblyCompletionOptions {
   onAssemblyProgress?: AssemblyProgress
+  /** Total polling deadline in milliseconds, including in-flight status requests. */
   timeout?: number
   interval?: number
   startTimeMs?: number
@@ -485,6 +488,34 @@ export class Transloadit {
   private _lastUsedAssemblyUrl = ''
 
   private _validateResponses = false
+
+  /** Access generated ordinary API methods without changing existing SDK method behavior. */
+  contract(): ContractClient {
+    // This synchronous factory intentionally exposes the full generated declaration graph to
+    // root imports too. API2 checks its size; lazy runtime imports would not reduce that type cost.
+    if (this._defaultTimeout === 0) {
+      throw new Error(
+        'Cannot inherit a zero request timeout: use a positive timeout for contract()',
+      )
+    }
+    let authentication: ContractClientOptions['authentication']
+    if (this._authToken === null) {
+      const algorithm = this.#signatureAlgorithm
+      if (!isContractSignatureAlgorithm(algorithm)) {
+        throw new Error('Signature algorithm is not supported by the generated contract client')
+      }
+      authentication = { kind: 'signed', key: this._authKey, secret: this._authSecret, algorithm }
+    } else {
+      authentication = { kind: 'bearer', token: this._authToken }
+    }
+    return new ContractClient({
+      origin: this._endpoint,
+      // AbortSignal.timeout needs integer milliseconds; do not round a positive budget down to zero.
+      timeout: this._defaultTimeout >= 0 ? Math.ceil(this._defaultTimeout) : this._defaultTimeout,
+      clientName: this._clientName,
+      authentication,
+    })
+  }
 
   /** Create a client; new combined keys require signatureAlgorithm: 'sha256' explicitly. */
   constructor(opts: Options) {
@@ -1036,10 +1067,42 @@ export class Transloadit {
 
     let lastResult: AssemblyStatus | undefined
 
-    const fetchAssemblyStatus = (): Promise<AssemblyStatus> => {
-      return assemblyUrl
-        ? this._fetchAssemblyStatus({ url: assemblyUrl, signal })
-        : this.getAssembly(assemblyId, { signal })
+    const fetchAssemblyStatus = async (): Promise<AssemblyStatus> => {
+      const remaining =
+        timeout == null ? Number.POSITIVE_INFINITY : timeout - (getHrTimeMs() - startTimeMs)
+      if (remaining <= 0) throw new PollingTimeoutError('Polling timed out')
+
+      const deadline = new AbortController()
+      // Larger delays overflow Node's timer range. The next poll recomputes the remaining budget.
+      const timer =
+        remaining <= 2_147_483_647
+          ? setTimeout(
+              () => deadline.abort(new PollingTimeoutError('Polling timed out')),
+              remaining,
+            )
+          : undefined
+      // Older supported Node versions retain weak dependencies for each AbortSignal.any() call.
+      // A removable listener keeps a long-lived caller signal independent of the number of polls.
+      const onAbort = (): void => deadline.abort(signal?.reason)
+      signal?.addEventListener('abort', onAbort, { once: true })
+      if (signal?.aborted) onAbort()
+      const requestSignal = deadline.signal
+      try {
+        const result = await (assemblyUrl
+          ? this._fetchAssemblyStatus({ url: assemblyUrl, signal: requestSignal })
+          : this.getAssembly(assemblyId, { signal: requestSignal }))
+        // A late completed response must not turn an expired wait into success.
+        if (timeout != null && getHrTimeMs() - startTimeMs >= timeout) {
+          throw new PollingTimeoutError('Polling timed out')
+        }
+        return result
+      } catch (error) {
+        if (requestSignal.reason instanceof PollingTimeoutError) throw requestSignal.reason
+        throw error
+      } finally {
+        clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
+      }
     }
 
     while (true) {
@@ -1062,12 +1125,7 @@ export class Transloadit {
         !('ok' in result) ||
         (result.ok !== 'ASSEMBLY_UPLOADING' &&
           result.ok !== 'ASSEMBLY_EXECUTING' &&
-          // ASSEMBLY_REPLAYING is not a valid 'ok' status for polling, it means it's done replaying.
-          // The API does not seem to have an ASSEMBLY_REPLAYING status in the typical polling loop.
-          // It's usually a final status from the replay endpoint.
-          // For polling, we only care about UPLOADING and EXECUTING.
-          // If a replay operation puts it into a pollable state, that state would be EXECUTING.
-          result.ok !== 'ASSEMBLY_REPLAYING') // This line might need review based on actual API behavior for replayed assembly polling
+          result.ok !== 'ASSEMBLY_REPLAYING')
       ) {
         return result // Done!
       }
@@ -1085,10 +1143,13 @@ export class Transloadit {
 
       // Make the sleep abortable, ensuring listener cleanup to prevent memory leaks
       await new Promise<void>((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          signal?.removeEventListener('abort', onAbort)
-          resolve()
-        }, interval)
+        const timeoutId = setTimeout(
+          () => {
+            signal?.removeEventListener('abort', onAbort)
+            resolve()
+          },
+          timeout == null ? interval : Math.min(interval, timeout - (nowMs - startTimeMs)),
+        )
 
         function onAbort() {
           clearTimeout(timeoutId)
@@ -1096,6 +1157,10 @@ export class Transloadit {
         }
 
         signal?.addEventListener('abort', onAbort, { once: true })
+        if (signal?.aborted) {
+          signal.removeEventListener('abort', onAbort)
+          onAbort()
+        }
       })
     }
   }
@@ -1730,7 +1795,11 @@ export class Transloadit {
               `Rate limit reached, retrying request in approximately ${retryDelaySec} seconds.`,
             )
             const retryInMs = 1000 * (retryDelaySec * (1 + 0.1 * Math.random()))
-            await delay(retryInMs)
+            await delay(retryInMs, undefined, { signal }).catch((error: unknown) => {
+              if (!signal?.aborted) throw error
+              // Let got classify the already-aborted signal on the next iteration without
+              // sending HTTP. This preserves its public AbortError/TimeoutError semantics.
+            })
             // Retry
           } else {
             throw new ApiError({

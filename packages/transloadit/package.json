@@ -86,11 +86,16 @@
   "main": "./dist/Transloadit.js",
   "exports": {
     ".": "./dist/Transloadit.js",
+    "./contract": "./dist/generated-contract/client.js",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "src"
+    "examples/contract-workflow.ts",
+    "src",
+    "!src/generated-contract/client.ts",
+    "!src/generated-contract/coverage.json",
+    "!src/generated-contract/workflow-vectors.json"
   ],
   "bin": "./dist/cli.js"
 }

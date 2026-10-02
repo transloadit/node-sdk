@@ -1,0 +1,262 @@
+{
+  "format": "transloadit-sdk-workflow-vectors",
+  "version": 1,
+  "credentials": {
+    "key": "workflow-test-key",
+    "secret": "workflow-test-secret"
+  },
+  "assemblyId": "11111111111111111111111111111111",
+  "admission": {
+    "assemblyId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "acceptedOrigins": [
+      "https://api2-cell.transloadit.com",
+      "https://API2-CELL.TRANSLOADIT.COM:443",
+      "https://api2-a.transloadit.com",
+      "https://api2-a-b.transloadit.com"
+    ],
+    "rejectedOrigins": [
+      "https://outside.invalid",
+      "http://api2-cell.transloadit.com",
+      "https://api2-cell.transloadit.com:444",
+      "https://api2-cell.transloadit.com.evil.invalid",
+      "https://api2-cell.transloadit.com.",
+      "https://api2-cell.extra.transloadit.com",
+      "https://api2-.transloadit.com",
+      "https://api2--a.transloadit.com",
+      "https://api2-a-.transloadit.com",
+      "https://api2-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.transloadit.com",
+      "https://api2-xn--a.transloadit.com",
+      "https://api2-céll.transloadit.com",
+      "https://%61pi2-cell.transloadit.com",
+      "https://api2-cell.transloadit.com@outside.invalid",
+      "https://user@api2-cell.transloadit.com",
+      "https://api2-\ncell.transloadit.com",
+      " https://api2-cell.transloadit.com",
+      "https:\\api2-cell.transloadit.com"
+    ],
+    "rejectedAssemblyPaths": [
+      "/assemblies/%61aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "/assemblies/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "/assemblies/../assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "/assemblies/%2e%2e/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?method=delete",
+      "/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?",
+      "/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+      "/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/",
+      "/assemblies/%252e%252e",
+      "/assemblies/%2f",
+      "/assemblies/%zz",
+      "/assemblies/a\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "rejectedLocations": [
+      "",
+      "//outside.invalid/resumable/files/upload",
+      "https://outside.invalid/resumable/files/upload",
+      "https://%61pi2-cell.transloadit.com/resumable/files/upload",
+      "/resumable/files/../files/upload",
+      "/resumable/files/%2e%2e",
+      "/resumable/files/%252e%252e",
+      "/resumable/files/%2f",
+      "/resumable/files/up%20load",
+      "/resumable/files/upload?method=delete",
+      "/resumable/files/upload#",
+      "/resumable/files/upload?",
+      "/resumable/files/upload/other",
+      "upload"
+    ],
+    "rebalancedLocations": [
+      "https://api2-rebalanced.transloadit.com/resumable/files/upload",
+      "//api2-rebalanced.transloadit.com/resumable/files/upload"
+    ]
+  },
+  "cases": [
+    {
+      "id": "upload-bytes",
+      "kind": "upload",
+      "filename": "workflow.bin",
+      "hex": "00017f80ff0d0a4142434445464748494a4b4c4d4e4f",
+      "chunkSize": 4
+    },
+    {
+      "id": "upload-recovers-lost-response",
+      "kind": "upload",
+      "filename": "workflow.bin",
+      "hex": "00017f80ff0d0a4142434445464748494a4b4c4d4e4f",
+      "chunkSize": 4,
+      "loseResponseAfterBytes": 4
+    },
+    {
+      "id": "resume-interrupted-upload",
+      "kind": "resume",
+      "filename": "workflow.bin",
+      "hex": "00017f80ff0d0a4142434445464748494a4b4c4d4e4f",
+      "chunkSize": 4,
+      "interruptAfterBytes": 4
+    },
+    {
+      "id": "wait-until-completed",
+      "kind": "wait",
+      "responses": [
+        {
+          "ok": "ASSEMBLY_UPLOADING"
+        },
+        {
+          "ok": "ASSEMBLY_EXECUTING"
+        },
+        {
+          "ok": "ASSEMBLY_COMPLETED"
+        }
+      ],
+      "expected": {
+        "ok": "ASSEMBLY_COMPLETED"
+      }
+    },
+    {
+      "id": "wait-through-replaying",
+      "kind": "wait",
+      "responses": [
+        {
+          "ok": "ASSEMBLY_REPLAYING"
+        },
+        {
+          "ok": "ASSEMBLY_COMPLETED"
+        }
+      ],
+      "expected": {
+        "ok": "ASSEMBLY_COMPLETED"
+      }
+    },
+    {
+      "id": "wait-canceled-is-not-success",
+      "kind": "wait",
+      "responses": [
+        {
+          "ok": "ASSEMBLY_EXECUTING"
+        },
+        {
+          "ok": "ASSEMBLY_CANCELED"
+        }
+      ],
+      "expected": {
+        "ok": "ASSEMBLY_CANCELED"
+      }
+    },
+    {
+      "id": "wait-request-aborted-is-not-success",
+      "kind": "wait",
+      "responses": [
+        {
+          "ok": "REQUEST_ABORTED"
+        }
+      ],
+      "expected": {
+        "ok": "REQUEST_ABORTED"
+      }
+    },
+    {
+      "id": "wait-processing-error-is-not-success",
+      "kind": "wait",
+      "responses": [
+        {
+          "ok": "ASSEMBLY_EXECUTING"
+        },
+        {
+          "error": "FILE_FILTER_DECLINED_FILE"
+        }
+      ],
+      "expected": {
+        "error": "FILE_FILTER_DECLINED_FILE"
+      }
+    },
+    {
+      "id": "wait-aborted-before-request",
+      "kind": "abort"
+    },
+    {
+      "id": "wait-deadline",
+      "kind": "deadline"
+    },
+    {
+      "id": "wait-deadline-during-request",
+      "kind": "deadline",
+      "responseDelayMs": 2000
+    },
+    {
+      "id": "cancel-remote-assembly",
+      "kind": "cancel",
+      "expected": {
+        "ok": "ASSEMBLY_CANCELED"
+      }
+    }
+  ],
+  "smartCdn": [
+    {
+      "id": "reserved-and-unicode-encoding",
+      "workspace": "workflow-test",
+      "template": "preview !'()*~",
+      "input": "folder/a+b &café🍩.jpg",
+      "expiresAt": 1893456000123,
+      "params": {
+        "z": [
+          "last"
+        ],
+        "space key": [
+          "hello world"
+        ],
+        "mark": [
+          "~!'()*"
+        ],
+        "a": [
+          "first",
+          "second"
+        ]
+      },
+      "expectedUrl": "https://workflow-test.tlcdn.com/preview%20!'()*~/folder%2Fa%2Bb%20%26caf%C3%A9%F0%9F%8D%A9.jpg?a=first&a=second&auth_key=workflow-test-key&exp=1893456000123&mark=%7E%21%27%28%29*&space+key=hello+world&z=last&sig=sha256%3A95b75cd5d3d08b567e65609ce55d0ed5dbae7ecc0386509e73b27bb46532cb2b"
+    },
+    {
+      "id": "replace-reserved-auth-fields",
+      "workspace": "workflow-test",
+      "template": "preview",
+      "input": "%2Fexample.jpg",
+      "expiresAt": 1893456000123,
+      "params": {
+        "sig": [
+          "old-signature"
+        ],
+        "auth_key": [
+          "old-key"
+        ],
+        "exp": [
+          "1"
+        ],
+        "value": [
+          "a/b",
+          "a+b"
+        ]
+      },
+      "expectedUrl": "https://workflow-test.tlcdn.com/preview/%252Fexample.jpg?auth_key=workflow-test-key&exp=1893456000123&value=a%2Fb&value=a%2Bb&sig=sha256%3Af9c8336d1a36c274a1858a4d13367dc01e3b6457e102222d71b27eab5e8bd6d0"
+    },
+    {
+      "id": "query-utf16-order-and-empty-input",
+      "workspace": "workflow-test",
+      "template": "preview",
+      "input": "",
+      "expiresAt": 1893456000123,
+      "params": {
+        "": [
+          "bmp"
+        ],
+        "😀": [
+          "astral"
+        ],
+        "empty": [
+          ""
+        ],
+        "flag": [
+          "false"
+        ]
+      },
+      "expectedUrl": "https://workflow-test.tlcdn.com/preview/?auth_key=workflow-test-key&empty=&exp=1893456000123&flag=false&%F0%9F%98%80=astral&%EE%80%80=bmp&sig=sha256%3A48eba807409e6db3604e8f90f9527e39354a1ea34ea0752500a06228eb4ba3d2"
+    }
+  ]
+}

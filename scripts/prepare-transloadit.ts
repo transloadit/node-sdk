@@ -129,6 +129,14 @@ const main = async (): Promise<void> => {
 
   await copyDir(resolve(nodePackage, 'dist'), resolve(legacyPackage, 'dist'))
   await copyDir(resolve(nodePackage, 'src'), resolve(legacyPackage, 'src'))
+  await mkdir(resolve(legacyPackage, 'examples'), { recursive: true })
+  const workflow = await readFile(resolve(nodePackage, 'examples/contract-workflow.ts'), 'utf8')
+  const legacyWorkflow = workflow.replaceAll(
+    "'@transloadit/node/contract'",
+    "'transloadit/contract'",
+  )
+  if (legacyWorkflow === workflow) throw new Error('Expected canonical workflow imports')
+  await writeFile(resolve(legacyPackage, 'examples/contract-workflow.ts'), legacyWorkflow)
   await cp(resolve(nodePackage, 'README.md'), resolve(legacyPackage, 'README.md'))
   await cp(resolve(repoRoot, 'LICENSE'), resolve(legacyPackage, 'LICENSE'))
   await chmod(resolve(legacyPackage, 'dist/cli.js'), 0o755)

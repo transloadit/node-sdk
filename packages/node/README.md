@@ -22,6 +22,153 @@ files.
 This is a **Node.js** SDK to make it easy to talk to the
 [Transloadit](https://transloadit.com) REST API.
 
+## Contract-generated API methods (experimental)
+
+`client.contract()` adds typed, low-level methods for the ordinary HTTP API, using the same
+credentials and endpoint as the existing client. Existing methods remain available separately.
+
+```ts
+const api = client.contract()
+const templates = await api.listTemplates({ params: { include_builtin: 'none' } })
+const template = await api.getTemplate({ path: { templateIdOrName: 'my-template' } })
+```
+
+For standalone use, import `ContractClient` from `@transloadit/node/contract`. Configure either
+`authentication: { kind: 'signed', key, secret }` or `{ kind: 'bearer', token }`. Signed requests
+default to SHA-384. Set `algorithm: 'sha256'` for a combined Smart CDN/Assembly key, matching its
+Console configuration. Through `client.contract()`, the existing client's `signatureAlgorithm`
+is preserved; no token is minted implicitly. Pass raw, unencoded
+path values. The client signs exactly the serialized `params` it sends. Multipart inputs use
+`files: { file: { data: blob, filename: 'example.jpg' } }`. Requests accept an `AbortSignal`.
+
+Ordinary methods return the HTTP response, not a completed Assembly. The explicit workflow methods
+`waitForAssembly({ assemblyId, signal })` and `cancelAndWaitForAssembly({ assemblyId, signal })`
+discover and safely follow the owning uploader. They return any terminal status, including errors
+and cancellation: check `status.ok === 'ASSEMBLY_COMPLETED'` before treating processing as successful.
+They default to a five-minute overall `timeout` and a one-second polling `interval`, both in
+milliseconds. Aborting or timing out stops waiting, not the remote Assembly. Cancel-and-wait sends
+one cancellation attempt, then confirms its outcome; a timeout does not prove cancellation.
+`REQUEST_ABORTED` is a finite, unsuccessful outcome: waiting returns that typed status without
+throwing or polling indefinitely. It does not mean processing succeeded or all background work
+has stopped. An explicit cancel still contacts the owning uploader once, preserving a completed
+or failed outcome if work already ended. If that owner cannot be discovered after `REQUEST_ABORTED`,
+cancel-and-wait throws `AssemblyWorkflowUnconfirmedError` (`code: 'ASSEMBLY_WORKFLOW_UNCONFIRMED'`).
+A later GET with `REQUEST_ABORTED` does not hide a failed cancellation request. No terminal response
+promises that worker cleanup or billing has already stopped.
+Private deployments may configure `assemblyOrigins` with trusted origins known before the request.
+These origins are additional to the public Transloadit uploader hosts admitted by the contract.
+A custom API endpoint is not an exclusive egress policy: returned public uploaders can still receive
+workflow requests directly. Enforce mandatory proxy routing in your network or custom transport.
+Never populate that list from response data. Redirects, changed owners and untrusted destinations
+are rejected, and uploader requests carry no authentication credentials.
+An exact match to the configured endpoint retains its proxy prefix; prefixes are never inferred
+from response data. Status GETs retry transient network failures and HTTP 429/5xx within the overall deadline, honoring
+`Retry-After`. A failed DELETE is never retried; an HTTP error can be followed by a GET to confirm
+whether the Assembly became terminal in the meantime.
+
+For resumable uploads, create an Assembly with the upload count in top-level `fields`, alongside
+`params` (not inside `params.fields`), then call the fixed-size workflow with its ID:
+
+```ts
+const created = await api.createAssembly({
+  params: { template_id: templateId },
+  fields: { num_expected_upload_files: '1' },
+  signal,
+})
+const assemblyId = created.assembly_id
+if (!assemblyId) throw new Error('Missing Assembly ID')
+await api.uploadAssemblyFile({
+  assemblyId,
+  file: { data: blob, filename: 'example.jpg' },
+  onSession: persistSession,
+  signal,
+})
+const status = await api.waitForAssembly({ assemblyId, signal })
+```
+
+`persistSession` is your callback for saving the serializable `AssemblyUploadSession` securely.
+It runs before any file bytes are sent; throw to stop if persistence fails. Its second argument is
+the workflow's `AbortSignal`; use it to stop your persistence I/O when canceled. The SDK stops
+waiting on cancellation, but cannot undo side effects in your callback. The session contains
+a secret upload URL: do not log it or expose it to other users. After interruption, a new client
+can call `resumeAssemblyFile({ assemblyId, file, session, signal })` with that saved session and
+the original file. The SDK hashes the Blob in bounded chunks, rejects a changed file, validates
+the destination and metadata, and reads the server's offset instead of trusting a cached offset.
+Already completed transfers send no more bytes. Completion means the file was transferred;
+use `waitForAssembly` and inspect its terminal status to establish processing success.
+If HEAD returns 404 after temporary upload cleanup, the workflow refreshes Assembly status and
+requires one finished `tus_uploads` receipt matching the saved URL, filename, fieldname, size and
+completed offset. Missing or mismatched receipts remain errors; no replacement upload is created.
+Stopped Assemblies receive no new upload writes. When known, `AssemblyUploadError.assemblyCode`
+identifies that status; an already complete transfer can still be confirmed without writing,
+even if later Assembly processing failed. Use `waitForAssembly` to check processing separately.
+
+Uploads default to 5 MiB chunks, a five-minute overall timeout and five recovery attempts.
+The timeout includes hashing the complete file, discovery, session persistence, transfer and backoff.
+Choose a larger `timeout` for files or connections that cannot finish that work within five minutes.
+Configure `chunkSize`, `timeout`, `maxRetries` and `retryDelay` on the workflow. After an ambiguous
+PATCH failure, recovery reads the offset before sending more bytes and honors `Retry-After`.
+The client's per-request timeout also applies to each tus request; a timed-out PATCH can recover
+within the remaining workflow deadline and retry budget. Creation is never retried:
+if its response is lost before a session is saved, inspect the Assembly before starting another
+upload. `AssemblyUploadError` preserves `cause` and, when available, `session`; abort/timeout
+does not delete uploaded bytes or cancel the Assembly. Use `cancelAndWaitForAssembly` explicitly
+when abandoning the job. The existing SDK remains available for deferred lengths, parallel tus
+concatenation and stream inputs. SSE and Webhook receivers are not part of this namespace.
+The types describe wire shapes, not a full JSON Schema validator.
+The configured `fetch` handles both ordinary API and tus requests, so connection configuration,
+tracing and fault injection work across the workflow. The SDK omits account credentials and cookies
+on tus calls; your trusted custom `fetch` must preserve that separation.
+`ContractResponseError` exposes `status`, decoded `data` and an optional recognized `code`; its message
+omits response content. For example, check `error.code === 'TEMPLATE_NOT_FOUND'` after narrowing with
+`instanceof ContractResponseError`. This existing API error uses HTTP 400, not 404. An unknown or
+malformed body's code is `undefined`; inspect `data` explicitly if needed, without logging secrets.
+Optional-only params can be omitted. Public models and their comments are generated from the contract.
+Redirects are rejected and JSON responses are limited to 128 MiB.
+The adapter preserves the endpoint's base path, request timeout and client identification.
+An inherited zero timeout is rejected because the existing client treats it as an immediate
+request deadline, while standalone `ContractClient` uses zero to disable its request timer.
+Non-loopback endpoints require HTTPS. Each ordinary call makes one HTTP attempt: `maxRetries` and `gotRetry`
+apply only to existing SDK methods, not this low-level namespace. Decide whether a write is safe to
+retry in the owning workflow. Standalone clients default to a 60-second timeout (`timeout: 0`
+disables it); an explicit request signal may impose an earlier deadline.
+
+The [complete generated-client example](examples/contract-workflow.ts)
+creates a typed Template, uploads an image, polls to completion, reads the result and removes its
+temporary Template. Copy `node_modules/@transloadit/node/examples/contract-workflow.ts` into your
+project (use `node_modules/transloadit/` for the legacy package name). With Node 26 and server-side
+`TRANSLOADIT_KEY` / `TRANSLOADIT_SECRET` set, run `node contract-workflow.ts ./image.jpg`.
+For a combined Smart CDN/Assembly key, also set `TRANSLOADIT_SIGNATURE_ALGORITHM=sha256`.
+For a legacy Assembly key, omit this setting to keep the SHA-384 default, or select the algorithm
+configured for that key.
+The example ships with the package so its types match your installed version.
+It creates one billable Assembly; completed
+results expire normally. The example uses the contract-client wait/cancel workflows and reports
+cleanup failures. It does not automatically retry writes or replace the existing upload/resume client.
+
+Maintainers: never edit `src/generated-contract/`. Its manifest records the exact API2 contract
+digest. In the matching API2 checkout, run `./bin/cli.ts contracts sdks --target typescript
+--output <node-sdk>/packages/node/src/generated-contract` from `api2/`, then repeat with `--check`.
+API2 owns schemas and generation; this repository owns `src/contractTransport.ts`, `src/contractWorkflows.ts`, `src/contractTus.ts` and their native
+tests. API2 also pins those sources for strict compilation and local-server acceptance. Update
+that pin after changing the transport, workflows or `test/contractCanary.ts`. `coverage.json` deliberately
+distinguishes generated membership from unproven cross-language and protocol coverage.
+
+The experimental types use API2-owned domains such as `AssemblySteps`, `ApiError` and
+`JsonDocument`. Their names do not depend on which endpoint happens to be generated first. This
+unreleased draft intentionally replaces earlier operation-prefixed type names; existing SDK APIs
+are unchanged. Model naming belongs in API2's `api2/lib/contract/schemaModels.ts`, not local aliases.
+
+The API2-owned `workflow-vectors.json` is a test fixture, not a second API schema. Run
+`yarn exec vitest run --config packages/node/vitest.config.ts packages/node/test/unit/workflow-conformance.test.ts`
+from this repository's root to exercise contract-client wait/cancel/upload and fresh-client resume,
+plus local Smart CDN signing against shared vectors and deterministic HTTP fixtures. CI runs these
+with the unit tests. The fixture adapter does not implement SDK retries or polling. These results
+do not claim that every protocol feature or every scenario was tested against a live API2 server.
+Both runtime acceptance and generated byte checks remain
+separate gates. Change scenarios in API2's `api2/lib/contract/sdk/workflowVectors.ts` and regenerate,
+never edit the copied JSON here.
+
 ## Requirements
 
 - [Node.js](https://nodejs.org/en/) version 20.10.0 or newer

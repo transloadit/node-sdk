@@ -2,6 +2,7 @@ import type { AssemblyStatus, Options } from '../../src/Transloadit.ts'
 
 import { inspect } from 'node:util'
 
+import { AbortError } from 'got'
 import nock from 'nock'
 
 import {
@@ -65,13 +66,55 @@ describe('Mocked API tests', () => {
     const scope = nock('http://localhost')
       .get('/assemblies/1')
       .query(() => true)
-      .delay(100)
+      .delay(2000)
       .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
 
-    await expect(client.awaitAssemblyCompletion('1', { timeout: 1, interval: 1 })).rejects.toThrow(
+    // Leave time to open the request under full-suite load; the deadline must interrupt its body.
+    await expect(
+      client.awaitAssemblyCompletion('1', { timeout: 500, interval: 1 }),
+    ).rejects.toThrow(
       expect.objectContaining({ code: 'POLLING_TIMED_OUT', message: 'Polling timed out' }),
     )
     scope.done()
+  })
+
+  it('interrupts Retry-After backoff at the polling deadline', async () => {
+    const client = getLocalClient()
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(true)
+      .reply(429, { error: 'RATE_LIMIT_REACHED' }, { 'Retry-After': '2' })
+    const started = performance.now()
+    await expect(
+      client.awaitAssemblyCompletion('1', { timeout: 500, interval: 1 }),
+    ).rejects.toMatchObject({ code: 'POLLING_TIMED_OUT' })
+    // Generous scheduling headroom, but still below even the minimum server-requested backoff.
+    expect(performance.now() - started).toBeLessThan(1500)
+    scope.done()
+  })
+
+  it.each([
+    { name: 'abort', errorName: 'AbortError', errorType: AbortError },
+    { name: 'timeout', errorName: 'TimeoutError', errorType: TimeoutError },
+  ])('preserves got $name classification when a non-polling call aborts during retry backoff', async ({
+    errorName,
+    errorType,
+  }) => {
+    const client = getLocalClient()
+    const controller = new AbortController()
+    const scope = nock('http://localhost')
+      .get('/assemblies/retry')
+      .query(true)
+      .reply(429, { error: 'RATE_LIMIT_REACHED' }, { 'Retry-After': '2' })
+    const timer = setTimeout(() => controller.abort(new DOMException('Stopped', errorName)), 500)
+    try {
+      await expect(
+        client.getAssembly('retry', { signal: controller.signal }),
+      ).rejects.toBeInstanceOf(errorType)
+      scope.done()
+    } finally {
+      clearTimeout(timer)
+    }
   })
 
   it('should honor abort signal during awaitAssemblyCompletion polling', async () => {
@@ -94,6 +137,24 @@ describe('Mocked API tests', () => {
     ).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }))
 
     scope.persist(false)
+  })
+
+  it.each([
+    undefined,
+    'stop',
+    new Error('caller stopped'),
+  ])('preserves got AbortError when an in-flight polling request is aborted with %s', async (reason) => {
+    const client = getLocalClient()
+    const controller = new AbortController()
+    const scope = nock('http://localhost')
+      .get('/assemblies/in-flight')
+      .query(true)
+      .delay(1000)
+      .reply(200, { ok: 'ASSEMBLY_COMPLETED' })
+    scope.on('request', () => controller.abort(reason))
+    await expect(
+      client.awaitAssemblyCompletion('in-flight', { signal: controller.signal }),
+    ).rejects.toBeInstanceOf(AbortError)
   })
 
   it('should stop polling early when onPoll returns false', async () => {

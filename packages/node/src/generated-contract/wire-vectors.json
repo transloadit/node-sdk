@@ -1,0 +1,27 @@
+{
+  "format": "transloadit-sdk-wire-vectors",
+  "version": 1,
+  "optionalAuthKeyParams": [
+    {},
+    {
+      "signature_algo": null
+    },
+    {
+      "is_allowed_for_smartcdn": false
+    },
+    {
+      "nonce": 0
+    },
+    {
+      "nonce": "A + B &=✓/\"\\ <>& ☃ 😀"
+    }
+  ],
+  "invalidPathValues": [
+    "",
+    ".",
+    "..",
+    "a/b",
+    "a\\b",
+    "a\nb"
+  ]
+}
