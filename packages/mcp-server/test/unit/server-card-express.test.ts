@@ -83,6 +83,7 @@ describe('hosted Express router', () => {
         path: '/mcp',
         resourceMetadataUrl:
           'https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp',
+        upstreamSecret: 'test-upstream-secret',
         ...extra,
       }),
     )
@@ -182,6 +183,7 @@ describe('hosted Express router', () => {
         path: '/mcp',
         resourceMetadataUrl:
           'https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp',
+        upstreamSecret: 'test-upstream-secret',
       }),
     )
     const server = createServer(app)

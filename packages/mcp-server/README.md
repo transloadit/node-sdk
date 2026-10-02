@@ -294,6 +294,7 @@ Allowlist tools in `~/.gemini/settings.json`:
   an `Origin` header (CLIs, servers) are not restricted. Set `allowedOrigins` to change the list.
 - `TRANSLOADIT_MCP_UPSTREAM_SECRET` is set by Transloadit's own deployment so API2 can tell that a
   relayed `aud=mcp` token arrives from the hosted service; it is not needed for self-hosting.
+  Hosted mode refuses to start without it, because every authenticated call would fail.
 
 ### Self-hosted
 

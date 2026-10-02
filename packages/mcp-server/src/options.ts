@@ -9,11 +9,20 @@ const assertPositiveInteger = (value: unknown, name: string, unit: string): void
   }
 }
 
-/** Validates the limits every server instance applies, however it is constructed. */
-export const assertServerLimits = (options: {
+/** Validates what every server instance relies on, however it is constructed. */
+export const assertServerOptions = (options: {
+  resourceMetadataUrl?: string
+  upstreamSecret?: string
   maxUrlDownloadBytes?: unknown
   urlDownloadTimeoutMs?: unknown
 }): void => {
+  // API2 only accepts relayed `aud=mcp` tokens from the hosted service, so without the secret
+  // every authenticated call fails; refusing to start surfaces that in the deploy's health check.
+  if (options.resourceMetadataUrl && !options.upstreamSecret) {
+    throw new Error(
+      'TRANSLOADIT_MCP_RESOURCE_METADATA_URL (hosted mode) requires TRANSLOADIT_MCP_UPSTREAM_SECRET: API2 only accepts relayed MCP tokens from the hosted service.',
+    )
+  }
   assertPositiveInteger(options.maxUrlDownloadBytes, 'maxUrlDownloadBytes', 'bytes')
   assertPositiveInteger(options.urlDownloadTimeoutMs, 'urlDownloadTimeoutMs', 'milliseconds')
 }

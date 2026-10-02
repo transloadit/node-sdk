@@ -44,7 +44,11 @@ const parseJsonRpcResult = async (response: Response): Promise<JsonRecord> => {
 }
 
 describe('tool surface', () => {
-  const handler = createTransloaditMcpHttpHandler({ metricsPath: false, resourceMetadataUrl })
+  const handler = createTransloaditMcpHttpHandler({
+    metricsPath: false,
+    resourceMetadataUrl,
+    upstreamSecret: 'test-upstream-secret',
+  })
   const httpServer = createServer((req, res) => {
     void handler(req, res)
   })

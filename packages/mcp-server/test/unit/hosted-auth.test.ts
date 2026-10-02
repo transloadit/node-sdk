@@ -7,10 +7,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createTransloaditMcpExpressRouter } from '../../src/express.ts'
 import { createTransloaditMcpHttpHandler } from '../../src/http.ts'
 import { matchesOriginPattern } from '../../src/http-helpers.ts'
+import { createTransloaditMcpServer } from '../../src/server.ts'
 
 type RunningServer = { url: URL; close: () => Promise<void> }
 
 const resourceMetadataUrl = 'https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp'
+const hosted = { resourceMetadataUrl, upstreamSecret: 'test-upstream-secret' }
 
 const initializeBody = JSON.stringify({
   jsonrpc: '2.0',
@@ -63,7 +65,7 @@ describe('hosted MCP endpoint auth', () => {
   })
 
   it('challenges unauthenticated requests with the protected-resource metadata URL', async () => {
-    running = await start({ resourceMetadataUrl })
+    running = await start(hosted)
 
     const response = await post(running.url)
     expect(response.status).toBe(401)
@@ -81,7 +83,7 @@ describe('hosted MCP endpoint auth', () => {
   })
 
   it('challenges SSE GETs without a bearer token', async () => {
-    running = await start({ resourceMetadataUrl })
+    running = await start(hosted)
 
     const stream = await fetch(running.url, { headers: { Accept: 'text/event-stream' } })
     expect(stream.status).toBe(401)
@@ -91,7 +93,7 @@ describe('hosted MCP endpoint auth', () => {
   })
 
   it('challenges a bare GET discovery probe and keeps the status fields in the body', async () => {
-    running = await start({ resourceMetadataUrl })
+    running = await start(hosted)
 
     // Codex probes exactly like this before it looks for protected-resource metadata.
     const probe = await fetch(running.url, {
@@ -109,7 +111,7 @@ describe('hosted MCP endpoint auth', () => {
   })
 
   it('serves the bare GET status to authenticated hosted callers', async () => {
-    running = await start({ resourceMetadataUrl })
+    running = await start(hosted)
 
     const probe = await fetch(running.url, { headers: { Authorization: 'Bearer token' } })
     expect(probe.status).toBe(200)
@@ -129,7 +131,7 @@ describe('hosted MCP endpoint auth', () => {
   })
 
   it('forwards requests that carry any bearer token to the MCP transport', async () => {
-    running = await start({ resourceMetadataUrl })
+    running = await start(hosted)
 
     const response = await post(running.url, { Authorization: 'Bearer oauth-access-token' })
     expect(response.status).toBe(200)
@@ -155,7 +157,7 @@ describe('hosted MCP endpoint auth', () => {
   })
 
   it('advertises OAuth in the server card when hosted', async () => {
-    running = await start({ resourceMetadataUrl })
+    running = await start(hosted)
 
     const card = await fetch(new URL('/.well-known/mcp/server-card.json', running.url))
     expect(card.status).toBe(200)
@@ -176,6 +178,15 @@ describe('hosted MCP endpoint auth', () => {
     expect(
       body.tools.find((tool: { name: string }) => tool.name === 'transloadit_list_robots'),
     ).toMatchObject({ securitySchemes: [{ type: 'noauth' }] })
+  })
+
+  it('refuses hosted mode without the upstream secret API2 requires', () => {
+    // Every authenticated hosted call would fail; failing at startup shows up in health checks.
+    const message =
+      'TRANSLOADIT_MCP_RESOURCE_METADATA_URL (hosted mode) requires TRANSLOADIT_MCP_UPSTREAM_SECRET'
+    expect(() => createTransloaditMcpHttpHandler({ resourceMetadataUrl })).toThrow(message)
+    expect(() => createTransloaditMcpExpressRouter({ resourceMetadataUrl })).toThrow(message)
+    expect(() => createTransloaditMcpServer({ resourceMetadataUrl })).toThrow(message)
   })
 
   it('refuses a static MCP token together with hosted OAuth', () => {
@@ -210,7 +221,7 @@ describe('hosted MCP endpoint origins', () => {
     'http://localhost:6274',
     'http://127.0.0.1:5173',
   ])('allows %s in hosted mode', async (origin) => {
-    running = await start({ resourceMetadataUrl })
+    running = await start(hosted)
 
     const response = await post(running.url, { Origin: origin, Authorization: 'Bearer token' })
     expect(response.status).toBe(200)
@@ -223,21 +234,21 @@ describe('hosted MCP endpoint origins', () => {
     'https://transloadit.com.evil.example',
     'null',
   ])('rejects %s in hosted mode', async (origin) => {
-    running = await start({ resourceMetadataUrl })
+    running = await start(hosted)
 
     const response = await post(running.url, { Origin: origin, Authorization: 'Bearer token' })
     expect(response.status).toBe(403)
   })
 
   it('passes requests without an Origin header in hosted mode', async () => {
-    running = await start({ resourceMetadataUrl })
+    running = await start(hosted)
 
     const response = await post(running.url, { Authorization: 'Bearer token' })
     expect(response.status).toBe(200)
   })
 
   it('lets explicit allowedOrigins replace the hosted defaults', async () => {
-    running = await start({ resourceMetadataUrl, allowedOrigins: ['https://allowed.example'] })
+    running = await start({ ...hosted, allowedOrigins: ['https://allowed.example'] })
 
     const allowed = await post(running.url, {
       Origin: 'https://allowed.example',
@@ -262,7 +273,7 @@ describe('hosted MCP endpoint origins', () => {
 
   it.each([
     ['self-hosted', {}],
-    ['hosted', { resourceMetadataUrl }],
+    ['hosted', hosted],
   ])('answers %s preflights for every Streamable HTTP request header', async (_mode, options) => {
     running = await start(options)
 
@@ -307,7 +318,7 @@ describe('matchesOriginPattern', () => {
 describe('wildcard origins with DNS rebinding protection', () => {
   it.each([
     ['self-hosted', {}],
-    ['hosted', { resourceMetadataUrl }],
+    ['hosted', hosted],
   ])('accepts a %s wildcard origin match while still checking the Host', async (_mode, mode) => {
     const options: Parameters<typeof createTransloaditMcpHttpHandler>[0] = {
       metricsPath: false,
@@ -361,7 +372,7 @@ describe('request body limits', () => {
 
   it.each([
     ['self-hosted', {}],
-    ['hosted', { resourceMetadataUrl }],
+    ['hosted', hosted],
   ])('answers 413 for %s bodies above the limit without buffering them', async (_mode, mode) => {
     running = await start({ maxRequestBodyBytes: 1024, ...mode })
 
@@ -384,7 +395,7 @@ describe('request body limits', () => {
   })
 
   it('accepts bodies within the limit', async () => {
-    running = await start({ maxRequestBodyBytes: 8192, resourceMetadataUrl })
+    running = await start({ maxRequestBodyBytes: 8192, ...hosted })
 
     const response = await post(running.url, { Authorization: 'Bearer token' })
     expect(response.status).toBe(200)

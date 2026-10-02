@@ -46,6 +46,8 @@ describe('upstream token rejections over HTTP', () => {
 
   beforeEach(async () => {
     delete serverOptions.resourceMetadataUrl
+    // Hosted mode requires the upstream secret; it is harmless when a test runs self-hosted.
+    serverOptions.upstreamSecret = 'test-upstream-secret'
     await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve))
     const { port } = httpServer.address() as AddressInfo
     url = new URL(`http://127.0.0.1:${port}/mcp`)

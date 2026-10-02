@@ -5,6 +5,9 @@
 Let MCP clients connect to the hosted server by URL and satisfy the ChatGPT plugin and Claude
 connector requirements.
 
+- Hosted mode (`TRANSLOADIT_MCP_RESOURCE_METADATA_URL`) requires `TRANSLOADIT_MCP_UPSTREAM_SECRET`
+  and refuses to start without it, so a missing production secret fails the deploy's health check
+  instead of every authenticated tool call.
 - Hosted mode (`TRANSLOADIT_MCP_RESOURCE_METADATA_URL`): unauthenticated requests get a `401` with
   `WWW-Authenticate: Bearer resource_metadata="…"`, browser Origins are limited to ChatGPT, Claude,
   Transloadit and loopback (overridable with `allowedOrigins`), and the server card advertises

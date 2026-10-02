@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import { timingSafeEqual } from 'node:crypto'
 
-import { assertRequestBodyLimit, assertServerLimits } from './options.ts'
+import { assertRequestBodyLimit, assertServerOptions } from './options.ts'
 
 export const parsePathname = (url: string | undefined, fallback: string): string => {
   try {
@@ -274,6 +274,7 @@ export const sendBodyTooLarge = (res: ServerResponse, maxBytes: number): void =>
 export const assertHttpOptions = (options: {
   mcpToken?: string
   resourceMetadataUrl?: string
+  upstreamSecret?: string
   maxRequestBodyBytes?: unknown
   maxUrlDownloadBytes?: unknown
   urlDownloadTimeoutMs?: unknown
@@ -283,11 +284,9 @@ export const assertHttpOptions = (options: {
       'Configure either TRANSLOADIT_MCP_TOKEN (self-hosted) or TRANSLOADIT_MCP_RESOURCE_METADATA_URL (hosted OAuth), not both.',
     )
   }
-  // Hosted mode without `upstreamSecret` is not refused here: API2 then rejects relayed tokens,
-  // but that deployment is configured (and checked) by API2's service config, which sets both.
   assertRequestBodyLimit(options.maxRequestBodyBytes)
   // Also checked per server instance; repeated here so a bad config fails at startup.
-  assertServerLimits(options)
+  assertServerOptions(options)
 }
 
 /**

@@ -102,7 +102,10 @@ describe('tool auth errors', () => {
   })
 
   it('asks the host to link an account when a hosted server gets no token', async () => {
-    const server = createTransloaditMcpServer({ resourceMetadataUrl })
+    const server = createTransloaditMcpServer({
+      resourceMetadataUrl,
+      upstreamSecret: 'test-upstream-secret',
+    })
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     client = new Client({ name: 'auth-errors-hosted', version: '1.0.0' })
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])

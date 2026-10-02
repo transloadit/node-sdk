@@ -27,7 +27,7 @@ import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
-import { assertServerLimits } from './options.ts'
+import { assertServerOptions } from './options.ts'
 import { mirrorSecuritySchemes } from './tool-list.ts'
 import {
   buildToolMeta,
@@ -1014,7 +1014,7 @@ const toAssemblyInstructionsInput = (params: CreateAssemblyParams): AssemblyInst
 export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
-  assertServerLimits(options)
+  assertServerOptions(options)
   const server = new McpServer({
     name: options.serverName ?? 'Transloadit MCP',
     version: options.serverVersion ?? packageJson.version,
