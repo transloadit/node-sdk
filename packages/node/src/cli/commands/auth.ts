@@ -17,6 +17,7 @@ import { mintBearerTokenWithCredentials } from '../../bearerToken.ts'
 import { Transloadit } from '../../Transloadit.ts'
 import {
   buildMissingCredentialsMessage,
+  cliSignatureAlgorithmSchema,
   readCliInput,
   requireCliCredentials,
   resolveCliConfig,
@@ -337,7 +338,7 @@ export class SignatureCommand extends UnauthenticatedCommand {
   })
 
   algorithm = Option.String('--algorithm,-a', {
-    description: 'Signature algorithm to use (sha1, sha256, sha384, sha512)',
+    description: `Signature algorithm to use (${cliSignatureAlgorithmSchema.options.join(', ')})`,
   })
 
   protected async run(): Promise<number | undefined> {

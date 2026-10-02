@@ -1,9 +1,10 @@
+import type { SignatureAlgorithm } from './signatureAlgorithm.ts'
 import type { SmartCdnUrlOptions } from './smartCdn.ts'
 
+import { isSignatureAlgorithm } from './signatureAlgorithm.ts'
 import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
 
-export type SignatureAlgorithm = 'sha1' | 'sha256' | 'sha384' | 'sha512'
-
+export type { SignatureAlgorithm } from './signatureAlgorithm.ts'
 export type {
   ParsedSmartCdnUrl,
   ParseSmartCdnUrlOptions,
@@ -39,11 +40,7 @@ const algorithmMap = {
   sha1: 'SHA-1',
   sha256: 'SHA-256',
   sha384: 'SHA-384',
-  sha512: 'SHA-512',
 } as const
-
-const isSignatureAlgorithm = (value: string): value is SignatureAlgorithm =>
-  value === 'sha1' || value === 'sha256' || value === 'sha384' || value === 'sha512'
 
 const getSubtle = (): SubtleCrypto => {
   const subtle = globalThis.crypto?.subtle

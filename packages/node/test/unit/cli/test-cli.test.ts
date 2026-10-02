@@ -1,12 +1,14 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { fileHashOptionsSchema } from '../../../src/alphalib/types/fileHash.ts'
 import { lint as lintAssemblies } from '../../../src/cli/commands/assemblies.ts'
 import { runSig, runSmartSig } from '../../../src/cli/commands/auth.ts'
+import { cliSignatureAlgorithmSchema } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main, shouldRunCli } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
@@ -320,6 +322,30 @@ describe('cli sig', () => {
     expect(params.auth?.expires).toBeTypeOf('string')
   })
 
+  it('rejects sha512 without emitting a signed payload', async () => {
+    const fixture = createIsolatedCliFixture()
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+    vi.stubEnv('TRANSLOADIT_SIGNATURE_ALGORITHM', '')
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
+    process.chdir(fixture.cwd)
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      await runSig({ providedInput: '{}', algorithm: 'sha512' })
+
+      expect(stdoutSpy).not.toHaveBeenCalled()
+      expect(stderrSpy).toHaveBeenCalledWith(
+        'Failed to generate signature: Unsupported signature algorithm: sha512',
+      )
+      expect(process.exitCode).toBe(1)
+    } finally {
+      fixture.cleanup()
+    }
+  })
+
   it('fails when credentials are missing', async () => {
     const fixture = createIsolatedCliFixture()
     clearAmbientTransloaditEnv()
@@ -378,6 +404,56 @@ describe('cli sig', () => {
 })
 
 describe('cli assemblies lint', () => {
+  it.each([
+    { shape: 'steps-only', ending: '' },
+    { shape: 'steps-only', ending: '\n' },
+    { shape: 'wrapped', ending: '' },
+    { shape: 'wrapped', ending: '\n' },
+  ])('writes fixed $shape files with a trailing newline (original ending $ending)', async ({
+    shape,
+    ending,
+  }) => {
+    const fixture = createIsolatedCliFixture()
+    const stepsPath = path.join(fixture.cwd, 'instructions.json')
+    const input =
+      shape === 'wrapped'
+        ? JSON.stringify({ steps: { ':original': { robot: '/upload/handle' } } }, null, 2)
+        : '{}'
+    writeFileSync(stepsPath, `${input}${ending}`)
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      expect(await lintAssemblies(new OutputCtl(), null, { steps: stepsPath, fix: true })).toBe(0)
+      const fixed = readFileSync(stepsPath, 'utf8')
+      expect(fixed).toBe(`${JSON.stringify(JSON.parse(fixed), null, 2)}\n`)
+
+      expect(await lintAssemblies(new OutputCtl(), null, { steps: stepsPath, fix: true })).toBe(0)
+      expect(readFileSync(stepsPath, 'utf8')).toBe(fixed)
+    } finally {
+      fixture.cleanup()
+    }
+  })
+
+  it('preserves the final newline when fixing wrapped stdin instructions', async () => {
+    const instructions = `${JSON.stringify(
+      { steps: { ':original': { robot: '/upload/handle' } } },
+      null,
+      2,
+    )}\n`
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    expect(
+      await lintAssemblies(new OutputCtl(), null, {
+        steps: '-',
+        fix: true,
+        providedInput: instructions,
+      }),
+    ).toBe(0)
+    expect(stdoutSpy).toHaveBeenCalledWith(instructions)
+  })
+
   it('prints fixed JSON to stdout when reading from stdin', async () => {
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -401,7 +477,34 @@ describe('cli assemblies lint', () => {
   })
 })
 
+describe('cli signature algorithms', () => {
+  it('offers only supported API signature algorithms', () => {
+    expect(cliSignatureAlgorithmSchema.options).toEqual(['sha1', 'sha256', 'sha384'])
+    expect(cliSignatureAlgorithmSchema.safeParse('sha512').success).toBe(false)
+  })
+
+  it('continues accepting sha512 for file hashes', () => {
+    expect(fileHashOptionsSchema.parse({ algorithm: 'sha512' })).toMatchObject({
+      algorithm: 'sha512',
+    })
+  })
+})
+
 describe('cli help', () => {
+  it('lists only supported signature algorithms in signature help', async () => {
+    const fixture = createIsolatedCliFixture()
+    process.chdir(fixture.cwd)
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    try {
+      await main(['auth', 'signature', '--help'])
+      const message = stdoutSpy.mock.calls.map(([chunk]) => String(chunk)).join('')
+      expect(message).toContain('Signature algorithm to use (sha1, sha256, sha384)')
+    } finally {
+      fixture.cleanup()
+    }
+  })
+
   it('prints usage when --help is provided', async () => {
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
 

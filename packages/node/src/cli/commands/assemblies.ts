@@ -313,13 +313,18 @@ export async function lint(
   }
 
   const issues = result.issues
+  // Unchanged wrapped instructions may already include their final newline.
+  const fixedInstructions =
+    result.fixedInstructions != null && !result.fixedInstructions.endsWith('\n')
+      ? `${result.fixedInstructions}\n`
+      : result.fixedInstructions
 
   if (fix && isStdin) {
-    if (result.fixedInstructions == null) {
+    if (fixedInstructions == null) {
       output.error('No fixed output available.')
       return 1
     }
-    process.stdout.write(`${result.fixedInstructions}\n`)
+    process.stdout.write(fixedInstructions)
     for (const issue of issues) {
       const line = formatLintIssue(issue)
       if (issue.type === 'warning') output.warn(line)
@@ -328,8 +333,8 @@ export async function lint(
     return result.success ? 0 : 1
   }
 
-  if (fix && inputPath && result.fixedInstructions != null) {
-    await fsp.writeFile(inputPath, result.fixedInstructions)
+  if (fix && inputPath && fixedInstructions != null) {
+    await fsp.writeFile(inputPath, fixedInstructions)
   }
 
   if (json) {
