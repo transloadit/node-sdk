@@ -437,6 +437,8 @@ const downloadUrlToFile = async ({
   for (let redirectCount = 0; redirectCount <= MAX_URL_REDIRECTS; redirectCount += 1) {
     let validatedAddresses: Array<{ address: string; family: 4 | 6 }> | null = null
     if (!allowPrivateUrls) {
+      // Not raced against the deadline: the system resolver bounds each lookup with its own
+      // short timeout and no bytes are transferred, so checking the clock right after suffices.
       validatedAddresses = await resolvePublicDownloadAddresses(currentUrl)
     }
     const requestTimeoutMs = remainingMs()

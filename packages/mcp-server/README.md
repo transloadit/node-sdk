@@ -419,8 +419,8 @@ such as Claude.ai do not hand chat attachments to connector tools, and base64 in
 impractical for anything but tiny files, so the agent uploads the file itself:
 
 1. Call `transloadit_create_assembly` with your instructions and `expected_uploads: 1` (one per
-   file). The call returns right away, even with `wait_for_completion: true`, because the Assembly
-   now waits for those uploads.
+   file, at most 100 per call). The call returns right away, even with `wait_for_completion: true`,
+   because the Assembly now waits for those uploads.
 2. Each `upload_instructions` entry has the tus endpoint, the tus metadata (`assembly_url`,
    `fieldname`) and a ready-to-run `curl` command. Set `FILE` to the file's path and run it in a
    bash shell; it prints `201` once the file is uploaded (tus creation-with-upload, one request).

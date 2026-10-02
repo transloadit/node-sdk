@@ -23,6 +23,8 @@ connector requirements.
 - `transloadit_create_assembly` with `expected_uploads` returns `upload_instructions`: per file the
   tus endpoint, metadata and a credential-free `curl` command (tus creation-with-upload), so agents
   can upload files that exist only in their sandbox, then call `transloadit_wait_for_assembly`.
+  `expected_uploads` now accepts at most 100; larger values are rejected before an Assembly is
+  created.
 - New `transloadit_get_profile` tool (`_meta["openai/profile"]`) returns the Workspace behind the
   credentials for multi-account hosts.
 - `transloadit_create_assembly` accepts ChatGPT-attached files through `attachments`

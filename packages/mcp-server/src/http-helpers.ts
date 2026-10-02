@@ -283,6 +283,8 @@ export const assertHttpOptions = (options: {
       'Configure either TRANSLOADIT_MCP_TOKEN (self-hosted) or TRANSLOADIT_MCP_RESOURCE_METADATA_URL (hosted OAuth), not both.',
     )
   }
+  // Hosted mode without `upstreamSecret` is not refused here: API2 then rejects relayed tokens,
+  // but that deployment is configured (and checked) by API2's service config, which sets both.
   assertRequestBodyLimit(options.maxRequestBodyBytes)
   // Also checked per server instance; repeated here so a bad config fails at startup.
   assertServerLimits(options)
