@@ -596,6 +596,34 @@ const toAuthRejection = (
   return undefined
 }
 
+/** True when the error came from the Assembly creation request itself, so nothing was created. */
+const isCreationRequestError = (error: unknown): boolean =>
+  error instanceof ApiError && error.cause?.options.method.toUpperCase() === 'POST'
+
+/** The Assembly exists, but its status could not be read with the caller's credentials. */
+const buildCreatedAssemblyUnavailable = (
+  options: TransloaditMcpServerOptions,
+  assemblyId: string,
+): CallToolResult => {
+  // Matches resolveAssemblyReference: the SDK's default when the endpoint is empty.
+  const assemblyUrl = `${options.endpoint || 'https://api2.transloadit.com'}/assemblies/${assemblyId}`
+  return buildToolResponse(
+    {
+      status: 'error',
+      assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
+      errors: [
+        {
+          code: 'mcp_assembly_status_unavailable',
+          message:
+            'The Assembly was created, but Transloadit rejected the credentials while reading its status.',
+          hint: `Reconnect if needed, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl} instead of creating it again.`,
+        },
+      ],
+    },
+    { isError: true },
+  )
+}
+
 /** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
 const buildCredentialError = (error: {
   code: string
@@ -1211,30 +1239,45 @@ export const createTransloaditMcpServer = (
         const chunkSize = upload_chunk_size
 
         let assembly: Awaited<ReturnType<typeof client.createAssembly>>
+        let createdAssemblyId: string | undefined
         try {
-          assembly = reference
-            ? await client.resumeAssemblyUploads({
-                assemblyUrl: reference.assemblyUrl,
-                files: filesMap,
-                uploads: uploadsMap,
-                waitForCompletion,
-                timeout,
-                uploadConcurrency,
-                chunkSize,
-                uploadBehavior,
-              })
-            : await client.createAssembly({
-                params,
-                files: filesMap,
-                uploads: uploadsMap,
-                waitForCompletion,
-                timeout,
-                uploadConcurrency,
-                chunkSize,
-                uploadBehavior,
-                expectedUploads: expected_uploads,
-              })
+          if (reference) {
+            assembly = await client.resumeAssemblyUploads({
+              assemblyUrl: reference.assemblyUrl,
+              files: filesMap,
+              uploads: uploadsMap,
+              waitForCompletion,
+              timeout,
+              uploadConcurrency,
+              chunkSize,
+              uploadBehavior,
+            })
+          } else {
+            const creation = client.createAssembly({
+              params,
+              files: filesMap,
+              uploads: uploadsMap,
+              waitForCompletion,
+              timeout,
+              uploadConcurrency,
+              chunkSize,
+              uploadBehavior,
+              expectedUploads: expected_uploads,
+            })
+            createdAssemblyId = creation.assemblyId
+            assembly = await creation
+          }
         } catch (error) {
+          // Once API2 accepted the creation request, an auth failure (a token expiring while
+          // uploads or polling run) must not reach the client as a challenge: it would refresh and
+          // replay the call, creating and billing a second Assembly.
+          if (
+            createdAssemblyId &&
+            !isCreationRequestError(error) &&
+            toAuthRejection(options, error, credentials, [])
+          ) {
+            return buildCreatedAssemblyUnavailable(options, createdAssemblyId)
+          }
           if (isErrnoException(error) && error.code === 'ENOENT') {
             return buildToolError(
               'mcp_file_not_found',

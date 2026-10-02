@@ -156,6 +156,69 @@ describe('upstream token rejections over HTTP', () => {
     expect(body).not.toContain('mcp/www_authenticate')
   })
 
+  const createAssemblyCall = (): Promise<Response> =>
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer expiring-oauth-token',
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'transloadit_create_assembly',
+          arguments: {
+            instructions: { steps: { resized: { robot: '/image/resize', width: 1 } } },
+            wait_for_completion: true,
+          },
+        },
+      }),
+    })
+
+  it('does not ask for a replay when the token expires after the Assembly was created', async () => {
+    serverOptions.resourceMetadataUrl = resourceMetadataUrl
+    let createdId: string | undefined
+    nock(endpoint)
+      .post(/\/assemblies\/[a-f\d]{32}$/)
+      .reply((uri) => {
+        createdId = uri.split('/').at(-1)
+        return [
+          200,
+          {
+            ok: 'ASSEMBLY_EXECUTING',
+            assembly_id: createdId,
+            assembly_ssl_url: `${endpoint}/assemblies/${createdId}`,
+          },
+        ]
+      })
+    nock(endpoint)
+      .get(/\/assemblies\/[a-f\d]{32}$/)
+      .query(true)
+      .reply(401, { error: 'BEARER_TOKEN_EXPIRED' })
+
+    const response = await createAssemblyCall()
+    expect(response.status).toBe(200)
+    expect(response.headers.get('www-authenticate')).toBeNull()
+    const body = await response.text()
+    expect(body).toContain('mcp_assembly_status_unavailable')
+    expect(body).toContain(`${endpoint}/assemblies/${createdId}`)
+    expect(body).not.toContain('mcp/www_authenticate')
+  })
+
+  it('still challenges when API2 rejects the token on the creation request itself', async () => {
+    serverOptions.resourceMetadataUrl = resourceMetadataUrl
+    nock(endpoint)
+      .post(/\/assemblies\/[a-f\d]{32}$/)
+      .reply(401, { error: 'BEARER_TOKEN_EXPIRED' })
+
+    const response = await createAssemblyCall()
+    expect(response.status).toBe(401)
+    expect(response.headers.get('www-authenticate')).toContain('error="invalid_token"')
+  })
+
   it('keeps self-hosted rejections as tool errors over HTTP 200', async () => {
     nock(endpoint).get('/templates').query(true).reply(401, { error: 'BEARER_TOKEN_EXPIRED' })
 

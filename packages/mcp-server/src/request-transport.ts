@@ -52,14 +52,32 @@ const findUpstreamChallenge = (body: string): UpstreamChallenge | undefined => {
   return undefined
 }
 
-const toWebRequest = (req: IncomingMessage): Request => {
+const readRawBody = async (req: IncomingMessage): Promise<string> => {
+  const chunks: Buffer[] = []
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks).toString('utf8')
+}
+
+const toWebRequest = async (req: IncomingMessage, parsedBody: unknown): Promise<Request> => {
   const headers = new Headers()
   for (const [name, value] of Object.entries(req.headers)) {
     if (value === undefined) continue
     for (const entry of Array.isArray(value) ? value : [value]) headers.append(name, entry)
   }
-  // The transport reads only headers and the pre-parsed body, so a fixed base URL is enough.
-  return new Request(new URL(req.url ?? '/', 'http://localhost'), { method: req.method, headers })
+  // Without a body parser (an Express app lacking express.json()), the stream is still unread;
+  // hand it to the transport, which parses JSON itself when no parsed body is given.
+  const body =
+    parsedBody === undefined && req.method === 'POST' && !req.readableEnded
+      ? await readRawBody(req)
+      : undefined
+  // The transport reads only headers and the body, so a fixed base URL is enough.
+  return new Request(new URL(req.url ?? '/', 'http://localhost'), {
+    method: req.method,
+    headers,
+    body,
+  })
 }
 
 /**
@@ -74,7 +92,9 @@ const relayHostedRequest = async (
   res: ServerResponse,
   parsedBody: unknown,
 ): Promise<void> => {
-  const response = await transport.handleRequest(toWebRequest(req), { parsedBody })
+  const response = await transport.handleRequest(await toWebRequest(req, parsedBody), {
+    parsedBody,
+  })
   const body = await response.text()
   // A client retries the whole HTTP request after re-authorizing, so a batch keeps its 200: the
   // other calls may have succeeded (an Assembly created twice would be charged twice). Its failed

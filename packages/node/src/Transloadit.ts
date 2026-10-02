@@ -5,7 +5,13 @@ import type {
   CompileAssemblyInstructionsResult,
 } from '@transloadit/utils'
 import type { SignatureAlgorithm } from '@transloadit/utils/node'
-import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
+import type {
+  BeforeRedirectHook,
+  Delays,
+  Headers,
+  OptionsOfJSONResponseBody,
+  RetryOptions,
+} from 'got'
 import type { Input as IntoStreamInput } from 'into-stream'
 
 import type { TransloaditErrorResponseBody } from './ApiError.ts'
@@ -490,6 +496,24 @@ export class Transloadit {
   #extraHeaders: Record<string, string>
 
   private _lastUsedAssemblyUrl = ''
+
+  /**
+   * got drops `Authorization` and cookies when a redirect changes origin, but not custom headers,
+   * so `extraHeaders` (such as a relay's shared secret) are removed the same way.
+   */
+  #dropExtraHeadersOffOrigin(requestUrl: string): BeforeRedirectHook[] {
+    const names = Object.keys(this.#extraHeaders).map((name) => name.toLowerCase())
+    if (names.length === 0) return []
+    // An unparseable request URL counts as a different origin, which drops the headers.
+    const requestOrigin = URL.canParse(requestUrl) ? new URL(requestUrl).origin : undefined
+    return [
+      (redirectOptions) => {
+        const redirectUrl = redirectOptions.url
+        if (requestOrigin && redirectUrl && new URL(redirectUrl).origin === requestOrigin) return
+        for (const name of names) delete redirectOptions.headers[name]
+      },
+    ]
+  }
 
   private _validateResponses = false
 
@@ -1676,6 +1700,7 @@ export class Transloadit {
           ...this.#extraHeaders,
           ...headers,
         },
+        hooks: { beforeRedirect: this.#dropExtraHeadersOffOrigin(url) },
         responseType: 'json',
         signal,
       }
