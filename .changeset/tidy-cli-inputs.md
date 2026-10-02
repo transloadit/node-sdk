@@ -1,8 +1,8 @@
 ---
 "@transloadit/mcp-server": patch
-"@transloadit/node": patch
-"@transloadit/utils": patch
-"transloadit": patch
+"@transloadit/node": minor
+"@transloadit/utils": minor
+"transloadit": minor
 ---
 
 Accept both steps-only JSON and a wrapper containing only `steps` in `assemblies create --steps`. Reject other wrapper properties instead of silently discarding them. Preserve the final newline in files rewritten by `assemblies lint --fix` without adding blank lines on repeated fixes, and document the `run` and `assembly-instructions compile` commands.
