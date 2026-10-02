@@ -1,6 +1,6 @@
 ---
-"@transloadit/node": patch
-"transloadit": patch
+"@transloadit/node": minor
+"transloadit": minor
 ---
 
 Add an `extraHeaders` client option so trusted relays such as the hosted MCP service can send a

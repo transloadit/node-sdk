@@ -1,64 +1,55 @@
-import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { Tool } from '@modelcontextprotocol/sdk/types.js'
-import type { ZodObject } from 'zod'
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
-import type { ToolSecurityScheme } from './tool-metadata.ts'
+type RequestHandler = (request: unknown, extra: unknown) => Promise<unknown>
 
-import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-import { z } from 'zod'
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export type ListedTool = {
-  name: string
-  inputSchema: ZodObject
-  outputSchema: ZodObject
-  securitySchemes: ToolSecurityScheme[]
-  registered: RegisteredTool
-}
-
-type ListedToolDefinition = Tool & { securitySchemes: ToolSecurityScheme[] }
-
-// Same options the SDK passes to Zod for v4 schemas, so the advertised schemas stay identical.
-const jsonSchemaTarget = 'draft-7'
-
-const toObjectJsonSchema = (schema: ZodObject, io: 'input' | 'output'): Tool['inputSchema'] => {
-  const jsonSchema = z.toJSONSchema(schema, { target: jsonSchemaTarget, io })
-  // Zod types the payload loosely (any schema kind, boolean sub-schemas); a ZodObject always
-  // serializes to an object schema with object properties, so this only narrows the type.
-  if (jsonSchema.type !== 'object') {
-    throw new Error(`Expected an object JSON schema, received ${String(jsonSchema.type)}`)
-  }
-  const properties: Record<string, object> = {}
-  for (const [key, value] of Object.entries(jsonSchema.properties ?? {})) {
-    if (typeof value === 'object') properties[key] = value
-  }
-  return { ...jsonSchema, type: 'object', properties }
-}
-
-const toToolDefinition = ({
-  name,
-  inputSchema,
-  outputSchema,
-  securitySchemes,
-  registered,
-}: ListedTool): ListedToolDefinition => ({
-  name,
-  title: registered.title,
-  description: registered.description,
-  inputSchema: toObjectJsonSchema(inputSchema, 'input'),
-  outputSchema: toObjectJsonSchema(outputSchema, 'output'),
-  annotations: registered.annotations,
-  execution: registered.execution,
-  _meta: registered._meta,
-  securitySchemes,
-})
+const isRequestHandler = (value: unknown): value is RequestHandler => typeof value === 'function'
 
 /**
- * Replaces the SDK's `tools/list` handler so every tool also carries the top-level
- * `securitySchemes` field, which `registerTool()` has no way to emit. The definitions are built
- * the same way the SDK builds them; only the extra field differs.
+ * `@modelcontextprotocol/sdk` keeps request handlers in the private `Protocol._requestHandlers`
+ * map and offers no getter. Reading it is the only way to wrap the SDK's own `tools/list` handler
+ * rather than re-implementing it; a failing read throws so an SDK upgrade cannot silently drop the
+ * field.
  */
-export const installToolListHandler = (server: McpServer, tools: ListedTool[]): void => {
-  server.server.setRequestHandler(ListToolsRequestSchema, () => ({
-    tools: tools.filter((tool) => tool.registered.enabled).map(toToolDefinition),
-  }))
+const readRequestHandlers = (server: McpServer): Map<unknown, unknown> => {
+  const handlers: unknown = Object.getOwnPropertyDescriptor(
+    server.server,
+    '_requestHandlers',
+  )?.value
+  if (!(handlers instanceof Map)) {
+    throw new Error('@modelcontextprotocol/sdk no longer keeps _requestHandlers in a Map.')
+  }
+  return handlers
+}
+
+const withTopLevelSecuritySchemes = (result: unknown): unknown => {
+  if (!isRecord(result) || !Array.isArray(result.tools)) return result
+  return {
+    ...result,
+    tools: result.tools.map((tool) => {
+      if (!isRecord(tool) || !isRecord(tool._meta) || !Array.isArray(tool._meta.securitySchemes)) {
+        return tool
+      }
+      return { ...tool, securitySchemes: tool._meta.securitySchemes }
+    }),
+  }
+}
+
+/**
+ * ChatGPT and Claude read `securitySchemes` as a top-level Tool field, which `registerTool()`
+ * cannot emit. Wrapping the SDK's `tools/list` handler keeps its live registry (tools registered
+ * later, enable/disable, schema conversion) and copies each tool's `_meta.securitySchemes` up.
+ * Call it after the first `registerTool()`, which installs the handler.
+ */
+export const mirrorSecuritySchemes = (server: McpServer): void => {
+  const handlers = readRequestHandlers(server)
+  const listTools = handlers.get('tools/list')
+  if (!isRequestHandler(listTools)) {
+    throw new Error('Register a tool before mirroring securitySchemes into tools/list.')
+  }
+  const wrapped: RequestHandler = async (request, extra) =>
+    withTopLevelSecuritySchemes(await listTools(request, extra))
+  handlers.set('tools/list', wrapped)
 }

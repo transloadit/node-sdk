@@ -1,11 +1,11 @@
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 
-import type { ToolName, ToolSecurityScheme } from './tool-metadata.ts'
+import type { ToolAuthMode, ToolName, ToolSecurityScheme } from './tool-metadata.ts'
 
 import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js'
 
 import packageJson from '../package.json' with { type: 'json' }
-import { toolMetadata } from './tool-metadata.ts'
+import { resolveSecuritySchemes, resolveToolAuthMode, toolMetadata } from './tool-metadata.ts'
 
 export const serverCardPath = '/.well-known/mcp/server-card.json'
 
@@ -171,22 +171,25 @@ const toolInputs: ServerCardToolInput[] = [
   },
 ]
 
-const tools: ServerCardToolDefinition[] = toolInputs.map((tool) => {
-  const metadata = toolMetadata[tool.name]
-  return {
-    ...tool,
-    title: metadata.title,
-    description: metadata.description,
-    annotations: metadata.annotations,
-    securitySchemes: metadata.securitySchemes,
-  }
-})
+/** Tool definitions with the security schemes this deployment mode can honor. */
+const buildTools = (mode: ToolAuthMode): ServerCardToolDefinition[] =>
+  toolInputs.map((tool) => {
+    const metadata = toolMetadata[tool.name]
+    return {
+      ...tool,
+      title: metadata.title,
+      description: metadata.description,
+      annotations: metadata.annotations,
+      securitySchemes: resolveSecuritySchemes(metadata, mode),
+    }
+  })
 
 export const buildServerCard = (
   endpoint: string,
   options: { authKey?: string; authSecret?: string; resourceMetadataUrl?: string } = {},
 ): ServerCard => {
   const hasCredentials = Boolean(options.authKey && options.authSecret)
+  const tools = buildTools(resolveToolAuthMode(options))
   // Hosted deployments hand out tokens through OAuth; self-hosted ones accept a static bearer.
   const schemes = options.resourceMetadataUrl ? ['oauth2', 'bearer'] : ['bearer']
 

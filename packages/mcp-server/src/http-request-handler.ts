@@ -5,6 +5,7 @@ import type { SevLogger } from '@transloadit/sev-logger'
 
 import {
   applyCorsHeaders,
+  assertSingleAuthMode,
   normalizePath,
   parsePathname,
   rejectMissingBearerToken,
@@ -32,6 +33,7 @@ export const createMcpRequestHandler = (
   transport: StreamableHTTPServerTransport,
   options: RequestHandlerOptions,
 ) => {
+  assertSingleAuthMode(options)
   const expectedPath = normalizePath(options.path.expectedPath)
   const allowRoot = options.path.allowRoot ?? false
   const logger = options.logger ?? getLogger().nest('http')

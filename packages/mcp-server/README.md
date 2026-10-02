@@ -285,8 +285,11 @@ Allowlist tools in `~/.gemini/settings.json`:
 - Bearer tokens (OAuth or minted with `--aud mcp`) are forwarded to API2, which verifies them on
   every call. A rejected or expired token yields a tool result with `isError` and
   `_meta["mcp/www_authenticate"]`, so ChatGPT and Claude prompt you to reconnect.
-- Each tool declares `securitySchemes`: `noauth` for Robot docs and linting, `oauth2` with the
-  scopes it needs (`assemblies:write`, `assemblies:read`, `templates:read`) otherwise.
+- Each tool declares `securitySchemes` (top level and in `_meta`). Because the hosted endpoint
+  challenges every unauthenticated request, all tools declare `oauth2` there; the Robot docs and
+  linting tools ask for no scopes.
+- A rejected or expired key/secret on a self-hosted server is reported as
+  `mcp_credentials_rejected` without an OAuth challenge, since only an operator can fix it.
 - Browser requests must come from ChatGPT, Claude, Transloadit or loopback origins; requests without
   an `Origin` header (CLIs, servers) are not restricted. Set `allowedOrigins` to change the list.
 - `TRANSLOADIT_MCP_UPSTREAM_SECRET` is set by Transloadit's own deployment so API2 can tell that a
@@ -333,19 +336,26 @@ The JSON config accepts the same keys as `createTransloaditMcpHttpHandler()`, in
 
 ## Tool surface
 
-| Tool                                    | Auth                        | Notes                                    |
-| --------------------------------------- | --------------------------- | ---------------------------------------- |
-| `transloadit_lint_assembly_instructions` | none                        | read-only                                |
-| `transloadit_list_robots`               | none                        | read-only                                |
-| `transloadit_get_robot_help`            | none                        | read-only                                |
-| `transloadit_create_assembly`           | `oauth2` `assemblies:write` | open-world (URL imports), result widget  |
-| `transloadit_get_assembly_status`       | `oauth2` `assemblies:read`  | read-only                                |
-| `transloadit_wait_for_assembly`         | `oauth2` `assemblies:read`  | read-only, result widget                 |
-| `transloadit_list_templates`            | `oauth2` `templates:read`   | read-only                                |
-| `transloadit_get_profile`               | `oauth2`                    | read-only, `_meta["openai/profile"]`     |
+| Tool                                     | Account | OAuth scopes                         | Notes                                           |
+| ---------------------------------------- | ------- | ------------------------------------ | ----------------------------------------------- |
+| `transloadit_lint_assembly_instructions` | no      | none                                 | read-only                                       |
+| `transloadit_list_robots`                | no      | none                                 | read-only                                       |
+| `transloadit_get_robot_help`             | no      | none                                 | read-only                                       |
+| `transloadit_create_assembly`            | yes     | `assemblies:write`, `templates:read` | destructive, open-world (URL imports), widget   |
+| `transloadit_get_assembly_status`        | yes     | `assemblies:read`                    | read-only                                       |
+| `transloadit_wait_for_assembly`          | yes     | `assemblies:read`                    | read-only, result widget                        |
+| `transloadit_list_templates`             | yes     | `templates:read`                     | read-only                                       |
+| `transloadit_get_profile`                | yes     | `assemblies:read`, `templates:read`  | read-only, `_meta["openai/profile"]`            |
 
-Every tool carries `title`, `readOnlyHint`, `destructiveHint` (always `false`), `idempotentHint`
-and `openWorldHint` annotations.
+Every tool carries `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint` and
+`openWorldHint` annotations. `transloadit_create_assembly` is the only destructive one: export
+Robots such as `/s3/store` can overwrite files at their destination, so hosts should confirm it.
+
+`securitySchemes` depend on how the server runs: hosted (`TRANSLOADIT_MCP_RESOURCE_METADATA_URL`)
+declares `oauth2` with the scopes above for every tool; a server holding `TRANSLOADIT_KEY` and
+`TRANSLOADIT_SECRET` declares `noauth` everywhere; otherwise the account tools declare `oauth2` and
+the others `noauth`. `TRANSLOADIT_MCP_TOKEN` and `TRANSLOADIT_MCP_RESOURCE_METADATA_URL` cannot be
+combined.
 
 `transloadit_list_templates` supports:
 

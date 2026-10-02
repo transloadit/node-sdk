@@ -4,6 +4,7 @@ import { createServer } from 'node:http'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { createTransloaditMcpExpressRouter } from '../../src/express.ts'
 import { createTransloaditMcpHttpHandler } from '../../src/http.ts'
 import { matchesOriginPattern } from '../../src/http-helpers.ts'
 
@@ -158,9 +159,35 @@ describe('hosted MCP endpoint auth', () => {
 
     const card = await fetch(new URL('/.well-known/mcp/server-card.json', running.url))
     expect(card.status).toBe(200)
-    await expect(card.json()).resolves.toMatchObject({
+    const body = await card.json()
+    expect(body).toMatchObject({
       authentication: { required: true, schemes: ['oauth2', 'bearer'], resourceMetadataUrl },
     })
+    expect(
+      body.tools.find((tool: { name: string }) => tool.name === 'transloadit_list_robots'),
+    ).toMatchObject({ securitySchemes: [{ type: 'oauth2', scopes: [] }] })
+  })
+
+  it('advertises the documentation tools as noauth in a self-hosted server card', async () => {
+    running = await start()
+
+    const card = await fetch(new URL('/.well-known/mcp/server-card.json', running.url))
+    const body = await card.json()
+    expect(
+      body.tools.find((tool: { name: string }) => tool.name === 'transloadit_list_robots'),
+    ).toMatchObject({ securitySchemes: [{ type: 'noauth' }] })
+  })
+
+  it('refuses a static MCP token together with hosted OAuth', () => {
+    // The static token check would reject every OAuth token before the hosted challenge runs.
+    expect(() =>
+      createTransloaditMcpHttpHandler({ mcpToken: 'static-secret', resourceMetadataUrl }),
+    ).toThrow(
+      'Configure either TRANSLOADIT_MCP_TOKEN (self-hosted) or TRANSLOADIT_MCP_RESOURCE_METADATA_URL (hosted OAuth), not both.',
+    )
+    expect(() =>
+      createTransloaditMcpExpressRouter({ mcpToken: 'static-secret', resourceMetadataUrl }),
+    ).toThrow('not both')
   })
 })
 

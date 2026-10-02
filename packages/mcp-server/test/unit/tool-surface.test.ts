@@ -5,6 +5,7 @@ import { createServer } from 'node:http'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { createTransloaditMcpHttpHandler } from '../../src/http.ts'
 import { createTransloaditMcpServer } from '../../src/server.ts'
@@ -96,7 +97,7 @@ describe('tool surface', () => {
       expect(typeof tool.title, String(tool.name)).toBe('string')
       expect(tool.annotations).toMatchObject({
         readOnlyHint: expect.any(Boolean),
-        destructiveHint: false,
+        destructiveHint: expect.any(Boolean),
         openWorldHint: expect.any(Boolean),
       })
       expect(Array.isArray(tool.securitySchemes), String(tool.name)).toBe(true)
@@ -106,26 +107,39 @@ describe('tool surface', () => {
     }
   })
 
+  // The hosted endpoint answers every unauthenticated request with the OAuth challenge, so even
+  // the documentation tools are declared oauth2 there, with no scopes.
   it.each([
-    ['transloadit_list_robots', [{ type: 'noauth' }]],
-    ['transloadit_get_robot_help', [{ type: 'noauth' }]],
-    ['transloadit_lint_assembly_instructions', [{ type: 'noauth' }]],
-    ['transloadit_create_assembly', [{ type: 'oauth2', scopes: ['assemblies:write'] }]],
+    ['transloadit_list_robots', [{ type: 'oauth2', scopes: [] }]],
+    ['transloadit_get_robot_help', [{ type: 'oauth2', scopes: [] }]],
+    ['transloadit_lint_assembly_instructions', [{ type: 'oauth2', scopes: [] }]],
+    [
+      'transloadit_create_assembly',
+      [{ type: 'oauth2', scopes: ['assemblies:write', 'templates:read'] }],
+    ],
     ['transloadit_get_assembly_status', [{ type: 'oauth2', scopes: ['assemblies:read'] }]],
     ['transloadit_wait_for_assembly', [{ type: 'oauth2', scopes: ['assemblies:read'] }]],
     ['transloadit_list_templates', [{ type: 'oauth2', scopes: ['templates:read'] }]],
-    ['transloadit_get_profile', [{ type: 'oauth2', scopes: [] }]],
-  ])('%s declares %j', async (name, securitySchemes) => {
+    [
+      'transloadit_get_profile',
+      [{ type: 'oauth2', scopes: ['assemblies:read', 'templates:read'] }],
+    ],
+  ])('hosted %s declares %j', async (name, securitySchemes) => {
     const tool = findTool(await listTools(), name)
     expect(tool.securitySchemes).toEqual(securitySchemes)
   })
 
-  it('marks only the Assembly creation as open-world and nothing as destructive', async () => {
+  it('marks only Assembly creation as open-world and destructive', async () => {
     const tools = await listTools()
     const openWorld = tools.filter(
       (tool) => isRecord(tool.annotations) && tool.annotations.openWorldHint === true,
     )
     expect(openWorld.map((tool) => tool.name)).toEqual(['transloadit_create_assembly'])
+    // Export Robots such as /s3/store can overwrite files at the destination.
+    const destructive = tools.filter(
+      (tool) => isRecord(tool.annotations) && tool.annotations.destructiveHint === true,
+    )
+    expect(destructive.map((tool) => tool.name)).toEqual(['transloadit_create_assembly'])
     const readOnly = tools.filter(
       (tool) => isRecord(tool.annotations) && tool.annotations.readOnlyHint === true,
     )
@@ -237,6 +251,82 @@ describe('result widget domains', () => {
         resource_domains: ['https://cdn.example.com'],
       },
     })
+    await client.close()
+    await server.close()
+  })
+})
+
+// The SDK client drops Tool fields it does not know, such as the top-level securitySchemes.
+const rawToolsListSchema = z.object({ tools: z.array(z.record(z.string(), z.unknown())) })
+
+const connectInMemory = async (
+  server: ReturnType<typeof createTransloaditMcpServer>,
+): Promise<Client> => {
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+  const client = new Client({ name: 'tool-surface', version: '1.0.0' })
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+  return client
+}
+
+const listRawTools = async (
+  options: Parameters<typeof createTransloaditMcpServer>[0],
+): Promise<JsonRecord[]> => {
+  const server = createTransloaditMcpServer(options)
+  const client = await connectInMemory(server)
+  const { tools } = await client.request({ method: 'tools/list' }, rawToolsListSchema)
+  await client.close()
+  await server.close()
+  return tools
+}
+
+const schemesByName = (tools: JsonRecord[]): Record<string, unknown> =>
+  Object.fromEntries(tools.map((tool) => [tool.name, tool.securitySchemes]))
+
+describe('security schemes outside hosted mode', () => {
+  it('declares the documentation tools noauth and the account tools oauth2 without credentials', async () => {
+    const schemes = schemesByName(await listRawTools({}))
+
+    expect(schemes.transloadit_list_robots).toEqual([{ type: 'noauth' }])
+    expect(schemes.transloadit_get_robot_help).toEqual([{ type: 'noauth' }])
+    expect(schemes.transloadit_lint_assembly_instructions).toEqual([{ type: 'noauth' }])
+    expect(schemes.transloadit_create_assembly).toEqual([
+      { type: 'oauth2', scopes: ['assemblies:write', 'templates:read'] },
+    ])
+    expect(schemes.transloadit_list_templates).toEqual([
+      { type: 'oauth2', scopes: ['templates:read'] },
+    ])
+  })
+
+  it('declares every tool noauth when the server holds Auth Key credentials', async () => {
+    const tools = await listRawTools({ authKey: 'key', authSecret: 'secret' })
+
+    expect(new Set(tools.map((tool) => JSON.stringify(tool.securitySchemes)))).toEqual(
+      new Set([JSON.stringify([{ type: 'noauth' }])]),
+    )
+  })
+})
+
+describe('tools registered after creation', () => {
+  it('stay discoverable, with their own securitySchemes mirrored to the top level', async () => {
+    const server = createTransloaditMcpServer({})
+    server.registerTool(
+      'custom_echo',
+      {
+        description: 'Echo for embedders',
+        inputSchema: z.object({ text: z.string() }),
+        _meta: { securitySchemes: [{ type: 'noauth' }] },
+      },
+      ({ text }) => ({ content: [{ type: 'text', text }] }),
+    )
+    const client = await connectInMemory(server)
+
+    const { tools } = await client.request({ method: 'tools/list' }, rawToolsListSchema)
+    const custom = tools.find((tool) => tool.name === 'custom_echo')
+    expect(custom).toMatchObject({
+      description: 'Echo for embedders',
+      securitySchemes: [{ type: 'noauth' }],
+    })
+    expect(tools).toHaveLength(toolNames.length + 1)
     await client.close()
     await server.close()
   })

@@ -38,7 +38,7 @@ describe('server card', () => {
         expect(typeof tool.title).toBe('string')
         expect(typeof tool.description).toBe('string')
         expect(typeof tool.inputSchema).toBe('object')
-        expect(tool.annotations).toMatchObject({ destructiveHint: false })
+        expect(tool.annotations).toMatchObject({ destructiveHint: expect.any(Boolean) })
         expect(Array.isArray(tool.securitySchemes)).toBe(true)
       }
     } finally {

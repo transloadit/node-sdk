@@ -665,12 +665,23 @@ describe('MCP file inputs', () => {
     expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
   })
 
-  it('hands the widget Console deep links for the Assembly and a new Template', async () => {
+  it.each([
+    [
+      'an inline Assembly',
+      undefined,
+      `https://transloadit.com/c/acme/templates/new?fromAssembly=${assemblyId}`,
+    ],
+    [
+      'a Template-based Assembly',
+      'tpl_1',
+      `https://transloadit.com/c/acme/templates/new?fromAssembly=${assemblyId}&duplicateFrom=tpl_1`,
+    ],
+  ])('links Save as Template for %s to the Assembly it came from', async (_kind, templateId, newTemplateUrl) => {
     vi.mocked(Transloadit.prototype.createAssembly).mockResolvedValue({
       ok: 'ASSEMBLY_COMPLETED',
       assembly_id: assemblyId,
       account_slug: 'acme',
-      template_id: 'tpl_1',
+      template_id: templateId,
     })
     const result = await client.callTool({
       name: 'transloadit_create_assembly',
@@ -684,7 +695,7 @@ describe('MCP file inputs', () => {
       'transloadit/widget': {
         authenticated: true,
         assembly_console_url: `https://transloadit.com/c/acme/assemblies/${assemblyId}`,
-        new_template_url: 'https://transloadit.com/c/acme/templates/new?duplicateFrom=tpl_1',
+        new_template_url: newTemplateUrl,
       },
     })
   })

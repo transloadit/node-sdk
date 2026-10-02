@@ -9,7 +9,6 @@ import type {
 } from '@transloadit/node'
 import type { ZodObject } from 'zod'
 
-import type { ListedTool } from './tool-list.ts'
 import type { ToolName } from './tool-metadata.ts'
 import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
@@ -28,8 +27,13 @@ import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
-import { installToolListHandler } from './tool-list.ts'
-import { buildToolMeta, toolMetadata } from './tool-metadata.ts'
+import { mirrorSecuritySchemes } from './tool-list.ts'
+import {
+  buildToolMeta,
+  resolveSecuritySchemes,
+  resolveToolAuthMode,
+  toolMetadata,
+} from './tool-metadata.ts'
 import { registerAssemblyResultWidget, widgetContextMetaKey } from './ui/assembly-result-widget.ts'
 
 export type TransloaditMcpServerOptions = {
@@ -444,7 +448,12 @@ const getHeaderValue = (headers: HeaderMap | undefined, name: string): string | 
 const getBearerToken = (headers: HeaderMap | undefined): string | undefined =>
   extractBearerToken(getHeaderValue(headers, 'authorization'))
 
-type LiveClientResult = { client: Transloadit } | { error: ReturnType<typeof buildToolError> }
+/** Which credentials a live client signs with; recovery advice differs per kind. */
+type CredentialKind = 'bearer' | 'auth-key'
+
+type LiveClientResult =
+  | { client: Transloadit; credentials: CredentialKind }
+  | { error: ReturnType<typeof buildToolError> }
 
 const createLiveClient = (
   options: TransloaditMcpServerOptions,
@@ -455,6 +464,7 @@ const createLiveClient = (
 
   if (authToken) {
     return {
+      credentials: 'bearer',
       client: new Transloadit({
         authToken,
         authKey: options.authKey,
@@ -475,6 +485,7 @@ const createLiveClient = (
   }
 
   return {
+    credentials: 'auth-key',
     client: new Transloadit({
       authKey: options.authKey,
       authSecret: options.authSecret,
@@ -527,19 +538,36 @@ const isErrnoException = (value: unknown): value is NodeJS.ErrnoException =>
 const toAuthRejection = (
   options: TransloaditMcpServerOptions,
   error: unknown,
+  credentials: CredentialKind,
 ): CallToolResult | undefined => {
   const status = getHttpStatusCode(error)
-  if (status === 401) {
+  const scopeRejected =
+    status === 403 && error instanceof ApiError && /SCOPE|BEARER_TOKEN/.test(error.code ?? '')
+  // Only forwarded tokens can be renewed by the host's account linking; an Auth Key configured
+  // on the server needs an operator, so it gets no OAuth challenge.
+  if (credentials === 'auth-key') {
+    if (status === 401) {
+      return buildCredentialError({
+        code: 'mcp_credentials_rejected',
+        message: 'Transloadit rejected the Auth Key this server is configured with.',
+        hint: 'Check that TRANSLOADIT_KEY and TRANSLOADIT_SECRET belong to an active Auth Key.',
+      })
+    }
+    if (scopeRejected) {
+      return buildCredentialError({
+        code: 'mcp_insufficient_scope',
+        message: 'The configured Auth Key lacks the scope this tool needs.',
+        hint: 'Grant the Auth Key the scopes this tool declares, or configure another key.',
+      })
+    }
+  } else if (status === 401) {
     return buildAuthError(options, {
       code: 'mcp_auth_rejected',
       oauthError: 'invalid_token',
       message: 'Transloadit rejected the credentials; the token may have expired.',
       hint: 'Reconnect your Transloadit account and retry.',
     })
-  }
-  const scopeRejected =
-    status === 403 && error instanceof ApiError && /SCOPE|BEARER_TOKEN/.test(error.code ?? '')
-  if (scopeRejected) {
+  } else if (scopeRejected) {
     return buildAuthError(options, {
       code: 'mcp_insufficient_scope',
       oauthError: 'insufficient_scope',
@@ -553,6 +581,13 @@ const toAuthRejection = (
   return undefined
 }
 
+/** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
+const buildCredentialError = (error: {
+  code: string
+  message: string
+  hint: string
+}): CallToolResult => buildToolResponse({ status: 'error', errors: [error] }, { isError: true })
+
 /**
  * Key/secret signatures fail when the configured algorithm differs from the Auth Key's
  * `signature_algo`; API2 names the required one, so the hint can say exactly what to set.
@@ -561,22 +596,13 @@ const buildSignatureError = (error: ApiError): CallToolResult => {
   const required = signatureAlgorithmSchema.safeParse(
     /requires (sha\d+)/.exec(error.rawMessage ?? '')?.[1],
   )
-  // An error result, so tools with stricter output schemas (list_templates) can still return it.
-  return buildToolResponse(
-    {
-      status: 'error',
-      errors: [
-        {
-          code: 'mcp_invalid_signature',
-          message: 'Transloadit rejected the request signature for this Auth Key.',
-          hint: required.success
-            ? `This Auth Key signs with ${required.data}: set TRANSLOADIT_SIGNATURE_ALGORITHM=${required.data} (or the signatureAlgorithm option) and restart the MCP server.`
-            : 'Check that TRANSLOADIT_SECRET and TRANSLOADIT_SIGNATURE_ALGORITHM match the Auth Key.',
-        },
-      ],
-    },
-    { isError: true },
-  )
+  return buildCredentialError({
+    code: 'mcp_invalid_signature',
+    message: 'Transloadit rejected the request signature for this Auth Key.',
+    hint: required.success
+      ? `This Auth Key signs with ${required.data}: set TRANSLOADIT_SIGNATURE_ALGORITHM=${required.data} (or the signatureAlgorithm option) and restart the MCP server.`
+      : 'Check that TRANSLOADIT_SECRET and TRANSLOADIT_SIGNATURE_ALGORITHM match the Auth Key.',
+  })
 }
 
 const trimTrailingSlash = (value: string): string => value.replace(/\/$/, '')
@@ -594,6 +620,12 @@ const buildWidgetContext = (
 
   const workspaceUrl = `${consoleUrl}/c/${encodeURIComponent(slug)}`
   const newTemplateUrl = new URL(`${workspaceUrl}/templates/new`)
+  // `fromAssembly` lets the Console seed the editor with the Assembly's effective instructions,
+  // overrides included; Content's new-Template page still has to learn that parameter.
+  // `duplicateFrom` is what that page resolves today, so Template-based runs keep a useful seed.
+  if (assemblyId) {
+    newTemplateUrl.searchParams.set('fromAssembly', assemblyId)
+  }
   if (templateId && !isBuiltinTemplateId(templateId)) {
     newTemplateUrl.searchParams.set('duplicateFrom', templateId)
   }
@@ -751,6 +783,7 @@ const resolveAssemblyReference = (
 type AssemblyAccessResult =
   | {
       client: Transloadit
+      credentials: CredentialKind
       assemblyId: string
       assemblyUrl?: string
     }
@@ -769,6 +802,7 @@ const resolveAssemblyAccess = (
 
   return {
     client: liveClient.client,
+    credentials: liveClient.credentials,
     ...reference,
   }
 }
@@ -907,7 +941,7 @@ export const createTransloaditMcpServer = (
     version: options.serverVersion ?? packageJson.version,
   })
 
-  const listedTools: ListedTool[] = []
+  const authMode = resolveToolAuthMode(options)
   const register = <Input extends ZodObject, Output extends ZodObject>(
     name: ToolName,
     inputSchema: Input,
@@ -915,7 +949,7 @@ export const createTransloaditMcpServer = (
     callback: ToolCallback<Input>,
   ): void => {
     const metadata = toolMetadata[name]
-    const registered = server.registerTool(
+    server.registerTool(
       name,
       {
         title: metadata.title,
@@ -923,17 +957,10 @@ export const createTransloaditMcpServer = (
         inputSchema,
         outputSchema,
         annotations: metadata.annotations,
-        _meta: buildToolMeta(metadata),
+        _meta: buildToolMeta(metadata, resolveSecuritySchemes(metadata, authMode)),
       },
       callback,
     )
-    listedTools.push({
-      name,
-      inputSchema,
-      outputSchema,
-      securitySchemes: metadata.securitySchemes,
-      registered,
-    })
   }
 
   // Builtin templates supersede the old golden template tool; no legacy alias by design.
@@ -986,7 +1013,7 @@ export const createTransloaditMcpServer = (
     ) => {
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
-      const { client } = liveClient
+      const { client, credentials } = liveClient
       const reference =
         assembly_url === undefined ? undefined : resolveAssemblyReference(options, { assembly_url })
       if (reference && 'error' in reference) return reference.error
@@ -1222,7 +1249,7 @@ export const createTransloaditMcpServer = (
           { meta: { [widgetContextMetaKey]: buildWidgetContext(options, assembly) } },
         )
       } catch (error) {
-        const rejection = toAuthRejection(options, error)
+        const rejection = toAuthRejection(options, error, credentials)
         if (rejection) return rejection
         throw error
       } finally {
@@ -1243,7 +1270,7 @@ export const createTransloaditMcpServer = (
       try {
         assembly = await access.client.getAssembly(access.assemblyId)
       } catch (error) {
-        const rejection = toAuthRejection(options, error)
+        const rejection = toAuthRejection(options, error, access.credentials)
         if (rejection) return rejection
         throw error
       }
@@ -1272,7 +1299,7 @@ export const createTransloaditMcpServer = (
           assemblyUrl: access.assemblyUrl,
         })
       } catch (error) {
-        const rejection = toAuthRejection(options, error)
+        const rejection = toAuthRejection(options, error, access.credentials)
         if (rejection) return rejection
         throw error
       }
@@ -1415,7 +1442,7 @@ export const createTransloaditMcpServer = (
           total: parsed.data.count ?? items.length,
         })
       } catch (error) {
-        const rejection = toAuthRejection(options, error)
+        const rejection = toAuthRejection(options, error, liveClient.credentials)
         if (rejection) return rejection
         const message = error instanceof Error ? error.message : 'Failed to list templates.'
         return buildToolResponse({
@@ -1444,7 +1471,7 @@ export const createTransloaditMcpServer = (
       try {
         profile = await resolveWorkspaceProfile(liveClient.client)
       } catch (error) {
-        const rejection = toAuthRejection(options, error)
+        const rejection = toAuthRejection(options, error, liveClient.credentials)
         if (rejection) return rejection
         throw error
       }
@@ -1470,7 +1497,7 @@ export const createTransloaditMcpServer = (
   )
 
   registerAssemblyResultWidget(server, { resultDomains: options.resultDomains })
-  installToolListHandler(server, listedTools)
+  mirrorSecuritySchemes(server)
 
   return server
 }

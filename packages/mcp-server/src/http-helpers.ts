@@ -210,6 +210,21 @@ export const buildBearerChallenge = (options: {
 }
 
 /**
+ * The static-token check runs first and would reject every OAuth token with a bare `Bearer`
+ * challenge, so hosted OAuth could never start. Refuse the combination up front.
+ */
+export const assertSingleAuthMode = (options: {
+  mcpToken?: string
+  resourceMetadataUrl?: string
+}): void => {
+  if (options.mcpToken && options.resourceMetadataUrl) {
+    throw new Error(
+      'Configure either TRANSLOADIT_MCP_TOKEN (self-hosted) or TRANSLOADIT_MCP_RESOURCE_METADATA_URL (hosted OAuth), not both.',
+    )
+  }
+}
+
+/**
  * Self-hosted policy: the request must carry the static `TRANSLOADIT_MCP_TOKEN`. Returns `true`
  * when the 401 was already sent.
  */

@@ -8,6 +8,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 
 import {
   applyCorsHeaders,
+  assertSingleAuthMode,
   isBasicAuthorized,
   normalizePath,
   parsePathname,
@@ -70,6 +71,7 @@ export function createTransloaditMcpHttpHandler(
     transport: StreamableHTTPServerTransport
     server: Awaited<ReturnType<typeof createTransloaditMcpServer>>
   }>()
+  assertSingleAuthMode(options)
   const expectedPath = options.path ?? defaultPath
   const metricsPath =
     options.metricsPath === false ? undefined : normalizePath(options.metricsPath ?? '/metrics')

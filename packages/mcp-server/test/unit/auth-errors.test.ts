@@ -114,6 +114,29 @@ describe('tool auth errors', () => {
     expect(isRecord(content) ? content.text : undefined).not.toContain('Rejected')
   })
 
+  it('names the Auth Key, not OAuth, when API2 rejects key/secret credentials', async () => {
+    serverOptions.authKey = 'key'
+    serverOptions.authSecret = 'secret'
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockRejectedValue(apiRejection(401))
+    await connect()
+
+    const result = await client.callTool({
+      name: 'transloadit_get_assembly_status',
+      arguments: { assembly_id: '0123456789abcdef0123456789abcdef' },
+    })
+    expect(result.isError).toBe(true)
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined()
+    expect(result.structuredContent).toMatchObject({
+      status: 'error',
+      errors: [
+        {
+          code: 'mcp_credentials_rejected',
+          hint: expect.stringContaining('TRANSLOADIT_KEY'),
+        },
+      ],
+    })
+  })
+
   it('leaves other API failures as ordinary tool errors', async () => {
     vi.spyOn(Transloadit.prototype, 'getAssembly').mockRejectedValue(apiRejection(500))
     await connect({ Authorization: 'Bearer token' })

@@ -10,8 +10,9 @@ connector requirements.
   Transloadit and loopback (overridable with `allowedOrigins`), and the server card advertises
   OAuth. Self-hosted `TRANSLOADIT_MCP_TOKEN` behavior is unchanged.
 - Every tool carries a title, `readOnlyHint`/`destructiveHint`/`openWorldHint`/`idempotentHint`
-  annotations and per-tool `securitySchemes` (`noauth` for Robots and linting, `oauth2` with scopes
-  elsewhere), mirrored in `_meta.securitySchemes`. Auth failures return `isError` results with
+  annotations (only Assembly creation is destructive) and per-tool `securitySchemes`, also in
+  `_meta.securitySchemes`, that match the deployment: `oauth2` with each tool's full scopes when
+  hosted, `noauth` where the server holds an Auth Key or a tool needs no account. Auth failures return `isError` results with
   `_meta["mcp/www_authenticate"]` so hosts show their account-linking UI.
 - New `transloadit_get_profile` tool (`_meta["openai/profile"]`) returns the Workspace behind the
   credentials for multi-account hosts.
