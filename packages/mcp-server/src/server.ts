@@ -545,8 +545,18 @@ const toAuthRejection = (
   scopes: string[],
 ): CallToolResult | undefined => {
   const status = getHttpStatusCode(error)
+  // The token or key is valid but names a different Auth Key than the instructions'
+  // `auth.key`; reconnecting cannot fix that, so it is reported like any other bad argument.
+  if (error instanceof ApiError && error.code === 'BEARER_TOKEN_AUTH_KEY_MISMATCH') {
+    return buildCredentialError({
+      code: 'mcp_auth_key_mismatch',
+      message: 'The instructions name a different Auth Key than the connected credentials.',
+      hint: 'Remove auth.key from the instructions; the connected credentials supply it.',
+    })
+  }
+  // INSUFFICIENT_AUTH_SCOPE is API2's only scope rejection.
   const scopeRejected =
-    status === 403 && error instanceof ApiError && /SCOPE|BEARER_TOKEN/.test(error.code ?? '')
+    status === 403 && error instanceof ApiError && error.code === 'INSUFFICIENT_AUTH_SCOPE'
   // Only forwarded tokens can be renewed by the host's account linking; an Auth Key configured
   // on the server needs an operator, so it gets no OAuth challenge.
   if (credentials === 'auth-key') {
@@ -884,7 +894,9 @@ const resolveWorkspaceProfile = async (
   const assemblies = await client.listAssemblies({ pagesize: 1 })
   const latest = assemblies.items[0]
   if (latest?.id) {
-    const status = await client.getAssembly(latest.id)
+    // The details only add the Workspace name; an expired or unreadable Assembly must not hide
+    // the id the list already returned, nor skip the Template fallback.
+    const status: Partial<AssemblyStatus> = await client.getAssembly(latest.id).catch(() => ({}))
     const id = isNonEmptyString(status.account_id) ? status.account_id : latest.account_id
     if (isNonEmptyString(id)) {
       return {

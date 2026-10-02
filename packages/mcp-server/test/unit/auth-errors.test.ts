@@ -178,6 +178,18 @@ describe('profile tool', () => {
     expect(result.structuredContent).toEqual({ id: 'ws_1', name: 'Acme Media', nickname: 'acme' })
   })
 
+  it('keeps the Workspace id when the latest Assembly details are unavailable', async () => {
+    vi.spyOn(Transloadit.prototype, 'listAssemblies').mockResolvedValue({
+      items: [{ id: 'abcdef', account_id: 'ws_1' }],
+      count: 1,
+    })
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockRejectedValue(apiRejection(404))
+
+    const result = await client.callTool({ name: 'transloadit_get_profile', arguments: {} })
+    expect(result.isError).toBeFalsy()
+    expect(result.structuredContent).toEqual({ id: 'ws_1' })
+  })
+
   it('falls back to an owned Template when no Assembly exists', async () => {
     vi.spyOn(Transloadit.prototype, 'listAssemblies').mockResolvedValue({ items: [], count: 0 })
     // API2's default Template list fields omit account_id; it is returned only when requested.

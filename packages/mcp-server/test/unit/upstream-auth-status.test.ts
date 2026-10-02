@@ -90,6 +90,72 @@ describe('upstream token rejections over HTTP', () => {
     expect(await response.text()).toContain('"status":"ok"')
   })
 
+  it('keeps a batch at 200 so a client never replays the calls that already succeeded', async () => {
+    serverOptions.resourceMetadataUrl = resourceMetadataUrl
+    nock(endpoint).get('/templates').query(true).reply(401, { error: 'BEARER_TOKEN_EXPIRED' })
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer expired-oauth-token',
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify([
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'transloadit_list_robots', arguments: { limit: 1 } },
+        },
+        { ...JSON.parse(listTemplatesCall), id: 2 },
+      ]),
+    })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('www-authenticate')).toBeNull()
+    const body = await response.text()
+    expect(body).toContain('"status":"ok"')
+    expect(body).toContain('mcp_auth_rejected')
+  })
+
+  it('reports an Auth Key mismatch as a tool error, not an OAuth challenge', async () => {
+    serverOptions.resourceMetadataUrl = resourceMetadataUrl
+    nock(endpoint)
+      .post(/\/assemblies/)
+      .reply(403, {
+        error: 'BEARER_TOKEN_AUTH_KEY_MISMATCH',
+        message: 'Bearer token auth key mismatch',
+      })
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer expired-oauth-token',
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'transloadit_create_assembly',
+          arguments: {
+            instructions: {
+              auth: { key: 'another-auth-key' },
+              steps: { resized: { robot: '/image/resize', width: 1 } },
+            },
+          },
+        },
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('www-authenticate')).toBeNull()
+    const body = await response.text()
+    expect(body).toContain('mcp_auth_key_mismatch')
+    expect(body).not.toContain('mcp/www_authenticate')
+  })
+
   it('keeps self-hosted rejections as tool errors over HTTP 200', async () => {
     nock(endpoint).get('/templates').query(true).reply(401, { error: 'BEARER_TOKEN_EXPIRED' })
 

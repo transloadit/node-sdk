@@ -76,9 +76,13 @@ const relayHostedRequest = async (
 ): Promise<void> => {
   const response = await transport.handleRequest(toWebRequest(req), { parsedBody })
   const body = await response.text()
-  const challenge = response.headers.get('content-type')?.includes('application/json')
-    ? findUpstreamChallenge(body)
-    : undefined
+  // A client retries the whole HTTP request after re-authorizing, so a batch keeps its 200: the
+  // other calls may have succeeded (an Assembly created twice would be charged twice). Its failed
+  // items still carry the challenge in `_meta["mcp/www_authenticate"]`.
+  const challenge =
+    !Array.isArray(parsedBody) && response.headers.get('content-type')?.includes('application/json')
+      ? findUpstreamChallenge(body)
+      : undefined
   res.statusCode = challenge?.status ?? response.status
   for (const [name, value] of response.headers) res.setHeader(name, value)
   if (challenge) res.setHeader('WWW-Authenticate', challenge.header)
