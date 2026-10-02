@@ -42,6 +42,8 @@ describe('MCP file inputs', () => {
     delete serverOptions.mcpToken
     delete serverOptions.consoleUrl
     delete serverOptions.maxUrlDownloadBytes
+    delete serverOptions.resourceMetadataUrl
+    delete serverOptions.upstreamSecret
     fixtureDirectory = await mkdtemp(join(tmpdir(), 'mcp-test-'))
     fixturePath = join(fixtureDirectory, 'fixture.txt')
     await writeFile(fixturePath, fixtureContent)
@@ -753,5 +755,55 @@ describe('MCP file inputs', () => {
       errors: [{ message: 'URL downloads exceed 1024 bytes: http://198.51.100.10/big.bin' }],
     })
     expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['the tunnel or devdock host', `https://devdock-kvz.transloadit.dev/assemblies/${assemblyId}`],
+    ['a trailing slash', `https://api2.transloadit.com/assemblies/${assemblyId}/`],
+    ['a bare Assembly ID', assemblyId],
+  ])('waits on an Assembly URL with %s, resolving it through the configured API', async (_kind, url) => {
+    const result = await client.callTool({
+      name: 'transloadit_wait_for_assembly',
+      arguments: { assembly_url: url },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(Transloadit.prototype.awaitAssemblyCompletion).toHaveBeenCalledWith(
+      assemblyId,
+      expect.objectContaining({ assemblyUrl }),
+    )
+  })
+
+  it('accepts Assembly URLs on the public origin of the hosted resource metadata', async () => {
+    serverOptions.resourceMetadataUrl =
+      'https://mcp.example.org/.well-known/oauth-protected-resource/mcp'
+    serverOptions.upstreamSecret = 'test-upstream-secret'
+
+    const result = await client.callTool({
+      name: 'transloadit_wait_for_assembly',
+      arguments: { assembly_url: `https://mcp.example.org/assemblies/${assemblyId}` },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(Transloadit.prototype.awaitAssemblyCompletion).toHaveBeenCalledWith(
+      assemblyId,
+      expect.objectContaining({ assemblyUrl }),
+    )
+  })
+
+  it.each([
+    ['a foreign host', `https://evil.example/assemblies/${assemblyId}`],
+    ['a look-alike host', `https://transloadit.dev.evil.example/assemblies/${assemblyId}`],
+    ['credentials', `https://user:pass@api2.transloadit.com/assemblies/${assemblyId}`],
+    ['a non-Assembly path', `https://api2.transloadit.com/templates/${assemblyId}`],
+    ['a non-HTTP scheme', `ftp://api2.transloadit.com/assemblies/${assemblyId}`],
+  ])('still rejects an Assembly URL with %s', async (_kind, url) => {
+    const result = await client.callTool({
+      name: 'transloadit_wait_for_assembly',
+      arguments: { assembly_url: url },
+    })
+    expect(result.structuredContent).toMatchObject({
+      status: 'error',
+      errors: [{ code: 'mcp_invalid_args', path: 'assembly_url' }],
+    })
+    expect(Transloadit.prototype.awaitAssemblyCompletion).not.toHaveBeenCalled()
   })
 })

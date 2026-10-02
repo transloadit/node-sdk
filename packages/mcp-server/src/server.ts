@@ -802,6 +802,12 @@ const assemblyUrlSchema = z.url()
 
 type AssemblyReference = { assemblyId: string; assemblyUrl: string }
 
+/** Production (`.com`) and development or tunnel (`.dev`) Transloadit hosts. */
+const isTransloaditHost = (hostname: string): boolean =>
+  ['transloadit.com', 'transloadit.dev'].some(
+    (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+  )
+
 const resolveAssemblyReference = (
   options: TransloaditMcpServerOptions,
   args: { assembly_url?: string; assembly_id?: string },
@@ -820,20 +826,29 @@ const resolveAssemblyReference = (
   const endpoint = options.endpoint || 'https://api2.transloadit.com'
   let assemblyId = args.assembly_id
 
-  if (args.assembly_url !== undefined) {
+  // The message promises "URL or ID", and models pass a bare ID in either field.
+  if (args.assembly_url !== undefined && assemblyIdSchema.safeParse(args.assembly_url).success) {
+    assemblyId = args.assembly_url
+  } else if (args.assembly_url !== undefined) {
     const parsed = assemblyUrlSchema.safeParse(args.assembly_url)
     if (!parsed.success) return invalidReference
     const url = new URL(parsed.data)
     const apiEndpoint = new URL(endpoint)
     const usesConfiguredOrigin = url.origin === apiEndpoint.origin
-    const usesTransloaditOrigin = url.hostname.endsWith('.transloadit.com') && url.port === ''
+    // A hosted server may answer on a public origin (a tunnel or proxy) other than its API
+    // endpoint; Assembly URLs it hands out carry that origin.
+    const usesPublicOrigin =
+      options.resourceMetadataUrl !== undefined &&
+      URL.canParse(options.resourceMetadataUrl) &&
+      url.origin === new URL(options.resourceMetadataUrl).origin
+    const usesTransloaditOrigin = isTransloaditHost(url.hostname) && url.port === ''
     if (
       (url.protocol !== 'http:' && url.protocol !== 'https:') ||
       url.username ||
       url.password ||
       url.search ||
       url.hash ||
-      (!usesConfiguredOrigin && !usesTransloaditOrigin)
+      (!usesConfiguredOrigin && !usesPublicOrigin && !usesTransloaditOrigin)
     ) {
       return invalidReference
     }
