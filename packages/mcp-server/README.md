@@ -415,9 +415,13 @@ below.
 These limits apply to inline JSON/base64 payloads. For larger files, use a public URL or upload from
 your own machine with `npx -y @transloadit/node upload`.
 
-- Hosted default request body limit: **1 MB**
+- Hosted default request body limit: **1 MiB**
 - Hosted `maxBase64Bytes`: **512,000** decoded bytes
-- Self-hosted default request body limit: **10 MB** (configurable)
+- Self-hosted default request body limit: **10 MiB**
+
+Set `maxRequestBodyBytes` (handler option or JSON config key) to change the body limit; larger
+requests get HTTP 413 and are not buffered. Express apps that install their own body parser set
+its limit there.
 
 ## URL inputs and template behavior
 

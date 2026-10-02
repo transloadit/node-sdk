@@ -5,10 +5,17 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 
+import {
+  readBodyWithinLimit,
+  resolveMaxRequestBodyBytes,
+  sendBodyTooLarge,
+} from './http-helpers.ts'
+
 type RequestTransportOptions = {
   resourceMetadataUrl?: string
   allowedHosts?: string[]
   enableDnsRebindingProtection?: boolean
+  maxRequestBodyBytes?: number
 }
 
 /** A per-request MCP transport plus the function that serves the HTTP request through it. */
@@ -23,6 +30,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const parseJson = (text: string): unknown => {
+  if (!text) return undefined
   try {
     return JSON.parse(text)
   } catch {
@@ -52,31 +60,17 @@ const findUpstreamChallenge = (body: string): UpstreamChallenge | undefined => {
   return undefined
 }
 
-const readRawBody = async (req: IncomingMessage): Promise<string> => {
-  const chunks: Buffer[] = []
-  for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-  }
-  return Buffer.concat(chunks).toString('utf8')
-}
-
-const toWebRequest = async (req: IncomingMessage, parsedBody: unknown): Promise<Request> => {
+const toWebRequest = (req: IncomingMessage, rawBody: string | undefined): Request => {
   const headers = new Headers()
   for (const [name, value] of Object.entries(req.headers)) {
     if (value === undefined) continue
     for (const entry of Array.isArray(value) ? value : [value]) headers.append(name, entry)
   }
-  // Without a body parser (an Express app lacking express.json()), the stream is still unread;
-  // hand it to the transport, which parses JSON itself when no parsed body is given.
-  const body =
-    parsedBody === undefined && req.method === 'POST' && !req.readableEnded
-      ? await readRawBody(req)
-      : undefined
   // The transport reads only headers and the body, so a fixed base URL is enough.
   return new Request(new URL(req.url ?? '/', 'http://localhost'), {
     method: req.method,
     headers,
-    body,
+    body: rawBody,
   })
 }
 
@@ -91,16 +85,28 @@ const relayHostedRequest = async (
   req: IncomingMessage,
   res: ServerResponse,
   parsedBody: unknown,
+  maxBytes: number,
 ): Promise<void> => {
-  const response = await transport.handleRequest(await toWebRequest(req, parsedBody), {
-    parsedBody,
+  // Without a body parser (an Express app lacking express.json()) the stream is still unread.
+  let rawBody: string | undefined
+  if (parsedBody === undefined && req.method === 'POST' && !req.readableEnded) {
+    rawBody = await readBodyWithinLimit(req, maxBytes)
+    if (rawBody === undefined) {
+      sendBodyTooLarge(res, maxBytes)
+      return
+    }
+  }
+  // Invalid JSON stays undefined here, so the transport parses the raw body and reports it.
+  const message = rawBody === undefined ? parsedBody : parseJson(rawBody)
+  const response = await transport.handleRequest(toWebRequest(req, rawBody), {
+    parsedBody: message,
   })
   const body = await response.text()
   // A client retries the whole HTTP request after re-authorizing, so a batch keeps its 200: the
   // other calls may have succeeded (an Assembly created twice would be charged twice). Its failed
   // items still carry the challenge in `_meta["mcp/www_authenticate"]`.
   const challenge =
-    !Array.isArray(parsedBody) && response.headers.get('content-type')?.includes('application/json')
+    !Array.isArray(message) && response.headers.get('content-type')?.includes('application/json')
       ? findUpstreamChallenge(body)
       : undefined
   res.statusCode = challenge?.status ?? response.status
@@ -131,8 +137,9 @@ export const createRequestTransport = (options: RequestTransportOptions): Reques
     ...shared,
     enableJsonResponse: true,
   })
+  const maxBytes = resolveMaxRequestBodyBytes(options)
   return {
     transport,
-    handle: (req, res, parsedBody) => relayHostedRequest(transport, req, res, parsedBody),
+    handle: (req, res, parsedBody) => relayHostedRequest(transport, req, res, parsedBody, maxBytes),
   }
 }

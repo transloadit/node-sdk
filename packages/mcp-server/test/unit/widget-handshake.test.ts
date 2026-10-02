@@ -181,6 +181,39 @@ describe('assembly result widget handshake (MCP Apps 2026-01-26)', () => {
     })
   })
 
+  it('shows the recovery advice when a created Assembly could not be read', async () => {
+    await initialize()
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        isError: true,
+        structuredContent: {
+          status: 'error',
+          assembly: {
+            assembly_id: 'abc123',
+            assembly_ssl_url: 'https://api2.transloadit.com/assemblies/abc123',
+          },
+          errors: [
+            {
+              code: 'mcp_assembly_status_unavailable',
+              message: 'The Assembly was created, but its status could not be read.',
+              hint: 'Call transloadit_get_assembly_status instead of creating it again.',
+            },
+          ],
+        },
+      },
+    })
+
+    expect(widget.appText()).toContain('Assembly abc123')
+    expect(widget.appText()).toContain(
+      'The Assembly was created, but its status could not be read.',
+    )
+    expect(widget.appText()).toContain(
+      'Call transloadit_get_assembly_status instead of creating it again.',
+    )
+  })
+
   it('shows the error text of a failed tool call instead of waiting forever', async () => {
     await initialize()
     await widget.fromHost({

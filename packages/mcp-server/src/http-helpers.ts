@@ -215,6 +215,57 @@ export const buildBearerChallenge = (options: {
 }
 
 /**
+ * Request body limits the README documents. Hosted requests only carry JSON-RPC and small base64
+ * payloads, and pass the bearer gate before API2 has checked the token, so they get the smaller one.
+ */
+export const resolveMaxRequestBodyBytes = (options: {
+  maxRequestBodyBytes?: number
+  resourceMetadataUrl?: string
+}): number => options.maxRequestBodyBytes ?? (options.resourceMetadataUrl ? 1 : 10) * 1024 * 1024
+
+/**
+ * Reads a request body up to `maxBytes`. Returns `undefined` once it is larger; the rest is drained
+ * without being kept, so an oversized body cannot exhaust memory.
+ */
+export const readBodyWithinLimit = (
+  req: IncomingMessage,
+  maxBytes: number,
+): Promise<string | undefined> =>
+  new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    let size = 0
+    let tooLarge = false
+    req.on('data', (chunk: Buffer) => {
+      if (tooLarge) return
+      size += chunk.length
+      if (size > maxBytes) {
+        tooLarge = true
+        chunks.length = 0
+        resolve(undefined)
+        return
+      }
+      chunks.push(chunk)
+    })
+    req.on('end', () => {
+      if (!tooLarge) resolve(Buffer.concat(chunks).toString('utf8'))
+    })
+    req.on('error', reject)
+  })
+
+export const sendBodyTooLarge = (res: ServerResponse, maxBytes: number): void => {
+  res.statusCode = 413
+  res.setHeader('Connection', 'close')
+  res.setHeader('Content-Type', 'application/json')
+  res.end(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      error: { code: -32000, message: `Request body exceeds ${maxBytes} bytes.` },
+      id: null,
+    }),
+  )
+}
+
+/**
  * The static-token check runs first and would reject every OAuth token with a bare `Bearer`
  * challenge, so hosted OAuth could never start. Refuse the combination up front.
  */

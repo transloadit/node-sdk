@@ -343,3 +343,44 @@ describe('wildcard origins with DNS rebinding protection', () => {
     )
   })
 })
+
+describe('request body limits', () => {
+  let running: RunningServer | undefined
+
+  afterEach(async () => {
+    await running?.close()
+    running = undefined
+  })
+
+  const oversized = JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/list',
+    params: { pad: 'x'.repeat(4096) },
+  })
+
+  it.each([
+    ['self-hosted', {}],
+    ['hosted', { resourceMetadataUrl }],
+  ])('answers 413 for %s bodies above the limit without buffering them', async (_mode, mode) => {
+    running = await start({ maxRequestBodyBytes: 1024, ...mode })
+
+    const response = await fetch(running.url, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer token',
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: oversized,
+    })
+    expect(response.status).toBe(413)
+  })
+
+  it('accepts bodies within the limit', async () => {
+    running = await start({ maxRequestBodyBytes: 8192, resourceMetadataUrl })
+
+    const response = await post(running.url, { Authorization: 'Bearer token' })
+    expect(response.status).toBe(200)
+  })
+})

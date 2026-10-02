@@ -24,6 +24,8 @@ connector requirements.
 - Hosted mode serves JSON responses and turns an upstream rejection of the forwarded token into
   HTTP 401 (`invalid_token`) or 403 (`insufficient_scope` with the tool's scopes), so OAuth clients
   refresh or re-scope instead of retrying a dead token.
+- Request bodies are capped (1 MiB hosted, 10 MiB self-hosted, `maxRequestBodyBytes`) and larger
+  ones get HTTP 413 without being buffered.
 - Hosted mode also challenges bare `GET /mcp` probes (Codex discovers OAuth from them); CORS now
   allows `Mcp-Protocol-Version` so browser hosts can connect.
 - Self-hosted servers sign with `TRANSLOADIT_SIGNATURE_ALGORITHM` (`sha1`, `sha256` or `sha384`),

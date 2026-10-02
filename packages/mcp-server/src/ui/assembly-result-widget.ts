@@ -255,9 +255,14 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     return el('figure', {}, [preview(isRecord(file) ? file : {}), caption])
   }
 
+  // Each tool error as "message hint", so recovery advice is shown next to what failed.
+  const payloadErrors = (payload) =>
+    (Array.isArray(payload.errors) ? payload.errors : [])
+      .map((error) => (isRecord(error) ? [text(error.message), text(error.hint)].filter(Boolean).join(' ') : ''))
+      .filter(Boolean)
+
   const errorText = (result, payload) => {
-    const errors = Array.isArray(payload.errors) ? payload.errors : []
-    const fromPayload = errors.map((error) => (isRecord(error) ? text(error.message) : '')).filter(Boolean)
+    const fromPayload = payloadErrors(payload)
     if (fromPayload.length > 0) return fromPayload.join(' ')
     const content = Array.isArray(result.content) ? result.content : []
     return content
@@ -297,13 +302,18 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     if (failed && text(assembly.message)) {
       app.append(el('p', { className: 'error', role: 'alert', text: text(assembly.message) }))
     }
+    // A tool error can come with a partial Assembly (created, but its status unreadable).
+    const toolErrors = payloadErrors(payload)
+    for (const message of toolErrors) {
+      app.append(el('p', { className: 'error', role: 'alert', text: message }))
+    }
 
     const results = isRecord(assembly.results) ? assembly.results : {}
     const uploads = Array.isArray(assembly.uploads) ? assembly.uploads : []
     const steps = Object.entries(results).filter(([, files]) => Array.isArray(files) && files.length > 0)
     if (uploads.length > 0) steps.unshift([':original', uploads])
 
-    if (steps.length === 0) {
+    if (steps.length === 0 && toolErrors.length === 0) {
       app.append(el('p', { className: 'muted', text: 'No result files yet.' }))
     }
     for (const [stepName, files] of steps) {

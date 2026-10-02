@@ -11,9 +11,12 @@ import {
   isBasicAuthorized,
   normalizePath,
   parsePathname,
+  readBodyWithinLimit,
   rejectMissingBearerToken,
   rejectMissingMcpToken,
   resolveAllowedOrigins,
+  resolveMaxRequestBodyBytes,
+  sendBodyTooLarge,
   sendServerInfoForBareGet,
 } from './http-helpers.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
@@ -29,6 +32,8 @@ export type TransloaditMcpHttpOptions = TransloaditMcpServerOptions & {
   path?: string
   metricsPath?: string | false
   metricsAuth?: { username: string; password: string }
+  /** Largest accepted request body; defaults to 1 MiB hosted and 10 MiB self-hosted. */
+  maxRequestBodyBytes?: number
   // Ignored on purpose: the hosted HTTP server is stateless and does not mint session IDs.
   sessionIdGenerator?: (() => string) | undefined
   logger?: SevLogger
@@ -43,25 +48,13 @@ export type TransloaditMcpHttpHandler = ((
 
 const defaultPath = '/mcp'
 
-/** Read the full request body and JSON-parse it before handing it to the MCP transport. */
-function readJsonBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = []
-    req.on('data', (chunk: Buffer) => chunks.push(chunk))
-    req.on('end', () => {
-      const raw = Buffer.concat(chunks).toString('utf8')
-      if (!raw) {
-        resolve(undefined)
-        return
-      }
-      try {
-        resolve(JSON.parse(raw))
-      } catch {
-        resolve(undefined)
-      }
-    })
-    req.on('error', reject)
-  })
+const parseJson = (text: string): unknown => {
+  if (!text) return undefined
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined
+  }
 }
 
 export function createTransloaditMcpHttpHandler(
@@ -176,7 +169,13 @@ export function createTransloaditMcpHttpHandler(
       return
     }
 
-    const parsedBody = await readJsonBody(req)
+    const maxBytes = resolveMaxRequestBodyBytes(options)
+    const rawBody = await readBodyWithinLimit(req, maxBytes)
+    if (rawBody === undefined) {
+      sendBodyTooLarge(res, maxBytes)
+      return
+    }
+    const parsedBody = parseJson(rawBody)
     const { transport, handle } = createRequestTransport(options)
     const server = createTransloaditMcpServer(options)
     const activeRequest = { transport, server }

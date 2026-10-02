@@ -186,6 +186,7 @@ const main = async (): Promise<void> => {
       mcpToken,
       resourceMetadataUrl,
       upstreamSecret,
+      maxRequestBodyBytes: fileConfig.maxRequestBodyBytes as number | undefined,
       signatureAlgorithm,
       resultDomains,
       consoleUrl,
