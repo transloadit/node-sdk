@@ -36,6 +36,7 @@ import {
   toolMetadata,
 } from './tool-metadata.ts'
 import { registerAssemblyResultWidget, widgetContextMetaKey } from './ui/assembly-result-widget.ts'
+import { buildUploadInstructions, uploadInstructionSchema } from './upload-instructions.ts'
 
 export type TransloaditMcpServerOptions = {
   authKey?: string
@@ -242,6 +243,7 @@ const createAssemblyOutputSchema = z.object({
       upload_urls: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
+  upload_instructions: z.array(uploadInstructionSchema).optional(),
   next_steps: z.array(z.string()).optional(),
   errors: z.array(toolMessageSchema).optional(),
   warnings: z.array(toolMessageSchema).optional(),
@@ -1265,7 +1267,17 @@ export const createTransloaditMcpServer = (
         }
 
         const timeout = wait_timeout_ms
-        const waitForCompletion = wait_for_completion ?? false
+        // Files the caller uploads itself (from a sandbox) can only start once this call returns,
+        // so waiting here would just run into the timeout.
+        const outOfBandUploads = reference ? 0 : Math.max((expected_uploads ?? 0) - totalFiles, 0)
+        const waitForCompletion = (wait_for_completion ?? false) && outOfBandUploads === 0
+        if (wait_for_completion && outOfBandUploads > 0) {
+          warnings.push({
+            code: 'mcp_wait_skipped_for_uploads',
+            message:
+              'Did not wait for completion because the Assembly waits for the expected uploads. Run upload_instructions, then call transloadit_wait_for_assembly.',
+          })
+        }
         const uploadBehavior = upload_behavior ?? (waitForCompletion ? 'await' : 'background')
         const uploadConcurrency = upload_concurrency
         const chunkSize = upload_chunk_size
@@ -1338,15 +1350,26 @@ export const createTransloaditMcpServer = (
           uploadSummary.upload_urls = assembly.upload_urls as Record<string, string>
         }
 
-        const nextSteps = waitForCompletion
-          ? []
-          : ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status']
+        const uploadInstructions =
+          outOfBandUploads > 0 ? buildUploadInstructions(assembly, outOfBandUploads) : undefined
+        if (outOfBandUploads > 0 && !uploadInstructions) {
+          warnings.push({
+            code: 'mcp_upload_instructions_unavailable',
+            message: 'The Assembly status has no tus_url or assembly_ssl_url to upload to.',
+          })
+        }
+        const nextSteps = uploadInstructions
+          ? ['transloadit_wait_for_assembly']
+          : waitForCompletion
+            ? []
+            : ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status']
 
         return buildToolResponse(
           {
             status: 'ok',
             assembly,
             upload: uploadSummary,
+            upload_instructions: uploadInstructions,
             next_steps: nextSteps,
             warnings: warnings.length > 0 ? warnings : undefined,
           },

@@ -20,6 +20,9 @@ connector requirements.
 - Behavior change for Express mounts: explicit `allowedOrigins` are now enforced by the router
   (wildcards `*.` and `:*` supported) even without DNS rebinding protection, so other browser
   Origins get HTTP 403 and allowed ones receive CORS headers.
+- `transloadit_create_assembly` with `expected_uploads` returns `upload_instructions`: per file the
+  tus endpoint, metadata and a credential-free `curl` command (tus creation-with-upload), so agents
+  can upload files that exist only in their sandbox, then call `transloadit_wait_for_assembly`.
 - New `transloadit_get_profile` tool (`_meta["openai/profile"]`) returns the Workspace behind the
   credentials for multi-account hosts.
 - `transloadit_create_assembly` accepts ChatGPT-attached files through `attachments`

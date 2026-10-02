@@ -410,6 +410,25 @@ type Attachment = {
 Each attachment becomes a URL input (`attachment_1`, `attachment_2`, …) and follows the URL rules
 below.
 
+### Files that exist only locally or in your sandbox
+
+If the file exists only locally or in your sandbox, call `transloadit_create_assembly` with
+`expected_uploads` and run the returned `upload_instructions`; this needs outbound HTTPS from the
+sandbox to Transloadit (Claude.ai: Settings → code execution network access must allow it). Hosts
+such as Claude.ai do not hand chat attachments to connector tools, and base64 in tool arguments is
+impractical for anything but tiny files, so the agent uploads the file itself:
+
+1. Call `transloadit_create_assembly` with your instructions and `expected_uploads: 1` (one per
+   file). The call returns right away, even with `wait_for_completion: true`, because the Assembly
+   now waits for those uploads.
+2. Each `upload_instructions` entry has the tus endpoint, the tus metadata (`assembly_url`,
+   `fieldname`) and a ready-to-run `curl` command. Set `FILE` to the file's path and run it in a
+   bash shell; it prints `201` once the file is uploaded (tus creation-with-upload, one request).
+3. Call `transloadit_wait_for_assembly` with the Assembly URL.
+
+The commands contain no credentials: the Assembly URL is the only capability, and it lets the holder
+add files to that one Assembly while it waits for uploads.
+
 ## Limits
 
 These limits apply to inline JSON/base64 payloads. For larger files, use a public URL or upload from

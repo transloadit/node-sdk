@@ -101,7 +101,7 @@ export const toolMetadata: Record<ToolName, ToolMetadata> = {
   transloadit_create_assembly: {
     title: 'Create or resume an Assembly',
     description:
-      'Create or resume an Assembly, optionally uploading files and waiting for completion. Files attached in the chat arrive under attachments; public URLs and small base64 payloads go under files.',
+      'Create or resume an Assembly, optionally uploading files and waiting for completion. Files attached in the chat arrive under attachments; public URLs and small base64 payloads go under files. If a file exists only locally or in your sandbox, set expected_uploads, run each upload_instructions curl command there (it needs outbound HTTPS to Transloadit), then call transloadit_wait_for_assembly.',
     annotations: {
       readOnlyHint: false,
       // Export Robots (/s3/store, /google/store, …) can overwrite files at the destination, so
