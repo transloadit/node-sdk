@@ -53,8 +53,10 @@ instead of bundling skill files.
 
 ```bash
 codex mcp add transloadit --url https://api2.transloadit.com/mcp
-codex mcp login transloadit
 ```
+
+Codex opens the consent page right away. To sign in again later, run
+`codex mcp login transloadit`.
 
 Or in `~/.codex/config.toml`:
 
@@ -147,15 +149,19 @@ docker run -i --rm \
   ghcr.io/transloadit/mcp-server:latest
 ```
 
-For HTTP mode via Docker, expose the port:
+For HTTP mode via Docker, override the `stdio` entrypoint, expose the port, and set a transport
+token, which binding to `0.0.0.0` requires:
 
 ```bash
+export TRANSLOADIT_MCP_TOKEN="$(openssl rand -hex 32)"
 docker run --rm \
   -e TRANSLOADIT_KEY=MY_AUTH_KEY \
   -e TRANSLOADIT_SECRET=MY_SECRET_KEY \
+  -e TRANSLOADIT_MCP_TOKEN \
   -p 5723:5723 \
+  --entrypoint transloadit-mcp \
   ghcr.io/transloadit/mcp-server:latest \
-  transloadit-mcp http --host 0.0.0.0 --port 5723
+  http --host 0.0.0.0 --port 5723
 ```
 
 ### `TRANSLOADIT_MCP_TOKEN` explained
