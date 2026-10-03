@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import { timingSafeEqual } from 'node:crypto'
 
+import { assertRequestBodyLimit, assertServerOptions } from './options.ts'
+
 export const parsePathname = (url: string | undefined, fallback: string): string => {
   try {
     return new URL(url ?? fallback, 'http://localhost').pathname
@@ -65,6 +67,69 @@ export const isBasicAuthorized = (
   )
 }
 
+/**
+ * Browser origins the hosted endpoint accepts when no explicit `allowedOrigins` are configured:
+ * the ChatGPT and Claude web apps, Transloadit sites, devdock and loopback. Requests without an
+ * `Origin` header (CLIs, servers) are never subject to this list.
+ */
+export const hostedAllowedOrigins = [
+  'https://chatgpt.com',
+  'https://chat.openai.com',
+  'https://claude.ai',
+  'https://claude.com',
+  'https://transloadit.com',
+  'https://*.transloadit.com',
+  'https://transloadit.dev:*',
+  'https://*.transloadit.dev:*',
+  'http://localhost:*',
+  'https://localhost:*',
+  'http://127.0.0.1:*',
+  'https://127.0.0.1:*',
+  'http://[::1]:*',
+  'https://[::1]:*',
+]
+
+const originPatternRegex =
+  /^(?<protocol>https?):\/\/(?<host>\*\.)?(?<hostname>\[[^\]]+\]|[^:/]+)(?::(?<port>\*|\d+))?$/
+
+/**
+ * Matches an `Origin` header against an allowlist entry. Entries are exact origins or patterns
+ * with a `*.` subdomain wildcard and/or a `:*` any-port suffix.
+ */
+export const matchesOriginPattern = (origin: string, pattern: string): boolean => {
+  if (origin === pattern) return true
+  const match = originPatternRegex.exec(pattern)
+  if (!match?.groups) return false
+  let url: URL
+  try {
+    url = new URL(origin)
+  } catch {
+    return false
+  }
+  const { protocol, host, hostname, port } = match.groups
+  if (url.protocol !== `${protocol}:`) return false
+  const originHost = url.hostname.replaceAll(/^\[|\]$/g, '')
+  const patternHost = (hostname ?? '').replaceAll(/^\[|\]$/g, '')
+  const hostMatches = host
+    ? originHost.endsWith(`.${patternHost}`) && originHost.length > patternHost.length + 1
+    : originHost === patternHost
+  if (!hostMatches) return false
+  if (port === '*') return true
+  return url.port === (port ?? '')
+}
+
+export const isOriginAllowed = (origin: string, allowedOrigins: string[]): boolean =>
+  allowedOrigins.some((pattern) => matchesOriginPattern(origin, pattern))
+
+/** Explicit `allowedOrigins` win; hosted mode falls back to the ChatGPT/Claude/Transloadit list. */
+export const resolveAllowedOrigins = (options: {
+  allowedOrigins?: string[]
+  resourceMetadataUrl?: string
+}): string[] | undefined => {
+  if (options.allowedOrigins && options.allowedOrigins.length > 0) return options.allowedOrigins
+  return options.resourceMetadataUrl ? hostedAllowedOrigins : undefined
+}
+
 export const applyCorsHeaders = (
   req: IncomingMessage,
   res: ServerResponse,
@@ -76,7 +141,7 @@ export const applyCorsHeaders = (
   }
 
   if (allowedOrigins && allowedOrigins.length > 0) {
-    if (!allowedOrigins.includes(origin)) {
+    if (!isOriginAllowed(origin, allowedOrigins)) {
       res.statusCode = 403
       res.end('Forbidden')
       return false
@@ -88,11 +153,181 @@ export const applyCorsHeaders = (
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Authorization,Content-Type,Mcp-Session-Id,Last-Event-ID',
-  )
-  res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id')
+  res.setHeader('Access-Control-Allow-Headers', corsAllowHeaders)
+  res.setHeader('Access-Control-Expose-Headers', corsExposeHeaders)
 
+  return true
+}
+
+/**
+ * Request headers browser MCP clients send (Streamable HTTP adds `Mcp-Protocol-Version` after
+ * initialization); preflights that omit one block the client entirely.
+ */
+export const corsAllowHeaders =
+  'Authorization,Content-Type,Mcp-Protocol-Version,Mcp-Session-Id,Last-Event-ID'
+
+/** Response headers browser clients must read: the session id and the OAuth challenge. */
+export const corsExposeHeaders = 'Mcp-Session-Id,WWW-Authenticate'
+
+/** Human-readable status served on bare GETs and kept in the hosted 401 body. */
+export const serverInfo = {
+  name: 'Transloadit MCP Server',
+  status: 'ok',
+  docs: 'https://transloadit.com/docs/sdks/mcp-server/',
+}
+
+/**
+ * Bare GETs without the SSE Accept header are not valid MCP requests (Streamable HTTP requires
+ * `Accept: text/event-stream` for GET). Answer with a friendly status so directory health probes
+ * (Glama, uptime monitors) see a 200 instead of the SDK's opaque 406. Returns `true` when sent.
+ */
+export const sendServerInfoForBareGet = (req: IncomingMessage, res: ServerResponse): boolean => {
+  const accept = req.headers.accept ?? ''
+  if (req.method !== 'GET' || accept.includes('text/event-stream')) return false
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'application/json')
+  res.end(JSON.stringify(serverInfo))
+  return true
+}
+
+/**
+ * `WWW-Authenticate` value (RFC 6750) that points OAuth clients at the protected-resource
+ * metadata and, for rejected requests, names the error so hosts show their linking UI.
+ */
+export const buildBearerChallenge = (options: {
+  resourceMetadataUrl?: string
+  error?: { code: string; description: string }
+  /** Scopes the client should request again (RFC 6750 `scope`, used to re-scope on 403). */
+  scopes?: string[]
+}): string => {
+  const parts: string[] = []
+  if (options.resourceMetadataUrl) {
+    parts.push(`resource_metadata="${options.resourceMetadataUrl}"`)
+  }
+  if (options.error) {
+    parts.push(
+      `error="${options.error.code}"`,
+      `error_description="${options.error.description.replaceAll('"', "'")}"`,
+    )
+  }
+  if (options.scopes && options.scopes.length > 0) {
+    parts.push(`scope="${options.scopes.join(' ')}"`)
+  }
+  return parts.length > 0 ? `Bearer ${parts.join(', ')}` : 'Bearer'
+}
+
+/**
+ * Request body limits the README documents. Hosted requests only carry JSON-RPC and small base64
+ * payloads, and pass the bearer gate before API2 has checked the token, so they get the smaller one.
+ */
+export const resolveMaxRequestBodyBytes = (options: {
+  maxRequestBodyBytes?: number
+  resourceMetadataUrl?: string
+}): number => options.maxRequestBodyBytes ?? (options.resourceMetadataUrl ? 1 : 10) * 1024 * 1024
+
+/**
+ * Reads a request body up to `maxBytes`. Returns `undefined` once it is larger; the rest is drained
+ * without being kept, so an oversized body cannot exhaust memory.
+ */
+export const readBodyWithinLimit = (
+  req: IncomingMessage,
+  maxBytes: number,
+): Promise<string | undefined> =>
+  new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    let size = 0
+    let tooLarge = false
+    req.on('data', (chunk: Buffer) => {
+      if (tooLarge) return
+      size += chunk.length
+      if (size > maxBytes) {
+        tooLarge = true
+        chunks.length = 0
+        resolve(undefined)
+        return
+      }
+      chunks.push(chunk)
+    })
+    req.on('end', () => {
+      if (!tooLarge) resolve(Buffer.concat(chunks).toString('utf8'))
+    })
+    req.on('error', reject)
+  })
+
+export const sendBodyTooLarge = (res: ServerResponse, maxBytes: number): void => {
+  res.statusCode = 413
+  res.setHeader('Connection', 'close')
+  res.setHeader('Content-Type', 'application/json')
+  res.end(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      error: { code: -32000, message: `Request body exceeds ${maxBytes} bytes.` },
+      id: null,
+    }),
+  )
+}
+
+/**
+ * Refuses HTTP options that would fail silently later. The static-token check runs first and
+ * would reject every OAuth token with a bare `Bearer` challenge, so hosted OAuth could never start.
+ */
+export const assertHttpOptions = (options: {
+  mcpToken?: string
+  resourceMetadataUrl?: string
+  upstreamSecret?: string
+  maxRequestBodyBytes?: unknown
+  maxUrlDownloadBytes?: unknown
+  urlDownloadTimeoutMs?: unknown
+}): void => {
+  if (options.mcpToken && options.resourceMetadataUrl) {
+    throw new Error(
+      'Configure either TRANSLOADIT_MCP_TOKEN (self-hosted) or TRANSLOADIT_MCP_RESOURCE_METADATA_URL (hosted OAuth), not both.',
+    )
+  }
+  assertRequestBodyLimit(options.maxRequestBodyBytes)
+  // Also checked per server instance; repeated here so a bad config fails at startup.
+  assertServerOptions(options)
+}
+
+/**
+ * Self-hosted policy: the request must carry the static `TRANSLOADIT_MCP_TOKEN`. Returns `true`
+ * when the 401 was already sent.
+ */
+export const rejectMissingMcpToken = (
+  req: IncomingMessage,
+  res: ServerResponse,
+  mcpToken: string | undefined,
+): boolean => {
+  if (!mcpToken || isAuthorized(req, mcpToken)) return false
+  res.statusCode = 401
+  res.setHeader('WWW-Authenticate', 'Bearer')
+  res.end('Unauthorized')
+  return true
+}
+
+/**
+ * Hosted policy: a bearer token only has to be present, because API2 verifies it on every
+ * forwarded call. Without one, any request (bare GET probes included, since clients such as Codex
+ * discover the authorization server from an unauthenticated GET) gets a 401 that points OAuth
+ * clients at the protected-resource metadata. The body keeps the friendly server status for
+ * humans. Returns `true` when the 401 was already sent.
+ */
+export const rejectMissingBearerToken = (
+  req: IncomingMessage,
+  res: ServerResponse,
+  resourceMetadataUrl: string | undefined,
+): boolean => {
+  if (!resourceMetadataUrl || extractBearerToken(req.headers.authorization)) return false
+  res.statusCode = 401
+  res.setHeader('WWW-Authenticate', buildBearerChallenge({ resourceMetadataUrl }))
+  res.setHeader('Content-Type', 'application/json')
+  res.end(
+    JSON.stringify({
+      ...serverInfo,
+      error: 'unauthorized',
+      error_description:
+        'This endpoint requires an OAuth bearer token. Discover the authorization server through the resource_metadata URL in the WWW-Authenticate header.',
+    }),
+  )
   return true
 }

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "transloadit",
+  "version": "0.5.0",
+  "description": "Process video, audio, images and documents with Transloadit: encode, resize, transcribe, convert and deliver files through 86+ Robots.",
+  "author": {
+    "name": "Transloadit",
+    "email": "support@transloadit.com",
+    "url": "https://transloadit.com"
+  },
+  "homepage": "https://transloadit.com/docs/sdks/mcp-server/",
+  "repository": "https://github.com/transloadit/node-sdk",
+  "license": "MIT",
+  "keywords": [
+    "media",
+    "video",
+    "image",
+    "audio",
+    "document-processing",
+    "file-processing",
+    "transcoding",
+    "uploads"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Transloadit",
+        "shortDescription": "Encode, resize, transcribe and convert files in the chat.",
+        "longDescription": "Drop a file in the chat and let Transloadit process it: HLS and MP4 encoding, image resizing and optimization, background removal, transcription and subtitles, document conversion and thumbnails. Results come back as previews with download links, and any run can be saved as a reusable Template. Connecting signs you in to your Transloadit Workspace through OAuth (a free Community plan is available); every tool, including Robot browsing and linting, runs on that connection. Agent Skills for these workflows are published at https://transloadit.com/.well-known/skills/index.json (source: https://github.com/transloadit/skills).",
+        "developerName": "Transloadit",
+        "category": "Productivity",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://transloadit.com",
+        "privacyPolicyURL": "https://transloadit.com/legal/privacy/",
+        "termsOfServiceURL": "https://transloadit.com/legal/terms/",
+        "defaultPrompt": [
+          "Turn this video into HLS with 720p and 1080p renditions",
+          "Transcribe this recording and give me an SRT subtitle file"
+        ],
+        "brandColor": "#1B61A7",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/logo.png",
+        "screenshots": []
+      }
+    },
+    "com.transloadit": {
+      "skillsCatalog": "https://transloadit.com/.well-known/skills/index.json",
+      "skillsRepository": "https://github.com/transloadit/skills",
+      "mcpServer": "https://api2.transloadit.com/mcp",
+      "authentication": "oauth"
+    }
+  }
+}

@@ -49,7 +49,7 @@
       "headers": [
         {
           "name": "Authorization",
-          "description": "Bearer token obtained via the authenticate tool, or set TRANSLOADIT_KEY and TRANSLOADIT_SECRET env vars with the self-hosted package instead",
+          "description": "Optional. Clients that support OAuth discover the authorization server from the endpoint's 401 challenge; headless runs pass a token minted with `npx -y @transloadit/node auth token --aud mcp`",
           "isRequired": false,
           "isSecret": true
         }
