@@ -13,7 +13,7 @@ import { z } from 'zod'
 import { isAPIError } from './types.ts'
 
 /** API signing algorithms supported by CLI credentials and device authorization. */
-export const cliSignatureAlgorithmSchema = z.enum(['sha1', 'sha256', 'sha384', 'sha512'])
+export const cliSignatureAlgorithmSchema = z.enum(['sha1', 'sha256', 'sha384'])
 export type CliKeySecretCredentials = {
   authKey: string
   authSecret: string

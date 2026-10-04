@@ -104,7 +104,7 @@ for (const source of imageCandidates.sources) {
 ## API
 
 - `signParams(paramsString, authSecret, algorithm?)`: WebCrypto-based HMAC signature for params
-  (`sha1`, `sha256`, `sha384`, `sha512`).
+  (`sha1`, `sha256`, `sha384`).
 - `verifyWebhookSignature({ rawBody, signatureHeader, authSecret })`: validates webhook signatures.
 - `getSignedSmartCdnUrl(options)`: async, WebCrypto-based Smart CDN URL signer. Byte-identical to
   the Node variant below.

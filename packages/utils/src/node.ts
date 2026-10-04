@@ -1,4 +1,4 @@
-import type { SignatureAlgorithm } from './index.ts'
+import type { SignatureAlgorithm } from './signatureAlgorithm.ts'
 import type { SmartCdnUrlOptions, SmartCdnUrlParams } from './smartCdn.ts'
 import type { SmartCdnImageCandidates, SmartCdnImagePolicyOptions } from './smartCdnImage.ts'
 import type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
@@ -6,11 +6,12 @@ import type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
 import { Buffer } from 'node:buffer'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
+import { isSignatureAlgorithm } from './signatureAlgorithm.ts'
 import { finishSmartCdnUrl, getSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
 import { createSmartCdnImageCandidates, getSmartCdnImageLimits } from './smartCdnImage.ts'
 import { parseStorageGrantClaims } from './storageGrant.ts'
 
-export type { SignatureAlgorithm } from './index.ts'
+export type { SignatureAlgorithm } from './signatureAlgorithm.ts'
 export type {
   ParsedSmartCdnUrl,
   ParseSmartCdnUrlOptions,
@@ -97,6 +98,9 @@ export const signParamsSync = (
   authSecret: string,
   algorithm: SignatureAlgorithmInput = 'sha384',
 ): string => {
+  if (!isSignatureAlgorithm(algorithm.toLowerCase())) {
+    throw new Error(`Unsupported signature algorithm: ${algorithm}`)
+  }
   const signature = createHmac(algorithm, authSecret)
     .update(Buffer.from(paramsString, 'utf-8'))
     .digest('hex')

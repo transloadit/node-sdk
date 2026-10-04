@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { getSignedSmartCdnUrl, signParams } from '../src/index.ts'
+import { getSignedSmartCdnUrl, signParams, verifyWebhookSignature } from '../src/index.ts'
 import { getSignedSmartCdnUrl as getSignedSmartCdnUrlSync, signParamsSync } from '../src/node.ts'
 
 const options = {
@@ -77,13 +77,40 @@ describe('getSignedSmartCdnUrl', () => {
 })
 
 describe('signParams', () => {
+  it('rejects sha512 in the WebCrypto signer', async () => {
+    await expect(
+      // @ts-expect-error JavaScript callers can supply an unsupported signature algorithm.
+      signParams('{}', options.authSecret, 'sha512'),
+    ).rejects.toThrow('Unsupported signature algorithm: sha512')
+  })
+
+  it('rejects sha512 in the Node signer', () => {
+    expect(() => signParamsSync('{}', options.authSecret, 'sha512')).toThrow(
+      'Unsupported signature algorithm: sha512',
+    )
+  })
+
   it('produces the same signature as signParamsSync for every supported algorithm', async () => {
     const paramsString = JSON.stringify({ auth: { key: 'test-key' }, steps: {} })
 
-    for (const algorithm of ['sha1', 'sha256', 'sha384', 'sha512'] as const) {
+    for (const algorithm of ['sha1', 'sha256', 'sha384'] as const) {
       const expected = signParamsSync(paramsString, options.authSecret, algorithm)
       expect(expected.startsWith(`${algorithm}:`)).toBe(true)
       await expect(signParams(paramsString, options.authSecret, algorithm)).resolves.toBe(expected)
     }
+  })
+})
+
+describe('verifyWebhookSignature', () => {
+  it('rejects sha512 webhook signatures', async () => {
+    const rawBody = '{}'
+    const digest = createHmac('sha512', options.authSecret).update(rawBody).digest('hex')
+    await expect(
+      verifyWebhookSignature({
+        rawBody,
+        authSecret: options.authSecret,
+        signatureHeader: `sha512:${digest}`,
+      }),
+    ).resolves.toBe(false)
   })
 })

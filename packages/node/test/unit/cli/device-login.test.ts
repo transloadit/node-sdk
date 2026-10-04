@@ -487,8 +487,8 @@ test('the saved browser credential signs the next API request with its required 
   const client = new Transloadit(credentials)
   const signed = client.calcSignature({ steps: {} })
   expect(signed.signature).toBe(signParamsSync(signed.params, authorized.auth_secret, 'sha256'))
-  const override = client.calcSignature({ steps: {} }, 'sha512')
-  expect(override.signature).toBe(signParamsSync(override.params, authorized.auth_secret, 'sha512'))
+  const override = client.calcSignature({ steps: {} }, 'sha384')
+  expect(override.signature).toBe(signParamsSync(override.params, authorized.auth_secret, 'sha384'))
 })
 
 test('rate limiting slows subsequent polls and honors Retry-After', async () => {

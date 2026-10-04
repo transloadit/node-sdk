@@ -393,6 +393,94 @@ test.each([
 })
 
 test.each([
+  'preview',
+  'crop',
+  'original',
+  'download',
+] as const)('%s can reuse a longer signing window without caching authorization', async (action) => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2030-01-01T00:00:00Z'))
+  const authorizeAsset = vi.fn((): StorageAssetReceipt | null => receipt)
+  const policy = { crops: { square: { aspectRatio: 1 } } }
+  const handler = createStorageRoute({
+    ...credentials,
+    lifetimeMs: 300_000,
+    rotationIntervalMs: 150_000,
+    policy,
+    authorizeAsset,
+  })
+  const url =
+    action === 'preview' || action === 'crop'
+      ? preview(receipt, { policy, crop: action === 'crop' ? 'square' : undefined })
+      : getStorageAssetHref(receipt, { action })
+  const before = await handler.GET(request(url))
+  const target = before.headers.get('location') ?? ''
+  expect(before.status).toBe(307)
+  expect(before.headers.get('cache-control')).toBe('private, no-store')
+  expect(parseSmartCdnUrl(target).auth?.expiresAt).toBe(Date.now() + 300_000)
+
+  vi.advanceTimersByTime(60_000)
+  expect((await handler.GET(request(url))).headers.get('location')).toBe(target)
+  vi.advanceTimersByTime(89_999)
+  const head = await handler.HEAD(request(url, 'HEAD'))
+  expect(head.headers.get('location')).toBe(target)
+  expect(head.headers.get('cache-control')).toBe('private, no-store')
+  expect(await head.text()).toBe('')
+  expect(parseSmartCdnUrl(target).auth?.expiresAt).toBe(Date.now() + 150_001)
+
+  vi.advanceTimersByTime(1)
+  const rotated = (await handler.GET(request(url))).headers.get('location') ?? ''
+  expect(rotated).not.toBe(target)
+  expect(parseSmartCdnUrl(rotated).auth?.expiresAt).toBe(Date.now() + 300_000)
+  expect((await handler.HEAD(request(url, 'HEAD'))).headers.get('location')).toBe(rotated)
+  expect(authorizeAsset).toHaveBeenCalledTimes(5)
+
+  authorizeAsset.mockReturnValue(null)
+  const denied = await handler.GET(request(url))
+  expect(denied.status).toBe(404)
+  expect(denied.headers.has('location')).toBe(false)
+  expect(denied.headers.get('cache-control')).toBe('private, no-store')
+  const deniedHead = await handler.HEAD(request(url, 'HEAD'))
+  expect(deniedHead.status).toBe(404)
+  expect(deniedHead.headers.has('location')).toBe(false)
+  expect(await deniedHead.text()).toBe('')
+  expect(authorizeAsset).toHaveBeenCalledTimes(7)
+})
+
+test('the default five-minute grant still rotates after one minute', async () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2030-01-01T00:00:00Z'))
+  const handler = route()
+  const before = (await handler.GET(request())).headers.get('location') ?? ''
+  expect(parseSmartCdnUrl(before).auth?.expiresAt).toBe(Date.now() + 300_000)
+  vi.advanceTimersByTime(59_999)
+  expect((await handler.GET(request())).headers.get('location')).toBe(before)
+  vi.advanceTimersByTime(1)
+  const after = (await handler.GET(request())).headers.get('location') ?? ''
+  expect(after).not.toBe(before)
+  expect(parseSmartCdnUrl(after).auth?.expiresAt).toBe(Date.now() + 300_000)
+})
+
+test.each([
+  0,
+  -1,
+  1.5,
+  Number.NaN,
+  Number.POSITIVE_INFINITY,
+  Number.MAX_SAFE_INTEGER,
+  150_001,
+])('rejects an unsafe rotationIntervalMs of %s at construction', (rotationIntervalMs) => {
+  expect(() =>
+    createStorageRoute({
+      ...credentials,
+      lifetimeMs: 300_000,
+      rotationIntervalMs,
+      authorizeAsset: () => receipt,
+    }),
+  ).toThrow('rotationIntervalMs must be an integer from 1 through half of lifetimeMs')
+})
+
+test.each([
   '/app.v2/api/media',
   '/~user/api/media',
   '/app%20name/api/media',

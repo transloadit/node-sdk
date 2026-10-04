@@ -1,5 +1,14 @@
 # @transloadit/viewer
 
+## 0.0.5
+
+### Patch Changes
+
+- 716a2fe: Add an optional `rotationIntervalMs` to `createStorageRoute` for longer reuse of signed CDN URLs.
+  The default interval, maximum grant lifetime, and per-request authorization remain unchanged.
+  The interval cannot exceed half the lifetime, keeping newly issued URLs usable for at least
+  half their maximum lifetime. Viewer remains alpha.
+
 ## 0.0.4
 
 ### Patch Changes

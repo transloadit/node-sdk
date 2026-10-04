@@ -461,6 +461,73 @@ describe('assemblies create', () => {
     })
   })
 
+  it.each(['steps-only', 'wrapped'])('accepts a %s steps file', async (shape) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const tempDir = await createTempDir('transloadit-steps-shape-')
+    const stepsPath = path.join(tempDir, 'steps.json')
+    const steps = {
+      imported: {
+        robot: '/http/import',
+        result: true,
+        url: 'https://example.com/input.jpg',
+      },
+    }
+    await writeFile(stepsPath, JSON.stringify(shape === 'wrapped' ? { steps } : steps))
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-steps-shape' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {},
+      }),
+    }
+
+    await expect(
+      create(new OutputCtl(), client as never, { inputs: [], output: null, steps: stepsPath }),
+    ).resolves.toMatchObject({ hasFailures: false })
+
+    expect(client.createAssembly).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { steps } }),
+    )
+  })
+
+  it('normalizes wrapped steps without adding schema defaults', () => {
+    expect(
+      parseStepsInputJson(
+        JSON.stringify({
+          steps: { waveform: { robot: '/audio/waveform', use: ':original', style: 1 } },
+        }),
+      ),
+    ).toEqual({ waveform: { robot: '/audio/waveform', use: ':original', style: 'v1' } })
+  })
+
+  it('accepts a steps-only file with a step named steps', () => {
+    const steps = { steps: { robot: '/file/filter', use: ':original', result: true } }
+    expect(parseStepsInputJson(JSON.stringify(steps))).toEqual(steps)
+  })
+
+  it('rejects invalid steps inside a wrapper', () => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({ steps: { imported: { robot: '/http/import', url: 123 } } }),
+      ),
+    ).toThrow('Invalid steps format')
+  })
+
+  it.each([
+    { fields: { caption: 'example' } },
+    { notify_url: 'https://example.com/notify' },
+    { template_id: 'example-template' },
+  ])('rejects unsupported wrapper properties instead of ignoring them: %j', (extra) => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          steps: { imported: { robot: '/http/import', url: 'https://example.com/input.jpg' } },
+          ...extra,
+        }),
+      ),
+    ).toThrow('Unrecognized key')
+  })
+
   it('rejects invalid steps files before calling the API', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 

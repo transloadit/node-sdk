@@ -36,7 +36,13 @@ export interface StorageRouteOptions {
     input: StorageAuthorizationRequest,
   ) => StorageAssetReceipt | null | Promise<StorageAssetReceipt | null>
   policy?: StorageRenditionPolicy
+  /** Maximum CDN grant lifetime in milliseconds; defaults to five minutes. */
   lifetimeMs?: number
+  /**
+   * Signing window in milliseconds, at most half the lifetime.
+   * Defaults to min(60000, lifetimeMs / 2), rounded down.
+   */
+  rotationIntervalMs?: number
   /** Trusted CDN override for local testing; never derive from the incoming request. */
   baseUrl?: string
   /** App-controlled development opt-in. Keep false in production. Logs only allowed variants. */
@@ -143,6 +149,13 @@ export function createStorageRoute(options: StorageRouteOptions): StorageRoute {
   const lifetimeMs = options.lifetimeMs ?? 5 * 60_000
   if (!Number.isSafeInteger(lifetimeMs) || lifetimeMs < 1000 || lifetimeMs > 48 * 3600_000)
     throw new TypeError('lifetimeMs must be an integer from 1000 through 172800000')
+  const rotationMs = options.rotationIntervalMs ?? Math.min(60_000, Math.floor(lifetimeMs / 2))
+  if (
+    !Number.isSafeInteger(rotationMs) ||
+    rotationMs < 1 ||
+    rotationMs > Math.floor(lifetimeMs / 2)
+  )
+    throw new TypeError('rotationIntervalMs must be an integer from 1 through half of lifetimeMs')
   const policy = snapshotStoragePolicy(options.policy)
   async function handle(request: Request): Promise<Response> {
     if (request.method !== 'GET' && request.method !== 'HEAD')
@@ -207,8 +220,7 @@ export function createStorageRoute(options: StorageRouteOptions): StorageRoute {
         // Receipt validation failures and disallowed shapes share the absent-asset response.
         return respond(request, 404, 'Not found')
       }
-      // Match the existing CDN rotation; Bunny keys on the full query including auth and expiry.
-      const rotationMs = Math.min(60_000, Math.floor(lifetimeMs / 2))
+      // Bunny keys on the full query; reuse signatures, never the request's authorization result.
       const expiresAt = Math.floor(Date.now() / rotationMs) * rotationMs + lifetimeMs
       failureStage = 'signing'
       const location = await getSignedSmartCdnUrl({
