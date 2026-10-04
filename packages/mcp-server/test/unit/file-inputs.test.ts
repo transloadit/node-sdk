@@ -40,6 +40,10 @@ describe('MCP file inputs', () => {
     delete serverOptions.authSecret
     delete serverOptions.endpoint
     delete serverOptions.mcpToken
+    delete serverOptions.consoleUrl
+    delete serverOptions.maxUrlDownloadBytes
+    delete serverOptions.resourceMetadataUrl
+    delete serverOptions.upstreamSecret
     fixtureDirectory = await mkdtemp(join(tmpdir(), 'mcp-test-'))
     fixturePath = join(fixtureDirectory, 'fixture.txt')
     await writeFile(fixturePath, fixtureContent)
@@ -57,6 +61,8 @@ describe('MCP file inputs', () => {
     vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
       ok: 'ASSEMBLY_COMPLETED',
     })
+    // Forwarded tokens are checked with a Template list before any URL is downloaded.
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({ items: [], count: 0 })
     vi.spyOn(Transloadit.prototype, 'getTemplate').mockRejectedValue(
       new Error('Unexpected template lookup'),
     )
@@ -601,5 +607,203 @@ describe('MCP file inputs', () => {
         }),
       }),
     )
+  })
+
+  it('maps host-attached files onto the URL import path', async () => {
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { source: { robot: '/http/import' } } },
+        attachments: [
+          {
+            download_url: 'https://example.com/attached.jpg',
+            file_id: 'file_123',
+            mime_type: 'image/jpeg',
+            file_name: 'attached.jpg',
+          },
+        ],
+      },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(Transloadit.prototype.createAssembly).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({
+          steps: { source: { robot: '/http/import', url: 'https://example.com/attached.jpg' } },
+        }),
+      }),
+    )
+  })
+
+  it('downloads host-attached files for upload templates alongside legacy inputs', async () => {
+    const download = nock('https://example.com').get('/attached.txt').reply(200, fixtureContent)
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { ':original': { robot: '/upload/handle' } } },
+        files: [{ kind: 'base64', field: 'inline', base64: 'aGk=', filename: 'inline.txt' }],
+        attachments: [{ download_url: 'https://example.com/attached.txt', file_id: 'file_1' }],
+        wait_for_completion: true,
+      },
+    })
+    expect(result.structuredContent).toMatchObject({
+      status: 'ok',
+      upload: { status: 'complete', total_files: 2 },
+    })
+    expect(download.isDone()).toBe(true)
+    expect(Transloadit.prototype.createAssembly).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: { inline: expect.any(String), attachment_1: expect.any(String) },
+      }),
+    )
+  })
+
+  it('rejects host file objects with unknown properties before any API call', async () => {
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { source: { robot: '/http/import' } } },
+        attachments: [
+          { download_url: 'https://example.com/a.jpg', file_id: 'file_1', kind: 'url' },
+        ],
+      },
+    })
+    expect(result.isError).toBe(true)
+    expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'an inline Assembly',
+      undefined,
+      `https://transloadit.com/c/acme/templates/new?fromAssembly=${assemblyId}`,
+    ],
+    [
+      'a Template-based Assembly',
+      'tpl_1',
+      `https://transloadit.com/c/acme/templates/new?fromAssembly=${assemblyId}&duplicateFrom=tpl_1`,
+    ],
+  ])('links Save as Template for %s to the Assembly it came from', async (_kind, templateId, newTemplateUrl) => {
+    vi.mocked(Transloadit.prototype.createAssembly).mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      assembly_id: assemblyId,
+      account_slug: 'acme',
+      template_id: templateId,
+    })
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { resized: { robot: '/image/resize', width: 1 } } },
+        wait_for_completion: true,
+      },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(result._meta).toEqual({
+      'transloadit/widget': {
+        authenticated: true,
+        assembly_console_url: `https://transloadit.com/c/acme/assemblies/${assemblyId}`,
+        new_template_url: newTemplateUrl,
+      },
+    })
+  })
+
+  it('still returns the Assembly when the Console URL is malformed', async () => {
+    serverOptions.consoleUrl = 'not a url'
+    vi.mocked(Transloadit.prototype.createAssembly).mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      assembly_id: assemblyId,
+      account_slug: 'acme',
+    })
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { resized: { robot: '/image/resize', width: 1 } } },
+        wait_for_completion: true,
+      },
+    })
+    expect(result.structuredContent).toMatchObject({
+      status: 'ok',
+      assembly: { assembly_id: assemblyId },
+    })
+    expect(result._meta).toEqual({ 'transloadit/widget': { authenticated: true } })
+  })
+
+  it('does not require Template access when /http/import fetches the URL', async () => {
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { source: { robot: '/http/import' } } },
+        files: [{ kind: 'url', field: 'file', url: 'https://example.com/fixture.txt' }],
+      },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(Transloadit.prototype.listTemplates).not.toHaveBeenCalled()
+  })
+
+  it('stops downloading a URL input above maxUrlDownloadBytes', async () => {
+    serverOptions.maxUrlDownloadBytes = 1024
+    nock('http://198.51.100.10').get('/big.bin').reply(200, 'x'.repeat(4096))
+
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: { steps: { ':original': { robot: '/upload/handle' } } },
+        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/big.bin' }],
+      },
+    })
+    expect(result.structuredContent).toMatchObject({
+      status: 'error',
+      errors: [{ message: 'URL downloads exceed 1024 bytes: http://198.51.100.10/big.bin' }],
+    })
+    expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['the tunnel or devdock host', `https://devdock-kvz.transloadit.dev/assemblies/${assemblyId}`],
+    ['a trailing slash', `https://api2.transloadit.com/assemblies/${assemblyId}/`],
+    ['a bare Assembly ID', assemblyId],
+  ])('waits on an Assembly URL with %s, resolving it through the configured API', async (_kind, url) => {
+    const result = await client.callTool({
+      name: 'transloadit_wait_for_assembly',
+      arguments: { assembly_url: url },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(Transloadit.prototype.awaitAssemblyCompletion).toHaveBeenCalledWith(
+      assemblyId,
+      expect.objectContaining({ assemblyUrl }),
+    )
+  })
+
+  it('accepts Assembly URLs on the public origin of the hosted resource metadata', async () => {
+    serverOptions.resourceMetadataUrl =
+      'https://mcp.example.org/.well-known/oauth-protected-resource/mcp'
+    serverOptions.upstreamSecret = 'test-upstream-secret'
+
+    const result = await client.callTool({
+      name: 'transloadit_wait_for_assembly',
+      arguments: { assembly_url: `https://mcp.example.org/assemblies/${assemblyId}` },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(Transloadit.prototype.awaitAssemblyCompletion).toHaveBeenCalledWith(
+      assemblyId,
+      expect.objectContaining({ assemblyUrl }),
+    )
+  })
+
+  it.each([
+    ['a foreign host', `https://evil.example/assemblies/${assemblyId}`],
+    ['a look-alike host', `https://transloadit.dev.evil.example/assemblies/${assemblyId}`],
+    ['credentials', `https://user:pass@api2.transloadit.com/assemblies/${assemblyId}`],
+    ['a non-Assembly path', `https://api2.transloadit.com/templates/${assemblyId}`],
+    ['a non-HTTP scheme', `ftp://api2.transloadit.com/assemblies/${assemblyId}`],
+  ])('still rejects an Assembly URL with %s', async (_kind, url) => {
+    const result = await client.callTool({
+      name: 'transloadit_wait_for_assembly',
+      arguments: { assembly_url: url },
+    })
+    expect(result.structuredContent).toMatchObject({
+      status: 'error',
+      errors: [{ code: 'mcp_invalid_args', path: 'assembly_url' }],
+    })
+    expect(Transloadit.prototype.awaitAssemblyCompletion).not.toHaveBeenCalled()
   })
 })

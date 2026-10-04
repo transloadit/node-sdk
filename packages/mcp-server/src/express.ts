@@ -1,10 +1,17 @@
 import type { TransloaditMcpHttpOptions } from './http.ts'
 
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import express from 'express'
 
-import { isBasicAuthorized } from './http-helpers.ts'
+import {
+  applyCorsHeaders,
+  assertHttpOptions,
+  corsAllowHeaders,
+  isBasicAuthorized,
+  rejectMissingBearerToken,
+  resolveAllowedOrigins,
+} from './http-helpers.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
+import { createRequestTransport } from './request-transport.ts'
 import { createTransloaditMcpServer } from './server.ts'
 import { buildServerCard, serverCardPath } from './server-card.ts'
 
@@ -13,23 +20,27 @@ export type TransloaditMcpExpressOptions = TransloaditMcpHttpOptions & {
 }
 
 export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpressOptions = {}) {
+  assertHttpOptions(options)
   const router = express.Router()
   const routePath = options.path ?? '/mcp'
   const metricsPath =
     options.metricsPath === false ? undefined : (options.metricsPath ?? '/metrics')
   const metricsAuth = options.metricsAuth
+  // Explicit `allowedOrigins` or hosted mode add an Origin policy here; embedders own CORS otherwise.
+  const allowedOrigins = resolveAllowedOrigins(options)
 
   const serverCardJson = JSON.stringify(
-    buildServerCard(routePath, { authKey: options.authKey, authSecret: options.authSecret }),
+    buildServerCard(routePath, {
+      authKey: options.authKey,
+      authSecret: options.authSecret,
+      resourceMetadataUrl: options.resourceMetadataUrl,
+    }),
   )
 
   const sendServerCard = (res: express.Response, includeBody: boolean) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      'Authorization,Content-Type,Mcp-Session-Id,Last-Event-ID',
-    )
+    res.setHeader('Access-Control-Allow-Headers', corsAllowHeaders)
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
     res.setHeader('Cache-Control', 'public, max-age=3600')
     res.setHeader('X-Content-Type-Options', 'nosniff')
@@ -43,10 +54,7 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   router.options(serverCardPath, (_req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      'Authorization,Content-Type,Mcp-Session-Id,Last-Event-ID',
-    )
+    res.setHeader('Access-Control-Allow-Headers', corsAllowHeaders)
     res.status(204).end()
   })
 
@@ -59,6 +67,17 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   })
 
   router.all(routePath, async (req: express.Request, res: express.Response) => {
+    if (allowedOrigins) {
+      if (!applyCorsHeaders(req, res, allowedOrigins)) return
+      if (req.method === 'OPTIONS') {
+        res.status(204).end()
+        return
+      }
+    }
+
+    // Any unauthenticated hosted method gets the OAuth challenge, so GET-probing clients find API2.
+    if (rejectMissingBearerToken(req, res, options.resourceMetadataUrl)) return
+
     if (req.method !== 'POST') {
       res.status(405).json({
         jsonrpc: '2.0',
@@ -68,12 +87,7 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
       return
     }
 
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      allowedOrigins: options.allowedOrigins,
-      allowedHosts: options.allowedHosts,
-      enableDnsRebindingProtection: options.enableDnsRebindingProtection,
-    })
+    const { transport, handle } = createRequestTransport(options)
     const server = createTransloaditMcpServer(options)
     res.on('close', () => {
       void transport.close()
@@ -81,7 +95,7 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
     })
     await server.connect(transport)
 
-    await transport.handleRequest(req, res, req.body)
+    await handle(req, res, req.body)
   })
 
   if (metricsPath) {

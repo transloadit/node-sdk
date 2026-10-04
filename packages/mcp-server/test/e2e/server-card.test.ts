@@ -32,12 +32,14 @@ describe('server card', () => {
       })
 
       expect(Array.isArray(body.tools)).toBe(true)
-      expect(body.tools.length).toBe(7)
+      expect(body.tools.length).toBe(8)
       for (const tool of body.tools as Array<Record<string, unknown>>) {
         expect(typeof tool.name).toBe('string')
         expect(typeof tool.title).toBe('string')
         expect(typeof tool.description).toBe('string')
         expect(typeof tool.inputSchema).toBe('object')
+        expect(tool.annotations).toMatchObject({ destructiveHint: expect.any(Boolean) })
+        expect(Array.isArray(tool.securitySchemes)).toBe(true)
       }
     } finally {
       await close()
