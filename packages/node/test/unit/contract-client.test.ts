@@ -452,3 +452,72 @@ it('releases the caller abort listener after each generated HTTP request', async
   expect(add).toHaveBeenCalledOnce()
   expect(remove).toHaveBeenCalledWith('abort', add.mock.calls[0]?.[1])
 })
+
+it.each([
+  200, 403, 429, 503,
+])('preserves caller abort identity during an HTTP %s body', async (status) => {
+  const caller = new AbortController()
+  const reason = new Error('synthetic caller abort during body read')
+  const client = new ContractClient({
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    fetch: (_url, init) => {
+      const signal = init?.signal
+      if (signal === null || signal === undefined) throw new Error('Missing request signal')
+      return Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(stream) {
+              signal.addEventListener('abort', () => stream.error(signal.reason), { once: true })
+              queueMicrotask(() => caller.abort(reason))
+            },
+          }),
+          { status },
+        ),
+      )
+    },
+  })
+  await expect(
+    client.getAssembly({
+      path: { assemblyId: 'a'.repeat(32) },
+      signal: caller.signal,
+    }),
+  ).rejects.toBe(reason)
+})
+
+it.each([
+  200, 403, 429, 503,
+])('preserves request-timeout diagnostics during an HTTP %s body', async (status) => {
+  let reason: unknown
+  const client = new ContractClient({
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    timeout: 10,
+    fetch: (_url, init) => {
+      const signal = init?.signal
+      if (signal === null || signal === undefined) throw new Error('Missing request signal')
+      return Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(stream) {
+              signal.addEventListener(
+                'abort',
+                () => {
+                  reason = signal.reason
+                  stream.error(reason)
+                },
+                { once: true },
+              )
+            },
+          }),
+          { status },
+        ),
+      )
+    },
+  })
+  const request = client.getAssembly({ path: { assemblyId: 'a'.repeat(32) } })
+  await expect(request).rejects.toMatchObject(
+    status === 200 ? { name: 'TimeoutError' } : { status, cause: { name: 'TimeoutError' } },
+  )
+  if (status === 200) await expect(request).rejects.toBe(reason)
+  else await expect(request).rejects.toHaveProperty('cause', reason)
+  expect(reason).toBeInstanceOf(DOMException)
+})

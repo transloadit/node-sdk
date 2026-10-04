@@ -605,6 +605,35 @@ it.each([
   expect(calls).toBe(1)
 })
 
+it.each([
+  403, 429, 503,
+])('keeps HTTP %s and server backoff when an error-body request times out', async (status) => {
+  let calls = 0
+  const client = new ContractClient({
+    authentication,
+    timeout: 10,
+    fetch: (_url, init) => {
+      calls++
+      const signal = init?.signal
+      if (signal === null || signal === undefined) throw new Error('Missing request signal')
+      return Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(stream) {
+              signal.addEventListener('abort', () => stream.error(signal.reason), { once: true })
+            },
+          }),
+          { status, headers: { 'retry-after': '30' } },
+        ),
+      )
+    },
+  })
+  const pending = client.waitForAssembly({ assemblyId, interval: 1, timeout: 100 })
+  if (status === 403) await expect(pending).rejects.toMatchObject({ status })
+  else await expect(pending).rejects.toMatchObject({ code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' })
+  expect(calls).toBe(1)
+})
+
 it('requires a terminal status after cancellation and stops at the overall deadline', async () => {
   let deletes = 0
   const client = new ContractClient({
@@ -618,6 +647,69 @@ it('requires a terminal status after cancellation and stops at the overall deadl
     client.cancelAndWaitForAssembly({ assemblyId, interval: 1, timeout: 200 }),
   ).rejects.toMatchObject({ code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' })
   expect(deletes).toBe(1)
+})
+
+it.each([
+  'transport',
+  'http',
+])('retains both $0 cancellation and confirmation failures', async (kind) => {
+  const failure = new TypeError('synthetic lost DELETE reply')
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      requests.push(init?.method ?? 'GET')
+      if (init?.method === 'DELETE')
+        return kind === 'transport'
+          ? Promise.reject(failure)
+          : Promise.resolve(
+              Response.json({ error: 'ASSEMBLY_CANCEL_UNAVAILABLE' }, { status: 503 }),
+            )
+      return Promise.resolve(
+        requests.length === 1
+          ? Response.json(body)
+          : Response.json({ error: 'AUTH_KEY_INVALID' }, { status: 403 }),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId })).rejects.toMatchObject({
+    name: 'AggregateError',
+    message: 'Assembly cancellation could not be confirmed',
+    cause: kind === 'transport' ? { cause: failure } : { status: 503 },
+    errors: [kind === 'transport' ? { cause: failure } : { status: 503 }, { status: 403 }],
+  })
+  expect(requests).toEqual(['GET', 'DELETE', 'GET'])
+})
+
+it('prioritizes caller cancellation during a failed DELETE confirmation', async () => {
+  const caller = new AbortController()
+  const reason = new Error('synthetic caller abort during confirmation')
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      requests.push(init?.method ?? 'GET')
+      if (init?.method === 'DELETE') return Promise.reject(new TypeError('synthetic lost reply'))
+      if (requests.length === 1) return Promise.resolve(Response.json(body))
+      const signal = init?.signal
+      if (signal === null || signal === undefined) throw new Error('Missing request signal')
+      return Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(stream) {
+              signal.addEventListener('abort', () => stream.error(signal.reason), { once: true })
+              queueMicrotask(() => caller.abort(reason))
+            },
+          }),
+          { status: 403 },
+        ),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId, signal: caller.signal })).rejects.toBe(
+    reason,
+  )
+  expect(requests).toEqual(['GET', 'DELETE', 'GET'])
 })
 
 it.each([

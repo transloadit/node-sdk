@@ -380,6 +380,9 @@ export class ContractTransport {
             try {
               chunk = await contractIo(() => reader.read())
             } catch (error) {
+              // Explicit caller/workflow cancellation wins. Our own request timeout remains an
+              // HTTP error cause so safe-read retries still honor received status and backoff.
+              input.signal?.throwIfAborted()
               // Received HTTP status and backoff survive a truncated error body. Do not turn a
               // non-retryable HTTP failure into a transport retry or discard the server's delay.
               if (!response.ok)

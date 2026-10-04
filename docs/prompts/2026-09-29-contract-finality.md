@@ -23,6 +23,17 @@ October 4 council corrections, still draft and unmerged:
       and structural tus policy conformance from API2, not by editing generated TypeScript.
 - [x] Full `yarn check` passes: 1,140 Node tests pass, with one existing skip. Both packed consumers
       pass strict installed compilation after retrying a transient registry socket failure.
+- [x] Freeze `bb5a2e4391`, refresh API2 pins and pass the actual local API2/tusd canary. Exact-head
+      CI `37186698130`, attempt 2, is green; only an external Edge image-download quota failure
+      was retried. Healthy combined council accepts two P3 diagnostics findings, not the later repairs.
+- [x] Reproduce caller-abort masking and lost DELETE diagnostics before fixes. Preserve caller-abort
+      identity and retain both failed DELETE and confirmation GET in
+      `AggregateError`; caller cancellation and the overall deadline still win. Focused tests pass.
+- [x] A follow-up three-case regression reproduces lost HTTP status/backoff if the SDK's own request
+      timeout wins after receiving error headers. Keep that timeout as the HTTP error cause; only
+      explicit caller/workflow cancellation wins outright. Go already preserves both properties.
+- [x] Full post-repair `yarn check` passes: 1,154 Node tests pass, with one existing skip. Both
+      caller-abort-during-confirmation controls and Go's mirrored cause/deadline checks pass.
 - [ ] Freeze the new candidate, update producer pins/runtime proof and
       complete the fresh post-fix council and exact-head CI. Earlier green heads are not approval.
 

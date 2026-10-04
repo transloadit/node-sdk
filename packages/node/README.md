@@ -66,6 +66,11 @@ from response data. Status GETs retry transient network failures and HTTP 429/5x
 `Retry-After`, including when an HTTP error body is interrupted. A failed DELETE is never retried;
 an HTTP error, lost response or per-request timeout can be followed by a GET to confirm whether
 the Assembly became terminal in the meantime, within the remaining workflow deadline.
+If that GET also fails, an `AggregateError` retains the DELETE and GET errors in that order;
+its `cause` is the DELETE error. Caller cancellation and the overall deadline still take precedence.
+Ordinary requests preserve the original caller-abort reason even while reading an HTTP error body.
+A request timeout after receiving HTTP error headers remains the error's `cause`, preserving that
+HTTP status and `Retry-After` for safe-read recovery.
 
 For resumable uploads, create an Assembly with the upload count in top-level `fields`, alongside
 `params` (not inside `params.fields`), then call the fixed-size workflow with its ID:
