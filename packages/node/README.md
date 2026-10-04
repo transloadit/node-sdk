@@ -66,9 +66,10 @@ from response data. Status GETs retry transient network failures and HTTP 429/5x
 `Retry-After`, including when an HTTP error body is interrupted. A failed DELETE is never retried;
 an HTTP error, lost response or per-request timeout can be followed by a GET to confirm whether
 the Assembly became terminal in the meantime, within the remaining workflow deadline.
-If that GET also fails, an `AggregateError` retains the DELETE and GET errors in that order;
+If that GET fails or returns an unusable status, an `AggregateError` retains the DELETE error
+and the read or validation error in that order;
 its `cause` is the DELETE error. Caller cancellation and the overall deadline still take precedence.
-Ordinary requests preserve the original caller-abort reason even while reading an HTTP error body.
+Ordinary requests preserve the original caller-abort reason before headers and during body reads.
 A request timeout after receiving HTTP error headers remains the error's `cause`, preserving that
 HTTP status and `Retry-After` for safe-read recovery.
 
@@ -116,7 +117,8 @@ The timeout includes hashing the complete file, discovery, session persistence, 
 Choose a larger `timeout` for files or connections that cannot finish that work within five minutes.
 Configure `chunkSize`, `timeout`, `maxRetries` and `retryDelay` on the workflow. After an ambiguous
 PATCH failure, recovery reads the offset before sending more bytes and honors `Retry-After`.
-The client's per-request timeout also applies to each tus request; a timed-out PATCH can recover
+The client's per-request timeout also applies to each tus request. If cleanup of an HTTP failure
+response times out, its status and `Retry-After` still govern recovery. A timed-out PATCH can recover
 within the remaining workflow deadline and retry budget. Creation is never retried:
 if its response is lost before a session is saved, inspect the Assembly before starting another
 upload. `AssemblyUploadError` preserves `cause` and, when available, `session`; abort/timeout

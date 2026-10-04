@@ -172,15 +172,19 @@ export async function requestTus(
     )
     // No protocol response body is needed. Cancel it even for hostile/unbounded error responses.
     const responseBody = response.body
+    let cleanupError: unknown
     if (responseBody !== null) {
       try {
         await contractIo(() => responseBody.cancel())
       } catch (error) {
         // Received HTTP failure headers still govern recovery and Retry-After when cleanup fails.
         if (response.ok) throw error
+        cleanupError = error
       }
     }
-    requestSignal.throwIfAborted()
+    // Caller/workflow cancellation wins, but our request timeout cannot erase received failure
+    // headers. A cloned body's cleanup can settle only after that timeout aborts the source.
+    signal.throwIfAborted()
     if (response.redirected || (response.url !== '' && response.url !== url)) invalid()
     if (!response.ok)
       throw new ContractResponseError(
@@ -188,7 +192,9 @@ export async function requestTus(
         undefined,
         undefined,
         retryAfterMilliseconds(response.headers.get('retry-after')),
+        requestSignal.aborted ? requestSignal.reason : cleanupError,
       )
+    requestSignal.throwIfAborted()
     if (response.status !== operation.success) invalid()
     return response.headers
   } finally {

@@ -712,6 +712,75 @@ it('prioritizes caller cancellation during a failed DELETE confirmation', async 
   expect(requests).toEqual(['GET', 'DELETE', 'GET'])
 })
 
+it.each(
+  ['transport', 'http'].flatMap((kind) =>
+    [
+      {
+        name: 'wrong identity',
+        value: { ...body, assembly_id: 'b'.repeat(32), ok: 'ASSEMBLY_COMPLETED' },
+      },
+      { name: 'nonobject', value: null },
+      { name: 'unknown status', value: { ...body, ok: 'UNKNOWN_ASSEMBLY_STATUS' } },
+      {
+        name: 'unknown error',
+        value: { assembly_id: assemblyId, error: 'UNKNOWN_ASSEMBLY_ERROR' },
+      },
+    ].map((confirmation) => ({ kind, ...confirmation })),
+  ),
+)('retains a $kind cancellation failure after $name confirmation', async ({ kind, value }) => {
+  const failure = new TypeError('synthetic lost DELETE reply')
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      requests.push(init?.method ?? 'GET')
+      if (init?.method === 'DELETE')
+        return kind === 'transport'
+          ? Promise.reject(failure)
+          : Promise.resolve(Response.json({}, { status: 503 }))
+      return Promise.resolve(Response.json(requests.length === 1 ? body : value))
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId })).rejects.toMatchObject({
+    name: 'AggregateError',
+    message: 'Assembly cancellation could not be confirmed',
+    cause: kind === 'transport' ? { cause: failure } : { status: 503 },
+    errors: [
+      kind === 'transport' ? { cause: failure } : { status: 503 },
+      { message: 'Invalid Assembly workflow response or uploader destination' },
+    ],
+  })
+  expect(requests).toEqual(['GET', 'DELETE', 'GET'])
+})
+
+it.each([
+  'caller',
+  'deadline',
+] as const)('prioritizes %s cancellation over an invalid confirmation', async (kind) => {
+  const caller = new AbortController()
+  const reason = new Error('synthetic caller cancellation')
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: async (_url, init) => {
+      requests.push(init?.method ?? 'GET')
+      if (init?.method === 'DELETE') throw new TypeError('synthetic lost DELETE reply')
+      if (requests.length === 1) return Response.json(body)
+      if (kind === 'caller') caller.abort(reason)
+      else await delay(25)
+      return Response.json({ ...body, assembly_id: 'b'.repeat(32) })
+    },
+  })
+  const pending = client.cancelAndWaitForAssembly({
+    assemblyId,
+    signal: caller.signal,
+    timeout: kind === 'deadline' ? 10 : 5_000,
+  })
+  if (kind === 'caller') await expect(pending).rejects.toBe(reason)
+  else await expect(pending).rejects.toMatchObject({ code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' })
+  expect(requests).toEqual(['GET', 'DELETE', 'GET'])
+})
+
 it.each([
   'deadline',
   'caller',

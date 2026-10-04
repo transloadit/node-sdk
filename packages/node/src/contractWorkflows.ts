@@ -250,20 +250,19 @@ export async function runAssemblyWorkflow<Result>(
           throw error
         // A DELETE can race completion or lose its reply after it was applied. Confirm through
         // the generated GET, never by casting error data or repeating the cancellation write.
-        let confirmed: Result
         try {
-          confirmed = await read(owner.read)
+          const confirmed = await read(owner.read)
+          if (inspect(confirmed, true).terminal) return confirmed
         } catch (confirmationError) {
           checkDeadline()
-          // Preserve both attempts' diagnostics without exposing either response in the message.
+          // Failed reads and unusable confirmations both retain the original DELETE diagnostic.
           throw new AggregateError(
             [error, confirmationError],
             'Assembly cancellation could not be confirmed',
             { cause: error },
           )
         }
-        if (!inspect(confirmed, true).terminal) throw error
-        return confirmed
+        throw error
       }
       state = inspect(result)
     }

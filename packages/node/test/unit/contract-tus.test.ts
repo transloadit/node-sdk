@@ -579,6 +579,84 @@ it.each([
   expect(fetcher.mock.calls.filter(([, init]) => init?.method === method)).toHaveLength(1)
 })
 
+it.each(
+  ['POST', 'HEAD', 'PATCH'].flatMap((method) =>
+    [403, 429, 503].map((status) => ({ method, status })),
+  ),
+)('retains $method HTTP $status when cloned-body cleanup times out', async ({ method, status }) => {
+  const { transport } = fixture()
+  const fetcher = vi.fn<typeof fetch>((input, init) => {
+    if (init?.method !== method) return transport(input, init)
+    const signal = init.signal
+    if (signal === null || signal === undefined) throw new Error('Missing request signal')
+    const response = new Response(
+      new ReadableStream({
+        start(stream) {
+          signal.addEventListener('abort', () => stream.error(signal.reason), { once: true })
+        },
+      }),
+      { status, headers: { 'retry-after': '30' } },
+    )
+    return Promise.resolve(response.clone())
+  })
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    fetch: fetcher,
+    timeout: 10,
+  })
+  const pending = client.uploadAssemblyFile({
+    assemblyId,
+    file,
+    timeout: 100,
+    retryDelay: 1,
+    maxRetries: 1,
+  })
+  await expect(pending).rejects.toMatchObject(
+    method === 'POST' || status === 403
+      ? { cause: { status, retryAfter: 30_000, cause: { name: 'TimeoutError' } } }
+      : { cause: { code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' } },
+  )
+  expect(fetcher.mock.calls.filter(([, init]) => init?.method === method)).toHaveLength(1)
+})
+
+it.each([
+  403, 429, 503,
+])('preserves caller cancellation during HTTP %s cloned-body cleanup', async (status) => {
+  const caller = new AbortController()
+  const reason = new TypeError('synthetic caller cancellation during cleanup')
+  const { transport } = fixture()
+  const fetcher = vi.fn<typeof fetch>((input, init) => {
+    if (init?.method !== 'PATCH') return transport(input, init)
+    const signal = init.signal
+    if (signal === null || signal === undefined) throw new Error('Missing request signal')
+    const response = new Response(
+      new ReadableStream({
+        start(stream) {
+          signal.addEventListener('abort', () => stream.error(signal.reason), { once: true })
+          queueMicrotask(() => caller.abort(reason))
+        },
+      }),
+      { status, headers: { 'retry-after': '30' } },
+    )
+    return Promise.resolve(response.clone())
+  })
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    fetch: fetcher,
+  })
+  await expect(
+    client.uploadAssemblyFile({ assemblyId, file, signal: caller.signal }),
+  ).rejects.toMatchObject({ cause: reason })
+  expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual([
+    'GET',
+    'POST',
+    'HEAD',
+    'PATCH',
+  ])
+})
+
 it.each([false, true])('bounds and retries discovery for resume=%s', async (resume) => {
   const { client, transport } = fixture()
   const session = resume ? await client.uploadAssemblyFile({ assemblyId, file }) : undefined

@@ -1,5 +1,22 @@
 # Contract workflow finality follow-up for #517
 
+October 4 final confirmation/tus correction, still draft and unmerged:
+
+- [x] Complete the combined source-access-verified council. A P2 cloned-response cleanup timeout
+      discarded tus HTTP status/backoff; a P3 invalid confirmation body discarded the failed
+      DELETE diagnostic in both SDKs. Seventeen Node and two Go fail-first failures reproduce
+      these defects before changing implementation.
+- [x] Treat confirmation reading and inspection as one failure boundary. Keep active/aborted
+      confirmation behavior and caller/deadline precedence; never repeat cancellation.
+- [x] Retain tus HTTP failure status/backoff and request-timeout cause across body cleanup, while
+      explicit caller/workflow cancellation still wins. Nine POST/HEAD/PATCH and 403/429/503
+      cases plus three cloned-body caller-abort controls pass. All 287 focused cases pass.
+- [x] Full post-fix `yarn check` passes: 1,180 Node tests with one existing skip, plus remaining
+      monorepo suites. The generated legacy wrapper README is synchronized mechanically.
+- [ ] Repeat packed consumers; freeze sources, refresh producer pins, repeat local API2/tusd
+      acceptance and post-fix council, then monitor exact-head CI. Final receipts supersede this
+      pre-push snapshot; no merge, release or additional live-reader budget.
+
 October 4 final diagnostics review, still draft and unmerged:
 
 - [x] Source-access-verified combined council found a pre-header abort-identity defect. Four
