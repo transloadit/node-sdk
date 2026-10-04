@@ -59,8 +59,18 @@ export type TransloaditMcpServerOptions = {
    * Defaults to the SDK's `sha384`, which ordinary API keys use.
    */
   signatureAlgorithm?: McpSignatureAlgorithm
-  /** Origins the result widget may load previews from (`TRANSLOADIT_MCP_RESULT_DOMAINS`). */
+  /**
+   * Origins the result widget may load previews from and link to
+   * (`TRANSLOADIT_MCP_RESULT_DOMAINS`). Takes exact origins or wildcard hosts; defaults to
+   * Transloadit's result buckets as wildcards.
+   */
   resultDomains?: string[]
+  /**
+   * Dedicated origin ChatGPT serves the result widget from (`openai/widgetDomain`,
+   * `TRANSLOADIT_MCP_WIDGET_DOMAIN`); defaults to `https://transloadit.com`. Claude computes its
+   * own `ui.domain`, so this setting does not affect it.
+   */
+  widgetDomain?: string
   /** Most bytes the URL inputs of one call may download together; defaults to 1 GiB. */
   maxUrlDownloadBytes?: number
   /** Longest one URL input download may take, redirects included; defaults to 10 minutes. */
@@ -1672,7 +1682,11 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  registerAssemblyResultWidget(server, { resultDomains: options.resultDomains })
+  registerAssemblyResultWidget(server, {
+    resultDomains: options.resultDomains,
+    widgetDomain: options.widgetDomain,
+    consoleUrl: parseConsoleUrl(options.consoleUrl || defaultConsoleUrl),
+  })
   mirrorSecuritySchemes(server)
 
   return server

@@ -1,3 +1,5 @@
+import { parseWidgetOrigin } from './ui/assembly-result-widget.ts'
+
 /**
  * Limits also arrive from JSON config files, where a value such as `"1MB"` would silently disable
  * a numeric comparison, so each one must be a positive integer.
@@ -15,6 +17,8 @@ export const assertServerOptions = (options: {
   upstreamSecret?: string
   maxUrlDownloadBytes?: unknown
   urlDownloadTimeoutMs?: unknown
+  resultDomains?: string[]
+  widgetDomain?: string
 }): void => {
   // API2 only accepts relayed `aud=mcp` tokens from the hosted service, so without the secret
   // every authenticated call fails; refusing to start surfaces that in the deploy's health check.
@@ -25,6 +29,13 @@ export const assertServerOptions = (options: {
   }
   assertPositiveInteger(options.maxUrlDownloadBytes, 'maxUrlDownloadBytes', 'bytes')
   assertPositiveInteger(options.urlDownloadTimeoutMs, 'urlDownloadTimeoutMs', 'milliseconds')
+  // A malformed origin would only surface as blank previews in the host, so it fails startup.
+  for (const domain of options.resultDomains ?? []) {
+    parseWidgetOrigin(domain, 'resultDomains')
+  }
+  if (options.widgetDomain) {
+    parseWidgetOrigin(options.widgetDomain, 'widgetDomain')
+  }
 }
 
 /** Validates the HTTP request body limit. */

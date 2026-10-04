@@ -213,12 +213,16 @@ describe('tool surface', () => {
           csp: { connectDomains: resultDomains, resourceDomains: resultDomains },
         },
         'openai/widgetDescription': expect.any(String),
+        'openai/widgetDomain': 'https://transloadit.com',
         'openai/widgetCSP': {
           connect_domains: resultDomains,
           resource_domains: resultDomains,
+          redirect_domains: ['https://transloadit.com', ...resultDomains],
         },
       },
     })
+    // Claude validates `ui.domain` against its own hash-based origin, so it must stay unset.
+    expect(widget).not.toHaveProperty(['_meta', 'ui', 'domain'])
 
     const read = await call('resources/read', { uri: assemblyResultWidgetUri })
     const contents = (read.contents as unknown[]).filter(isRecord)
@@ -236,27 +240,40 @@ describe('tool surface', () => {
 })
 
 describe('result widget domains', () => {
-  it('uses configured result domains for the widget CSP', async () => {
-    const server = createTransloaditMcpServer({ resultDomains: ['https://cdn.example.com'] })
+  it('advertises configured exact origins, widget domain and Console links', async () => {
+    const server = createTransloaditMcpServer({
+      resultDomains: ['https://tmp-us-east-1.transloadit.net/', 'https://pub-123.r2.dev'],
+      widgetDomain: 'https://widgets.example.com/',
+      consoleUrl: 'https://console.example.com/base/',
+    })
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     const client = new Client({ name: 'result-domains', version: '1.0.0' })
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
 
+    const exactOrigins = ['https://tmp-us-east-1.transloadit.net', 'https://pub-123.r2.dev']
     const { contents } = await client.readResource({ uri: assemblyResultWidgetUri })
     expect(contents[0]?._meta).toMatchObject({
       ui: {
-        csp: {
-          connectDomains: ['https://cdn.example.com'],
-          resourceDomains: ['https://cdn.example.com'],
-        },
+        csp: { connectDomains: exactOrigins, resourceDomains: exactOrigins },
       },
+      'openai/widgetDomain': 'https://widgets.example.com',
       'openai/widgetCSP': {
-        connect_domains: ['https://cdn.example.com'],
-        resource_domains: ['https://cdn.example.com'],
+        connect_domains: exactOrigins,
+        resource_domains: exactOrigins,
+        redirect_domains: ['https://console.example.com', ...exactOrigins],
       },
     })
     await client.close()
     await server.close()
+  })
+
+  it.each([
+    [{ resultDomains: ['tmp-us-east-1.transloadit.net'] }, 'resultDomains'],
+    [{ widgetDomain: 'transloadit.com' }, 'widgetDomain'],
+  ])('refuses to start with %j', (options, name) => {
+    expect(() => createTransloaditMcpHttpHandler({ metricsPath: false, ...options })).toThrow(
+      `${name} must contain http(s) origins`,
+    )
   })
 })
 

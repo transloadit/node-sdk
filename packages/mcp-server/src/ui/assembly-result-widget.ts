@@ -10,13 +10,37 @@ export const assemblyResultWidgetMimeType = 'text/html;profile=mcp-app'
 
 /**
  * Origins that serve Assembly result and upload files: Transloadit result buckets and Cloudflare
- * R2 public buckets (API2's `CLOUDFLARE_R2_PUB_URL_HOST_*`). Override with `resultDomains`.
+ * R2 public buckets (API2's `CLOUDFLARE_R2_PUB_URL_HOST_*`). Override with `resultDomains`, which
+ * also takes exact origins such as `https://tmp-us-east-1.transloadit.net`.
  */
 export const defaultResultDomains = [
   'https://*.transloadit.com',
   'https://*.transloadit.net',
   'https://*.r2.dev',
 ]
+
+/**
+ * Origin ChatGPT serves the widget from in a public listing; OpenAI requires one per plugin. Claude
+ * only accepts its own `ui.domain` (a hash of the server URL on `claudemcpcontent.com`), so this is
+ * sent under the ChatGPT alias `openai/widgetDomain` and never as `ui.domain`.
+ */
+const defaultWidgetDomain = 'https://transloadit.com'
+
+/**
+ * Reduces a configured origin to what hosts compare CSP and link entries against, so
+ * `https://tmp-us-east-1.transloadit.net/` arrives as `https://tmp-us-east-1.transloadit.net`.
+ * Wildcard hosts such as `https://*.transloadit.net` parse as URLs and pass through unchanged.
+ */
+export const parseWidgetOrigin = (value: string, name: string): string => {
+  const trimmed = value.trim()
+  if (URL.canParse(trimmed)) {
+    const url = new URL(trimmed)
+    if (url.protocol === 'https:' || url.protocol === 'http:') return url.origin
+  }
+  throw new Error(
+    `${name} must contain http(s) origins such as https://cdn.example.com: "${value}"`,
+  )
+}
 
 /** MCP Apps protocol revision the widget speaks (ext-apps `LATEST_PROTOCOL_VERSION`). */
 export const widgetProtocolVersion = '2026-01-26'
@@ -36,10 +60,18 @@ export type WidgetContext = {
 const widgetDescription =
   'Shows each Assembly Step with image, video and audio previews, download links for every result file, and a Save as Template shortcut when the caller is signed in.'
 
+type AssemblyResultWidgetMetaInput = {
+  resultDomains: string[]
+  redirectDomains: string[]
+  widgetDomain: string
+}
+
 /** Resource `_meta` in both the MCP Apps form and the legacy ChatGPT aliases. */
-export const buildAssemblyResultWidgetMeta = (
-  resultDomains: string[] = defaultResultDomains,
-): Record<string, unknown> => ({
+const buildAssemblyResultWidgetMeta = ({
+  resultDomains,
+  redirectDomains,
+  widgetDomain,
+}: AssemblyResultWidgetMetaInput): Record<string, unknown> => ({
   ui: {
     csp: {
       connectDomains: resultDomains,
@@ -48,9 +80,13 @@ export const buildAssemblyResultWidgetMeta = (
     prefersBorder: true,
   },
   'openai/widgetDescription': widgetDescription,
+  'openai/widgetDomain': widgetDomain,
+  // `ui.csp` has no counterpart for `redirect_domains`, which ChatGPT still reads from here to
+  // trust `window.openai.openExternal` targets.
   'openai/widgetCSP': {
     connect_domains: resultDomains,
     resource_domains: resultDomains,
+    redirect_domains: redirectDomains,
   },
   'openai/widgetPrefersBorder': true,
 })
@@ -178,7 +214,9 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   const openWithHost = (url) => {
     const openai = window.openai
     if (openai && typeof openai.openExternal === 'function') {
-      Promise.resolve(openai.openExternal({ href: url })).catch(() => {})
+      // ChatGPT appends ?redirectUrl= to redirect_domains targets unless told not to; nothing we
+      // link to returns users to the chat, so the link opens exactly as shown in the card.
+      Promise.resolve(openai.openExternal({ href: url, redirectUrl: false })).catch(() => {})
       return true
     }
     if (hostCapabilities.openLinks) {
@@ -415,6 +453,10 @@ export const assemblyResultWidgetHtml = `<!doctype html>
 export type AssemblyResultWidgetOptions = {
   /** Origins allowed for previews and downloads; defaults to `defaultResultDomains`. */
   resultDomains?: string[]
+  /** ChatGPT's `openai/widgetDomain`; defaults to `https://transloadit.com`. */
+  widgetDomain?: string
+  /** Console URL the widget links to; its origin is a trusted `openExternal` target. */
+  consoleUrl?: string
 }
 
 /** Registers the widget so hosts can `resources/read` it through `_meta.ui.resourceUri`. */
@@ -422,11 +464,18 @@ export const registerAssemblyResultWidget = (
   server: McpServer,
   options: AssemblyResultWidgetOptions = {},
 ): void => {
-  const meta = buildAssemblyResultWidgetMeta(
+  const resultDomains = (
     options.resultDomains && options.resultDomains.length > 0
       ? options.resultDomains
-      : defaultResultDomains,
-  )
+      : defaultResultDomains
+  ).map((domain) => parseWidgetOrigin(domain, 'resultDomains'))
+  const consoleOrigin = options.consoleUrl ? [new URL(options.consoleUrl).origin] : []
+  const meta = buildAssemblyResultWidgetMeta({
+    resultDomains,
+    // The widget only links to the Console and to result files.
+    redirectDomains: [...new Set([...consoleOrigin, ...resultDomains])],
+    widgetDomain: parseWidgetOrigin(options.widgetDomain || defaultWidgetDomain, 'widgetDomain'),
+  })
   server.registerResource(
     'assembly-result',
     assemblyResultWidgetUri,

@@ -26,6 +26,7 @@ Environment:
   TRANSLOADIT_MCP_RESOURCE_METADATA_URL
   TRANSLOADIT_MCP_UPSTREAM_SECRET
   TRANSLOADIT_MCP_RESULT_DOMAINS (comma-separated origins for result previews)
+  TRANSLOADIT_MCP_WIDGET_DOMAIN (origin ChatGPT serves the result widget from)
   TRANSLOADIT_MCP_CONSOLE_URL
   TRANSLOADIT_ENDPOINT
   TRANSLOADIT_MCP_METRICS_PATH
@@ -169,6 +170,9 @@ const main = async (): Promise<void> => {
     const resultDomains = parseResultDomains(
       fileConfig.resultDomains ?? process.env.TRANSLOADIT_MCP_RESULT_DOMAINS,
     )
+    const widgetDomain = (fileConfig.widgetDomain ?? process.env.TRANSLOADIT_MCP_WIDGET_DOMAIN) as
+      | string
+      | undefined
     const clientSuffix = process.env.TRANSLOADIT_CLIENT_SUFFIX as string | undefined
 
     // Hosted mode delegates token checks to API2, so it may bind publicly without a static token.
@@ -192,6 +196,7 @@ const main = async (): Promise<void> => {
       urlDownloadTimeoutMs: fileConfig.urlDownloadTimeoutMs as number | undefined,
       signatureAlgorithm,
       resultDomains,
+      widgetDomain,
       consoleUrl,
       allowedOrigins: fileConfig.allowedOrigins as string[] | undefined,
       allowedHosts: fileConfig.allowedHosts as string[] | undefined,
@@ -228,6 +233,7 @@ const main = async (): Promise<void> => {
     authSecret: process.env.TRANSLOADIT_SECRET,
     signatureAlgorithm: parseSignatureAlgorithm(process.env.TRANSLOADIT_SIGNATURE_ALGORITHM),
     resultDomains: parseResultDomains(process.env.TRANSLOADIT_MCP_RESULT_DOMAINS),
+    widgetDomain: process.env.TRANSLOADIT_MCP_WIDGET_DOMAIN,
     endpoint: process.env.TRANSLOADIT_ENDPOINT,
     consoleUrl: process.env.TRANSLOADIT_MCP_CONSOLE_URL,
     clientSuffix: process.env.TRANSLOADIT_CLIENT_SUFFIX,

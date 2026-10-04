@@ -20,7 +20,7 @@ describe('transloadit-mcp CLI configuration', { timeout: 20000 }, () => {
     client = undefined
   })
 
-  it('reads TRANSLOADIT_MCP_RESULT_DOMAINS into the widget CSP', async () => {
+  it('reads the result and widget domains from the environment', async () => {
     client = new Client({ name: 'cli-config', version: '1.0.0' })
     await client.connect(
       new StdioClientTransport({
@@ -28,7 +28,8 @@ describe('transloadit-mcp CLI configuration', { timeout: 20000 }, () => {
         args: [cliPath, 'stdio'],
         env: {
           ...process.env,
-          TRANSLOADIT_MCP_RESULT_DOMAINS: 'https://cdn.example.com, https://*.example.net',
+          TRANSLOADIT_MCP_RESULT_DOMAINS: 'https://cdn.example.com/, https://*.example.net',
+          TRANSLOADIT_MCP_WIDGET_DOMAIN: 'https://widgets.example.com',
         },
       }),
     )
@@ -41,6 +42,7 @@ describe('transloadit-mcp CLI configuration', { timeout: 20000 }, () => {
           resourceDomains: ['https://cdn.example.com', 'https://*.example.net'],
         },
       },
+      'openai/widgetDomain': 'https://widgets.example.com',
     })
   })
 
