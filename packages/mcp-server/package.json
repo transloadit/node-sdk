@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/mcp-server",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Transloadit MCP server",
   "keywords": [
     "mcp",
