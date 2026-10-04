@@ -69,6 +69,236 @@
       "//api2-rebalanced.transloadit.com/resumable/files/upload"
     ]
   },
+  "tusMetadata": [
+    {
+      "id": "identity-ascii",
+      "filename": "input.txt",
+      "values": {},
+      "append": "",
+      "accepted": true
+    },
+    {
+      "id": "identity-unicode",
+      "filename": "café🍩.txt",
+      "values": {},
+      "append": "",
+      "accepted": true
+    },
+    {
+      "id": "unrelated-empty",
+      "filename": "input.txt",
+      "values": {},
+      "append": ",extra",
+      "accepted": true
+    },
+    {
+      "id": "unrelated-empty-with-space",
+      "filename": "input.txt",
+      "values": {},
+      "append": ",extra ",
+      "accepted": true
+    },
+    {
+      "id": "unrelated-binary",
+      "filename": "input.txt",
+      "values": {},
+      "append": ",extra /w==",
+      "accepted": true
+    },
+    {
+      "id": "unrelated-unicode-key",
+      "filename": "input.txt",
+      "values": {},
+      "append": ",café /w==",
+      "accepted": true
+    },
+    {
+      "id": "duplicate-extra",
+      "filename": "input.txt",
+      "values": {},
+      "append": ",extra YQ==,extra YQ==",
+      "accepted": false
+    },
+    {
+      "id": "duplicate-owned",
+      "filename": "input.txt",
+      "values": {},
+      "append": ",filename aW5wdXQudHh0",
+      "accepted": false
+    },
+    {
+      "id": "invalid-base64",
+      "filename": "input.txt",
+      "values": {
+        "filename": "aW5wdXQudHh0$"
+      },
+      "append": "",
+      "accepted": false
+    },
+    {
+      "id": "invalid-utf8",
+      "filename": "�",
+      "values": {
+        "filename": "/w=="
+      },
+      "append": "",
+      "accepted": false
+    },
+    {
+      "id": "noncanonical-pad-bits",
+      "filename": "a",
+      "values": {
+        "filename": "YR=="
+      },
+      "append": "",
+      "accepted": false
+    },
+    {
+      "id": "unrelated-invalid-base64",
+      "filename": "input.txt",
+      "values": {},
+      "append": ",extra $",
+      "accepted": false
+    },
+    {
+      "id": "empty-entry",
+      "filename": "input.txt",
+      "values": {},
+      "append": ",",
+      "accepted": false
+    },
+    {
+      "id": "mismatched-owned",
+      "filename": "input.txt",
+      "values": {
+        "fieldname": "b3RoZXI="
+      },
+      "append": "",
+      "accepted": false
+    },
+    {
+      "id": "owned-extra-token",
+      "filename": "input.txt",
+      "values": {
+        "filename": "aW5wdXQudHh0 ignored"
+      },
+      "append": "",
+      "accepted": false
+    }
+  ],
+  "tusReceipts": [
+    {
+      "id": "exact-finished-receipt",
+      "changes": {},
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": true
+    },
+    {
+      "id": "receipt-processing-failed",
+      "changes": {},
+      "count": 1,
+      "state": {
+        "error": "FILE_FILTER_DECLINED_FILE"
+      },
+      "accepted": true
+    },
+    {
+      "id": "receipt-request-aborted",
+      "changes": {},
+      "count": 1,
+      "state": {
+        "ok": "REQUEST_ABORTED"
+      },
+      "accepted": true
+    },
+    {
+      "id": "receipt-unfinished",
+      "changes": {
+        "finished": false
+      },
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    },
+    {
+      "id": "receipt-short-offset",
+      "changes": {
+        "offset": 3
+      },
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    },
+    {
+      "id": "receipt-wrong-size",
+      "changes": {
+        "size": 3
+      },
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    },
+    {
+      "id": "receipt-wrong-filename",
+      "changes": {
+        "filename": "other"
+      },
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    },
+    {
+      "id": "receipt-wrong-field",
+      "changes": {
+        "fieldname": "other"
+      },
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    },
+    {
+      "id": "receipt-wrong-url",
+      "changes": {
+        "upload_url": "https://outside.invalid/resumable/files/one"
+      },
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    },
+    {
+      "id": "receipt-missing",
+      "changes": {},
+      "count": 0,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    },
+    {
+      "id": "receipt-duplicate",
+      "changes": {},
+      "count": 2,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    }
+  ],
   "cases": [
     {
       "id": "upload-bytes",

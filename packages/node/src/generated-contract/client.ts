@@ -1,4 +1,4 @@
-// Generated from API2 contract a72c65901795052a96036a2fa6beed7ac1885299fb3d6dfec8a011e2efc6f819. Do not edit.
+// Generated from API2 contract 4246893330e3fa724407e19fa3d8d49501f87132b7aff9665f850a2f10fd8c53. Do not edit.
 import {
   ContractTransport,
   type ContractClientOptions,
@@ -118,6 +118,7 @@ const assemblyWorkflowPolicy = {
     'CLOUDFLARE_STORE_VALIDATION',
     'CLOUDFLARE_STORE_WRONG_REGION',
     'CLOUD_AI_IMAGE_VALIDATION',
+    'DAM_STORAGE_UNAVAILABLE',
     'DIGITALOCEAN_IMPORT_ACCESS_DENIED',
     'DIGITALOCEAN_IMPORT_FAILURE',
     'DIGITALOCEAN_IMPORT_NOT_FOUND',
@@ -507,6 +508,7 @@ const tusWorkflowPolicy = {
       'CLOUDFLARE_STORE_VALIDATION',
       'CLOUDFLARE_STORE_WRONG_REGION',
       'CLOUD_AI_IMAGE_VALIDATION',
+      'DAM_STORAGE_UNAVAILABLE',
       'DIGITALOCEAN_IMPORT_ACCESS_DENIED',
       'DIGITALOCEAN_IMPORT_FAILURE',
       'DIGITALOCEAN_IMPORT_NOT_FOUND',
@@ -789,6 +791,26 @@ const tusWorkflowPolicy = {
     mediaType: 'application/offset+octet-stream',
     filename: 'filename',
     fieldname: 'fieldname',
+    identity: {
+      keyPattern: '^(?:\\t|[^\\x00-\\x20,\\x7f])+$',
+      valuePattern: '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$',
+      encoding: 'canonical-base64',
+      comparison: 'decoded-bytes',
+      duplicateKeys: 'reject',
+    },
+    receipt: {
+      collectionField: 'tus_uploads',
+      fields: {
+        filename: 'filename',
+        fieldname: 'fieldname',
+        size: 'size',
+        offset: 'offset',
+        finished: 'finished',
+        url: 'upload_url',
+      },
+      finishedValue: true,
+      matchCount: 1,
+    },
   },
   collectionField: 'tus_url',
   metadataName: 'assembly_url',
@@ -886,7 +908,7 @@ const tusWorkflowPolicy = {
     path: '/resumable/files/{uploadId}',
     success: 204,
   },
-}
+} as const
 export { ContractResponseError } from '../contractTransport.ts'
 export type { ContractClientOptions, UploadFile } from '../contractTransport.ts'
 export const contractSignatureAlgorithms = ['sha384', 'sha256', 'sha1'] as const
@@ -14826,9 +14848,11 @@ export type AssemblySteps_AdditionalProperty_ImageResize = {
   frame?: AssemblySteps_AdditionalProperty_ImageResize_Frame
   /**
    *
-   * The direction from which the image is to be cropped when `"resize_strategy"` is set to `"crop"` or `"fillcrop"`, but no crop coordinates are defined.
-   *
-   * You can also use `"entropy"` or `"attention"` for automatic point-of-interest cropping. `"entropy"` keeps the region with the highest Shannon entropy, while `"attention"` favors areas with luminance frequency, saturation, and skin-tone cues.
+   * Sets crop direction for `crop` or `fillcrop` without explicit coordinates.
+   * Content-aware `attention` and `entropy` need libvips, `fillcrop`, `width` and `height`.
+   * Effects such as `sepia` or `text`, and inputs such as HEIC, can use ImageMagick.
+   * It centers these crops and the Assembly reports a warning.
+   * Crop in a separate /image/resize Step before effects, or convert unsupported inputs to PNG first.
    *
    */
   gravity?: AssemblySteps_AdditionalProperty_ImageResize_Gravity
@@ -15446,9 +15470,11 @@ export type AssemblySteps_AdditionalProperty_ImageResize_Frame =
 export type AssemblySteps_AdditionalProperty_ImageResize_Frame_Variant = string | string | number
 /**
  *
- * The direction from which the image is to be cropped when `"resize_strategy"` is set to `"crop"` or `"fillcrop"`, but no crop coordinates are defined.
- *
- * You can also use `"entropy"` or `"attention"` for automatic point-of-interest cropping. `"entropy"` keeps the region with the highest Shannon entropy, while `"attention"` favors areas with luminance frequency, saturation, and skin-tone cues.
+ * Sets crop direction for `crop` or `fillcrop` without explicit coordinates.
+ * Content-aware `attention` and `entropy` need libvips, `fillcrop`, `width` and `height`.
+ * Effects such as `sepia` or `text`, and inputs such as HEIC, can use ImageMagick.
+ * It centers these crops and the Assembly reports a warning.
+ * Crop in a separate /image/resize Step before effects, or convert unsupported inputs to PNG first.
  *
  */
 export type AssemblySteps_AdditionalProperty_ImageResize_Gravity =
@@ -20822,6 +20848,7 @@ export type AssemblySteps_AdditionalProperty_AiChat_Model_Variant1 =
   | 'anthropic/claude-sonnet-4-5'
   | 'anthropic/claude-sonnet-4-6'
   | 'anthropic/claude-sonnet-5'
+  | 'anthropic/claude-sonnet-5-5'
   | 'google/gemini-2.5-pro'
   | 'moonshot/kimi-k2'
   | 'openai/chatgpt-4o-latest'
@@ -20837,6 +20864,7 @@ export type AssemblySteps_AdditionalProperty_AiChat_Model_Variant1 =
   | 'openai/gpt-5.5'
   | 'openai/gpt-5.6-sol'
   | 'openai/gpt-6-astra'
+  | 'openai/gpt-6.1-sol'
   | 'openai/gpt-audio'
   | 'openai/gpt-audio-2025-08-28'
   | 'openai/o3-2025-04-16'
@@ -24946,7 +24974,7 @@ export type AssemblySteps_AdditionalProperty_VideoThumbs = {
   result?: AssemblySteps_AdditionalProperty_VideoThumbs_Result
   /**
    *
-   * Set `smart: true` to select strong preview images with AI instead of taking frames only at regular intervals. The Robot scores candidate frames for clarity, brightness, composition, faces, expressions, action, and visual interest, then returns the best `count` frames in chronological order. Smart results include `file.meta.smart_score` and `file.meta.smart_reasons`. If AI scoring is unavailable, the Assembly continues with the candidate frames in fallback order. No AI credentials are required.
+   * Set `smart: true` to select strong preview images with AI instead of taking frames only at regular intervals. The Robot scores candidate frames for clarity, brightness, composition, faces, expressions, action, and visual interest, then returns the best `count` frames in chronological order. Smart results include `file.meta.smart_score` and `file.meta.smart_reasons`. If AI scoring is unavailable, the Assembly continues with the candidate frames in fallback order and includes a warning. No AI credentials are required.
    *
    * ## AI pricing
    *
@@ -24985,7 +25013,7 @@ export type AssemblySteps_AdditionalProperty_VideoThumbs = {
    *
    * Smart mode generates its own regularly spaced candidate timestamps; use `smart: false` with `offsets` when you need specified timestamps. Selected smart thumbnails are returned in chronological order, not score order. Inspect `meta.thumb_offset`, `meta.smart_score`, and `meta.smart_reasons` when evaluating the selection.
    *
-   * If AI scoring fails, the Robot selects from the extracted candidates in chronological order and records a fallback reason. If no candidates can be extracted, it attempts standard thumbnail extraction. A completed Assembly does not guarantee a representative or publication-safe poster; check that outputs exist and apply your application’s review policy.
+   * If AI scoring fails, the Robot selects extracted candidates in chronological order and records a fallback reason. With no candidates, it attempts standard extraction. Both fallbacks add an Assembly warning. A completed Assembly does not guarantee a representative or publication-safe poster; check that outputs exist and apply your application’s review policy.
    *
    */
   smart?: AssemblySteps_AdditionalProperty_VideoThumbs_Smart
@@ -25150,7 +25178,7 @@ export type AssemblySteps_AdditionalProperty_VideoThumbs_Rotate_Variant5 = strin
  *
  * Smart mode generates its own regularly spaced candidate timestamps; use `smart: false` with `offsets` when you need specified timestamps. Selected smart thumbnails are returned in chronological order, not score order. Inspect `meta.thumb_offset`, `meta.smart_score`, and `meta.smart_reasons` when evaluating the selection.
  *
- * If AI scoring fails, the Robot selects from the extracted candidates in chronological order and records a fallback reason. If no candidates can be extracted, it attempts standard thumbnail extraction. A completed Assembly does not guarantee a representative or publication-safe poster; check that outputs exist and apply your application’s review policy.
+ * If AI scoring fails, the Robot selects extracted candidates in chronological order and records a fallback reason. With no candidates, it attempts standard extraction. Both fallbacks add an Assembly warning. A completed Assembly does not guarantee a representative or publication-safe poster; check that outputs exist and apply your application’s review policy.
  *
  */
 export type AssemblySteps_AdditionalProperty_VideoThumbs_Smart =
@@ -26910,7 +26938,7 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item = {
   execTime?: ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_ExecTimeCamelCase
   exec_time?: ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_ExecTime
   /**
-   * The extension of the file.
+   * The extension of the file. May be `null` when an extension has not been determined, or an empty string for a name without an extension.
    */
   ext?: ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Ext
   /**
@@ -26936,7 +26964,7 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item = {
   is_tus_file?: boolean
   md5hash?: ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Md5hash
   /**
-   * An object containing additional metadata extracted from the file, as shown below.
+   * An object containing additional metadata extracted from the file, as shown below. Repeated date tags can be returned as lists of their original values. Check the value’s type before using it as a single timestamp.
    */
   meta?: ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta
   /**
@@ -27078,7 +27106,7 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_ExecTim
   number | null
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_ExecTime = number | null
 /**
- * The extension of the file.
+ * The extension of the file. May be `null` when an extension has not been determined, or an empty string for a name without an extension.
  */
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext = null | string
 /**
@@ -27089,7 +27117,7 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Filepat
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Height = number | null
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Md5hash = null | string
 /**
- * An object containing additional metadata extracted from the file, as shown below.
+ * An object containing additional metadata extracted from the file, as shown below. Repeated date tags can be returned as lists of their original values. Check the value’s type before using it as a single timestamp.
  */
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta =
   ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object | null
@@ -27184,11 +27212,11 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
    */
   date_file_created?: ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
   /**
-   * The file-system modification time for the media file.
+   * The modification timestamp reported by the file-system or embedded media metadata.
    */
   date_file_modified?: ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
   /**
-   * The date and time at which the media was recorded, in the format `YYYY/MM/DD HH:MM:SS TZ`, such as `"2010/06/30 22:16:06 GMT"`.
+   * The date and time at which the media was recorded. A single valid string timestamp is normalized to `YYYY/MM/DD HH:MM:SS`. When a time zone is present, it is converted to UTC/GMT and ends in `GMT`. Unparseable string timestamps become `null`. Numeric timestamps and repeated date-tag lists keep their original values.
    */
   date_recorded?: ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
   /**
@@ -27702,6 +27730,13 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate =
   ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant | null
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
+  | ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+  | ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  string | number
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  Array<ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item>
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
   string | number
 /**
  * The creator that took the image.
@@ -27718,20 +27753,43 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
  * The creation timestamp reported by the media metadata, when available.
  */
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated =
-  ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant | null
+  ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant | null
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  string | number
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  Array<ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item>
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
   string | number
 /**
- * The file-system modification time for the media file.
+ * The modification timestamp reported by the file-system or embedded media metadata.
  */
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
-  null | string
+  ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant | null
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  string | number
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  Array<ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item>
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  string | number
 /**
- * The date and time at which the media was recorded, in the format `YYYY/MM/DD HH:MM:SS TZ`, such as `"2010/06/30 22:16:06 GMT"`.
+ * The date and time at which the media was recorded. A single valid string timestamp is normalized to `YYYY/MM/DD HH:MM:SS`. When a time zone is present, it is converted to UTC/GMT and ends in `GMT`. Unparseable string timestamps become `null`. Numeric timestamps and repeated date-tag lists keep their original values.
  */
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
-  ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant | null
+  ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant | null
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  string | number
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  Array<ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item>
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
   string | number
 /**
  * A description of this image, such as `"This tree is very old."`.
@@ -27983,6 +28041,13 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate =
   ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant | null
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
+  | ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+  | ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  string | number
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  Array<ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item>
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
   string | number
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   number | null
@@ -28156,7 +28221,9 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant =
   string | number
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
-  null | string
+  ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant | null
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  string | number
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant | null
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -28355,9 +28422,9 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object = {
   cost?: ReplaceAssemblyResult_WithError_Uploads_Item_Object_Cost
   exec_time?: number
   /**
-   * The extension of the file.
+   * The extension of the file. May be `null` when an extension has not been determined, or an empty string for a name without an extension.
    */
-  ext: string
+  ext: ReplaceAssemblyResult_WithError_Uploads_Item_Object_Ext
   /**
    * The name of the form field used to submit this file.
    */
@@ -28376,7 +28443,7 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object = {
   is_tus_file?: boolean
   md5hash?: ReplaceAssemblyResult_WithError_Uploads_Item_Object_Md5hash
   /**
-   * An object containing additional metadata extracted from the file, as shown below.
+   * An object containing additional metadata extracted from the file, as shown below. Repeated date tags can be returned as lists of their original values. Check the value’s type before using it as a single timestamp.
    */
   meta: ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta
   /**
@@ -28439,7 +28506,7 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object = {
     | ReplaceAssemblyResult_WithError_Uploads_Item_Object_Basename
     | ReplaceAssemblyResult_WithError_Uploads_Item_Object_Cost
     | number
-    | string
+    | ReplaceAssemblyResult_WithError_Uploads_Item_Object_Ext
     | ReplaceAssemblyResult_WithError_Uploads_Item_Object_Field
     | boolean
     | boolean
@@ -28486,7 +28553,7 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost = number | nul
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field = null | string
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Md5hash = null | string
 /**
- * An object containing additional metadata extracted from the file, as shown below.
+ * An object containing additional metadata extracted from the file, as shown below. Repeated date tags can be returned as lists of their original values. Check the value’s type before using it as a single timestamp.
  */
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta = {
   album?: ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Album
@@ -28579,11 +28646,11 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta = {
    */
   date_file_created?: ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated
   /**
-   * The file-system modification time for the media file.
+   * The modification timestamp reported by the file-system or embedded media metadata.
    */
   date_file_modified?: ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified
   /**
-   * The date and time at which the media was recorded, in the format `YYYY/MM/DD HH:MM:SS TZ`, such as `"2010/06/30 22:16:06 GMT"`.
+   * The date and time at which the media was recorded. A single valid string timestamp is normalized to `YYYY/MM/DD HH:MM:SS`. When a time zone is present, it is converted to UTC/GMT and ends in `GMT`. Unparseable string timestamps become `null`. Numeric timestamps and repeated date-tag lists keep their original values.
    */
   date_recorded?: ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded
   /**
@@ -29033,6 +29100,13 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CountryCode = 
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate =
   ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant | null
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant =
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  string | number
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  Array<ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item>
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
   string | number
 /**
  * The creator that took the image.
@@ -29045,24 +29119,6 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Varian
   | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array =
   Array<string>
-/**
- * The creation timestamp reported by the media metadata, when available.
- */
-export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated =
-  ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant | null
-export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  string | number
-/**
- * The file-system modification time for the media file.
- */
-export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified = null | string
-/**
- * The date and time at which the media was recorded, in the format `YYYY/MM/DD HH:MM:SS TZ`, such as `"2010/06/30 22:16:06 GMT"`.
- */
-export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded =
-  ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant | null
-export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  string | number
 /**
  * A description of this image, such as `"This tree is very old."`.
  */
@@ -29187,6 +29243,13 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_MeteringMode =
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate =
   ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant | null
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant =
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant
+  | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  string | number
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  Array<ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item>
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
   string | number
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams = number | null
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumSubtitles = number | null
@@ -29293,7 +29356,10 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords =
   ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpKeywords_Variant | null
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant =
   string | number
-export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject = null | string
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject =
+  ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant | null
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant =
+  string | number
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle =
   ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant | null
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle_Variant = string | number
@@ -29332,9 +29398,9 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId = {
   cost?: ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Cost
   exec_time?: number
   /**
-   * The extension of the file.
+   * The extension of the file. May be `null` when an extension has not been determined, or an empty string for a name without an extension.
    */
-  ext?: string
+  ext?: ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Ext
   /**
    * The name of the form field used to submit this file.
    */
@@ -29350,7 +29416,7 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId = {
   is_tus_file?: boolean
   md5hash?: ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Md5hash
   /**
-   * An object containing additional metadata extracted from the file, as shown below.
+   * An object containing additional metadata extracted from the file, as shown below. Repeated date tags can be returned as lists of their original values. Check the value’s type before using it as a single timestamp.
    */
   meta?: ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta
   /**
@@ -29413,7 +29479,7 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId = {
     | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Basename
     | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Cost
     | number
-    | string
+    | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Ext
     | ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Field
     | boolean
     | boolean
@@ -29994,6 +30060,7 @@ export type CancelAssemblyResult_WithError = {
     | 'CLOUDFLARE_STORE_VALIDATION'
     | 'CLOUDFLARE_STORE_WRONG_REGION'
     | 'CLOUD_AI_IMAGE_VALIDATION'
+    | 'DAM_STORAGE_UNAVAILABLE'
     | 'DIGITALOCEAN_IMPORT_ACCESS_DENIED'
     | 'DIGITALOCEAN_IMPORT_FAILURE'
     | 'DIGITALOCEAN_IMPORT_NOT_FOUND'
@@ -30502,6 +30569,7 @@ export type CancelAssemblyResult_WithError = {
     | 'CLOUDFLARE_STORE_VALIDATION'
     | 'CLOUDFLARE_STORE_WRONG_REGION'
     | 'CLOUD_AI_IMAGE_VALIDATION'
+    | 'DAM_STORAGE_UNAVAILABLE'
     | 'DIGITALOCEAN_IMPORT_ACCESS_DENIED'
     | 'DIGITALOCEAN_IMPORT_FAILURE'
     | 'DIGITALOCEAN_IMPORT_NOT_FOUND'
@@ -51512,6 +51580,8 @@ export type BulkMoveDamAssetsError_Variant4_DamMutationConflict =
 export type BulkMoveDamAssetsError_Variant5 = BulkDeleteDamAssetsError_Variant5
 export type BulkMoveDamAssetsError_Variant5_DamMutationFailed =
   BulkDeleteDamAssetsError_Variant5_DamMutationFailed
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_AverageColor =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_AverageColor
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Colorspace =
@@ -51526,6 +51596,36 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Copyright_Vari
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Copyright_Variant_Object_Licenses
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Copyright_Variant_Object_Licenses_Item =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Copyright_Variant_Object_Licenses_Item
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DominantColors =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DominantColors
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DominantColors_Array =
@@ -51586,6 +51686,8 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Type =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Type
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Url =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Url
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Album =
@@ -51676,6 +51778,12 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Create
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -51683,15 +51791,35 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creato
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -51812,6 +51940,12 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Modify
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -51930,6 +52064,8 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpKeyw
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -52083,6 +52219,12 @@ export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -52093,12 +52235,32 @@ export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -52219,6 +52381,12 @@ export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -52337,6 +52505,8 @@ export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -52426,6 +52596,8 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Md5hash =
@@ -52520,6 +52692,12 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Variant =
@@ -52527,15 +52705,35 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Varian
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Description_Variant =
@@ -52656,6 +52854,12 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_NumSubtitles =
@@ -52774,6 +52978,8 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpKeywords_Var
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -52824,6 +53030,8 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Id =
@@ -52920,6 +53128,12 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Create
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -52927,15 +53141,35 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creato
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -53056,6 +53290,12 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Modify
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -53174,6 +53414,8 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpKeyw
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -53350,6 +53592,12 @@ export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -53360,12 +53608,32 @@ export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -53486,6 +53754,12 @@ export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -53604,6 +53878,8 @@ export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -53693,6 +53969,8 @@ export type CancelAssemblyResult_WithError_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Md5hash =
@@ -53787,6 +54065,12 @@ export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Variant =
@@ -53794,15 +54078,35 @@ export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Vari
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_Description_Variant =
@@ -53923,6 +54227,12 @@ export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_NumSubtitles =
@@ -54041,6 +54351,8 @@ export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_XpKeywords_V
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -54091,6 +54403,8 @@ export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Basename 
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Id =
@@ -54187,6 +54501,12 @@ export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Crea
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -54194,15 +54514,35 @@ export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Crea
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -54323,6 +54663,12 @@ export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Modi
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -54441,6 +54787,8 @@ export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpKe
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -54668,6 +55016,12 @@ export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -54678,12 +55032,32 @@ export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -54804,6 +55178,12 @@ export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -54922,6 +55302,8 @@ export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -55018,6 +55400,8 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Md5hash =
@@ -55112,6 +55496,12 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant =
@@ -55119,15 +55509,35 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Varian
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description_Variant =
@@ -55248,6 +55658,12 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumSubtitles =
@@ -55366,6 +55782,8 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Var
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -55416,6 +55834,8 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Id =
@@ -55512,6 +55932,12 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Create
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -55519,15 +55945,35 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creato
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -55648,6 +56094,12 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Modify
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -55766,6 +56218,8 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpKeyw
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -55985,6 +56439,12 @@ export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -55995,12 +56455,32 @@ export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -56121,6 +56601,12 @@ export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -56239,6 +56725,8 @@ export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -56335,6 +56823,8 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Md5hash =
@@ -56429,6 +56919,12 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Variant =
@@ -56436,15 +56932,35 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Varian
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Description_Variant =
@@ -56565,6 +57081,12 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_NumSubtitles =
@@ -56683,6 +57205,8 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpKeywords_Var
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -56733,6 +57257,8 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Id =
@@ -56829,6 +57355,12 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Create
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -56836,15 +57368,35 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creato
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -56965,6 +57517,12 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Modify
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -57083,6 +57641,8 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpKeyw
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -57328,6 +57888,12 @@ export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -57338,12 +57904,32 @@ export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -57464,6 +58050,12 @@ export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -57582,6 +58174,8 @@ export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -57679,6 +58273,8 @@ export type CreateAssemblyResult_WithError_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Md5hash =
@@ -57773,6 +58369,12 @@ export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Variant =
@@ -57780,15 +58382,35 @@ export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Vari
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_Description_Variant =
@@ -57909,6 +58531,12 @@ export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_NumSubtitles =
@@ -58027,6 +58655,8 @@ export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_XpKeywords_V
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -58077,6 +58707,8 @@ export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Basename 
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Id =
@@ -58173,6 +58805,12 @@ export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Crea
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -58180,15 +58818,35 @@ export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Crea
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -58309,6 +58967,12 @@ export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Modi
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -58427,6 +59091,8 @@ export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpKe
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -58671,6 +59337,12 @@ export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -58681,12 +59353,32 @@ export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -58807,6 +59499,12 @@ export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -58925,6 +59623,8 @@ export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -59019,6 +59719,8 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Md5hash =
@@ -59113,6 +59815,12 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant =
@@ -59120,15 +59828,35 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant =
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description_Variant =
@@ -59249,6 +59977,12 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumSubtitles =
@@ -59367,6 +60101,8 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Varian
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -59417,6 +60153,8 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Id =
@@ -59513,6 +60251,12 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDat
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -59520,15 +60264,35 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator_V
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -59649,6 +60413,12 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDat
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -59767,6 +60537,8 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpKeyword
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -59983,6 +60755,12 @@ export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -59993,12 +60771,32 @@ export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -60119,6 +60917,12 @@ export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -60237,6 +61041,8 @@ export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -60331,6 +61137,8 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Md5hash =
@@ -60425,6 +61233,12 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Variant =
@@ -60432,15 +61246,35 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Variant =
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Description_Variant =
@@ -60561,6 +61395,12 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_NumSubtitles =
@@ -60679,6 +61519,8 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpKeywords_Varian
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -60729,6 +61571,8 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Id =
@@ -60825,6 +61669,12 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDat
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -60832,15 +61682,35 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator_V
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -60961,6 +61831,12 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDat
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -61079,6 +61955,8 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpKeyword
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -61312,6 +62190,12 @@ export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Obj
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -61322,12 +62206,32 @@ export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Obj
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -61448,6 +62352,12 @@ export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Obj
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -61566,6 +62476,8 @@ export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Obj
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -61662,6 +62574,8 @@ export type GetAssemblyResult_WithError_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Md5hash =
@@ -61756,6 +62670,12 @@ export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Variant =
@@ -61763,15 +62683,35 @@ export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Variant
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_Description_Variant =
@@ -61892,6 +62832,12 @@ export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_NumSubtitles =
@@ -62010,6 +62956,8 @@ export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_XpKeywords_Vari
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -62060,6 +63008,8 @@ export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Id =
@@ -62156,6 +63106,12 @@ export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateD
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -62163,15 +63119,35 @@ export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -62292,6 +63268,12 @@ export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyD
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -62410,6 +63392,8 @@ export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpKeywo
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -62705,6 +63689,12 @@ export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -62715,12 +63705,32 @@ export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -62841,6 +63851,12 @@ export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -62959,6 +63975,8 @@ export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -63055,6 +64073,8 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Md5hash =
@@ -63149,6 +64169,12 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant =
@@ -63156,15 +64182,35 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Varia
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description_Variant =
@@ -63285,6 +64331,12 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumSubtitles =
@@ -63403,6 +64455,8 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Va
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -63453,6 +64507,8 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Id =
@@ -63549,6 +64605,12 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creat
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -63556,15 +64618,35 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creat
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -63685,6 +64767,12 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Modif
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -63803,6 +64891,8 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpKey
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -64022,6 +65112,12 @@ export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -64032,12 +65128,32 @@ export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -64158,6 +65274,12 @@ export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -64276,6 +65398,8 @@ export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -64372,6 +65496,8 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Md5hash =
@@ -64466,6 +65592,12 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Variant =
@@ -64473,15 +65605,35 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Varia
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Description_Variant =
@@ -64602,6 +65754,12 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_NumSubtitles =
@@ -64720,6 +65878,8 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpKeywords_Va
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -64770,6 +65930,8 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Id =
@@ -64866,6 +66028,12 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creat
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -64873,15 +66041,35 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creat
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -65002,6 +66190,12 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Modif
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -65120,6 +66314,8 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpKey
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -65365,6 +66561,12 @@ export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_CreateDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Creator =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Creator
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Creator_Variant =
@@ -65375,12 +66577,32 @@ export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Description =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Description
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Description_Variant =
@@ -65501,6 +66723,12 @@ export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_ModifyDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_NumAudioStreams
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_NumSubtitles =
@@ -65619,6 +66847,8 @@ export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpKeywords_Variant
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpSubject =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpSubject_Variant
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpTitle =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_XpTitle
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_XpTitle_Variant =
@@ -65716,6 +66946,8 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Basename =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Basename
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Cost
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Field
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Md5hash =
@@ -65810,6 +67042,12 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate 
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Variant =
@@ -65817,15 +67055,35 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Var
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_Description_Variant =
@@ -65946,6 +67204,12 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate 
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_NumSubtitles =
@@ -66064,6 +67328,8 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_XpKeywords_
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_XpTitle_Variant =
@@ -66114,6 +67380,8 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Basename
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Basename
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Cost =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Cost
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Ext =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Ext
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Field =
   CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Field
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Id =
@@ -66210,6 +67478,12 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Cre
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_CreateDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_CreateDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator_Variant =
@@ -66217,15 +67491,35 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Cre
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Creator_Variant_Array =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Creator_Variant_Array
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileCreated_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileCreated_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileCreated_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateFileModified
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateFileModified_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateFileModified_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant =
-  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_DateRecorded_Variant
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_DateRecorded_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_DateRecorded_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Description =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Description
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Description_Variant =
@@ -66346,6 +67640,12 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Mod
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Variant
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_ModifyDate_Variant_Array_Item =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_ModifyDate_Variant_Array_Item
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_NumAudioStreams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_NumAudioStreams
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_NumSubtitles =
@@ -66464,6 +67764,8 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpK
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpKeywords_Variant
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpSubject =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpSubject_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpSubject_Variant
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpTitle =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_XpTitle
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_XpTitle_Variant =
@@ -66903,6 +68205,7 @@ export class ContractClient extends ContractTransport {
         'DAM_MUTATION_CONFLICT',
         'DAM_MUTATION_FAILED',
         'DAM_RESOURCE_NOT_FOUND',
+        'DAM_STORAGE_UNAVAILABLE',
         'DIGITALOCEAN_IMPORT_ACCESS_DENIED',
         'DIGITALOCEAN_IMPORT_FAILURE',
         'DIGITALOCEAN_IMPORT_NOT_FOUND',

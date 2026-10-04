@@ -1,5 +1,17 @@
 # Contract workflow finality follow-up for #517
 
+October 4 identity follow-up, still draft and unmerged:
+
+- [x] Merge current main and regenerate from the integrated API2 contract.
+- [x] Reproduce malformed Base64, invalid UTF-8 and extra-token acceptance before changing decoding.
+- [x] Consume source-owned tus identity grammar and receipt roles; compare owned values as bytes.
+- [x] All 26 shared metadata/receipt cases and 101 focused tests pass, as does full `yarn check`.
+- [ ] Complete both strict packed consumers, updated source-pin/local runtime proof, fresh council
+      and exact-head CI. Historical acceptance below does not certify this candidate.
+
+The receipt-field follow-up below is historical: fields now come from API2's Status owner through
+the contract. The deployed raw parser, legacy SDK APIs and live-reader resource budgets are unchanged.
+
 Why: runtime investigation distinguished a finite client outcome from backend cleanup. The user
 approved returning typed `REQUEST_ABORTED` from ordinary waiting, while still attempting explicit
 cancellation and preserving a failed cancellation request. This is not merge/release approval.

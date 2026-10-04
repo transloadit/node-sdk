@@ -17,6 +17,7 @@ function fixture(
     origin?: string
     location?: string
     head?: Record<string, string>
+    headMetadata?: { values: Record<string, string>; append: string }
     creationStatus?: number
     creationVersion?: string
     patchStatus?: number
@@ -57,7 +58,17 @@ function fixture(
             ...base,
             'upload-length': '4',
             'upload-offset': String(position),
-            'upload-metadata': metadata,
+            'upload-metadata':
+              options.headMetadata === undefined
+                ? metadata
+                : metadata
+                    .split(',')
+                    .map((entry) => {
+                      const name = entry.split(' ')[0] ?? ''
+                      const value = options.headMetadata?.values[name]
+                      return value === undefined ? entry : `${name} ${value}`
+                    })
+                    .join(',') + options.headMetadata.append,
             ...options.head,
           },
         })
@@ -117,6 +128,19 @@ it.each([
     AssemblyUploadError,
   )
   expect(transport).toHaveBeenCalledTimes(3)
+})
+
+it.each(workflowVectors.tusMetadata)('shared upload identity: $id', async (scenario) => {
+  const { client, transport } = fixture({ headMetadata: scenario })
+  const upload = client.uploadAssemblyFile({
+    assemblyId,
+    file: { ...file, filename: scenario.filename },
+  })
+  if (scenario.accepted) await expect(upload).resolves.toMatchObject({ size: 4 })
+  else await expect(upload).rejects.toBeInstanceOf(AssemblyUploadError)
+  expect(transport.mock.calls.map(([, init]) => init?.method)).toEqual(
+    scenario.accepted ? ['GET', 'POST', 'HEAD', 'PATCH'] : ['GET', 'POST', 'HEAD'],
+  )
 })
 
 it('persists before bytes and refuses changed content of the same size in a fresh client', async () => {
@@ -229,15 +253,7 @@ it.each([
   expect(transport.mock.calls.map(([, init]) => init?.method)).toEqual(['GET', 'HEAD'])
 })
 
-it.each([
-  {},
-  { finished: false },
-  { offset: 3 },
-  { size: 3 },
-  { filename: 'other.txt' },
-  { fieldname: 'other' },
-  { upload_url: `${origin}/resumable/files/other` },
-])('reconciles a missing tus resource only against an exact finished receipt: %j', async (change) => {
+it.each(workflowVectors.tusReceipts)('shared finished upload receipt: $id', async (scenario) => {
   const { client, transport } = fixture()
   const session = await client.uploadAssemblyFile({ assemblyId, file })
   let reads = 0
@@ -248,23 +264,21 @@ it.each([
     return Promise.resolve(
       Response.json({
         assembly_id: assemblyId,
-        ok: 'ASSEMBLY_COMPLETED',
+        ...scenario.state,
         assembly_ssl_url: `${origin}/assemblies/${assemblyId}`,
         tus_url: `${origin}/resumable/files/`,
         tus_uploads:
           reads === 1
             ? []
-            : [
-                {
-                  finished: true,
-                  upload_url: session.uploadUrl,
-                  size: 4,
-                  offset: 4,
-                  filename: file.filename,
-                  fieldname: 'file',
-                  ...change,
-                },
-              ],
+            : Array.from({ length: scenario.count }, () => ({
+                finished: true,
+                upload_url: session.uploadUrl,
+                size: 4,
+                offset: 4,
+                filename: file.filename,
+                fieldname: 'file',
+                ...scenario.changes,
+              })),
       }),
     )
   })
@@ -274,7 +288,7 @@ it.each([
     fetch: fetcher,
   })
   const pending = fresh.resumeAssemblyFile({ assemblyId, file, session })
-  if (Object.keys(change).length === 0) await expect(pending).resolves.toEqual(session)
+  if (scenario.accepted) await expect(pending).resolves.toEqual(session)
   else await expect(pending).rejects.toMatchObject({ cause: { status: 404 } })
   expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['GET', 'HEAD', 'GET'])
   expect(transport).toHaveBeenCalledTimes(4)

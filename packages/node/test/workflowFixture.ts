@@ -50,6 +50,32 @@ export const workflowVectors = z
     version: z.literal(1),
     credentials: z.object({ key: z.string(), secret: z.string() }),
     assemblyId: z.string(),
+    tusMetadata: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            filename: z.string(),
+            values: z.record(z.string(), z.string()),
+            append: z.string(),
+            accepted: z.boolean(),
+          })
+          .strict(),
+      )
+      .nonempty(),
+    tusReceipts: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            changes: z.record(z.string(), z.unknown()),
+            count: z.number().int().nonnegative(),
+            state: status,
+            accepted: z.boolean(),
+          })
+          .strict(),
+      )
+      .nonempty(),
     admission: z.object({
       assemblyId: z.string(),
       acceptedOrigins: z.array(z.string()),

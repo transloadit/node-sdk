@@ -99,6 +99,26 @@ export interface TusWorkflowPolicy {
     readonly mediaType: string
     readonly filename: string
     readonly fieldname: string
+    readonly identity: {
+      readonly keyPattern: string
+      readonly valuePattern: string
+      readonly encoding: 'canonical-base64'
+      readonly comparison: 'decoded-bytes'
+      readonly duplicateKeys: 'reject'
+    }
+    readonly receipt: {
+      readonly collectionField: string
+      readonly fields: {
+        readonly filename: string
+        readonly fieldname: string
+        readonly size: string
+        readonly offset: string
+        readonly finished: string
+        readonly url: string
+      }
+      readonly finishedValue: true
+      readonly matchCount: 1
+    }
   }
   readonly collectionField: string
   readonly metadataName: string
@@ -217,6 +237,35 @@ function offset(headers: Headers, name: string, size: number): number {
 function record(value: unknown): Record<string, unknown> {
   if (!isWorkflowResponse(value)) invalid()
   return value
+}
+
+function verifyUploadMetadata(
+  raw: string,
+  expected: Readonly<Record<string, string>>,
+  policy: TusWorkflowPolicy['wire']['identity'],
+): void {
+  const keyPattern = new RegExp(policy.keyPattern, 'u')
+  const valuePattern = new RegExp(policy.valuePattern, 'u')
+  const values = new Map<string, Buffer>()
+  for (const entry of raw.split(',')) {
+    const separator = entry.indexOf(' ')
+    const key = separator === -1 ? entry : entry.slice(0, separator)
+    const encoded = separator === -1 ? '' : entry.slice(separator + 1)
+    if (
+      keyPattern.exec(key)?.[0] !== key ||
+      valuePattern.exec(encoded)?.[0] !== encoded ||
+      values.has(key)
+    )
+      invalid()
+    const bytes = Buffer.from(encoded, 'base64')
+    // Buffer's decoder ignores malformed input; round-trip the serialized value before comparing
+    // bytes. UTF-8 replacement decoding must not make a different filename look identical.
+    if (bytes.toString('base64') !== encoded) invalid()
+    values.set(key, bytes)
+  }
+  for (const [key, text] of Object.entries(expected)) {
+    if (!values.get(key)?.equals(Buffer.from(text, 'utf8'))) invalid()
+  }
 }
 
 async function persistSession(
@@ -444,25 +493,28 @@ export async function runTusUpload(
             // API2 retains finished tus receipts after temporary files disappear. Never infer
             // receipt from Assembly completion or absence alone, and never recreate the upload.
             const refreshed = inspect(await discoverStatus()).status
-            const receipts = Array.isArray(refreshed.tus_uploads)
-              ? refreshed.tus_uploads.filter(
-                  (upload: unknown) =>
-                    isWorkflowResponse(upload) &&
-                    typeof upload.upload_url === 'string' &&
-                    URL.canParse(upload.upload_url) &&
-                    new URL(upload.upload_url).href === uploadUrl,
-                )
+            const receiptPolicy = wire.receipt
+            const fields = receiptPolicy.fields
+            const uploads = refreshed[receiptPolicy.collectionField]
+            const receipts = Array.isArray(uploads)
+              ? uploads.filter((upload: unknown) => {
+                  if (!isWorkflowResponse(upload)) return false
+                  const url = upload[fields.url]
+                  return (
+                    typeof url === 'string' && URL.canParse(url) && new URL(url).href === uploadUrl
+                  )
+                })
               : []
             const receipt: unknown = receipts[0]
             if (
-              receipts.length === 1 &&
+              receipts.length === receiptPolicy.matchCount &&
               isWorkflowResponse(receipt) &&
-              admitUrl(receipt.upload_url, policy.head, policy, options) === uploadUrl &&
-              receipt.finished === true &&
-              receipt.size === size &&
-              receipt.offset === size &&
-              receipt.filename === filename &&
-              receipt.fieldname === fieldname
+              admitUrl(receipt[fields.url], policy.head, policy, options) === uploadUrl &&
+              receipt[fields.finished] === receiptPolicy.finishedValue &&
+              receipt[fields.size] === size &&
+              receipt[fields.offset] === size &&
+              receipt[fields.filename] === filename &&
+              receipt[fields.fieldname] === fieldname
             )
               return size
             throw error
@@ -476,20 +528,11 @@ export async function runTusUpload(
           offset(headers, wire.headers.length, size) !== size
         )
           invalid()
-        const entries = (headers.get(wire.headers.metadata) ?? '')
-          .split(',')
-          .map((entry) => entry.trim().split(' '))
-        const metadata = new Map(
-          entries.map(([name, value]) => [
-            name,
-            value === undefined ? '' : Buffer.from(value, 'base64').toString('utf8'),
-          ]),
+        verifyUploadMetadata(
+          headers.get(wire.headers.metadata) ?? '',
+          expectedMetadata,
+          wire.identity,
         )
-        if (
-          metadata.size !== entries.length ||
-          Object.entries(expectedMetadata).some(([key, value]) => metadata.get(key) !== value)
-        )
-          invalid()
         return offset(headers, wire.headers.offset, size)
       }
     }
