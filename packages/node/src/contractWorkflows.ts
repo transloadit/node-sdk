@@ -241,9 +241,15 @@ export async function runAssemblyWorkflow<Result>(
       try {
         result = await owner.cancel(signal)
       } catch (error) {
-        if (!(error instanceof ContractResponseError)) throw error
-        // An Assembly can fail/expire between discovery and DELETE. Confirm through the generated
-        // GET instead of casting arbitrary HTTP-error data to a result or retrying the write.
+        checkDeadline()
+        if (
+          !(error instanceof ContractResponseError) &&
+          !(error instanceof ContractTransportError) &&
+          !(error instanceof DOMException && error.name === 'TimeoutError')
+        )
+          throw error
+        // A DELETE can race completion or lose its reply after it was applied. Confirm through
+        // the generated GET, never by casting error data or repeating the cancellation write.
         const confirmed = await read(owner.read)
         if (!inspect(confirmed, true).terminal) throw error
         return confirmed

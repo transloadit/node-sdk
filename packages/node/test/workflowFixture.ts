@@ -58,6 +58,7 @@ export const workflowVectors = z
             filename: z.string(),
             values: z.record(z.string(), z.string()),
             append: z.string(),
+            extraHeaderValues: z.array(z.string()).optional(),
             accepted: z.boolean(),
           })
           .strict(),
@@ -69,6 +70,9 @@ export const workflowVectors = z
           .object({
             id: z.string(),
             changes: z.record(z.string(), z.unknown()),
+            extraReceipts: z.array(z.record(z.string(), z.unknown())).optional(),
+            hex: z.string().optional(),
+            omit: z.array(z.string()).optional(),
             count: z.number().int().nonnegative(),
             state: status,
             accepted: z.boolean(),

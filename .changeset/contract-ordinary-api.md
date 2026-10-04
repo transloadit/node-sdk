@@ -31,6 +31,8 @@ Smart CDN signing. Keep ordinary regression coverage for the existing public SDK
 abort in-flight status requests and rate-limit retry waits, and reject late success responses as
 `POLLING_TIMED_OUT`, instead of waiting past the caller's budget. This also applies when
 `createAssembly` or `resumeAssemblyUploads` shares its remaining timeout with completion polling.
+An already exhausted completion budget, including an explicit zero polling timeout, rejects before
+the first status request instead of performing one last poll.
 The `contract()` adapter rounds
 positive fractional millisecond timeouts up to the next integer rather than rejecting them.
 It rejects an inherited zero request timeout rather than silently changing it to an unbounded

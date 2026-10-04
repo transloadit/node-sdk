@@ -9,6 +9,23 @@ October 4 identity follow-up, still draft and unmerged:
 - [ ] Complete both strict packed consumers, updated source-pin/local runtime proof, fresh council
       and exact-head CI. Historical acceptance below does not certify this candidate.
 
+October 4 council corrections, still draft and unmerged:
+
+- [x] Reproduce broken error-body backoff and lost cancellation-response confirmation before fixes.
+      Preserve received HTTP status/delay and original causes; never repeat DELETE, and never hide
+      its error behind active or `REQUEST_ABORTED` confirmation.
+- [x] Execute all 32 shared metadata/receipt cases, including repeated header fields, empty-file
+      counts and a normalization alias that must not count as an admitted receipt. The alias case
+      failed in Node before correction and passed in Go.
+- [x] Restrict 409 recovery to tus, not ordinary Assembly discovery, with a failing test first.
+- [x] Document proxy receipt rewriting and simple upload-ID restrictions, and explicitly describe
+      legacy zero/exhausted polling budgets in the changeset. Generate public return annotations
+      and structural tus policy conformance from API2, not by editing generated TypeScript.
+- [x] Full `yarn check` passes: 1,140 Node tests pass, with one existing skip. Both packed consumers
+      pass strict installed compilation after retrying a transient registry socket failure.
+- [ ] Freeze the new candidate, update producer pins/runtime proof and
+      complete the fresh post-fix council and exact-head CI. Earlier green heads are not approval.
+
 The receipt-field follow-up below is historical: fields now come from API2's Status owner through
 the contract. The deployed raw parser, legacy SDK APIs and live-reader resource budgets are unchanged.
 

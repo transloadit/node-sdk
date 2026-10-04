@@ -127,6 +127,16 @@
       "accepted": false
     },
     {
+      "id": "repeated-metadata-header",
+      "filename": "input.txt",
+      "values": {},
+      "append": "",
+      "extraHeaderValues": [
+        "filename b3RoZXI="
+      ],
+      "accepted": false
+    },
+    {
       "id": "invalid-base64",
       "filename": "input.txt",
       "values": {
@@ -297,6 +307,70 @@
         "ok": "ASSEMBLY_COMPLETED"
       },
       "accepted": false
+    },
+    {
+      "id": "receipt-zero-byte-file",
+      "hex": "",
+      "changes": {},
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": true
+    },
+    {
+      "id": "receipt-zero-byte-missing-size",
+      "hex": "",
+      "omit": [
+        "size"
+      ],
+      "changes": {},
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    },
+    {
+      "id": "receipt-zero-byte-missing-offset",
+      "hex": "",
+      "omit": [
+        "offset"
+      ],
+      "changes": {},
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false
+    },
+    {
+      "id": "receipt-ignores-unadmitted-normalization-alias",
+      "changes": {},
+      "extraReceipts": [
+        {
+          "upload_url": "http://127.0.0.1:4000/resumable/files/other/../one"
+        }
+      ],
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": true
+    },
+    {
+      "id": "receipt-ignores-another-admitted-resource",
+      "changes": {},
+      "extraReceipts": [
+        {
+          "upload_url": "http://127.0.0.1:4000/resumable/files/two"
+        }
+      ],
+      "count": 1,
+      "state": {
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": true
     }
   ],
   "cases": [

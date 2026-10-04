@@ -17,7 +17,11 @@ function fixture(
     origin?: string
     location?: string
     head?: Record<string, string>
-    headMetadata?: { values: Record<string, string>; append: string }
+    headMetadata?: {
+      values: Record<string, string>
+      append: string
+      extraHeaderValues?: readonly string[]
+    }
     creationStatus?: number
     creationVersion?: string
     patchStatus?: number
@@ -51,27 +55,28 @@ function fixture(
             location: options.location ?? '/resumable/files/one',
           },
         })
-      case 'HEAD':
-        return new Response(null, {
-          status: 200,
-          headers: {
-            ...base,
-            'upload-length': '4',
-            'upload-offset': String(position),
-            'upload-metadata':
-              options.headMetadata === undefined
-                ? metadata
-                : metadata
-                    .split(',')
-                    .map((entry) => {
-                      const name = entry.split(' ')[0] ?? ''
-                      const value = options.headMetadata?.values[name]
-                      return value === undefined ? entry : `${name} ${value}`
-                    })
-                    .join(',') + options.headMetadata.append,
-            ...options.head,
-          },
+      case 'HEAD': {
+        const headers = new Headers({
+          ...base,
+          'upload-length': '4',
+          'upload-offset': String(position),
+          'upload-metadata':
+            options.headMetadata === undefined
+              ? metadata
+              : metadata
+                  .split(',')
+                  .map((entry) => {
+                    const name = entry.split(' ')[0] ?? ''
+                    const value = options.headMetadata?.values[name]
+                    return value === undefined ? entry : `${name} ${value}`
+                  })
+                  .join(',') + options.headMetadata.append,
+          ...options.head,
         })
+        for (const value of options.headMetadata?.extraHeaderValues ?? [])
+          headers.append('upload-metadata', value)
+        return new Response(null, { status: 200, headers })
+      }
       case 'PATCH':
         position += (await request.arrayBuffer()).byteLength
         return new Response(null, {
@@ -254,8 +259,26 @@ it.each([
 })
 
 it.each(workflowVectors.tusReceipts)('shared finished upload receipt: $id', async (scenario) => {
-  const { client, transport } = fixture()
-  const session = await client.uploadAssemblyFile({ assemblyId, file })
+  const inputFile =
+    scenario.hex === undefined
+      ? file
+      : { ...file, data: new Blob([Buffer.from(scenario.hex, 'hex')]) }
+  const { client, transport } = fixture({ head: { 'upload-length': String(inputFile.data.size) } })
+  const session = await client.uploadAssemblyFile({ assemblyId, file: inputFile })
+  const fields = {
+    finished: true,
+    upload_url: session.uploadUrl,
+    size: inputFile.data.size,
+    offset: inputFile.data.size,
+    filename: inputFile.filename,
+    fieldname: 'file',
+  }
+  const receipts = Array.from({ length: scenario.count }, () => {
+    const receipt: Record<string, unknown> = { ...fields, ...scenario.changes }
+    for (const field of scenario.omit ?? []) delete receipt[field]
+    return receipt
+  })
+  for (const changes of scenario.extraReceipts ?? []) receipts.push({ ...fields, ...changes })
   let reads = 0
   const fetcher = vi.fn<typeof fetch>((_input, init) => {
     if (init?.method === 'HEAD') return Promise.resolve(new Response(null, { status: 404 }))
@@ -267,18 +290,7 @@ it.each(workflowVectors.tusReceipts)('shared finished upload receipt: $id', asyn
         ...scenario.state,
         assembly_ssl_url: `${origin}/assemblies/${assemblyId}`,
         tus_url: `${origin}/resumable/files/`,
-        tus_uploads:
-          reads === 1
-            ? []
-            : Array.from({ length: scenario.count }, () => ({
-                finished: true,
-                upload_url: session.uploadUrl,
-                size: 4,
-                offset: 4,
-                filename: file.filename,
-                fieldname: 'file',
-                ...scenario.changes,
-              })),
+        tus_uploads: reads === 1 ? [] : receipts,
       }),
     )
   })
@@ -287,11 +299,11 @@ it.each(workflowVectors.tusReceipts)('shared finished upload receipt: $id', asyn
     authentication: { kind: 'bearer', token: 'unused' },
     fetch: fetcher,
   })
-  const pending = fresh.resumeAssemblyFile({ assemblyId, file, session })
+  const pending = fresh.resumeAssemblyFile({ assemblyId, file: inputFile, session })
   if (scenario.accepted) await expect(pending).resolves.toEqual(session)
   else await expect(pending).rejects.toMatchObject({ cause: { status: 404 } })
   expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['GET', 'HEAD', 'GET'])
-  expect(transport).toHaveBeenCalledTimes(4)
+  expect(transport).toHaveBeenCalledTimes(inputFile.data.size === 0 ? 3 : 4)
 })
 
 it('recovers a committed PATCH whose response exceeds the per-request deadline', async () => {
@@ -413,6 +425,23 @@ it('does not retry a local request-construction error during upload discovery', 
     client.uploadAssemblyFile({ assemblyId, file, timeout: 100, retryDelay: 1 }),
   ).rejects.toMatchObject({ cause: { name: 'TypeError' } })
   expect(fetcher).not.toHaveBeenCalled()
+})
+
+it('does not treat an Assembly discovery conflict as a transient tus offset conflict', async () => {
+  const fetcher = vi.fn<typeof fetch>(() =>
+    Promise.resolve(Response.json({ error: 'SERVER_ERROR' }, { status: 409 })),
+  )
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'unused' },
+    fetch: fetcher,
+  })
+  await expect(
+    client.uploadAssemblyFile({ assemblyId, file, maxRetries: 2, retryDelay: 1 }),
+  ).rejects.toMatchObject({
+    cause: { status: 409 },
+  })
+  expect(fetcher).toHaveBeenCalledTimes(1)
 })
 
 it('continues from a partial PATCH acknowledgement without losing bytes', async () => {

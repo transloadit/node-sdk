@@ -63,8 +63,9 @@ Never populate that list from response data. Redirects, changed owners and untru
 are rejected, and uploader requests carry no authentication credentials.
 An exact match to the configured endpoint retains its proxy prefix; prefixes are never inferred
 from response data. Status GETs retry transient network failures and HTTP 429/5xx within the overall deadline, honoring
-`Retry-After`. A failed DELETE is never retried; an HTTP error can be followed by a GET to confirm
-whether the Assembly became terminal in the meantime.
+`Retry-After`, including when an HTTP error body is interrupted. A failed DELETE is never retried;
+an HTTP error, lost response or per-request timeout can be followed by a GET to confirm whether
+the Assembly became terminal in the meantime, within the remaining workflow deadline.
 
 For resumable uploads, create an Assembly with the upload count in top-level `fields`, alongside
 `params` (not inside `params.fields`), then call the fixed-size workflow with its ID:
@@ -99,6 +100,8 @@ use `waitForAssembly` and inspect its terminal status to establish processing su
 If HEAD returns 404 after temporary upload cleanup, the workflow refreshes Assembly status and
 requires one finished `tus_uploads` receipt matching the saved URL, filename, fieldname, size and
 completed offset. Missing or mismatched receipts remain errors; no replacement upload is created.
+If your proxy rewrites upload capability URLs, it must also rewrite their receipt URLs consistently.
+The SDK does not infer that a proxy URL and a different uploader URL identify the same resource.
 Stopped Assemblies receive no new upload writes. When known, `AssemblyUploadError.assemblyCode`
 identifies that status; an already complete transfer can still be confirmed without writing,
 even if later Assembly processing failed. Use `waitForAssembly` to check processing separately.
@@ -115,6 +118,8 @@ upload. `AssemblyUploadError` preserves `cause` and, when available, `session`; 
 does not delete uploaded bytes or cancel the Assembly. Use `cancelAndWaitForAssembly` explicitly
 when abandoning the job. The existing SDK remains available for deferred lengths, parallel tus
 concatenation and stream inputs. SSE and Webhook receivers are not part of this namespace.
+These helpers require single-segment upload IDs without percent escapes. A different ID format is
+rejected before the upload session is persisted, even if the server already created that resource.
 The types describe wire shapes, not a full JSON Schema validator.
 The configured `fetch` handles both ordinary API and tus requests, so connection configuration,
 tracing and fault injection work across the workflow. The SDK omits account credentials and cookies

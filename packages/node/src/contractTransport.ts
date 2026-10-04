@@ -87,8 +87,9 @@ export class ContractResponseError extends Error {
     data: unknown,
     knownCodes: ReadonlySet<string> = new Set(),
     retryAfter?: number,
+    cause?: unknown,
   ) {
-    super(`API request failed with HTTP ${status}`)
+    super(`API request failed with HTTP ${status}`, { cause })
     this.name = 'ContractResponseError'
     this.status = status
     this.data = data
@@ -371,10 +372,26 @@ export class ContractTransport {
       const reader = response.body?.getReader()
       const chunks: Uint8Array[] = []
       let length = 0
+      const retryAfter = retryAfterMilliseconds(response.headers.get('retry-after'))
       if (reader !== undefined) {
         try {
           for (;;) {
-            const chunk = await contractIo(() => reader.read())
+            let chunk: ReadableStreamReadResult<Uint8Array>
+            try {
+              chunk = await contractIo(() => reader.read())
+            } catch (error) {
+              // Received HTTP status and backoff survive a truncated error body. Do not turn a
+              // non-retryable HTTP failure into a transport retry or discard the server's delay.
+              if (!response.ok)
+                throw new ContractResponseError(
+                  response.status,
+                  undefined,
+                  this.#errorCodes,
+                  retryAfter,
+                  error,
+                )
+              throw error
+            }
             if (chunk.done) break
             length += chunk.value.byteLength
             if (length > 128 * 1024 * 1024) {
@@ -388,7 +405,6 @@ export class ContractTransport {
         }
       }
       const source = Buffer.concat(chunks, length).toString('utf8')
-      const retryAfter = retryAfterMilliseconds(response.headers.get('retry-after'))
       let data: unknown
       try {
         data = JSON.parse(source)

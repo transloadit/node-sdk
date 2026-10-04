@@ -208,6 +208,8 @@ function admitUrl(
   const candidate = operation.parameters.length === 0 && raw.endsWith('/') ? raw.slice(0, -1) : raw
   let path = operation.path
   if (operation.parameters.length === 1) {
+    // These bounded helpers intentionally exclude encoded/nested IDs. Reject before following
+    // Location, not by guessing how a different store maps multiple path segments to a resource.
     const parameter = operation.parameters[0]
     if (parameter === undefined) invalid()
     const prefix = path.split(`{${parameter.name}}`)[0]
@@ -372,14 +374,14 @@ export async function runTusUpload(
       invalid()
     if (session !== undefined) admitUrl(session.uploadUrl, policy.head, policy, options)
     let retries = 0
-    const recover = async (error: unknown): Promise<void> => {
+    const recover = async (error: unknown, allowOffsetConflict = true): Promise<void> => {
       check()
       if (
         !(error instanceof ContractTransportError) &&
         !(error instanceof DOMException && error.name === 'TimeoutError') &&
         !(
           error instanceof ContractResponseError &&
-          (error.status === 409 ||
+          ((allowOffsetConflict && error.status === 409) ||
             error.status === 429 ||
             (error.status >= 500 && error.status <= 599))
         )
@@ -396,7 +398,7 @@ export async function runTusUpload(
         try {
           return await discover(input.assemblyId, signal)
         } catch (error) {
-          await recover(error)
+          await recover(error, false)
         }
       }
     }
@@ -499,17 +501,19 @@ export async function runTusUpload(
             const receipts = Array.isArray(uploads)
               ? uploads.filter((upload: unknown) => {
                   if (!isWorkflowResponse(upload)) return false
-                  const url = upload[fields.url]
-                  return (
-                    typeof url === 'string' && URL.canParse(url) && new URL(url).href === uploadUrl
-                  )
+                  // Count only admitted identities. URL normalization alone can make an unsafe
+                  // dot-segment spelling look like a second receipt for this exact resource.
+                  try {
+                    return admitUrl(upload[fields.url], policy.head, policy, options) === uploadUrl
+                  } catch {
+                    return false
+                  }
                 })
               : []
             const receipt: unknown = receipts[0]
             if (
               receipts.length === receiptPolicy.matchCount &&
               isWorkflowResponse(receipt) &&
-              admitUrl(receipt[fields.url], policy.head, policy, options) === uploadUrl &&
               receipt[fields.finished] === receiptPolicy.finishedValue &&
               receipt[fields.size] === size &&
               receipt[fields.offset] === size &&

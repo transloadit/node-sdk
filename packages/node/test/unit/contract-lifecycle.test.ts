@@ -538,6 +538,73 @@ it('does not retry an ambiguous failed cancellation write', async () => {
   expect(calls).toBe(2)
 })
 
+it.each(
+  ['transport', 'request-timeout'].flatMap((failureKind) =>
+    ['ASSEMBLY_CANCELED', 'REQUEST_ABORTED', 'ASSEMBLY_EXECUTING'].map((confirmed) => ({
+      failureKind,
+      confirmed,
+    })),
+  ),
+)('confirms one uncertain DELETE: $failureKind, $confirmed', async ({ failureKind, confirmed }) => {
+  const failure =
+    failureKind === 'transport'
+      ? new TypeError('synthetic lost DELETE response')
+      : new DOMException('synthetic request deadline', 'TimeoutError')
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      requests.push(init?.method ?? 'GET')
+      if (init?.method === 'DELETE') return Promise.reject(failure)
+      return Promise.resolve(
+        Response.json({ ...body, ok: requests.length === 1 ? body.ok : confirmed }),
+      )
+    },
+  })
+  const pending = client.cancelAndWaitForAssembly({ assemblyId })
+  if (confirmed === 'ASSEMBLY_CANCELED')
+    await expect(pending).resolves.toMatchObject({ ok: confirmed })
+  else if (failureKind === 'transport')
+    await expect(pending).rejects.toMatchObject({ cause: failure })
+  else await expect(pending).rejects.toBe(failure)
+  expect(requests).toEqual(['GET', 'DELETE', 'GET'])
+})
+
+it.each([
+  403, 429, 503,
+])('keeps HTTP %s and server backoff when the error body fails', async (status) => {
+  let calls = 0
+  const failure = new TypeError('synthetic error body disconnect')
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      calls++
+      return Promise.resolve(
+        calls === 1
+          ? new Response(
+              new ReadableStream({
+                start(controller) {
+                  controller.error(failure)
+                },
+              }),
+              { status, headers: { 'retry-after': '30' } },
+            )
+          : Response.json({ ...body, ok: 'ASSEMBLY_COMPLETED' }),
+      )
+    },
+  })
+  const pending = client.waitForAssembly({ assemblyId, interval: 1, timeout: 100 })
+  if (status === 403)
+    await expect(pending).rejects.toMatchObject({
+      status,
+      retryAfter: 30_000,
+      data: undefined,
+      cause: { cause: failure },
+    })
+  else await expect(pending).rejects.toMatchObject({ code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' })
+  expect(calls).toBe(1)
+})
+
 it('requires a terminal status after cancellation and stops at the overall deadline', async () => {
   let deletes = 0
   const client = new ContractClient({

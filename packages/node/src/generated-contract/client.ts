@@ -392,7 +392,9 @@ import {
   runTusUpload,
   requestTus,
   type AssemblyUploadOptions,
+  type AssemblyUploadSession,
   type ResumeAssemblyUploadOptions,
+  type TusWorkflowPolicy,
 } from '../contractTus.ts'
 export { AssemblyUploadError } from '../contractTus.ts'
 export type {
@@ -400,7 +402,7 @@ export type {
   ResumeAssemblyUploadOptions,
   AssemblyUploadSession,
 } from '../contractTus.ts'
-const tusWorkflowPolicy = {
+const projectedTusWorkflowPolicy = {
   assembly: {
     busyCodes: ['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'],
     terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED', 'REQUEST_ABORTED'],
@@ -909,6 +911,7 @@ const tusWorkflowPolicy = {
     success: 204,
   },
 } as const
+const tusWorkflowPolicy = projectedTusWorkflowPolicy satisfies TusWorkflowPolicy
 export { ContractResponseError } from '../contractTransport.ts'
 export type { ContractClientOptions, UploadFile } from '../contractTransport.ts'
 export const contractSignatureAlgorithms = ['sha384', 'sha256', 'sha1'] as const
@@ -69355,7 +69358,7 @@ export class ContractClient extends ContractTransport {
     )
   }
   /** Upload one fixed-size file to an existing Assembly; persist its session before bytes are sent. Completion here means transferred bytes, not successful Assembly processing. */
-  uploadAssemblyFile(input: AssemblyUploadOptions) {
+  uploadAssemblyFile(input: AssemblyUploadOptions): Promise<AssemblyUploadSession> {
     return runTusUpload(
       input,
       undefined,
@@ -69367,7 +69370,7 @@ export class ContractClient extends ContractTransport {
     )
   }
   /** Resume the same file using a saved upload session and the server offset. Completion here means transferred bytes, not successful Assembly processing. */
-  resumeAssemblyFile(input: ResumeAssemblyUploadOptions) {
+  resumeAssemblyFile(input: ResumeAssemblyUploadOptions): Promise<AssemblyUploadSession> {
     return runTusUpload(
       input,
       input.session,
