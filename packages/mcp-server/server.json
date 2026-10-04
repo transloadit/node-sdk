@@ -3,7 +3,7 @@
   "name": "io.github.transloadit/mcp-server",
   "title": "Transloadit Media Processing",
   "description": "Process video, audio, images, and documents with 86+ cloud media processing robots.",
-  "version": "0.3.7",
+  "version": "0.5.0",
   "websiteUrl": "https://transloadit.com/docs/sdks/mcp-server/",
   "repository": {
     "url": "https://github.com/transloadit/node-sdk",
@@ -14,7 +14,7 @@
     {
       "registryType": "npm",
       "identifier": "@transloadit/mcp-server",
-      "version": "0.3.6",
+      "version": "0.5.0",
       "runtimeHint": "npx",
       "packageArguments": [
         {
