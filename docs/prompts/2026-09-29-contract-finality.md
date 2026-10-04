@@ -1,5 +1,20 @@
 # Contract workflow finality follow-up for #517
 
+October 4 final diagnostics review, still draft and unmerged:
+
+- [x] Source-access-verified combined council found a pre-header abort-identity defect. Four
+      fail-first tests reproduce a caller's `TypeError` being wrapped before or during fetch,
+      both with and without the SDK's own request timeout. The already-aborted case uses native
+      fetch against a loopback endpoint and sends no network request.
+- [x] Reconcile explicit caller/workflow cancellation once at the transport rejection boundary.
+      Preserve HTTP status/backoff for SDK-owned request timeouts and detach request listeners.
+      All 265 focused native/shared workflow cases pass after the repair.
+- [x] Full post-repair `yarn check` passes: 1,158 Node tests and one existing skip, plus the
+      remaining monorepo suites. No generated-client bytes or existing API shapes changed.
+- [ ] Repeat both strict packed consumers; freeze the native commit and refresh the producer pin.
+      Re-run local API2/tusd proof, post-fix council and exact-head CI. Completion receipts belong
+      in the PR and canonical living record; these pending boxes are the pre-push snapshot.
+
 October 4 identity follow-up, still draft and unmerged:
 
 - [x] Merge current main and regenerate from the integrated API2 contract.

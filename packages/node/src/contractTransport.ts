@@ -380,9 +380,6 @@ export class ContractTransport {
             try {
               chunk = await contractIo(() => reader.read())
             } catch (error) {
-              // Explicit caller/workflow cancellation wins. Our own request timeout remains an
-              // HTTP error cause so safe-read retries still honor received status and backoff.
-              input.signal?.throwIfAborted()
               // Received HTTP status and backoff survive a truncated error body. Do not turn a
               // non-retryable HTTP failure into a transport retry or discard the server's delay.
               if (!response.ok)
@@ -421,6 +418,12 @@ export class ContractTransport {
       // Result is supplied only by generator-owned methods derived from the response contract.
       // Static wire types do not claim client-side validation of every JSON Schema constraint.
       return data as Result
+    } catch (error) {
+      // Fetch and body reads can reject with a caller's TypeError, which contractIo marks as I/O.
+      // Restore explicit caller/workflow cancellation, but keep our own request timeout as an
+      // HTTP error cause so safe-read retries still honor received status and backoff.
+      input.signal?.throwIfAborted()
+      throw error
     } finally {
       // A workflow can issue many requests with one signal. Older supported Node versions retain
       // composite-signal dependencies; detach our forwarding listeners after every response/error.

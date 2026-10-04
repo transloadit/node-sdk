@@ -454,6 +454,47 @@ it('releases the caller abort listener after each generated HTTP request', async
 })
 
 it.each([
+  0, 60_000,
+])('preserves an already-aborted TypeError with request timeout %s', async (timeout) => {
+  const reason = new TypeError('synthetic caller abort before fetch')
+  const client = new ContractClient({
+    origin: 'http://127.0.0.1:9',
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    timeout,
+  })
+  await expect(
+    client.getAssembly({
+      path: { assemblyId: 'a'.repeat(32) },
+      signal: AbortSignal.abort(reason),
+    }),
+  ).rejects.toBe(reason)
+})
+
+it.each([
+  0, 60_000,
+])('preserves a caller TypeError during fetch with request timeout %s', async (timeout) => {
+  const caller = new AbortController()
+  const reason = new TypeError('synthetic caller abort during fetch')
+  const fetchRequest = vi.fn<typeof fetch>((_url, init) => {
+    const signal = init?.signal
+    if (signal === null || signal === undefined) throw new Error('Missing request signal')
+    return new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      queueMicrotask(() => caller.abort(reason))
+    })
+  })
+  const client = new ContractClient({
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    timeout,
+    fetch: fetchRequest,
+  })
+  await expect(
+    client.getAssembly({ path: { assemblyId: 'a'.repeat(32) }, signal: caller.signal }),
+  ).rejects.toBe(reason)
+  expect(fetchRequest).toHaveBeenCalledOnce()
+})
+
+it.each([
   200, 403, 429, 503,
 ])('preserves caller abort identity during an HTTP %s body', async (status) => {
   const caller = new AbortController()
