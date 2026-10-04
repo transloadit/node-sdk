@@ -16,7 +16,7 @@ const hostInfo = { name: 'TestHost', version: '9.9.9' }
  * test sees exactly the JSON-RPC messages the inline script posts.
  */
 const mountWidget = (
-  options: { maxTimeout?: number } = {},
+  options: { maxTimeout?: number; openai?: Record<string, unknown> } = {},
 ): {
   window: Window
   sent: JsonRpcMessage[]
@@ -35,6 +35,9 @@ const mountWidget = (
   const sent: JsonRpcMessage[] = []
   const host = { postMessage: (message: JsonRpcMessage) => sent.push(message) }
   Object.defineProperty(window, 'parent', { value: host, configurable: true })
+  if (options.openai) {
+    Object.defineProperty(window, 'openai', { value: options.openai, configurable: true })
+  }
   window.document.write(assemblyResultWidgetHtml)
 
   const fromHost = async (message: JsonRpcMessage): Promise<void> => {
@@ -249,6 +252,38 @@ describe('assembly result widget handshake (MCP Apps 2026-01-26)', () => {
     })
 
     expect(widget.appText()).toBe('This host could not start the Assembly result view.')
+  })
+})
+
+describe('assembly result widget in ChatGPT', () => {
+  it('opens download links through window.openai.openExternal without a redirectUrl', async () => {
+    const opened: unknown[] = []
+    const widget = mountWidget({
+      openai: {
+        openExternal: (options: unknown) => {
+          opened.push(options)
+        },
+        toolOutput: {
+          status: 'ok',
+          assembly: {
+            ok: 'ASSEMBLY_COMPLETED',
+            assembly_id: 'abc123',
+            results: {
+              resized: [
+                { name: 'clip.mp4', mime: 'video/mp4', ssl_url: 'https://pub-123.r2.dev/clip.mp4' },
+              ],
+            },
+          },
+        },
+      },
+    })
+
+    const click = new widget.window.MouseEvent('click', { bubbles: true, cancelable: true })
+    widget.window.document.querySelector('a[download]')?.dispatchEvent(click)
+
+    expect(click.defaultPrevented).toBe(true)
+    expect(opened).toEqual([{ href: 'https://pub-123.r2.dev/clip.mp4', redirectUrl: false }])
+    await widget.window.happyDOM.close()
   })
 })
 

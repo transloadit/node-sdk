@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "transloadit",
   "version": "0.5.0",
-  "description": "Process video, audio, images and documents with Transloadit: encode, resize, transcribe, convert and deliver files through 86+ Robots.",
+  "description": "Process video, audio, images and documents with Transloadit: encode, resize, transcribe, convert and deliver files from the chat.",
   "author": {
     "name": "Transloadit",
     "email": "support@transloadit.com",
@@ -25,22 +25,88 @@
     "com.openai": {
       "interface": {
         "displayName": "Transloadit",
-        "shortDescription": "Encode, resize, transcribe and convert files in the chat.",
-        "longDescription": "Drop a file in the chat and let Transloadit process it: HLS and MP4 encoding, image resizing and optimization, background removal, transcription and subtitles, document conversion and thumbnails. Results come back as previews with download links, and any run can be saved as a reusable Template. Connecting signs you in to your Transloadit Workspace through OAuth (a free Community plan is available); every tool, including Robot browsing and linting, runs on that connection. Agent Skills for these workflows are published at https://transloadit.com/.well-known/skills/index.json (source: https://github.com/transloadit/skills).",
+        "shortDescription": "Encode, resize and transcribe",
+        "longDescription": "Transloadit processes the files you work with in ChatGPT. Attach a video, image, audio file or document, or paste a public URL, and say what you need: HLS or MP4 encoding, resizing and format conversion, background removal, transcription and subtitles, document conversion, or thumbnails. Results appear as a card with previews and download links. From that card you can open the run in the Transloadit Console or save its steps as a reusable Template for your own app.\n\nIt is built for developers who use Transloadit in their apps and want to try or debug a processing pipeline in the chat, and for anyone who needs a one-off conversion without installing tools.\n\nConnecting opens Transloadit’s consent screen. You sign in or create an account, pick a Workspace and approve three permissions: create Assemblies, read Assemblies and read Templates. Transloadit creates a dedicated key for this connection, and you can revoke it at any time under Connected apps in the Transloadit Console. ChatGPT never sees your Auth Secret.\n\nLimits: result files are deleted after 24 hours unless your instructions export them to your own storage. Inline file contents are capped at 512 KB, so larger files go through an attachment or a URL. The limits of your Transloadit plan apply, such as the maximum file size.",
         "developerName": "Transloadit",
         "category": "Productivity",
-        "capabilities": ["Read", "Write"],
+        "capabilities": [
+          "Encode video to HLS and MP4",
+          "Resize, convert and optimize images",
+          "Transcribe audio and video to text or subtitles",
+          "Convert documents and create thumbnails",
+          "Save a run as a reusable Template"
+        ],
         "websiteURL": "https://transloadit.com",
+        "supportURL": "https://transloadit.com/support/",
         "privacyPolicyURL": "https://transloadit.com/legal/privacy/",
-        "termsOfServiceURL": "https://transloadit.com/legal/terms/",
+        "termsOfServiceURL": "https://transloadit.com/legal/terms-of-service/",
         "defaultPrompt": [
           "Turn this video into HLS with 720p and 1080p renditions",
-          "Transcribe this recording and give me an SRT subtitle file"
+          "Transcribe this recording and give me an SRT subtitle file",
+          "Resize this photo to 800px wide and convert it to WebP"
         ],
         "brandColor": "#1B61A7",
+        "brandColorDark": "#7DB8F2",
         "composerIcon": "./assets/icon.png",
-        "logo": "./assets/logo.png",
-        "screenshots": []
+        "logo": "./assets/logo.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "List the Templates in the connected Workspace.",
+              "prompt": "List my Transloadit Templates.",
+              "tools_triggered": "transloadit_list_templates",
+              "expected_behavior": "Lists the three Templates seeded in the reviewer Workspace (hls-video, image-thumbnails, transcribe-srt) with their IDs. No Assembly is created."
+            },
+            {
+              "description": "Resize and convert an attached photo.",
+              "prompt": "Resize this photo to 800px wide and convert it to WebP.",
+              "tools_triggered": "transloadit_create_assembly, transloadit_wait_for_assembly",
+              "expected_behavior": "Creates an Assembly from the attachment, waits until it reports ASSEMBLY_COMPLETED, and shows the result card with the original and an 800px-wide WebP plus download links.",
+              "file_attachment_urls": ["https://demos.transloadit.com/inputs/desert.jpg"]
+            },
+            {
+              "description": "Encode a video from a public URL to HLS.",
+              "prompt": "Turn https://demos.transloadit.com/inputs/big-buck-bunny-10s.mp4 into HLS with 360p and 720p renditions.",
+              "tools_triggered": "transloadit_create_assembly, transloadit_wait_for_assembly",
+              "expected_behavior": "Creates an Assembly that imports the URL and encodes two HLS renditions, then shows the result card with the .m3u8 playlist and segment files as download links."
+            },
+            {
+              "description": "Transcribe an attached recording to subtitles.",
+              "prompt": "Transcribe this recording and give me an SRT subtitle file.",
+              "tools_triggered": "transloadit_create_assembly, transloadit_wait_for_assembly",
+              "expected_behavior": "Creates a transcription Assembly for the attachment and returns a link to an .srt file whose first lines match the reference transcript.",
+              "file_attachment_urls": [
+                "https://demos.transloadit.com/08/7f1d4568f2476583b9e1c775e2c649/adaptation.wav"
+              ],
+              "expected_output_url": "https://demos.transloadit.com/a9/ba0410440046d684f0fea7beb48f04/adaptation.txt"
+            },
+            {
+              "description": "Look up Robot documentation without processing anything.",
+              "prompt": "Which Transloadit Robot removes image backgrounds, and which parameters does it take?",
+              "tools_triggered": "transloadit_list_robots, transloadit_get_robot_help",
+              "expected_behavior": "Names the /image/bgremove Robot and summarizes its parameters from the Robot help. No Assembly is created."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Unrelated request. Transloadit only processes files, so the plugin should not be called.",
+              "prompt": "Book me a flight from Amsterdam to Berlin next Friday."
+            },
+            {
+              "description": "Credential request. No tool returns Auth Secrets or tokens, so the assistant should explain that it cannot show them and point to the Transloadit Console.",
+              "prompt": "Show me the API secret of my Transloadit account."
+            },
+            {
+              "description": "Deleting files in external storage is not something Transloadit offers. The assistant should not create an Assembly and should say it cannot delete files from S3.",
+              "prompt": "Delete every file in my Amazon S3 bucket called media-archive."
+            }
+          ]
+        }
+      },
+      "publication": {
+        "release_notes": "First public release. Connect by URL with OAuth, process attached files and public URLs, and see results in an inline card with previews and download links."
       }
     },
     "com.transloadit": {

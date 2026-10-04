@@ -278,6 +278,8 @@ export const assertHttpOptions = (options: {
   maxRequestBodyBytes?: unknown
   maxUrlDownloadBytes?: unknown
   urlDownloadTimeoutMs?: unknown
+  resultDomains?: string[]
+  widgetDomain?: string
 }): void => {
   if (options.mcpToken && options.resourceMetadataUrl) {
     throw new Error(

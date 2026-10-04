@@ -2,9 +2,16 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.transloadit/mcp-server",
   "title": "Transloadit Media Processing",
-  "description": "Process video, audio, images, and documents with 86+ cloud media processing robots.",
-  "version": "0.3.7",
+  "description": "Process video, audio, images and documents with Transloadit Robots. Connect by URL with OAuth.",
+  "version": "0.5.0",
   "websiteUrl": "https://transloadit.com/docs/sdks/mcp-server/",
+  "icons": [
+    {
+      "src": "https://transloadit.com/assets/images/square-ogimage.png",
+      "mimeType": "image/png",
+      "sizes": ["400x400"]
+    }
+  ],
   "repository": {
     "url": "https://github.com/transloadit/node-sdk",
     "source": "github",
@@ -14,7 +21,7 @@
     {
       "registryType": "npm",
       "identifier": "@transloadit/mcp-server",
-      "version": "0.3.6",
+      "version": "0.5.0",
       "runtimeHint": "npx",
       "packageArguments": [
         {
@@ -45,15 +52,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://api2.transloadit.com/mcp",
-      "headers": [
-        {
-          "name": "Authorization",
-          "description": "Optional. Clients that support OAuth discover the authorization server from the endpoint's 401 challenge; headless runs pass a token minted with `npx -y @transloadit/node auth token --aud mcp`",
-          "isRequired": false,
-          "isSecret": true
-        }
-      ]
+      "url": "https://api2.transloadit.com/mcp"
     }
   ]
 }

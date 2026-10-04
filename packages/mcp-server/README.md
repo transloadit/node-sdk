@@ -324,7 +324,10 @@ Allowlist tools in `~/.gemini/settings.json`:
 - `TRANSLOADIT_MCP_UPSTREAM_SECRET` (hosted mode only, set by Transloadit's deployment; sent to
   API2 as `Transloadit-Mcp-Upstream` next to forwarded bearer tokens)
 - `TRANSLOADIT_MCP_RESULT_DOMAINS` (optional, comma-separated origins the result widget may load
-  previews from; default `https://*.transloadit.com,https://*.transloadit.net,https://*.r2.dev`)
+  previews from and link to, either exact such as `https://tmp-us-east-1.transloadit.net` or with a
+  wildcard host; default `https://*.transloadit.com,https://*.transloadit.net,https://*.r2.dev`)
+- `TRANSLOADIT_MCP_WIDGET_DOMAIN` (optional, default `https://transloadit.com`; the origin ChatGPT
+  serves the result widget from, sent as `_meta["openai/widgetDomain"]`)
 - `TRANSLOADIT_MCP_CONSOLE_URL` (optional, default `https://transloadit.com`; Console origin for
   widget deep links)
 - `TRANSLOADIT_ENDPOINT` (optional, default `https://api2.transloadit.com`)
@@ -339,7 +342,8 @@ Allowlist tools in `~/.gemini/settings.json`:
 - `npx -y @transloadit/mcp-server http --config path/to/config.json`
 
 The JSON config accepts the same keys as `createTransloaditMcpHttpHandler()`, including
-`allowedOrigins`, `resourceMetadataUrl`, `signatureAlgorithm`, `resultDomains` and `consoleUrl`.
+`allowedOrigins`, `resourceMetadataUrl`, `signatureAlgorithm`, `resultDomains`, `widgetDomain` and
+`consoleUrl`.
 
 ## Tool surface
 
@@ -381,6 +385,12 @@ download links, an "Open in Console" link and a "Save as Template" shortcut. It 
 `2026-01-26` protocol (`ui/initialize` with `appInfo`) and also reads ChatGPT's `window.openai`.
 Its CSP allows `https://*.transloadit.com`, `https://*.transloadit.net` and `https://*.r2.dev`
 (result buckets); override the list with `TRANSLOADIT_MCP_RESULT_DOMAINS` or `resultDomains`.
+ChatGPT asks for the exact hosts a widget uses, so a deployment that knows its result buckets
+should list them as origins instead of wildcards. ChatGPT also needs `redirect_domains` to open
+links from the widget: the server sends the result origins plus the Console origin there. ChatGPT
+serves the widget from the origin in `_meta["openai/widgetDomain"]`
+(`TRANSLOADIT_MCP_WIDGET_DOMAIN`). `ui.domain` stays unset, because Claude derives that value from
+the server URL and rejects any other.
 
 ## Input files
 
