@@ -17,8 +17,22 @@ export interface ContractClientOptions {
         readonly key: string
         readonly secret: string
         readonly algorithm?: ContractSignatureAlgorithm
+        readonly token?: never
       }
-    | { readonly kind: 'bearer'; readonly token: string }
+    | {
+        readonly kind: 'bearer'
+        readonly token: string
+        readonly key?: never
+        readonly secret?: never
+        readonly algorithm?: never
+      }
+    | {
+        readonly kind: 'none'
+        readonly key?: never
+        readonly secret?: never
+        readonly token?: never
+        readonly algorithm?: never
+      }
   /** Trusted fetch implementation for ordinary and tus requests. SDK credentials are not sent to tus. */
   readonly fetch?: typeof fetch
   /** Per-request deadline in milliseconds. Default: 60000; zero disables this deadline only. */
@@ -43,7 +57,14 @@ interface Operation {
   readonly rawPathPatterns: Readonly<Record<string, string>>
   readonly pathParameters: readonly { readonly name: string; readonly percentDecode: boolean }[]
   readonly auth:
-    | { readonly kind: 'none' | 'basic' }
+    | { readonly kind: 'none' }
+    | {
+        readonly kind: 'basic'
+        readonly byFormField?: {
+          readonly field: string
+          readonly values: Readonly<Record<string, 'basic' | 'none'>>
+        }
+      }
     | { readonly kind: 'api-key'; readonly bearerBypassesSignature: boolean }
   readonly request:
     | { readonly kind: 'dispatch-only' }
@@ -270,7 +291,14 @@ export class ContractTransport {
     this.#fetch = options.fetch ?? globalThis.fetch
     this.#signing = { ...signing, algorithms: [...signing.algorithms] }
     if (this.#authentication.kind === 'signed') {
-      if (!this.#authentication.key || !this.#authentication.secret)
+      if (Object.hasOwn(this.#authentication, 'token'))
+        throw new Error('Choose signed, bearer or no account authentication')
+      if (
+        typeof this.#authentication.key !== 'string' ||
+        !this.#authentication.key ||
+        typeof this.#authentication.secret !== 'string' ||
+        !this.#authentication.secret
+      )
         throw new Error('Auth Key credentials are required')
       if (
         !this.#signing.algorithms.includes(
@@ -278,7 +306,20 @@ export class ContractTransport {
         )
       )
         throw new Error('Unsupported request signature algorithm')
-    } else if (!this.#authentication.token) throw new Error('Bearer token is required')
+    } else if (this.#authentication.kind === 'bearer' || this.#authentication.kind === 'none') {
+      if (
+        ['key', 'secret', 'algorithm'].some((field) =>
+          Object.hasOwn(this.#authentication, field),
+        ) ||
+        (this.#authentication.kind === 'none' && Object.hasOwn(this.#authentication, 'token'))
+      )
+        throw new Error('Choose signed, bearer or no account authentication')
+      if (
+        this.#authentication.kind === 'bearer' &&
+        (typeof this.#authentication.token !== 'string' || !this.#authentication.token)
+      )
+        throw new Error('Bearer token is required')
+    } else throw new Error('Choose signed, bearer or no account authentication')
   }
 
   /** Snapshot native connection settings for the generated workflow adapter's private owner client. */
@@ -331,7 +372,35 @@ export class ContractTransport {
     if (this.#clientName !== undefined) headers.set('Transloadit-Client', this.#clientName)
     const fields = new URLSearchParams()
     const authentication = this.#authentication
-    if (operation.auth.kind === 'basic') {
+    const request = operation.request
+    // Read form properties once: authentication must describe exactly the bytes sent below.
+    if (request.kind === 'form') {
+      for (const [name, value] of Object.entries(input.body ?? {})) {
+        if (value === undefined) continue
+        if (typeof value !== 'string') throw new Error(`Expected string form field: ${name}`)
+        fields.set(name, value)
+      }
+    }
+    let accountAuth = operation.auth.kind
+    if (operation.auth.kind === 'basic' && operation.auth.byFormField !== undefined) {
+      const selector = operation.auth.byFormField
+      const values = fields.getAll(selector.field)
+      const value = values[0]
+      if (
+        request.kind !== 'form' ||
+        values.length !== 1 ||
+        value === undefined ||
+        !Object.hasOwn(selector.values, value)
+      )
+        throw new Error('Invalid account authentication selector')
+      const selected = selector.values[value]
+      if (selected !== 'basic' && selected !== 'none')
+        throw new Error('Unsupported account authentication policy')
+      accountAuth = selected
+    }
+    if (accountAuth === 'api-key' && authentication.kind === 'none')
+      throw new Error('This operation requires account authentication')
+    if (accountAuth === 'basic') {
       if (authentication.kind !== 'signed')
         throw new Error('This operation requires Auth Key credentials')
       headers.set(
@@ -343,7 +412,6 @@ export class ContractTransport {
         throw new Error('This operation requires signed authentication')
       headers.set('Authorization', `Bearer ${authentication.token}`)
     }
-    const request = operation.request
     if (request.kind === 'normalized-params') {
       const params: Record<string, unknown> = { ...input.params }
       let auth: Record<string, unknown> = {}
@@ -375,12 +443,6 @@ export class ContractTransport {
           request.transport.signatureField,
           `${algorithm}${this.#signing.prefixSeparator}${digest}`,
         )
-      }
-    } else if (request.kind === 'form') {
-      for (const [name, value] of Object.entries(input.body ?? {})) {
-        if (value === undefined) continue
-        if (typeof value !== 'string') throw new Error(`Expected string form field: ${name}`)
-        fields.set(name, value)
       }
     }
     let body: FormData | URLSearchParams | undefined

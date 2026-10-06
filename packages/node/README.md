@@ -27,8 +27,10 @@ This is a **Node.js** SDK to make it easy to talk to the
 `client.contract()` adds typed, low-level methods for the ordinary HTTP API, using the same
 credentials and endpoint as the existing client. Existing methods remain available separately.
 
-Public OAuth authorization-code and refresh-token exchanges are not supported by this draft client.
-Do not supply account credentials as a workaround. Token creation with `client_credentials` is supported.
+Token exchanges follow the contract's grant-specific authentication. `client_credentials`
+requires an Auth Key and secret. Authorization-code and refresh-token exchanges send no account
+credentials, even on a client configured for signed or bearer requests; supply the grant's proof
+in the request body. The SDK does not manage login, consent, token storage or automatic refresh.
 
 ```ts
 const api = client.contract()
@@ -43,6 +45,12 @@ Console configuration. Through `client.contract()`, the existing client's `signa
 is preserved; no token is minted implicitly. Pass raw, unencoded
 path values. The client signs exactly the serialized `params` it sends. Multipart inputs use
 `files: { file: { data: blob, filename: 'example.jpg' } }`. Requests accept an `AbortSignal`.
+
+For exchanges without an Auth Key, construct the standalone client with
+`authentication: { kind: 'none' }`. Protected operations fail locally on that client; missing
+authentication is never treated as an implicit anonymous configuration. Each token exchange makes
+one attempt and does not follow redirects. Store and refresh tokens in your application or OAuth
+library; these low-level methods are not a complete OAuth onboarding workflow.
 
 Ordinary methods return the HTTP response, not a completed Assembly. The explicit workflow methods
 `waitForAssembly({ assemblyId, signal })` and `cancelAndWaitForAssembly({ assemblyId, signal })`

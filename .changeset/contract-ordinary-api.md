@@ -6,7 +6,10 @@
 
 Add contract-generated ordinary HTTP methods through `client.contract()` and the `/contract`
 entrypoint. The new methods support signed requests or explicit
-bearer authentication. Add explicit `waitForAssembly` and `cancelAndWaitForAssembly` workflows over
+bearer authentication. Token exchanges use the generated grant-specific account-authentication policy.
+The standalone client can explicitly select `authentication: { kind: 'none' }` for public grants;
+protected calls still require credentials. Login, storage and automatic refresh remain application-owned.
+Add explicit `waitForAssembly` and `cancelAndWaitForAssembly` workflows over
 these methods, with source-owned uploader admission, overall deadlines and terminal-status checks.
 Cancellation is one attempt on the owning uploader, never an automatically retried write.
 Add fixed-size `uploadAssemblyFile` and `resumeAssemblyFile` workflows through contract-owned tus

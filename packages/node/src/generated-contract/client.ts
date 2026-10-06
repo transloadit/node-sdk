@@ -1,4 +1,4 @@
-// Generated from API2 contract 4c71aa3a66cf20aebfaea7b6f87ee8b8f3bc5c91ff4894ce115d978b2accc6b4. Do not edit.
+// Generated from API2 contract 6a90b6e2cc6d24e5be3c0a94588583fcf7294f3abc73adca63bdd9ab88f761f1. Do not edit.
 import {
   ContractTransport,
   type ContractClientOptions,
@@ -67874,7 +67874,17 @@ export class ContractClient extends ContractTransport {
         path: '/token',
         rawPathPatterns: {},
         pathParameters: [],
-        auth: { kind: 'basic' },
+        auth: {
+          kind: 'basic',
+          byFormField: {
+            field: 'grant_type',
+            values: {
+              authorization_code: 'none',
+              client_credentials: 'basic',
+              refresh_token: 'none',
+            },
+          },
+        },
         request: { kind: 'form', mediaType: 'application/x-www-form-urlencoded' },
       },
       input,

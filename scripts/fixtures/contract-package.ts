@@ -9,6 +9,12 @@ export async function probe(): Promise<JsonValue> {
   const standalone = new ContractClient({
     authentication: { kind: 'bearer', token: 'not-a-token' },
   })
+  const publicGrants = new ContractClient({ authentication: { kind: 'none' } })
+  await publicGrants.issueBearerToken({
+    body: { grant_type: 'refresh_token', refresh_token: 'compile-only' },
+  })
+  // @ts-expect-error Selecting no account authentication must not also configure credentials.
+  new ContractClient({ authentication: { kind: 'none', token: 'compile-only' } })
   new ContractClient({
     authentication: {
       kind: 'signed',
