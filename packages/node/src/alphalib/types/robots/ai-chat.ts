@@ -51,7 +51,7 @@ type Part<Type extends MessagePart['type']> = Extract<MessagePart, { type: Type 
 type ToolOutput = Part<'tool-result'>['output']
 
 type ProviderMetadata = NonNullable<z.output<typeof providerMetadataSchema>>
-type CompatibleProviderOptions<Part extends { providerOptions?: ProviderMetadata }> = Omit<
+type CompatibleProviderOptions<Part extends { providerOptions?: ProviderMetadata | undefined }> = Omit<
   Part,
   'providerOptions'
 > & {
