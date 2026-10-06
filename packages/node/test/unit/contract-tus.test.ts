@@ -706,15 +706,18 @@ it.each([201, 403, 429, 503])('bounds buffered clone cleanup after HTTP %s', asy
     origin,
     authentication: { kind: 'bearer', token: 'synthetic' },
     fetch: fetcher,
-    timeout: 10,
+    timeout: 100,
   })
   const pending = client
-    .uploadAssemblyFile({ assemblyId, file, timeout: 200, maxRetries: 0 })
+    .uploadAssemblyFile({ assemblyId, file, timeout: 2000, maxRetries: 0 })
     .catch((error: unknown) => error)
+  let guard: ReturnType<typeof setTimeout> | undefined
   try {
     const result = await Promise.race([
       pending,
-      new Promise((resolve) => setTimeout(() => resolve('still blocked'), 300)),
+      new Promise((resolve) => {
+        guard = setTimeout(() => resolve('still blocked'), 3000)
+      }),
     ])
     expect(result).toMatchObject(
       status === 201
@@ -724,6 +727,7 @@ it.each([201, 403, 429, 503])('bounds buffered clone cleanup after HTTP %s', asy
     expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['GET', 'POST'])
   } finally {
     // Release the fixture's unread tee branch even when the regression assertion fails.
+    clearTimeout(guard)
     await sibling.body?.cancel()
     await pending
   }

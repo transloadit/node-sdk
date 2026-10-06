@@ -14,6 +14,10 @@ October 6 reader compatibility, still draft and unmerged:
       HTTP status/backoff and caller precedence; the Go-equivalent cases are repaired too. Final
       full `yarn check` passes (1,359 Node cases, one existing skip); both packed names compile.
 - [ ] Finish the post-fix council, refreshed producer pins/runtime acceptance and exact-head CI.
+- [x] The next council reproduced the same cloned-cleanup hang at ordinary redirect/size guards.
+      Four fail-first request/workflow-deadline cases now pass using the shared native cleanup
+      helper; all 171 focused cases pass. Fix the example fixture path portably. Regenerate from
+      producer `f8947685ba`, which restores TypeScript autocomplete and honest reader proof status.
 - Explicit next-slice merge blocker: current main's public `authorization_code` and `refresh_token`
   grants need no Basic credentials, but the draft operation projection/transport requires them.
   Fix this from the producer's grant-specific auth model before release; do not hand-patch generated

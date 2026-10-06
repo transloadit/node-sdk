@@ -29844,7 +29844,7 @@ export type CancelAssemblyResult_WithError_Error =
   | 'WORKER_JOB_ERROR'
   | 'YOUTUBE_STORE_PROBLEM_SENDING_FILE'
   | 'YOUTUBE_STORE_VALIDATION'
-  | string
+  | (string & {})
 export type CancelAssemblyResult_WithError_ExecutingJobs = Array<string>
 /**
  * The time taken by Transloadit to execute this Assembly, in seconds.

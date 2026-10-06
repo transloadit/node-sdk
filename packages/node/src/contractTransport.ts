@@ -125,6 +125,34 @@ export async function contractIo<Result>(request: () => Promise<Result>): Promis
   }
 }
 
+/** Bound cleanup or checkpoint callbacks that need not observe the request signal themselves. */
+export async function contractWithinSignal(
+  signal: AbortSignal | undefined,
+  callback: () => void | Promise<void>,
+): Promise<void> {
+  if (signal === undefined) {
+    await callback()
+    return
+  }
+  await new Promise<void>((resolve, reject) => {
+    const abort = (): void => reject(signal.reason)
+    signal.addEventListener('abort', abort, { once: true })
+    Promise.resolve()
+      .then(callback)
+      .then(
+        () => {
+          signal.removeEventListener('abort', abort)
+          resolve()
+        },
+        (error: unknown) => {
+          signal.removeEventListener('abort', abort)
+          reject(error)
+        },
+      )
+    if (signal.aborted) abort()
+  })
+}
+
 /** Decode server backoff once for ordinary requests and credential-free tus recovery. */
 export function retryAfterMilliseconds(header: string | null): number | undefined {
   if (header === null) return
@@ -366,7 +394,7 @@ export class ContractTransport {
         }),
       )
       if (response.redirected || (response.url !== '' && response.url !== url.href)) {
-        await response.body?.cancel()
+        await contractWithinSignal(signal, () => response.body?.cancel())
         throw new Error('API redirects are not followed')
       }
       // Bound decoded bytes even when Content-Length is absent or compressed on the wire.
@@ -396,7 +424,7 @@ export class ContractTransport {
             if (chunk.done) break
             length += chunk.value.byteLength
             if (length > 128 * 1024 * 1024) {
-              await reader.cancel()
+              await contractWithinSignal(signal, () => reader.cancel())
               throw new Error('API response exceeds size limit')
             }
             chunks.push(chunk.value)

@@ -27,6 +27,9 @@ This is a **Node.js** SDK to make it easy to talk to the
 `client.contract()` adds typed, low-level methods for the ordinary HTTP API, using the same
 credentials and endpoint as the existing client. Existing methods remain available separately.
 
+Public OAuth authorization-code and refresh-token exchanges are not supported by this draft client.
+Do not supply account credentials as a workaround. Token creation with `client_credentials` is supported.
+
 ```ts
 const api = client.contract()
 const templates = await api.listTemplates({ params: { include_builtin: 'none' } })

@@ -562,3 +562,49 @@ it.each([
   else await expect(request).rejects.toHaveProperty('cause', reason)
   expect(reason).toBeInstanceOf(DOMException)
 })
+
+it.each(
+  ['redirect', 'oversized'].flatMap((kind) =>
+    ['request', 'workflow'].map((budget) => ({ kind, budget })),
+  ),
+)('bounds $kind cloned-response cleanup with the $budget deadline', async ({ kind, budget }) => {
+  const sibling = new Response('Synthetic buffered response')
+  const response = sibling.clone()
+  if (kind === 'redirect') {
+    vi.spyOn(response, 'redirected', 'get').mockReturnValue(true)
+  } else {
+    if (response.body === null) throw new Error('Missing response body')
+    const reader = response.body.getReader()
+    // Reach the size guard with one reused chunk; cancellation still uses the real cloned stream.
+    vi.spyOn(reader, 'read').mockResolvedValue({ done: false, value: new Uint8Array(1024 * 1024) })
+    vi.spyOn(response.body, 'getReader').mockReturnValue(reader)
+  }
+  const client = new ContractClient({
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    timeout: budget === 'request' ? 100 : 0,
+    fetch: () => Promise.resolve(response),
+  })
+  const assemblyId = 'a'.repeat(32)
+  const pending = (
+    budget === 'request'
+      ? client.getAssembly({ path: { assemblyId } })
+      : client.waitForAssembly({ assemblyId, timeout: 100 })
+  ).catch((error: unknown) => error)
+  let guard: ReturnType<typeof setTimeout> | undefined
+  try {
+    const result = await Promise.race([
+      pending,
+      new Promise((resolve) => {
+        guard = setTimeout(() => resolve('still blocked'), 1000)
+      }),
+    ])
+    expect(result).toMatchObject(
+      budget === 'request' ? { name: 'TimeoutError' } : { code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' },
+    )
+  } finally {
+    clearTimeout(guard)
+    await sibling.body?.cancel()
+    await pending
+    vi.restoreAllMocks()
+  }
+})

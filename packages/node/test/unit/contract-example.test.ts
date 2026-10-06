@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+
 import { afterEach, expect, it, vi } from 'vitest'
 
 vi.mock('@transloadit/node/contract', () => import('../../src/generated-contract/client.ts'))
@@ -42,7 +44,7 @@ it('the executable example cancels an aborted Assembly before reporting failure'
   process.argv = [
     'node',
     'contract-workflow.ts',
-    new URL('../e2e/fixtures/sample.jpg', import.meta.url).pathname,
+    fileURLToPath(new URL('../e2e/fixtures/sample.jpg', import.meta.url)),
   ]
   const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {})
   await import('../../examples/contract-workflow.ts')

@@ -8,6 +8,7 @@ import {
   ContractResponseError,
   ContractTransportError,
   contractIo,
+  contractWithinSignal,
   requestDeadline,
   retryAfterMilliseconds,
 } from './contractTransport.ts'
@@ -179,9 +180,11 @@ export async function requestTus(
       try {
         // A buffered clone's unread sibling need not observe fetch's signal, so cancel() alone
         // can stay pending forever. Bound our wait without consuming an untrusted response body.
-        await withinSignal(requestSignal, () => contractIo(() => responseBody.cancel()))
+        await contractWithinSignal(requestSignal, () => contractIo(() => responseBody.cancel()))
       } catch (error) {
         // Received HTTP failure headers still govern recovery and Retry-After when cleanup fails.
+        // Successful headers do not override the request deadline. A failed upload still needs
+        // explicit Assembly cancellation to confirm remote cleanup, even when no session was saved.
         if (response.ok) throw error
         cleanupError = error
       }
@@ -273,29 +276,6 @@ function verifyUploadMetadata(
   for (const [key, text] of Object.entries(expected)) {
     if (!values.get(key)?.equals(Buffer.from(text, 'utf8'))) invalid()
   }
-}
-
-async function withinSignal(
-  signal: AbortSignal,
-  callback: () => void | Promise<void>,
-): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const abort = (): void => reject(signal.reason)
-    signal.addEventListener('abort', abort, { once: true })
-    Promise.resolve()
-      .then(callback)
-      .then(
-        () => {
-          signal.removeEventListener('abort', abort)
-          resolve()
-        },
-        (error: unknown) => {
-          signal.removeEventListener('abort', abort)
-          reject(error)
-        },
-      )
-    if (signal.aborted) abort()
-  })
 }
 
 /** Native orchestration over generated discovery and protocol bindings, with no legacy fallback. */
@@ -479,7 +459,7 @@ export async function runTusUpload(
         sha256,
       })
       const savedSession = session
-      await withinSignal(signal, () => {
+      await contractWithinSignal(signal, () => {
         signal.throwIfAborted()
         return input.onSession?.(savedSession, signal)
       })
