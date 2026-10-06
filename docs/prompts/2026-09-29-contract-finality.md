@@ -8,7 +8,16 @@ October 6 reader compatibility, still draft and unmerged:
 - [x] Pass all 160 shared reader/mode observations, 447 focused tests and the full check
       (1,353 Node cases, one existing skip, plus other workspace suites). Both packed package names
       pass strict installed-consumer compilation. Receipts: `studio1:/tmp/sdk-readers.c3epZn/`.
-- [ ] Finish council, refreshed producer pins/runtime acceptance and exact-head CI.
+- [x] Finish the first combined council. Reproduce then repair buffered-clone cleanup hanging past
+      request/workflow deadlines, saved custom field-name loss on resume, and the executable
+      example skipping cancellation after `REQUEST_ABORTED`. All 111 focused cases pass. Retain
+      HTTP status/backoff and caller precedence; the Go-equivalent cases are repaired too. Final
+      full `yarn check` passes (1,359 Node cases, one existing skip); both packed names compile.
+- [ ] Finish the post-fix council, refreshed producer pins/runtime acceptance and exact-head CI.
+- Explicit next-slice merge blocker: current main's public `authorization_code` and `refresh_token`
+  grants need no Basic credentials, but the draft operation projection/transport requires them.
+  Fix this from the producer's grant-specific auth model before release; do not hand-patch generated
+  clients, borrow credentials, or hide the gap by accepting a bearer-configured Basic request.
 - No release, merge, additional credentialed test or deployment. The canonical living document
   remains API2's `docs/prompts/2026-07-09-handover-sdks-branch-restructure.md`.
 

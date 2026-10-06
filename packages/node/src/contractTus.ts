@@ -33,6 +33,7 @@ export interface AssemblyUploadSession {
 export interface AssemblyUploadOptions {
   readonly assemblyId: string
   readonly file: UploadFile
+  /** Defaults to the saved session's field name when resuming, otherwise 'file'. */
   readonly fieldname?: string
   /** Bytes per request, from 1 through 64 MiB. Default: 5 MiB. */
   readonly chunkSize?: number
@@ -55,7 +56,7 @@ export interface ResumeAssemblyUploadOptions extends AssemblyUploadOptions {
 /** A failed transfer may still have received bytes. The session permits explicit later recovery. */
 export class AssemblyUploadError extends Error {
   readonly session: AssemblyUploadSession | undefined
-  /** Known terminal Assembly code, when status stopped further upload writes. */
+  /** Observed terminal Assembly code. Treat it as untrusted data, including newer server values. */
   readonly assemblyCode: string | undefined
 
   constructor(session: AssemblyUploadSession | undefined, cause: unknown, assemblyCode?: string) {
@@ -176,7 +177,9 @@ export async function requestTus(
     let cleanupError: unknown
     if (responseBody !== null) {
       try {
-        await contractIo(() => responseBody.cancel())
+        // A buffered clone's unread sibling need not observe fetch's signal, so cancel() alone
+        // can stay pending forever. Bound our wait without consuming an untrusted response body.
+        await withinSignal(requestSignal, () => contractIo(() => responseBody.cancel()))
       } catch (error) {
         // Received HTTP failure headers still govern recovery and Retry-After when cleanup fails.
         if (response.ok) throw error
@@ -184,7 +187,7 @@ export async function requestTus(
       }
     }
     // Caller/workflow cancellation wins, but our request timeout cannot erase received failure
-    // headers. A cloned body's cleanup can settle only after that timeout aborts the source.
+    // headers, even if a cloned body's cleanup never settles.
     signal.throwIfAborted()
     if (response.redirected || (response.url !== '' && response.url !== url)) invalid()
     if (!response.ok)
@@ -243,11 +246,6 @@ function offset(headers: Headers, name: string, size: number): number {
   return value
 }
 
-function record(value: unknown): Record<string, unknown> {
-  if (!isWorkflowResponse(value)) invalid()
-  return value
-}
-
 function verifyUploadMetadata(
   raw: string,
   expected: Readonly<Record<string, string>>,
@@ -277,20 +275,15 @@ function verifyUploadMetadata(
   }
 }
 
-async function persistSession(
-  session: AssemblyUploadSession,
+async function withinSignal(
   signal: AbortSignal,
-  callback: AssemblyUploadOptions['onSession'],
+  callback: () => void | Promise<void>,
 ): Promise<void> {
-  if (callback === undefined) return
   await new Promise<void>((resolve, reject) => {
     const abort = (): void => reject(signal.reason)
     signal.addEventListener('abort', abort, { once: true })
     Promise.resolve()
-      .then(() => {
-        signal.throwIfAborted()
-        return callback(session, signal)
-      })
+      .then(callback)
       .then(
         () => {
           signal.removeEventListener('abort', abort)
@@ -301,6 +294,7 @@ async function persistSession(
           reject(error)
         },
       )
+    if (signal.aborted) abort()
   })
 }
 
@@ -344,7 +338,7 @@ export async function runTusUpload(
   const size = input.file.data.size
   const blob = input.file.data
   const filename = input.file.filename
-  const fieldname = input.fieldname ?? 'file'
+  const fieldname = input.fieldname ?? resume?.fieldname ?? 'file'
   if (!filename || !fieldname || /[\r\n\0]/u.test(filename + fieldname)) invalid()
   let session = resume === undefined ? undefined : Object.freeze({ ...resume })
   let assemblyCode: string | undefined
@@ -484,7 +478,11 @@ export async function runTusUpload(
         fieldname,
         sha256,
       })
-      await persistSession(session, signal, input.onSession)
+      const savedSession = session
+      await withinSignal(signal, () => {
+        signal.throwIfAborted()
+        return input.onSession?.(savedSession, signal)
+      })
       check()
     }
     const uploadUrl = admitUrl(session.uploadUrl, policy.head, policy, options)

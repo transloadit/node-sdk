@@ -64,6 +64,7 @@ it.each([
   })
   workflow.deleteTemplate.mockResolvedValue({ ok: 'TEMPLATE_DELETED' })
   workflow.cancelAssembly.mockResolvedValue({ ok: 'ASSEMBLY_CANCELED' })
+  workflow.cancelAndWaitForAssembly.mockResolvedValue({ ok: 'ASSEMBLY_CANCELED' })
   await import('../../examples/contract-workflow.ts')
   await vi.waitFor(() => expect(workflow.deleteTemplate).toHaveBeenCalledOnce())
   expect(workflow.construct).toHaveBeenCalledWith({
@@ -75,12 +76,16 @@ it.each([
     },
   })
   expect(workflow.cancelAssembly).not.toHaveBeenCalled()
-  expect(workflow.cancelAndWaitForAssembly).not.toHaveBeenCalled()
   expect(workflow.getAssembly).not.toHaveBeenCalled()
   expect(workflow.waitForAssembly).toHaveBeenCalledOnce()
   if (ok === 'ASSEMBLY_REPLAYING') {
+    expect(workflow.cancelAndWaitForAssembly).not.toHaveBeenCalled()
     expect(error).not.toHaveBeenCalled()
   } else {
+    expect(workflow.cancelAndWaitForAssembly).toHaveBeenCalledExactlyOnceWith({
+      assemblyId: 'assembly',
+      signal: expect.any(AbortSignal),
+    })
     expect(error).toHaveBeenCalledWith('Assembly processing did not complete successfully')
   }
 })

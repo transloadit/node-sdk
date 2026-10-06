@@ -21,6 +21,7 @@ export interface ContractClientOptions {
     | { readonly kind: 'bearer'; readonly token: string }
   /** Trusted fetch implementation for ordinary and tus requests. SDK credentials are not sent to tus. */
   readonly fetch?: typeof fetch
+  /** Per-request deadline in milliseconds. Default: 60000; zero disables this deadline only. */
   readonly timeout?: number
   readonly clientName?: string
 }

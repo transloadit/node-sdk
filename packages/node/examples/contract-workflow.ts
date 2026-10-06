@@ -49,9 +49,9 @@ async function main(): Promise<void> {
     assemblyId = uploaded.assembly_id
     if (!assemblyId) throw new Error('The API did not return an Assembly ID')
     const status = await client.waitForAssembly({ assemblyId, signal })
-    finished = true
     if (status.ok !== 'ASSEMBLY_COMPLETED')
       throw new Error('Assembly processing did not complete successfully')
+    finished = true
     const result = status.results?.resize?.[0]
     if (!result?.ssl_url) throw new Error('The completed Assembly has no resized image URL')
     console.log('Resized image:', result.ssl_url)

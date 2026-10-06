@@ -179,6 +179,42 @@ it('persists before bytes and refuses changed content of the same size in a fres
   expect(fresh.transport).not.toHaveBeenCalled()
 })
 
+it('inherits the saved field name when a fresh client resumes, but rejects explicit changes', async () => {
+  const { client, transport } = fixture()
+  let saved: AssemblyUploadSession | undefined
+  await expect(
+    client.uploadAssemblyFile({
+      assemblyId,
+      file,
+      fieldname: 'avatar',
+      onSession: (session) => {
+        saved = session
+        throw new Error('Synthetic interruption before bytes')
+      },
+    }),
+  ).rejects.toBeInstanceOf(AssemblyUploadError)
+  if (saved === undefined) throw new Error('Missing session')
+  const fresh = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    fetch: transport,
+  })
+  await expect(
+    fresh.resumeAssemblyFile({ assemblyId, file, session: saved, fieldname: 'other' }),
+  ).rejects.toBeInstanceOf(AssemblyUploadError)
+  expect(transport).toHaveBeenCalledTimes(2)
+  await expect(fresh.resumeAssemblyFile({ assemblyId, file, session: saved })).resolves.toEqual(
+    saved,
+  )
+  expect(transport.mock.calls.map(([, init]) => init?.method)).toEqual([
+    'GET',
+    'POST',
+    'GET',
+    'HEAD',
+    'PATCH',
+  ])
+})
+
 it('never retries uncertain creation, even when a recovery budget exists', async () => {
   const { client, transport } = fixture({ creationStatus: 503 })
   await expect(
@@ -655,6 +691,42 @@ it.each([
     'HEAD',
     'PATCH',
   ])
+})
+
+it.each([201, 403, 429, 503])('bounds buffered clone cleanup after HTTP %s', async (status) => {
+  const { transport } = fixture()
+  const sibling = new Response('Synthetic buffered response', {
+    status,
+    headers: { 'retry-after': '30', 'tus-resumable': '1.0.0', location: '/resumable/files/one' },
+  })
+  const fetcher = vi.fn<typeof fetch>((input, init) =>
+    init?.method === 'POST' ? Promise.resolve(sibling.clone()) : transport(input, init),
+  )
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    fetch: fetcher,
+    timeout: 10,
+  })
+  const pending = client
+    .uploadAssemblyFile({ assemblyId, file, timeout: 200, maxRetries: 0 })
+    .catch((error: unknown) => error)
+  try {
+    const result = await Promise.race([
+      pending,
+      new Promise((resolve) => setTimeout(() => resolve('still blocked'), 300)),
+    ])
+    expect(result).toMatchObject(
+      status === 201
+        ? { cause: { name: 'TimeoutError' } }
+        : { cause: { status, retryAfter: 30_000, cause: { name: 'TimeoutError' } } },
+    )
+    expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['GET', 'POST'])
+  } finally {
+    // Release the fixture's unread tee branch even when the regression assertion fails.
+    await sibling.body?.cancel()
+    await pending
+  }
 })
 
 it.each([false, true])('bounds and retries discovery for resume=%s', async (resume) => {
