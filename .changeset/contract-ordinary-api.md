@@ -20,6 +20,10 @@ not an exception or proof that background work stopped. Explicit cancellation st
 owner once. A later status GET can confirm completion after a failed cancellation, but a repeated
 `REQUEST_ABORTED` does not hide that failure. No terminal response promises worker or billing cleanup.
 Explicitly configured proxy prefixes and loopback endpoints remain supported.
+Read future nonempty Assembly error codes as terminal failures through GET, wait, cancellation
+confirmation and stopped-upload recovery. Preserve exact error values as structured data, without
+including them in generated diagnostic messages. Unknown success states and malformed status
+discriminants remain invalid. An exact saved receipt proves only file transfer, not processing success.
 
 Generated public types retain source documentation. Optional-only params can be omitted, JSON
 response objects fit the exported `JsonValue`, and `ContractResponseError.code` exposes recognized

@@ -50,6 +50,18 @@ export const workflowVectors = z
     version: z.literal(1),
     credentials: z.object({ key: z.string(), secret: z.string() }),
     assemblyId: z.string(),
+    readerCompatibility: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            state: z.record(z.string(), z.unknown()),
+            accepted: z.boolean(),
+            emitted: z.boolean(),
+          })
+          .strict(),
+      )
+      .nonempty(),
     tusMetadata: z
       .array(
         z

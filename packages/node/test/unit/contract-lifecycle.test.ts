@@ -490,7 +490,7 @@ it.each([
   { assembly_ssl_url: null },
   { assembly_ssl_url: undefined },
   { ok: 'UNKNOWN_FUTURE_STATE' },
-  { ok: null, error: 'UNKNOWN_FUTURE_ERROR' },
+  { ok: null, error: '' },
   { error: 'FILE_FILTER_DECLINED_FILE' },
 ])('does not claim cleanup from incomplete or contradictory responses: %j', async (change) => {
   const client = new ContractClient({
@@ -722,8 +722,8 @@ it.each(
       { name: 'nonobject', value: null },
       { name: 'unknown status', value: { ...body, ok: 'UNKNOWN_ASSEMBLY_STATUS' } },
       {
-        name: 'unknown error',
-        value: { assembly_id: assemblyId, error: 'UNKNOWN_ASSEMBLY_ERROR' },
+        name: 'empty error',
+        value: { assembly_id: assemblyId, error: '' },
       },
     ].map((confirmation) => ({ kind, ...confirmation })),
   ),

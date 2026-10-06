@@ -1,7 +1,7 @@
 {
   "format": "transloadit-sdk-coverage",
   "version": 1,
-  "contractSha256": "4246893330e3fa724407e19fa3d8d49501f87132b7aff9665f850a2f10fd8c53",
+  "contractSha256": "4c71aa3a66cf20aebfaea7b6f87ee8b8f3bc5c91ff4894ce115d978b2accc6b4",
   "inventory": [
     {
       "id": "sha256:d2436a8775b998d953f51b7b041e01e98294ed7e732ee7f78dff0af779c28634",
@@ -697,6 +697,83 @@
       "reason": "separate-product-surface"
     },
     {
+      "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+      "operationId": "api2.oauth-client-register",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+      "operationId": "api2.oauth-client-register",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+      "operationId": "api2.oauth-authorize-context",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+      "operationId": "api2.oauth-authorize-context",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+      "operationId": "api2.oauth-authorization-codes-create",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+      "operationId": "api2.oauth-authorization-codes-create",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+      "operationId": "api2.oauth-revoke",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+      "operationId": "api2.oauth-revoke",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+      "operationId": "api2.oauth-connections-list",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+      "operationId": "api2.oauth-connections-list",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+      "operationId": "api2.oauth-connection-revoke",
+      "category": "ordinary",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
       "id": "sha256:e02bea17cf169adcf7ae617d01eeebdf614fe83e63e71aed4f9fecf72822696c",
       "operationId": "api2.storage-s3",
       "category": "feature",
@@ -832,6 +909,34 @@
     {
       "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
       "operationId": "api2.oauth-authorization-server-metadata",
+      "category": "feature",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+      "operationId": "api2.oauth-protected-resource-metadata",
+      "category": "feature",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+      "operationId": "api2.oauth-protected-resource-metadata",
+      "category": "feature",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+      "operationId": "api2.oauth-protected-resource-metadata",
+      "category": "feature",
+      "kind": "gap",
+      "reason": "separate-product-surface"
+    },
+    {
+      "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+      "operationId": "api2.oauth-protected-resource-metadata",
       "category": "feature",
       "kind": "gap",
       "reason": "separate-product-surface"
@@ -1591,6 +1696,104 @@
   "targets": [
     {
       "target": "node-sdk",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -1846,6 +2049,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -2755,6 +3024,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },
@@ -3107,6 +3400,104 @@
     },
     {
       "target": "python-sdk",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -3362,6 +3753,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -4271,6 +4728,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },
@@ -4623,6 +5104,104 @@
     },
     {
       "target": "go-sdk",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -4878,6 +5457,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -5787,6 +6432,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },
@@ -6139,6 +6808,104 @@
     },
     {
       "target": "php-sdk",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -6394,6 +7161,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -7303,6 +8136,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },
@@ -7655,6 +8512,104 @@
     },
     {
       "target": "java-sdk",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -7910,6 +8865,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -8819,6 +9840,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },
@@ -9171,6 +10216,104 @@
     },
     {
       "target": "csharp-sdk",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -9426,6 +10569,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -10335,6 +11544,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },
@@ -10687,6 +11920,104 @@
     },
     {
       "target": "ruby-sdk",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -10942,6 +12273,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -11851,6 +13248,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },
@@ -12203,6 +13624,104 @@
     },
     {
       "target": "rust-sdk",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -12458,6 +13977,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -13367,6 +14952,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },
@@ -13719,6 +15328,104 @@
     },
     {
       "target": "android-sdk",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -13974,6 +15681,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -14883,6 +16656,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },
@@ -15235,6 +17032,104 @@
     },
     {
       "target": "TransloaditKit",
+      "readerCompatibility": [
+        {
+          "id": "reader-known",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-future",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-opaque",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unicode",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-whitespace",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-code-overlaps-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-empty",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-number",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-null",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-boolean",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-object",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-array",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-missing",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-contradictory",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        },
+        {
+          "id": "reader-unknown-ok",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-applicable"
+        }
+      ],
       "workflows": [
         {
           "id": "upload-bytes",
@@ -15490,6 +17385,72 @@
             {
               "id": "sha256:d1701fd8eb79e9b71ee70dfb874c9d852410584dd92368d023c67ccf587c07ab",
               "operationId": "api2.cli-device-authorizations-find",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:31328877aed20730c9b3abf2ef8cbae9a9d430d7b90329a0d8b4ccfe7322ac68",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:6920e9ada3eab4e904172acc0e1633bc6297f1011a37a39aa88c36bfe326ed20",
+              "operationId": "api2.oauth-client-register",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:8a69e8bc27798efea534ae3dacb64763ea1fee0739820e3251a18d2fe2af52b0",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:0d4ae7756849d6f2ad2d03aad3a47ad927952a838d6dba8f43e44c2c1a9579fb",
+              "operationId": "api2.oauth-authorize-context",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2939284b9a6347ff37d447f59d458238f9c3d055f68d1da0033478aef1df3e4b",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:dc887b50d9c281adfdc821caaad254a8570a228b73ee4e5817a4a58f06b2dee2",
+              "operationId": "api2.oauth-authorization-codes-create",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:12bd8e27710b96b5f7b8c36b01ba7457f30d5ec1fd9fa212c04022335ef5603a",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:cc7f92c85c405ec077c4e2a202497dd68d5e5ac49f990ce63697504367e613c6",
+              "operationId": "api2.oauth-revoke",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:e0a801c06651ffa53152d4d864beb7213003307ca5493ad1b76a4e09212ed9ab",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:3cf35d02d4278db644d9c7aaf77b82efa3ccc288152b48f1af1b59d449ad131b",
+              "operationId": "api2.oauth-connections-list",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:f8e525a585963b7ffefbd7a50a3c51dbef03c5b17d2a123115e8eefd8eb23ff2",
+              "operationId": "api2.oauth-connection-revoke",
               "applicability": "gap",
               "generated": false
             },
@@ -16399,6 +18360,30 @@
             {
               "id": "sha256:3dca3c7b58078bb9d3d3dfa63b30a578d552f94d7c6e30647aa567fdd1bbab53",
               "operationId": "api2.oauth-authorization-server-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2115540b64b8ea081549f64563fe126f821c69dee1a4ca1cdb7a7bd568f32a15",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:a64a501b16bfd3e9dff0d56c8bdecb8d3325e20ba6065cfa494492491c888ec6",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:2cd2a409876f550add867d1379159d4c715f7dda7adfef82c739c0230c3f67bb",
+              "operationId": "api2.oauth-protected-resource-metadata",
+              "applicability": "gap",
+              "generated": false
+            },
+            {
+              "id": "sha256:b9adb9e6c81fc47ae84f5c73df31237a9736d6b15c60f2126c07072dd49bee3f",
+              "operationId": "api2.oauth-protected-resource-metadata",
               "applicability": "gap",
               "generated": false
             },

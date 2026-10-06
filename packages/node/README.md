@@ -45,6 +45,9 @@ Ordinary methods return the HTTP response, not a completed Assembly. The explici
 `waitForAssembly({ assemblyId, signal })` and `cancelAndWaitForAssembly({ assemblyId, signal })`
 discover and safely follow the owning uploader. They return any terminal status, including errors
 and cancellation: check `status.ok === 'ASSEMBLY_COMPLETED'` before treating processing as successful.
+New nonempty `error` strings are terminal failures too. Known codes are not exhaustive; preserve
+`status.error` for programmatic handling and treat it as untrusted text when displaying or logging it.
+Unknown `ok` values and malformed or contradictory statuses are rejected by the workflow layer.
 They default to a five-minute overall `timeout` and a one-second polling `interval`, both in
 milliseconds. Aborting or timing out stops waiting, not the remote Assembly. Cancel-and-wait sends
 one cancellation attempt, then confirms its outcome; a timeout does not prove cancellation.
@@ -108,9 +111,10 @@ requires one finished `tus_uploads` receipt matching the saved URL, filename, fi
 completed offset. Missing or mismatched receipts remain errors; no replacement upload is created.
 If your proxy rewrites upload capability URLs, it must also rewrite their receipt URLs consistently.
 The SDK does not infer that a proxy URL and a different uploader URL identify the same resource.
-Stopped Assemblies receive no new upload writes. When known, `AssemblyUploadError.assemblyCode`
+Stopped Assemblies receive no new upload writes. When observed, `AssemblyUploadError.assemblyCode`
 identifies that status; an already complete transfer can still be confirmed without writing,
 even if later Assembly processing failed. Use `waitForAssembly` to check processing separately.
+The code preserves future error values exactly; automatically formatted error messages omit them.
 
 Uploads default to 5 MiB chunks, a five-minute overall timeout and five recovery attempts.
 The timeout includes hashing the complete file, discovery, session persistence, transfer and backoff.

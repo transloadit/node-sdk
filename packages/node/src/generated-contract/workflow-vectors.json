@@ -69,6 +69,136 @@
       "//api2-rebalanced.transloadit.com/resumable/files/upload"
     ]
   },
+  "readerCompatibility": [
+    {
+      "id": "reader-known",
+      "state": {
+        "error": "FILE_FILTER_DECLINED_FILE"
+      },
+      "accepted": true,
+      "emitted": true
+    },
+    {
+      "id": "reader-future",
+      "state": {
+        "error": "FUTURE_PROCESSING_ERROR"
+      },
+      "accepted": true,
+      "emitted": false
+    },
+    {
+      "id": "reader-null-ok",
+      "state": {
+        "error": "FUTURE_PROCESSING_ERROR",
+        "ok": null
+      },
+      "accepted": true,
+      "emitted": false
+    },
+    {
+      "id": "reader-opaque",
+      "state": {
+        "error": "future\n<script>synthetic</script>"
+      },
+      "accepted": true,
+      "emitted": false
+    },
+    {
+      "id": "reader-unicode",
+      "state": {
+        "error": "🍩"
+      },
+      "accepted": true,
+      "emitted": false
+    },
+    {
+      "id": "reader-whitespace",
+      "state": {
+        "error": " "
+      },
+      "accepted": true,
+      "emitted": false
+    },
+    {
+      "id": "reader-code-overlaps-ok",
+      "state": {
+        "error": "REQUEST_ABORTED"
+      },
+      "accepted": true,
+      "emitted": false
+    },
+    {
+      "id": "reader-empty",
+      "state": {
+        "error": ""
+      },
+      "accepted": false,
+      "emitted": false
+    },
+    {
+      "id": "reader-number",
+      "state": {
+        "error": 42
+      },
+      "accepted": false,
+      "emitted": false
+    },
+    {
+      "id": "reader-null",
+      "state": {
+        "error": null
+      },
+      "accepted": false,
+      "emitted": false
+    },
+    {
+      "id": "reader-boolean",
+      "state": {
+        "error": false
+      },
+      "accepted": false,
+      "emitted": false
+    },
+    {
+      "id": "reader-object",
+      "state": {
+        "error": {}
+      },
+      "accepted": false,
+      "emitted": false
+    },
+    {
+      "id": "reader-array",
+      "state": {
+        "error": []
+      },
+      "accepted": false,
+      "emitted": false
+    },
+    {
+      "id": "reader-missing",
+      "state": {},
+      "accepted": false,
+      "emitted": false
+    },
+    {
+      "id": "reader-contradictory",
+      "state": {
+        "error": "FUTURE_PROCESSING_ERROR",
+        "ok": "ASSEMBLY_COMPLETED"
+      },
+      "accepted": false,
+      "emitted": false
+    },
+    {
+      "id": "reader-unknown-ok",
+      "state": {
+        "ok": "FUTURE_SUCCESS"
+      },
+      "accepted": false,
+      "emitted": false
+    }
+  ],
   "tusMetadata": [
     {
       "id": "identity-ascii",

@@ -14,6 +14,7 @@ import {
 import {
   AssemblyWorkflowTimeoutError,
   admittedWorkflowDestination,
+  inspectAssemblyState,
   isWorkflowResponse,
 } from './contractWorkflows.ts'
 
@@ -409,20 +410,16 @@ export async function runTusUpload(
       }
     }
     const inspect = (value: unknown): { status: Record<string, unknown>; canWrite: boolean } => {
-      const status = record(value)
       check()
-      if (status[policy.assembly.identityField] !== input.assemblyId) invalid()
-      if (typeof status.error === 'string' && (status.ok === undefined || status.ok === null)) {
-        if (!policy.assembly.errorCodes.includes(status.error)) invalid()
-        assemblyCode = status.error
-      } else {
-        if (typeof status.ok !== 'string' || status.error !== undefined) invalid()
-        if (policy.assembly.busyCodes.includes(status.ok)) return { status, canWrite: true }
-        if (!policy.assembly.terminalOkCodes.includes(status.ok)) invalid()
-        assemblyCode = status.ok
-      }
+      const {
+        fields: status,
+        code,
+        kind,
+      } = inspectAssemblyState(value, input.assemblyId, policy.assembly)
+      if (kind === 'busy') return { status, canWrite: true }
+      assemblyCode = code
       // Receipt proves file transfer, not processing success. Saved sessions can confirm finished
-      // bytes after any known stopped state, but that state never authorizes another upload write.
+      // bytes after any stopped state, but that state never authorizes another upload write.
       if (
         session !== undefined &&
         typeof status[policy.assembly.assemblyField] === 'string' &&
@@ -431,7 +428,7 @@ export async function runTusUpload(
         status[policy.collectionField] !== ''
       )
         return { status, canWrite: false }
-      throw new Error(`Assembly is not accepting upload writes (${assemblyCode})`)
+      throw new Error('Assembly is not accepting upload writes')
     }
     const { status, canWrite } = inspect(await discoverStatus())
     const ownerPath = policy.assembly.path.replace(
@@ -548,8 +545,7 @@ export async function runTusUpload(
     }
     let position = await head()
     // This is the observed state; API2 remains responsible for races after status discovery.
-    if (position < size && !canWrite)
-      throw new Error(`Assembly is not accepting upload writes (${assemblyCode})`)
+    if (position < size && !canWrite) throw new Error('Assembly is not accepting upload writes')
     while (position < size) {
       check()
       const end = Math.min(size, position + chunkSize)

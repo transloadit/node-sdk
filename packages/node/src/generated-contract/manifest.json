@@ -2,7 +2,7 @@
   "format": "transloadit-sdk",
   "version": 1,
   "target": "typescript",
-  "contractSha256": "4246893330e3fa724407e19fa3d8d49501f87132b7aff9665f850a2f10fd8c53",
+  "contractSha256": "4c71aa3a66cf20aebfaea7b6f87ee8b8f3bc5c91ff4894ce115d978b2accc6b4",
   "operationIds": [
     "api2.assembly-stats",
     "api2.bulk-delete-dam-assets",

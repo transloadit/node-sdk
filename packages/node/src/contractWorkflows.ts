@@ -19,7 +19,7 @@ export interface AssemblyWorkflowPolicy {
   readonly busyCodes: readonly string[]
   readonly terminalOkCodes: readonly string[]
   readonly cancelableTerminalOkCodes: readonly string[]
-  readonly errorCodes: readonly string[]
+  readonly error: { readonly minLength: number }
   readonly publicHostPattern: string
   readonly rejectedHostPrefixes: readonly string[]
   readonly identityField: string
@@ -136,6 +136,24 @@ export function isWorkflowResponse(value: unknown): value is Record<string, unkn
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+/** Classify only the source-owned lifecycle fields, not the full response schema. */
+export function inspectAssemblyState(
+  value: unknown,
+  assemblyId: string,
+  policy: AssemblyWorkflowPolicy,
+): { fields: Record<string, unknown>; code: string; kind: 'busy' | 'terminal' | 'error' } {
+  if (!isWorkflowResponse(value) || value[policy.identityField] !== assemblyId) invalid()
+  if (typeof value.error === 'string' && (value.ok === undefined || value.ok === null)) {
+    if (Array.from(value.error).length < policy.error.minLength) invalid()
+    return { fields: value, code: value.error, kind: 'error' }
+  }
+  if (typeof value.ok !== 'string' || value.error !== undefined) invalid()
+  if (policy.terminalOkCodes.includes(value.ok))
+    return { fields: value, code: value.ok, kind: 'terminal' }
+  if (policy.busyCodes.includes(value.ok)) return { fields: value, code: value.ok, kind: 'busy' }
+  return invalid()
+}
+
 /** Orchestrate only generated operation callbacks; no legacy SDK calls or HTTP route inventory. */
 export async function runAssemblyWorkflow<Result>(
   input: AssemblyWorkflowOptions,
@@ -201,22 +219,13 @@ export async function runAssemblyWorkflow<Result>(
       requireCancellation = false,
     ): { terminal: boolean; fields: Record<string, unknown> } => {
       checkDeadline()
-      if (!isWorkflowResponse(value) || value[policy.identityField] !== input.assemblyId) invalid()
-      const fields = value
-      if (typeof fields.error === 'string' && (fields.ok === undefined || fields.ok === null)) {
-        // The producer and generated Result currently define a closed error enum. Returning an
-        // unknown code as Result would lie about that type; open-enum evolution belongs upstream.
-        if (!policy.errorCodes.includes(fields.error)) invalid()
-        return { terminal: true, fields }
-      }
-      if (typeof fields.ok !== 'string' || fields.error !== undefined) invalid()
-      if (requireCancellation && policy.cancelableTerminalOkCodes.includes(fields.ok)) {
+      const { fields, code, kind } = inspectAssemblyState(value, input.assemblyId, policy)
+      if (kind === 'error') return { terminal: true, fields }
+      if (requireCancellation && policy.cancelableTerminalOkCodes.includes(code)) {
         // A failed request is finite for waiters, but an explicit cancel must still reach its owner.
         return { terminal: false, fields }
       }
-      if (policy.terminalOkCodes.includes(fields.ok)) return { terminal: true, fields }
-      if (!policy.busyCodes.includes(fields.ok)) invalid()
-      return { terminal: false, fields }
+      return { terminal: kind === 'terminal', fields }
     }
     let result = await read(discover)
     let state = inspect(result, cancel)

@@ -1,5 +1,17 @@
 # Contract workflow finality follow-up for #517
 
+October 6 reader compatibility, still draft and unmerged:
+
+- [x] Integrate main and reproduce future-error rejection before changing the workflow reader.
+- [x] Regenerate from API2 producer `98c3d25a8f`; error admission comes from its public response
+      schema, not a duplicate finite list. Preserve raw codes as data and generic stop diagnostics.
+- [x] Pass all 160 shared reader/mode observations, 447 focused tests and the full check
+      (1,353 Node cases, one existing skip, plus other workspace suites). Both packed package names
+      pass strict installed-consumer compilation. Receipts: `studio1:/tmp/sdk-readers.c3epZn/`.
+- [ ] Finish council, refreshed producer pins/runtime acceptance and exact-head CI.
+- No release, merge, additional credentialed test or deployment. The canonical living document
+  remains API2's `docs/prompts/2026-07-09-handover-sdks-branch-restructure.md`.
+
 October 4 final confirmation/tus correction, still draft and unmerged:
 
 - [x] Complete the combined source-access-verified council. A P2 cloned-response cleanup timeout
