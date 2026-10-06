@@ -5,7 +5,13 @@ import type {
   CompileAssemblyInstructionsResult,
 } from '@transloadit/utils'
 import type { SignatureAlgorithm } from '@transloadit/utils/node'
-import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
+import type {
+  BeforeRedirectHook,
+  Delays,
+  Headers,
+  OptionsOfJSONResponseBody,
+  RetryOptions,
+} from 'got'
 import type { Input as IntoStreamInput } from 'into-stream'
 
 import type { TransloaditErrorResponseBody } from './ApiError.ts'
@@ -298,6 +304,11 @@ export interface CreateAssemblyOptions extends AssemblyUploadOptions {
    * Expected number of tus uploads when files will be uploaded separately.
    */
   expectedUploads?: number
+  /**
+   * Called once API2 has accepted the creation request, before uploads and polling. Callers that
+   * must not create an Assembly twice use it to tell later failures apart from rejected creation.
+   */
+  onAssemblyCreated?: (assembly: AssemblyStatus) => void
 }
 
 export interface ResumeAssemblyUploadsOptions extends AssemblyUploadOptions {
@@ -462,6 +473,11 @@ type BaseOptions = {
   followRedirects?: boolean
   validateResponses?: boolean
   clientName?: string
+  /**
+   * Fixed headers sent with every API request, for trusted relays such as the Transloadit-hosted
+   * MCP service that must identify itself to API2 next to a forwarded bearer token.
+   */
+  extraHeaders?: Record<string, string>
 }
 
 export type Options = BaseOptions & (AuthKeySecret | AuthToken)
@@ -485,7 +501,27 @@ export class Transloadit {
 
   private _clientName: string
 
+  #extraHeaders: Record<string, string>
+
   private _lastUsedAssemblyUrl = ''
+
+  /**
+   * got drops `Authorization` and cookies when a redirect changes origin, but not custom headers,
+   * so `extraHeaders` (such as a relay's shared secret) are removed the same way.
+   */
+  #dropExtraHeadersOffOrigin(requestUrl: string): BeforeRedirectHook[] {
+    const names = Object.keys(this.#extraHeaders).map((name) => name.toLowerCase())
+    if (names.length === 0) return []
+    // An unparseable request URL counts as a different origin, which drops the headers.
+    const requestOrigin = URL.canParse(requestUrl) ? new URL(requestUrl).origin : undefined
+    return [
+      (redirectOptions) => {
+        const redirectUrl = redirectOptions.url
+        if (requestOrigin && redirectUrl && new URL(redirectUrl).origin === requestOrigin) return
+        for (const name of names) delete redirectOptions.headers[name]
+      },
+    ]
+  }
 
   private _validateResponses = false
 
@@ -545,6 +581,7 @@ export class Transloadit {
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
     this._clientName = opts.clientName?.trim() || `node-sdk:${version}`
+    this.#extraHeaders = { ...opts.extraHeaders }
 
     // Passed on to got https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md
     this._gotRetry = opts.gotRetry != null ? opts.gotRetry : { limit: 0 }
@@ -698,6 +735,7 @@ export class Transloadit {
       uploads = {},
       assemblyId,
       expectedUploads,
+      onAssemblyCreated,
       signal,
       uploadBehavior = 'await',
     } = opts
@@ -769,6 +807,7 @@ export class Transloadit {
           signal,
         })
         checkResult(result)
+        onAssemblyCreated?.(result)
 
         if (Object.keys(allStreamsMap).length > 0) {
           const { uploadUrls } = await sendTusRequest({
@@ -1730,8 +1769,10 @@ export class Transloadit {
           'Transloadit-Client': this._clientName,
           'User-Agent': undefined, // Remove got's user-agent
           ...(this._authToken ? { Authorization: `Bearer ${this._authToken}` } : {}),
+          ...this.#extraHeaders,
           ...headers,
         },
+        hooks: { beforeRedirect: this.#dropExtraHeadersOffOrigin(url) },
         responseType: 'json',
         signal,
       }

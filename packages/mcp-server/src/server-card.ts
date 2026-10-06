@@ -1,16 +1,33 @@
+import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
+
+import type { ToolAuthMode, ToolName, ToolSecurityScheme } from './tool-metadata.ts'
+
 import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js'
 
 import packageJson from '../package.json' with { type: 'json' }
+import { resolveSecuritySchemes, resolveToolAuthMode, toolMetadata } from './tool-metadata.ts'
 
 export const serverCardPath = '/.well-known/mcp/server-card.json'
 
 type JsonSchemaObject = Record<string, unknown>
 
-type ServerCardToolDefinition = {
-  name: string
+type ServerCardToolInput = {
+  name: ToolName
+  inputSchema: JsonSchemaObject
+}
+
+type ServerCardToolDefinition = ServerCardToolInput & {
   title: string
   description: string
-  inputSchema: JsonSchemaObject
+  annotations: ToolAnnotations
+  securitySchemes: ToolSecurityScheme[]
+}
+
+type ServerCardAuthentication = {
+  required: boolean
+  schemes: string[]
+  /** RFC 9728 protected-resource metadata that names the OAuth authorization server. */
+  resourceMetadataUrl?: string
 }
 
 type ServerCard = {
@@ -22,17 +39,14 @@ type ServerCard = {
   documentationUrl: string
   iconUrl: string
   transport: { type: string; endpoint: string }
-  authentication?: { required: boolean; schemes: string[] }
-  capabilities: { tools: { listChanged: boolean } }
+  authentication?: ServerCardAuthentication
+  capabilities: { tools: { listChanged: boolean }; resources: { listChanged: boolean } }
   tools: ['dynamic'] | ServerCardToolDefinition[]
 }
 
-const tools: ServerCardToolDefinition[] = [
+const toolInputs: ServerCardToolInput[] = [
   {
     name: 'transloadit_lint_assembly_instructions',
-    title: 'Lint Assembly Instructions',
-    description:
-      'Lint Assembly Instructions without creating an Assembly. Returns structured issues.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -46,9 +60,6 @@ const tools: ServerCardToolDefinition[] = [
   },
   {
     name: 'transloadit_create_assembly',
-    title: 'Create or resume an Assembly',
-    description:
-      'Create or resume an Assembly, optionally uploading files and waiting for completion.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -57,6 +68,20 @@ const tools: ServerCardToolDefinition[] = [
         files: {
           type: 'array',
           items: { type: 'object' },
+        },
+        attachments: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['download_url', 'file_id'],
+            properties: {
+              download_url: { type: 'string' },
+              file_id: { type: 'string' },
+              mime_type: { type: 'string' },
+              file_name: { type: 'string' },
+            },
+          },
         },
         fields: { type: 'object' },
         wait_for_completion: { type: 'boolean' },
@@ -71,8 +96,6 @@ const tools: ServerCardToolDefinition[] = [
   },
   {
     name: 'transloadit_get_assembly_status',
-    title: 'Get Assembly Status',
-    description: 'Fetch the latest Assembly status by URL or ID.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -84,8 +107,6 @@ const tools: ServerCardToolDefinition[] = [
   },
   {
     name: 'transloadit_wait_for_assembly',
-    title: 'Wait For Assembly Completion',
-    description: 'Polls until the Assembly completes or timeout is reached.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -99,8 +120,6 @@ const tools: ServerCardToolDefinition[] = [
   },
   {
     name: 'transloadit_list_robots',
-    title: 'List Robots',
-    description: 'Returns a filtered list of robots with short summaries.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -114,8 +133,6 @@ const tools: ServerCardToolDefinition[] = [
   },
   {
     name: 'transloadit_get_robot_help',
-    title: 'Get Robot Help',
-    description: 'Returns a robot summary and parameter details.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -127,9 +144,6 @@ const tools: ServerCardToolDefinition[] = [
   },
   {
     name: 'transloadit_list_templates',
-    title: 'List Templates',
-    description:
-      'List Assembly Templates (owned and/or builtin). Tip: pass include_builtin: "exclusively-latest" to list builtins only.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -147,13 +161,37 @@ const tools: ServerCardToolDefinition[] = [
       },
     },
   },
+  {
+    name: 'transloadit_get_profile',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+  },
 ]
+
+/** Tool definitions with the security schemes this deployment mode can honor. */
+const buildTools = (mode: ToolAuthMode): ServerCardToolDefinition[] =>
+  toolInputs.map((tool) => {
+    const metadata = toolMetadata[tool.name]
+    return {
+      ...tool,
+      title: metadata.title,
+      description: metadata.description,
+      annotations: metadata.annotations,
+      securitySchemes: resolveSecuritySchemes(metadata, mode),
+    }
+  })
 
 export const buildServerCard = (
   endpoint: string,
-  options: { authKey?: string; authSecret?: string } = {},
+  options: { authKey?: string; authSecret?: string; resourceMetadataUrl?: string } = {},
 ): ServerCard => {
   const hasCredentials = Boolean(options.authKey && options.authSecret)
+  const tools = buildTools(resolveToolAuthMode(options))
+  // Hosted deployments hand out tokens through OAuth; self-hosted ones accept a static bearer.
+  const schemes = options.resourceMetadataUrl ? ['oauth2', 'bearer'] : ['bearer']
 
   return {
     $schema: 'https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json',
@@ -174,10 +212,12 @@ export const buildServerCard = (
     },
     authentication: {
       required: !hasCredentials,
-      schemes: ['bearer'],
+      schemes,
+      ...(options.resourceMetadataUrl ? { resourceMetadataUrl: options.resourceMetadataUrl } : {}),
     },
     capabilities: {
       tools: { listChanged: false },
+      resources: { listChanged: false },
     },
     tools,
   }
