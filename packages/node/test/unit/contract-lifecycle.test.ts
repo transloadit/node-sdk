@@ -17,6 +17,89 @@ const body = {
 }
 const authentication = { kind: 'bearer', token: 'synthetic-never-forward' } as const
 
+it('does not retry native fetch redirect-policy failures', async () => {
+  const requests: string[] = []
+  const server = createServer((request, response) => {
+    requests.push(request.url ?? '')
+    response.writeHead(302, { location: '/must-not-follow' })
+    response.end()
+  })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  try {
+    const address = server.address()
+    if (address === null || typeof address === 'string') throw new Error('Missing loopback address')
+    const client = new ContractClient({
+      origin: `http://127.0.0.1:${address.port}`,
+      authentication,
+    })
+    await expect(
+      client.waitForAssembly({ assemblyId, interval: 1, timeout: 200 }),
+    ).rejects.toBeInstanceOf(TypeError)
+    expect(requests).toEqual([`/assemblies/${assemblyId}`])
+  } finally {
+    server.closeAllConnections()
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    )
+  }
+})
+
+it.each([
+  'CERT_HAS_EXPIRED',
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'ERR_TLS_CERT_ALTNAME_INVALID',
+  'UND_ERR_INVALID_ARG',
+  'UNRECOGNIZED_CAUSE',
+])('does not retry a fetch failure with permanent or unknown cause %s', async (code) => {
+  const failure = new TypeError('fetch failed', {
+    cause: Object.assign(new Error('cause'), { code }),
+  })
+  let requests = 0
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      requests++
+      return requests === 1
+        ? Promise.reject(failure)
+        : Promise.resolve(Response.json({ ...body, ok: 'ASSEMBLY_COMPLETED' }))
+    },
+  })
+  await expect(client.waitForAssembly({ assemblyId, interval: 1 })).rejects.toBe(failure)
+  expect(requests).toBe(1)
+})
+
+it.each([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'EPIPE',
+  'ETIMEDOUT',
+  'EAI_AGAIN',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_SOCKET',
+])('retries a fetch failure with transient cause %s', async (code) => {
+  let requests = 0
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      requests++
+      return requests === 1
+        ? Promise.reject(
+            new TypeError('fetch failed', { cause: Object.assign(new Error('cause'), { code }) }),
+          )
+        : Promise.resolve(Response.json({ ...body, ok: 'ASSEMBLY_COMPLETED' }))
+    },
+  })
+  await expect(client.waitForAssembly({ assemblyId, interval: 1 })).resolves.toMatchObject({
+    ok: 'ASSEMBLY_COMPLETED',
+  })
+  expect(requests).toBe(2)
+})
+
 it('retains an unconfirmed cancellation outcome when no owner URL is available', async () => {
   let requests = 0
   const client = new ContractClient({

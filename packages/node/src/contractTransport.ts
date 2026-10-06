@@ -115,12 +115,40 @@ export class ContractTransportError extends Error {
   }
 }
 
-/** Mark only I/O failures as recoverable; callers keep validation outside this boundary. */
+const recoverableFetchCodes: ReadonlySet<string> = new Set([
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'EPIPE',
+  'ETIMEDOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_SOCKET',
+])
+
+function recoverableFetchFailure(error: TypeError): boolean {
+  // Fetch implementations may expose only an opaque TypeError. When Node supplies a cause,
+  // retry known network failures, not certificate, redirect-policy or unknown local failures.
+  if (error.cause === undefined) return true
+  const { cause } = error
+  return (
+    cause instanceof Error &&
+    'code' in cause &&
+    typeof cause.code === 'string' &&
+    recoverableFetchCodes.has(cause.code)
+  )
+}
+
+/** Mark recoverable I/O failures; callers keep validation outside this boundary. */
 export async function contractIo<Result>(request: () => Promise<Result>): Promise<Result> {
   try {
     return await request()
   } catch (error) {
-    if (error instanceof TypeError) throw new ContractTransportError(error)
+    if (error instanceof TypeError && recoverableFetchFailure(error))
+      throw new ContractTransportError(error)
     throw error
   }
 }

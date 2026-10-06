@@ -18,6 +18,14 @@ October 6 reader compatibility, still draft and unmerged:
       Four fail-first request/workflow-deadline cases now pass using the shared native cleanup
       helper; all 171 focused cases pass. Fix the example fixture path portably. Regenerate from
       producer `f8947685ba`, which restores TypeScript autocomplete and honest reader proof status.
+- [x] Reproduce six permanent-fetch retry failures, including a native loopback redirect. Preserve
+      the original failure instead of replacing it with workflow timeout; only known transient
+      Node causes retry. Cause-less fetch TypeErrors remain recoverable for opaque/custom fetch
+      implementations. All 298 focused transport/lifecycle/tus cases pass, including 11 transient
+      cause controls. Repeat full checks, immutable runtime pins and the combined council.
+- The previous combined council could not inspect remote API2 from one reviewer's sandbox.
+  That is incomplete producer evidence; use a checksummed immutable source archive for the rerun,
+  not a new checkout or changed authentication/sandbox settings.
 - Explicit next-slice merge blocker: current main's public `authorization_code` and `refresh_token`
   grants need no Basic credentials, but the draft operation projection/transport requires them.
   Fix this from the producer's grant-specific auth model before release; do not hand-patch generated
