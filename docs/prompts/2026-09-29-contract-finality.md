@@ -26,6 +26,12 @@ October 6 reader compatibility, still draft and unmerged:
 - The previous combined council could not inspect remote API2 from one reviewer's sandbox.
   That is incomplete producer evidence; use a checksummed immutable source archive for the rerun,
   not a new checkout or changed authentication/sandbox settings.
+- [x] The source-access-verified rerun reproduces the runtime canary removing cleanup ownership
+      before asserting `ASSEMBLY_COMPLETED`. The actual canary now retains ownership after
+      `REQUEST_ABORTED`; its fail-first test observes one cancellation instead of zero. This is
+      separate from the already repaired executable example. Broader timeout-default, known-value
+      hint and platform-portability suggestions were not retained as defects by the arbiter;
+      OAuth remains the explicit release blocker.
 - Explicit next-slice merge blocker: current main's public `authorization_code` and `refresh_token`
   grants need no Basic credentials, but the draft operation projection/transport requires them.
   Fix this from the producer's grant-specific auth model before release; do not hand-patch generated

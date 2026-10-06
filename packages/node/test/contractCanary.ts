@@ -163,9 +163,9 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
         interval: 250,
         signal,
       })
-      assemblies.delete(uploaded.assembly_id)
       options.verify('api2.get-assembly', completed)
       assert.equal(completed.ok, 'ASSEMBLY_COMPLETED')
+      assemblies.delete(uploaded.assembly_id)
       const digest = createHash('md5').update(new Uint8Array(options.file)).digest('hex')
       assert.equal(completed.uploads?.[0]?.md5hash, digest)
       assert.equal(completed.results?.passed?.[0]?.md5hash, digest)
