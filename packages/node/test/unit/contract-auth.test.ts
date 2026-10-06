@@ -1,11 +1,13 @@
 import type { ContractClientOptions } from '../../src/contractTransport.ts'
 
+import { once } from 'node:events'
 import { readFile } from 'node:fs/promises'
+import { createServer } from 'node:http'
 
 import { expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
-import { ContractClient, ContractResponseError } from '../../src/generated-contract/client.ts'
+import { ContractClient } from '../../src/generated-contract/client.ts'
 
 const configurations = [
   { kind: 'signed', key: 'synthetic-key', secret: 'synthetic-secret' },
@@ -142,6 +144,14 @@ it.each([
   expect(() => Reflect.construct(ContractClient, [{ authentication }])).toThrow()
 })
 
+it.each([
+  { kind: 'signed', key: 'key', secret: 'secret', token: undefined },
+  { kind: 'bearer', token: 'token', key: undefined, secret: undefined, algorithm: undefined },
+  { kind: 'none', key: undefined, secret: undefined, algorithm: undefined, token: undefined },
+])('treats undefined settings as absent for $kind authentication', (authentication) => {
+  expect(() => Reflect.construct(ContractClient, [{ authentication }])).not.toThrow()
+})
+
 it('preserves OAuth errors as data without retries or unsafe messages', async () => {
   const data = { error: 'invalid_grant', error_description: 'opaque private diagnostic' }
   const transport = vi.fn<typeof fetch>(async () => Response.json(data, { status: 400 }))
@@ -157,16 +167,31 @@ it('preserves OAuth errors as data without retries or unsafe messages', async ()
 })
 
 it('retains redirect rejection for credentialless calls', async () => {
-  const transport = vi.fn<typeof fetch>(
-    async () =>
-      new Response(null, {
-        status: 302,
-        headers: { location: 'https://must-not-follow.invalid' },
-      }),
-  )
-  const client = new ContractClient({ authentication: { kind: 'none' }, fetch: transport })
-  await expect(
-    client.issueBearerToken({ body: { grant_type: 'refresh_token' } }),
-  ).rejects.toBeInstanceOf(ContractResponseError)
-  expect(transport).toHaveBeenCalledTimes(1)
+  const requests: string[] = []
+  const server = createServer((request, response) => {
+    requests.push(request.url ?? '')
+    expect(request.headers.authorization).toBeUndefined()
+    expect(request.headers.cookie).toBeUndefined()
+    response.writeHead(307, { location: '/must-not-follow' })
+    response.end()
+  })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  try {
+    const address = server.address()
+    if (address === null || typeof address === 'string') throw new Error('Missing loopback address')
+    const client = new ContractClient({
+      origin: `http://127.0.0.1:${address.port}`,
+      authentication: { kind: 'none' },
+    })
+    await expect(
+      client.issueBearerToken({ body: { grant_type: 'refresh_token' } }),
+    ).rejects.toThrow()
+    expect(requests).toEqual(['/token'])
+  } finally {
+    server.closeAllConnections()
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    )
+  }
 })

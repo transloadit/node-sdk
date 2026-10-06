@@ -33,7 +33,7 @@ export interface ContractClientOptions {
         readonly token?: never
         readonly algorithm?: never
       }
-  /** Trusted fetch implementation for ordinary and tus requests. SDK credentials are not sent to tus. */
+  /** Trusted transport: must honor redirect/credential options and must not inject credentials. */
   readonly fetch?: typeof fetch
   /** Per-request deadline in milliseconds. Default: 60000; zero disables this deadline only. */
   readonly timeout?: number
@@ -291,7 +291,7 @@ export class ContractTransport {
     this.#fetch = options.fetch ?? globalThis.fetch
     this.#signing = { ...signing, algorithms: [...signing.algorithms] }
     if (this.#authentication.kind === 'signed') {
-      if (Object.hasOwn(this.#authentication, 'token'))
+      if (this.#authentication.token !== undefined)
         throw new Error('Choose signed, bearer or no account authentication')
       if (
         typeof this.#authentication.key !== 'string' ||
@@ -308,10 +308,11 @@ export class ContractTransport {
         throw new Error('Unsupported request signature algorithm')
     } else if (this.#authentication.kind === 'bearer' || this.#authentication.kind === 'none') {
       if (
-        ['key', 'secret', 'algorithm'].some((field) =>
-          Object.hasOwn(this.#authentication, field),
-        ) ||
-        (this.#authentication.kind === 'none' && Object.hasOwn(this.#authentication, 'token'))
+        // Unset optional settings in a generic option bag are omissions, not credentials.
+        this.#authentication.key !== undefined ||
+        this.#authentication.secret !== undefined ||
+        this.#authentication.algorithm !== undefined ||
+        (this.#authentication.kind === 'none' && this.#authentication.token !== undefined)
       )
         throw new Error('Choose signed, bearer or no account authentication')
       if (

@@ -51,6 +51,8 @@ For exchanges without an Auth Key, construct the standalone client with
 authentication is never treated as an implicit anonymous configuration. Each token exchange makes
 one attempt and does not follow redirects. Store and refresh tokens in your application or OAuth
 library; these low-level methods are not a complete OAuth onboarding workflow.
+Custom `fetch` implementations are trusted application code: they must honor the SDK's
+redirect/credential options and must not inject Authorization or cookies into credentialless calls.
 
 Ordinary methods return the HTTP response, not a completed Assembly. The explicit workflow methods
 `waitForAssembly({ assemblyId, signal })` and `cancelAndWaitForAssembly({ assemblyId, signal })`
