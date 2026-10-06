@@ -167,11 +167,17 @@ it('preserves OAuth errors as data without retries or unsafe messages', async ()
 })
 
 it('retains redirect rejection for credentialless calls', async () => {
-  const requests: string[] = []
+  const requests: {
+    url: string | undefined
+    authorization: string | undefined
+    cookie: string | undefined
+  }[] = []
   const server = createServer((request, response) => {
-    requests.push(request.url ?? '')
-    expect(request.headers.authorization).toBeUndefined()
-    expect(request.headers.cookie).toBeUndefined()
+    requests.push({
+      url: request.url,
+      authorization: request.headers.authorization,
+      cookie: request.headers.cookie,
+    })
     response.writeHead(307, { location: '/must-not-follow' })
     response.end()
   })
@@ -186,8 +192,8 @@ it('retains redirect rejection for credentialless calls', async () => {
     })
     await expect(
       client.issueBearerToken({ body: { grant_type: 'refresh_token' } }),
-    ).rejects.toThrow()
-    expect(requests).toEqual(['/token'])
+    ).rejects.toBeInstanceOf(TypeError)
+    expect(requests).toEqual([{ url: '/token', authorization: undefined, cookie: undefined }])
   } finally {
     server.closeAllConnections()
     await new Promise<void>((resolve, reject) =>
