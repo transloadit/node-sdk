@@ -9,6 +9,7 @@ import { z } from 'zod'
 import {
   createStorageImportExample,
   defineRobot,
+  getGoogleCredentialsDescription,
   googleBase,
   next_page_token,
   path,
@@ -37,6 +38,11 @@ export const robotGoogleImportInstructionsSchema = robotBase
   .merge(googleBase)
   .extend({
     robot: z.literal('/google/import'),
+    credentials: googleBase.shape.credentials.describe(
+      getGoogleCredentialsDescription(`
+Grant the service account the “Storage Object Viewer” role on the bucket you want to import from. This provides \`storage.objects.get\` to download objects and \`storage.objects.list\` to list them. Imports do not need permission to create or delete objects. See [Google’s IAM roles for Cloud Storage](https://docs.cloud.google.com/storage/docs/access-control/iam-roles).
+`),
+    ),
     path: path.describe(`
 The path in your bucket to the specific file or directory. If the path points to a file, only this file will be imported. For example: \`images/avatar.jpg\`.
 
@@ -51,7 +57,7 @@ You can also use an array of path strings here to import multiple paths in the s
     recursive: recursive.describe(`
 Setting this to \`true\` will enable importing files from subdirectories and sub-subdirectories (etc.) of the given path.
 
-Please use the pagination parameters \`start_file_name\` and \`files_per_page\` wisely here.
+Please use the pagination parameters \`next_page_token\` and \`files_per_page\` wisely here.
 `),
     next_page_token: next_page_token.describe(`
 A string token used for pagination. The returned files of one paginated call have the next page token inside of their meta data, which needs to be used for the subsequent paging call.

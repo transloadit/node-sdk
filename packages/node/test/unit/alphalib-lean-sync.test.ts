@@ -72,8 +72,8 @@ afterEach(() => nock.cleanAll())
 
 describe('lean Assembly Status compatibility', () => {
   it('keeps the complete runtime inventory and public code type', () => {
-    expect(assemblyStatusErrCodeSchema.options).toHaveLength(369)
-    expect(new Set(assemblyStatusErrCodeSchema.options).size).toBe(369)
+    expect(assemblyStatusErrCodeSchema.options).toHaveLength(371)
+    expect(new Set(assemblyStatusErrCodeSchema.options).size).toBe(371)
     expectTypeOf<AssemblyStatusErrCode>()
       .extract<'HTTP_REQUEST_FAILURE'>()
       .toEqualTypeOf<'HTTP_REQUEST_FAILURE'>()
@@ -92,7 +92,9 @@ describe('lean Assembly Status compatibility', () => {
     'VIDEO_THUMBS_INVALID_FORMAT',
     'ASSEMBLY_INSTANCE_NOT_FOUND',
     'CANNOT_FETCH_ACTIVE_ASSEMBLIES',
+    'DAM_STORAGE_UNAVAILABLE',
     'FILE_WATERMARK_VALIDATION',
+    'GOOGLE_STORE_ACCESS_DENIED',
     'PROGRESS_SIMULATE_VALIDATION',
     'SLOT_COUNTS_ERROR',
     'SLOT_COUNT_ERROR',

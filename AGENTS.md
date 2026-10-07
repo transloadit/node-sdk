@@ -1,4 +1,4 @@
-<!-- alphalib-sync-agent-doc-sha256:53e4ec0d0a49c01fb8232ce2387c6a1704c4e1d98409905d0c89ea84cf77b4c5 -->
+<!-- alphalib-sync-agent-doc-sha256:e638ed568eba17b03f500455a4a1e969cca2ab0ab4b6cefc6a6fc145ea9ffdc1 -->
 # Transloadit Repository Guide
 ## coding style
 
@@ -34,6 +34,11 @@ Coding style:
 - Use descriptive names: PascalCase for components/types, camelCase for variables/methods/schemas
 - Alphabetize imports, group by source type (built-in/external/internal)
 - Preserve existing sorted lists and config ordering unless intentionally changing the order.
+- Write code in English: identifiers, file names, comments, log and error messages, and
+  operator-facing CLI output. Text written for a specific audience, such as customer messages,
+  templates and translated UI copy, stays in that audience's language. Existing non-English code
+  needs no rename for its own sake, but new code and comments are English, and code is translated
+  before it moves into shared code such as alphalib.
 - Favor US English over UK English, so `summarizeError` over `summarise Error`
 - Favor `.replaceAll('a', 'b)` over `.replace(/a/g, 'b')` or `.replace(new RegExp('a', 'g'), 'b')` when the only need for regeses was replacing all strings. That's usually both easier to read and more performant.
 - Use typographic characters: ellipsis (`…`) instead of `...`, curly quotes (`'` `"`) instead of straight quotes in user-facing text

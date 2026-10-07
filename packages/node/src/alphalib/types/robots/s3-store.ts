@@ -38,48 +38,54 @@ export const robotS3StoreInstructionsSchema = robotBase
   .merge(robotUse)
   .merge(s3Base)
   .extend({
+    // URL rewriting does not fix bucket addressing, and custom paths need not use file.url_name.
+    // Keep the bucket warning separate from the old blanket filename-sanitization claim.
     robot: z.literal('/s3/store').describe(`
 If you are new to Amazon S3, see our tutorial on [using your own S3 bucket](/docs/faq/how-to-set-up-an-amazon-s3-bucket/).
 
-The URL to the result file in your S3 bucket will be returned in the <dfn>Assembly Status JSON</dfn>. If your S3 bucket has versioning enabled, the version ID of the file will be returned within \`meta.version_id\`
+The URL to the result file in your S3 bucket will be returned in the <dfn>Assembly Status JSON</dfn>. A returned URL does not make a private object public or grant read access. If your S3 bucket has versioning enabled, the version ID of the file will be returned within \`meta.version_id\`.
 
 > [!Warning]
-> **Avoid permission errors.** By default, \`acl\` is set to \`"${s3StoreAclSchema.parse(undefined)}"\`. AWS S3 has a bucket setting called \`Block new public ACLs and uploading public objects\`. Set this to <strong>False</strong> in your bucket if you intend to leave \`acl\` as \`"${s3StoreAclSchema.parse(undefined)}"\`. Otherwise, you’ll receive permission errors in your Assemblies despite your S3 credentials being configured correctly.
+> **Configure private buckets explicitly.** The Robot’s default \`acl\` is still \`"${s3StoreAclSchema.parse(undefined)}"\`. For a private bucket, set \`acl: "bucket-default"\` and do not supply ACL or grant headers. This omits the generated ACL header and works with [Bucket owner enforced Object Ownership](https://docs.aws.amazon.com/AmazonS3/latest/userguide/about-object-ownership.html), where ACLs are disabled. Keep S3 Block Public Access enabled. Setting \`acl: "private"\` still sends an ACL and is not equivalent to omitting it.
 
 > [!Warning]
-> **Use DNS-compliant bucket names.** Your bucket name [must be DNS-compliant](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) and must not contain uppercase letters. Any non-alphanumeric characters in the file names will be replaced with an underscore, and spaces will be replaced with dashes. If your existing S3 bucket contains uppercase letters or is otherwise not DNS-compliant, rewrite the result URLs using the <dfn>Robot</dfn>’s \`url_prefix\` parameter.
+> **Use DNS-compliant bucket names.** Follow AWS’s [bucket naming rules](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html). The \`url_prefix\` parameter changes returned URLs; it does not change the bucket or its access permissions.
 
 <span id="minimum-s3-iam-permissions" aria-hidden="true"></span>
 
 ## Limit access
 
-You will also need to add permissions to your bucket so that Transloadit can access it properly. Here is an example IAM policy that you can use. Following the [principle of least privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege), it contains the **minimum required permissions** to export a file to your S3 bucket using Transloadit. You may require more permissions (especially viewing permissions) depending on your application.
+Use a dedicated AWS identity with access limited to the destination bucket and object prefix. Do not use [AWS root access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/root-user-best-practices.html). Store its access key ID, secret access key, bucket name and region as \`key\`, \`secret\`, \`bucket\` and \`bucket_region\` in <dfn>Template Credentials</dfn>, then reference their name with \`credentials\`. Trusted backend integrations can instead supply those parameters directly; do not expose AWS secrets in browser instructions.
 
-Please change \`{BUCKET_NAME}\` in the values for \`Sid\` and \`Resource\` accordingly. Also, this policy will grant the minimum required permissions to all your users. We advise you to create a separate Amazon IAM user, and use its User ARN (can be found in the "Summary" tab of a user [here](https://console.aws.amazon.com/iam/home#users)) for the \`Principal\` value. More information about this can be found [here](https://docs.aws.amazon.com/AmazonS3/latest/dev/AccessPolicyLanguage_UseCases_s3_a.html).
+The following is an [identity-based IAM policy](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html), attached to that dedicated identity, not a bucket policy. It intentionally has no \`Principal\`. Replace \`{BUCKET_NAME}\` and use a Robot \`path\` beginning with \`uploads/\`, or adapt both the policy prefix and the path together.
+
+This example covers uploads and failed multipart-upload cleanup with an explicit \`bucket_region\`, \`acl: "bucket-default"\`, no ACL/grant headers, no tags and S3-managed encryption (SSE-S3). Existing bucket policies, organization controls or endpoint policies can still deny access.
 
 \`\`\`json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "AllowTransloaditToStoreFilesIn{BUCKET_NAME}Bucket",
+      "Sid": "UploadAndAbortWithinPrefix",
       "Effect": "Allow",
-      "Action": ["s3:GetBucketLocation", "s3:ListBucket", "s3:PutObject", "s3:PutObjectAcl"],
-      "Resource": ["arn:aws:s3:::{BUCKET_NAME}", "arn:aws:s3:::{BUCKET_NAME}/*"]
+      "Action": ["s3:PutObject", "s3:AbortMultipartUpload"],
+      "Resource": "arn:aws:s3:::{BUCKET_NAME}/uploads/*"
     }
   ]
 }
 \`\`\`
 
-The \`Sid\` value is just an identifier for you to recognize the rule later. You can name it anything you like.
+The uploader uses either \`PutObject\` or \`CreateMultipartUpload\`, \`UploadPart\` and \`CompleteMultipartUpload\`; failed multipart uploads can trigger \`AbortMultipartUpload\`. AWS maps the successful upload operations to \`s3:PutObject\`. Write access can **overwrite an existing object key**; it is not add-only. Choose unique object paths and consider versioning for recovery.
 
-The policy needs to be separated into two parts, because the \`ListBucket\` action requires permissions on the bucket while the other actions require permissions on the objects in the bucket. When targeting the objects there's a trailing slash and an asterisk in the \`Resource\` parameter, whereas when the policy targets the bucket, the slash and the asterisk are omitted.
+Add permissions only for features you use, following AWS’s [operation permission reference](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-policy-actions.html):
 
-Please note that if you give the <dfn>Robot</dfn>'s \`acl\` parameter a value of \`"bucket-default"\`, then you do not need the \`"s3:PutObjectAcl"\` permission in your bucket policy.
+- Without an explicit \`bucket_region\`, region discovery can require \`s3:GetBucketLocation\` and fallback \`s3:ListBucket\` on the bucket ARN, \`arn:aws:s3:::{BUCKET_NAME}\`, without an object suffix. Supplying the correct region avoids these discovery requests.
+- ACL or grant headers require \`s3:PutObjectAcl\`; tags require \`s3:PutObjectTagging\` on the allowed object prefix. \`bucket-default\` does not remove ACL/grant headers you supply in \`headers\`.
+- Downloading private results requires separate read authorization. Even a URL generated with \`sign_urls_for\` needs the signing identity to have the appropriate read permissions.
 
-In order to build proper result URLs we need to know the region in which your S3 bucket resides. For this we require the \`GetBucketLocation\` permission. Figuring out your bucket's region this way will also slow down your Assemblies. To make this much faster and to also not require the \`GetBucketLocation\` permission, we have added the \`bucket_region\` parameter to the /s3/store and /s3/import Robots. We recommend using them at all times.
+S3 applies its [bucket encryption configuration](https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html) when no encryption override is sent. You can request SSE-KMS through \`headers\`, using \`x-amz-server-side-encryption: aws:kms\` and \`x-amz-server-side-encryption-aws-kms-key-id\`. When either bucket default encryption or request headers select [SSE-KMS](https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingKMSEncryption.html), the uploading identity needs \`kms:GenerateDataKey\` on the relevant key, plus \`kms:Decrypt\` for multipart uploads. For a customer-managed key, grant these permissions with a compatible KMS key policy; the base S3 policy above does not include them. Do not add blanket \`kms:*\` or \`sts:*\` grants.
 
-Please keep in mind that if you use bucket encryption you may also need to add \`"sts:*"\` and \`"kms:*"\` to the bucket policy. Please read [here](https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html) and [here](https://aws.amazon.com/blogs/security/how-to-restrict-amazon-s3-bucket-access-to-a-specific-iam-role/) in case you run into trouble with our example bucket policy.
+Short-lived AWS credentials are a matching set of \`key\`, \`secret\` and \`session_token\`. Have a trusted backend obtain and refresh all three, then supply them together when it creates the Assembly. It can pass them directly in Robot instructions or save and update them together through the [Template Credentials API](/docs/api/template-credentials-post/). Keep all three out of browser instructions; replacing only the session token does not refresh expired access keys. This Robot passes the supplied credentials to S3; it does not assume a role or refresh expired credentials. Keep temporary credentials valid for the upload.
 `),
     path: storeFilePath,
     url_prefix: z
@@ -89,9 +95,7 @@ Please keep in mind that if you use bucket encryption you may also need to add \
 The URL prefix used for the returned URL, such as \`"http://my.cdn.com/some/path/"\`.
 `),
     acl: s3StoreAclSchema.describe(`
-The permissions used for this file.
-
-Please keep in mind that the default value \`"${s3StoreAclSchema.parse(undefined)}"\` can lead to permission errors due to the \`"Block all public access"\` checkbox that is checked by default when creating a new Amazon S3 Bucket in the AWS console.
+The ACL used for this file. The default remains \`"${s3StoreAclSchema.parse(undefined)}"\`, which can conflict with S3 Block Public Access and disabled ACLs. For modern private buckets, explicitly set \`"bucket-default"\` to omit the generated ACL header, and do not supply ACL/grant headers in \`headers\`. \`"private"\` still sends an ACL.
 `),
     check_integrity: z
       .boolean()
@@ -139,7 +143,7 @@ This parameter provides signed URLs in the result JSON (in the \`signed_url\` an
       .string()
       .optional()
       .describe(`
-The session token to use for the S3 store. This is only used if the credentials are from an IAM user with the \`sts:AssumeRole\` permission.
+The session token belonging to the temporary AWS access key ID and secret access key supplied for this upload. The Robot does not assume a role or refresh these credentials; they must remain valid for the upload.
 `),
   })
   .strict()

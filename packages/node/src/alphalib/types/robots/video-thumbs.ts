@@ -1,3 +1,4 @@
+import type { MODEL_CAPABILITIES } from './_ai-models.ts'
 import type {
   RobotDefinition,
   RobotMetaInput,
@@ -21,6 +22,15 @@ import {
 
 /** Markup over the AI provider cost for smart thumbnail selection. */
 export const smartThumbnailMarkupPercent = 50
+
+/** Dedicated vision model so /ai/chat default upgrades do not change thumbnail analysis costs. */
+export const smartThumbnailModel = 'openai/gpt-5.4-mini' satisfies keyof typeof MODEL_CAPABILITIES
+
+/** Maximum long-side dimension of scoring previews; returned thumbnails keep their output size. */
+export const smartThumbnailAnalysisMaxSize = 512
+
+/** Frame ranking needs little reasoning compared with general-purpose chat. */
+export const smartThumbnailReasoningEffort = 'low'
 
 const thumbnailCountSchema = z.number().int().min(1).max(999).default(8)
 const smartMaximumCandidatesSchema = z.number().int().min(2).max(100).default(20)
@@ -58,13 +68,15 @@ export const robotVideoThumbsInstructionsSchema = robotBase
   .merge(robotFFmpeg)
   .extend({
     robot: z.literal('/video/thumbs').describe(`
-Set \`smart: true\` to select strong preview images with AI instead of taking frames only at regular intervals. The Robot scores candidate frames for clarity, brightness, composition, faces, expressions, action, and visual interest, then returns the best \`count\` frames in chronological order. Smart results include \`file.meta.smart_score\` and \`file.meta.smart_reasons\`. If AI scoring is unavailable, the Assembly continues with the candidate frames in fallback order. No AI credentials are required.
+Set \`smart: true\` to select strong preview images with AI instead of taking frames only at regular intervals. The Robot scores candidate frames for clarity, brightness, composition, faces, expressions, action, and visual interest, then returns the best \`count\` frames in chronological order. Smart results include \`file.meta.smart_score\` and \`file.meta.smart_reasons\`. If AI scoring is unavailable, the Assembly continues with the candidate frames in fallback order and includes a warning. No AI credentials are required.
 
 ## AI pricing
 
-Regular \`/video/thumbs\` processing charges still apply. AI frame analysis is billed separately at the underlying provider cost plus a ${smartThumbnailMarkupPercent}% Transloadit markup. The exact AI charge varies with the number of candidate frames, the internally selected model and provider pricing, and the image payload size.
+Regular \`/video/thumbs\` processing charges still apply. AI frame analysis is billed separately at the underlying provider cost plus a ${smartThumbnailMarkupPercent}% Transloadit markup. Smart selection uses the dedicated \`${smartThumbnailModel}\` vision model with \`${smartThumbnailReasoningEffort}\` reasoning, independently of the \`/ai/chat\` default. The exact AI charge varies with the number of candidate frames and provider pricing.
 
-\`smart_max_candidates\` is the main cost and latency control. The Robot analyzes up to three candidates per requested thumbnail, capped by \`smart_max_candidates\`, but never fewer than \`count\`. With the defaults of \`count: ${defaultThumbnailCount}\` and \`smart_max_candidates: ${defaultSmartMaximumCandidates}\`, it analyzes ${getSmartThumbnailCandidateCount(defaultThumbnailCount, defaultSmartMaximumCandidates)} frames and returns the best ${defaultThumbnailCount}. Lower the candidate limit to reduce AI cost and latency; raise it to give the AI more frames to choose from.
+The AI scores preview copies capped at ${smartThumbnailAnalysisMaxSize} pixels on the long side, preserving aspect ratio and without enlarging smaller images. Returned thumbnails keep the requested output dimensions and format; larger outputs do not increase the scoring preview beyond this limit.
+
+\`smart_max_candidates\` is the main cost and latency control. The Robot analyzes up to three candidates per requested thumbnail, capped by \`smart_max_candidates\`, but never fewer than \`count\`. With the defaults of \`count: ${defaultThumbnailCount}\` and \`smart_max_candidates: ${defaultSmartMaximumCandidates}\`, it analyzes ${getSmartThumbnailCandidateCount(defaultThumbnailCount, defaultSmartMaximumCandidates)} frames and returns the best ${defaultThumbnailCount}. Lower the candidate limit to reduce AI cost and latency. Raising it can enlarge the pool up to three times \`count\`; higher limits have no effect.
 
 > [!Note]
 > Use \`count\` with smart selection. To consistently extract exact timestamps with \`offsets\`, set \`smart: false\`.
@@ -146,16 +158,18 @@ The AI evaluates frames based on:
 - Action and motion (avoiding transition frames)
 - Overall visual interest
 
-Regular \`/video/thumbs\` processing charges still apply. AI frame analysis is billed separately at the underlying provider cost plus a ${smartThumbnailMarkupPercent}% Transloadit markup. You do not need to provide AI credentials.
+Regular \`/video/thumbs\` processing charges still apply. AI frame analysis uses a dedicated low-cost vision model with \`${smartThumbnailReasoningEffort}\` reasoning and preview copies capped at ${smartThumbnailAnalysisMaxSize} pixels on the long side. Returned thumbnails retain their requested dimensions and format. Analysis is billed separately at the underlying provider cost plus a ${smartThumbnailMarkupPercent}% Transloadit markup. You do not need to provide AI credentials.
 
 Smart mode generates its own regularly spaced candidate timestamps; use \`smart: false\` with \`offsets\` when you need specified timestamps. Selected smart thumbnails are returned in chronological order, not score order. Inspect \`meta.thumb_offset\`, \`meta.smart_score\`, and \`meta.smart_reasons\` when evaluating the selection.
 
-If AI scoring fails, the Robot selects from the extracted candidates in chronological order and records a fallback reason. If no candidates can be extracted, it attempts standard thumbnail extraction. A completed Assembly does not guarantee a representative or publication-safe poster; check that outputs exist and apply your application’s review policy.
+If AI scoring fails, the Robot selects extracted candidates in chronological order and records a fallback reason. With no candidates, it attempts standard extraction. Both fallbacks add an Assembly warning. A completed Assembly does not guarantee a representative or publication-safe poster; check that outputs exist and apply your application’s review policy.
 `),
     smart_max_candidates: smartMaximumCandidatesSchema.describe(`
 The maximum size of the candidate pool when \`smart\` is \`true\`. The Robot analyzes up to three candidates per requested thumbnail, capped by this value, but it will never analyze fewer candidates than the requested \`count\`.
 
 A higher number may yield better results but increases processing time and AI cost. With the defaults of \`count: ${defaultThumbnailCount}\` and \`smart_max_candidates: ${defaultSmartMaximumCandidates}\`, the Robot analyzes ${getSmartThumbnailCandidateCount(defaultThumbnailCount, defaultSmartMaximumCandidates)} frames and returns the best ${defaultThumbnailCount} in chronological order.
+
+Raising this limit above three times \`count\` does not enlarge the pool. For example, \`count: 1\` analyzes at most three candidates.
 
 This parameter is only used when \`smart\` is \`true\`.
 `),

@@ -2048,25 +2048,23 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
   })
   .strict()
 
-export type GoogleBase = z.infer<typeof googleBase>
-export const googleBase = z
-  .object({
-    credentials: z
-      .string()
-      .optional()
-      .describe(`
-Create a new [Google service account](https://cloud.google.com/storage/docs/authentication). Set its role to "Storage Object Creator". Choose "JSON" for the key file format and download it to your computer. You will need to upload this file when creating your <dfn>Template Credentials</dfn>.
+/** Shared Google credential setup with permissions supplied by the importing or storing Robot. */
+export function getGoogleCredentialsDescription(permissions: string): string {
+  return `
+Create a new [Google service account](https://cloud.google.com/storage/docs/authentication). Choose “JSON” for the key file format and download it to your computer. You will need to upload this file when creating your <dfn>Template Credentials</dfn>.
 
 Go back to your Google credentials project and enable the "Google Cloud Storage JSON API" for it. Wait around ten minutes for the action to propagate through the Google network. Grab the project ID from the dropdown menu in the header bar on the Google site. You will also need it later on.
 
-Now you can set up the \`storage.objects.create\` and \`storage.objects.delete\` permissions. The latter is optional and only required if you intend to overwrite existing paths.
-
-To do this from the Google Cloud console, navigate to "IAM &amp; Admin" and select "Roles". From here, click "Create Role", enter a name, set the role launch stage to _General availability,_ and set the permissions stated above.
-
-Next, go to Storage browser and select the ellipsis on your bucket to edit bucket permissions. From here, select "Add Member", enter your service account as a new member, and select your newly created role.
+${permissions.trim()}
 
 Then, create your associated [Template Credentials](/c/template-credentials/) in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value.
-`),
+`
+}
+
+export type GoogleBase = z.infer<typeof googleBase>
+export const googleBase = z
+  .object({
+    credentials: z.string().optional(),
   })
   .strict()
 
@@ -2314,7 +2312,7 @@ For example:
 }
 \`\`\`
 
-This will crop the area from \`(80, 100)\` to \`(600, 800)\` from a 1000×1000 pixels video, which is a square whose width is 520px and height is 700px. If \`crop\` is set, the width and height parameters are ignored, and the \`resize_strategy\` is set to \`crop\` automatically.
+This will crop the area from \`(80, 100)\` to \`(600, 800)\` from a 1000×1000 pixels video, which is a rectangle whose width is 520px and height is 700px. If \`crop\` is set, the width and height parameters are ignored, and the \`resize_strategy\` is set to \`crop\` automatically.
 
 You can also use a JSON string of such an object with coordinates in similar fashion:
 

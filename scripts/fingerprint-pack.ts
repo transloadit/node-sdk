@@ -126,13 +126,23 @@ const main = async (): Promise<void> => {
     packArgs.push('--ignore-scripts')
   }
   const { stdout } = await execFileAsync('npm', packArgs, { cwd, encoding: 'utf8' })
-  const packed = JSON.parse(stdout.trim())
-  const info = Array.isArray(packed) ? packed[0] : packed
-  if (!info?.filename) {
+  const packed: unknown = JSON.parse(stdout.trim())
+  // npm 12 keys pack results by package name; older versions return an array or one result.
+  const results: unknown[] = Array.isArray(packed)
+    ? packed
+    : packed !== null &&
+        typeof packed === 'object' &&
+        (!('filename' in packed) || typeof packed.filename !== 'string')
+      ? Object.values(packed)
+      : [packed]
+  const info = results.length === 1 ? results[0] : undefined
+  const filename =
+    info !== null && typeof info === 'object' && 'filename' in info ? info.filename : undefined
+  if (typeof filename !== 'string' || filename.length === 0) {
     throw new Error('npm pack did not return a tarball filename')
   }
 
-  const tarballPath = resolve(cwd, info.filename)
+  const tarballPath = resolve(cwd, filename)
   const tarballStat = await stat(tarballPath)
   const tarballSha = await hashFile(tarballPath)
 
@@ -160,7 +170,7 @@ const main = async (): Promise<void> => {
     const summary = {
       packageDir: normalizePackageDir(cwd),
       tarball: {
-        filename: info.filename,
+        filename,
         sizeBytes: tarballStat.size,
         sha256: tarballSha,
       },

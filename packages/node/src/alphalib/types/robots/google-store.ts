@@ -9,6 +9,7 @@ import { z } from 'zod'
 import {
   createStorageStoreExample,
   defineRobot,
+  getGoogleCredentialsDescription,
   googleBase,
   robotBase,
   robotStoreMeta,
@@ -39,19 +40,13 @@ The URL to the exported file in your Google bucket will be presented in the Tran
       .boolean()
       .optional()
       .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
-    credentials: z.string().describe(`
-Create a new [Google service account](https://cloud.google.com/storage/docs/authentication). Set its role to "Storage Object Creator". Choose "JSON" for the key file format and download it to your computer. You will need to upload this file when creating your <dfn>Template Credentials</dfn>.
+    credentials: z.string().describe(
+      getGoogleCredentialsDescription(`
+Grant the service account \`storage.objects.create\` on the bucket you want to export to. The “Storage Object Creator” role provides this permission for new objects, but does not allow overwriting existing objects. Add \`storage.objects.delete\` only if you need to overwrite existing objects. See [Google’s IAM roles for Cloud Storage](https://docs.cloud.google.com/storage/docs/access-control/iam-roles).
 
-Go back to your Google credentials project and enable the "Google Cloud Storage JSON API" for it. Wait around ten minutes for the action to propagate through the Google network. Grab the project ID from the dropdown menu in the header bar on the Google site. You will also need it later on.
-
-Now you can set up the \`storage.objects.create\` and \`storage.objects.delete\` permissions. The latter is optional and only required if you intend to overwrite existing paths.
-
-To do this from the Google Cloud console, navigate to "IAM &amp; Admin" and select "Roles". From here, click "Create Role", enter a name, set the role launch stage to _General availability,_ and set the permissions stated above.
-
-Next, go to Storage browser and select the ellipsis on your bucket to edit bucket permissions. From here, select "Add Member", enter your service account as a new member, and select your newly created role.
-
-Then, create your associated [Template Credentials](/c/template-credentials/) in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value.
+For overwrites, create a custom role in “IAM &amp; Admin” → “Roles” with \`storage.objects.create\` and \`storage.objects.delete\`, then grant it to the service account on your bucket.
 `),
+    ),
     path: z
       .string()
       .default('${unique_prefix}/${file.url_name}')
