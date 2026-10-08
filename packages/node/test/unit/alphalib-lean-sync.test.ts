@@ -281,7 +281,7 @@ describe('lean Assembly Status compatibility', () => {
   })
 
   it.each([
-    { error: 'NOT_AN_ASSEMBLY_ERROR' },
+    { error: '' },
     { ok: 'ASSEMBLY_COMPLETED', error: 'HTTP_REQUEST_FAILURE' },
     { ok: 'ASSEMBLY_COMPLETED', uploads: {} },
     { ok: 'ASSEMBLY_COMPLETED', uploads: [{}] },

@@ -64,6 +64,40 @@ for (const { version, schema } of [
   { version: 'v3', schema: v3AssemblyStatus },
   { version: 'v4', schema: v4AssemblyStatus },
 ]) {
+  test(`${version} response metadata, nullable extensions and future errors preserve values`, () => {
+    const dates = ['2026:01:02 03:04:05', 1767312245]
+    const meta = {
+      state: 0,
+      xp_subject: 1984,
+      date_file_modified: dates,
+      date_recorded: dates,
+      date_file_created: dates,
+      create_date: dates,
+      modify_date: dates,
+    }
+    const status = {
+      ok: 'ASSEMBLY_COMPLETED',
+      uploads: [{ original_id: 'upload-1', ext: null, meta }],
+      results: { output: [{ meta }] },
+    }
+    assert.deepEqual(schema.parse(status), status)
+    const failure = { error: 'FUTURE_ASSEMBLY_ERROR' }
+    assert.deepEqual(schema.parse(failure), failure)
+    assert.equal(schema.safeParse({ error: '' }).success, false)
+    for (const invalid of [
+      { state: true },
+      { xp_subject: Number.NaN },
+      { date_recorded: [Number.POSITIVE_INFINITY] },
+      { modify_date: [[dates]] },
+    ]) {
+      assert.equal(
+        schema.safeParse({ ok: 'ASSEMBLY_COMPLETED', results: { output: [{ meta: invalid }] } })
+          .success,
+        false,
+      )
+    }
+  })
+
   test(`${version} XPKeywords preserves strings, finite numbers and absent values`, () => {
     for (const meta of [
       {},
