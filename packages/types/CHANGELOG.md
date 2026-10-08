@@ -1,5 +1,20 @@
 # @transloadit/types
 
+## 6.0.0
+
+### Major Changes
+
+- 3b4db64: Correct Assembly response readers to preserve numeric State/XPSubject metadata, repeated date tags and null uploaded-file extensions already emitted by the API. Read nonempty future Assembly error codes without confusing the closed known-code inventory with the public response contract; terminal-error helpers now recognize those responses.
+
+  These corrections widen exported response types. Consumers must handle numeric metadata, arrays of date values, nullable uploaded-file extensions and unknown error strings. The MCP server and notification relay follow the corrected response types in pre-1.0 minor releases; the relay publicly exports its AssemblyResponse alias. See the [Assembly response migration guide](https://github.com/transloadit/node-sdk/blob/main/docs/monorepo-architecture.md#assembly-response-migration) for the affected fields and narrowing rules.
+
+### Patch Changes
+
+- 8d768d6: Refresh Robot schemas and documentation from alphalib, including Google image seed guidance,
+  Google Storage permissions, crop fallback metadata, HTTP import URL boundaries, and AI Chat model
+  support and exact optional input types. Accept the new GOOGLE_STORE_ACCESS_DENIED and
+  DAM_STORAGE_UNAVAILABLE Assembly errors without expanding the SDK's operator dependencies.
+
 ## 5.0.1
 
 ### Patch Changes
