@@ -61,7 +61,7 @@
     "prepack": "yarn build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@transloadit/node": "^5.2.0",
     "@transloadit/sev-logger": "^0.1.9",
     "express": "^5.2.1",
