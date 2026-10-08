@@ -401,6 +401,9 @@ export const assemblyStatusErrCodeSchema = z.enum([
 export type AssemblyStatusErrCode = z.infer<typeof assemblyStatusErrCodeSchema>
 
 const metadataTextSchema = z.union([z.string(), z.number().finite()])
+const metadataDateSchema = z.union([metadataTextSchema, z.array(metadataTextSchema)])
+// Readers must survive new server errors; the exported known-code enum remains closed.
+const publicAssemblyErrorCodeSchema = z.string().min(1)
 
 const assemblyStatusMetaSchema = z
   .object({
@@ -408,7 +411,7 @@ const assemblyStatusMetaSchema = z
     has_alpha: storedAssetSchema.shape.has_alpha,
     width: z.union([z.number(), z.null()]).optional(),
     height: z.union([z.number(), z.null()]).optional(),
-    date_file_modified: z.string().nullable().optional(),
+    date_file_modified: metadataDateSchema.nullable().optional(),
     aspect_ratio: z.union([z.number(), z.string(), z.null()]).optional(),
     has_clipping_path: z.boolean().optional(),
     frame_count: z.union([z.number(), z.null()]).optional(),
@@ -417,14 +420,14 @@ const assemblyStatusMetaSchema = z
     average_color: z.string().nullable().optional(),
     svgViewBoxWidth: z.union([z.number(), z.null()]).optional(),
     svgViewBoxHeight: z.union([z.number(), z.null()]).optional(),
-    date_recorded: z.union([z.string(), z.number()]).nullable().optional(),
-    date_file_created: metadataTextSchema.nullable().optional(),
+    date_recorded: metadataDateSchema.nullable().optional(),
+    date_file_created: metadataDateSchema.nullable().optional(),
     title: z.union([z.string(), z.number()]).nullable().optional(),
     description: metadataTextSchema.nullable().optional(),
     duration: z.union([z.number(), z.null()]).optional(),
     location: z.string().nullable().optional(),
     city: z.string().nullable().optional(),
-    state: z.string().nullable().optional(),
+    state: metadataTextSchema.nullable().optional(),
     rights: z.union([z.string(), z.number()]).nullable().optional(),
     country: z.string().nullable().optional(),
     country_code: z.string().nullable().optional(),
@@ -471,7 +474,7 @@ const assemblyStatusMetaSchema = z
     xp_title: metadataTextSchema.nullable().optional(),
     xp_comment: z.string().nullable().optional(),
     xp_keywords: metadataTextSchema.nullable().optional(),
-    xp_subject: z.string().nullable().optional(),
+    xp_subject: metadataTextSchema.nullable().optional(),
     recognized_text: z
       .union([
         z.array(z.string()),
@@ -562,8 +565,8 @@ const assemblyStatusMetaSchema = z
     page_count: z.union([z.number(), z.null()]).optional(),
     page_size: z.string().nullable().optional(),
     producer: z.string().nullable().optional(),
-    create_date: metadataTextSchema.nullable().optional(),
-    modify_date: z.union([z.string(), z.number()]).nullable().optional(),
+    create_date: metadataDateSchema.nullable().optional(),
+    modify_date: metadataDateSchema.nullable().optional(),
     colortransfer: z.string().nullable().optional(),
     colorprimaries: z.string().nullable().optional(),
     archive_directory: z.string().nullable().optional(),
@@ -657,7 +660,7 @@ export const assemblyStatusUploadSchema = z
     has_alpha: storedAssetSchema.shape.has_alpha,
     name: z.string().nullable(),
     basename: z.string().nullable(),
-    ext: z.string(),
+    ext: z.string().nullable(),
     size: z.number(),
     mime: z.string().nullable(),
     type: z.string().nullable(),
@@ -920,7 +923,7 @@ export const assemblyStatusOkSchema: AssemblyStatusVariant<{
   .passthrough()
 
 const assemblyStatusErrorFields = z.object({
-  error: assemblyStatusErrCodeSchema,
+  error: publicAssemblyErrorCodeSchema,
   ok: z.null().optional(),
   retries: z.number().optional(),
   numRetries: z.number().optional(),
@@ -998,12 +1001,13 @@ export type AssemblyStatus = z.infer<typeof assemblyStatusSchema>
  */
 export function hasError(
   assembly: AssemblyStatus | undefined | null,
-  particularErrorCode?: z.infer<typeof assemblyStatusErrCodeSchema>,
+  // Keep known-code suggestions while matching future public response codes too.
+  particularErrorCode?: AssemblyStatusErrCode | (string & {}),
 ): assembly is AssemblyStatusError {
   const errorExists =
     Boolean(assembly) && assembly != null && typeof assembly === 'object' && 'error' in assembly
 
-  if (particularErrorCode) {
+  if (particularErrorCode !== undefined) {
     return errorExists && assembly.error === particularErrorCode
   }
 
@@ -1081,7 +1085,7 @@ export function isAssemblyOkStatus(
 }
 
 /**
- * Type guard to check if a status string is an error state.
+ * Type guard to check if a status string is a known error code.
  */
 export function isAssemblyErrorStatus(
   status: string | undefined | null,
@@ -1125,7 +1129,11 @@ export function isAssemblyTerminalOk(assembly: AssemblyStatus | undefined | null
  * Returns true if the assembly has a terminal error state.
  */
 export function isAssemblyTerminalError(assembly: AssemblyStatus | undefined | null): boolean {
-  return isAssemblyErrorStatus(getError(assembly)) || isAssemblySysError(assembly)
+  // getError() historically stringifies explicit undefined; classification needs the raw value.
+  return (
+    (hasError(assembly) && publicAssemblyErrorCodeSchema.safeParse(assembly.error).success) ||
+    isAssemblySysError(assembly)
+  )
 }
 
 /**
@@ -1187,7 +1195,7 @@ export const assemblyIndexItemSchema = z
     bytes_received: assemblyStatusBaseSchema.shape.bytes_received.optional(),
     upload_duration: assemblyStatusBaseSchema.shape.upload_duration.optional(),
     ok: assemblyStatusOkCodeSchema.nullable().optional(),
-    error: assemblyStatusErrCodeSchema.nullable().optional(),
+    error: publicAssemblyErrorCodeSchema.nullable().optional(),
     created: z.string(),
     created_ts: z.number().optional(),
     template_name: z.string().nullable().optional(),

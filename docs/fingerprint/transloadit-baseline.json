@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-5.2.0.tgz",
-    "sizeBytes": 1223961,
-    "sha256": "0fa25ca8a3eb974bcfef882656e04519ebeacbd1656233c7fc5a8ee911bbd428"
+    "sizeBytes": 1219673,
+    "sha256": "0634ee4d41291f69f18a6ff8ef7e9dc1014d7863873f3bb41001c7ad33daecb5"
   },
   "packageJson": {
     "name": "transloadit",
@@ -108,8 +108,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js",
-      "sizeBytes": 41658,
-      "sha256": "f41f1c3ddf09ecc725e91c54679db640eec26abf71c97426bb075f2be6da64fa"
+      "sizeBytes": 42153,
+      "sha256": "6352ea88a66e33fd9f878435df3b7a6506db56eb1c5ebe62fd46fe3d0dd82263"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.js",
@@ -1169,12 +1169,12 @@
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts.map",
       "sizeBytes": 31203,
-      "sha256": "0ae2a156fd26169a8201afec4490adc9d7d1ead0b7e79f3fb79162705ff3c5a3"
+      "sha256": "c1d257cbdb846f803ac201e705dcce5a8695e424a54b22b380577ea9113b2ec8"
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js.map",
-      "sizeBytes": 39324,
-      "sha256": "6c47d5bf9deae9d91a09f730f9f8bb21e1c905297f8a507dc56856a60ab135bc"
+      "sizeBytes": 39445,
+      "sha256": "b7ae92551756159b26a1089a248a51c942946ae403db5a653da88d30bbd68927"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts.map",
@@ -3113,13 +3113,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts",
-      "sizeBytes": 1703569,
-      "sha256": "340371dcb36f98a2d1693f494d3a62447a2aba5bc6789285326d78a09a6302a5"
+      "sizeBytes": 1649923,
+      "sha256": "28231711c7d17de26d50bb175fe0c9ab61e09e4425420b0a6e37a9faa25a9523"
     },
     {
       "path": "src/alphalib/types/assemblyStatus.ts",
-      "sizeBytes": 43747,
-      "sha256": "69b682839cb50fd585938db500ffb4eea0322f4d9ac4b927c6b19d5897072880"
+      "sizeBytes": 44237,
+      "sha256": "6518832c25c9261c6064f5ded38b25e2c14eaf7285c78f8d244e921ac757977f"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts",
