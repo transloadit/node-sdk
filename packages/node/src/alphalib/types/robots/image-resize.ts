@@ -29,6 +29,34 @@ import {
 
 const imageResizeGravitySchema = z.union([positionSchema, z.enum(['attention', 'entropy'])])
 
+/** Input MIME types eligible for automatic libvips processing in /image/resize. */
+export const imageResizeDaemonInputMimes: readonly string[] = [
+  'image/jpg',
+  'image/jpeg',
+  'image/jxl',
+  'image/png',
+  'image/tiff',
+  'image/tiff-fx',
+  'image/gif',
+  'image/webp',
+  'image/svg',
+  'image/svg+xml',
+]
+
+/** Output formats eligible for automatic libvips processing in /image/resize. */
+export const imageResizeDaemonOutputFormats: readonly string[] = [
+  'heic',
+  'heif',
+  'jpeg',
+  'jpg',
+  'jxl',
+  'png',
+  'raw',
+  'tiff',
+  'webp',
+  'avif',
+]
+
 export const meta: RobotMetaInput = {
   ...robotImageProcessingMeta,
   example_code: createProcessingExample('resized', '/image/resize', {
@@ -171,14 +199,14 @@ Height of the new image, in pixels. If not specified, will default to the height
       .union([
         z
           .literal('crop')
-          .describe(`Cuts an area out of an image, discarding any overlapping parts. If the source image is smaller than the crop frame, it will be zoomed. This strategy is implied when you specify coordinates in the \`crop\` parameter, and cannot be used without it.
+          .describe(`Cuts an area out of an image. Coordinates in the \`crop\` parameter imply this strategy. With coordinates, ImageMagick crops without resizing; libvips enlarges the image if \`x2\` or \`y2\` exceeds its dimensions, even with \`zoom: false\`. Without coordinates, set both \`width\` and \`height\`; this uses \`fillcrop\`, with \`gravity\` selecting which part is kept. With the default \`zoom\` setting, this coordinate-free path scales the image to cover that rectangle before trimming.
 
 To crop around human faces, see [🤖/image/facedetect](https://transloadit.com/docs/robots/image-facedetect/) instead.`),
         z
           .literal('fillcrop')
           .describe(`Scales the image to fit into our 100×100 target while preserving aspect ratio, while trimming away any excess surface. This means both sides will become exactly 100 pixels, at the tradeoff of destroying parts of the image.
 
-By default the resulting image is horizontally/vertically centered to fill the target rectangle. Use the \`gravity\` parameter to change where to crop the image, such as \`"bottom\`" or \`"left\`".`),
+By default the resulting image is horizontally/vertically centered to fill the target rectangle. Use the \`gravity\` parameter to change where to crop the image, such as \`"bottom"\` or \`"left"\`.`),
         z
           .literal('fit')
           .describe(`Uses the larger side of the original image as a base for the resize. Aspect ratio is preserved. Either side will become at most 100 pixels.
@@ -224,7 +252,7 @@ For example:
 }
 \`\`\`
 
-This will crop the area from \`(80, 100)\` to \`(600, 800)\` from a 1000×1000 pixels image, which is a square whose width is 520px and height is 700px. If \`crop\` is set, the width and height parameters are ignored, and the \`resize_strategy\` is set to \`crop\` automatically.
+This will crop the area from \`(80, 100)\` to \`(600, 800)\` from a 1000×1000 pixels image, which is a rectangle whose width is 520px and height is 700px. If \`crop\` is set, the width and height parameters are ignored, and the \`resize_strategy\` is set to \`crop\` automatically.
 
 You can also use a JSON string of such an object with coordinates in similar fashion:
 
@@ -235,9 +263,11 @@ You can also use a JSON string of such an object with coordinates in similar fas
 To crop around human faces, see [🤖/image/facedetect](/docs/robots/image-facedetect/).
 `),
     gravity: imageResizeGravitySchema.default('center').describe(`
-The direction from which the image is to be cropped when \`"resize_strategy"\` is set to \`"crop"\` or \`"fillcrop"\`, but no crop coordinates are defined.
-
-You can also use \`"entropy"\` or \`"attention"\` for automatic point-of-interest cropping. \`"entropy"\` keeps the region with the highest Shannon entropy, while \`"attention"\` favors areas with luminance frequency, saturation, and skin-tone cues.
+Sets crop direction for \`crop\` or \`fillcrop\` without explicit coordinates.
+Content-aware \`attention\` and \`entropy\` need libvips, \`fillcrop\`, \`width\` and \`height\`.
+Effects such as \`sepia\` or \`text\`, and inputs such as HEIC, can use ImageMagick.
+It centers these crops and the Assembly reports a warning.
+Crop in a separate /image/resize Step before effects, or convert unsupported inputs to PNG first.
 `),
     strip: z
       .boolean()

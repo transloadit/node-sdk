@@ -51,13 +51,12 @@ type Part<Type extends MessagePart['type']> = Extract<MessagePart, { type: Type 
 type ToolOutput = Part<'tool-result'>['output']
 
 type ProviderMetadata = NonNullable<z.output<typeof providerMetadataSchema>>
-type CompatibleProviderOptions<Part extends { providerOptions?: ProviderMetadata }> = Omit<
-  Part,
-  'providerOptions'
-> & {
-  providerOptions?: ProviderMetadata
-  experimental_providerMetadata?: ProviderMetadata
-}
+// Zod output retains explicit undefined even when the consumer enables exact optional properties.
+type CompatibleProviderOptions<Part extends { providerOptions?: ProviderMetadata | undefined }> =
+  Omit<Part, 'providerOptions'> & {
+    providerOptions?: ProviderMetadata
+    experimental_providerMetadata?: ProviderMetadata
+  }
 type MessageProviderOptions = {
   providerOptions?: ProviderMetadata
   experimental_providerMetadata?: ProviderMetadata

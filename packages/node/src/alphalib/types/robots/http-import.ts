@@ -55,12 +55,16 @@ The URL from which the file to be imported can be retrieved.
 HTTPS URLs must present a valid certificate trusted by Transloadit and matching the requested hostname. Self-signed, expired, or hostname-mismatched certificates cause \`${httpImportRobotErrors.HTTP_IMPORT_FAILURE.error}\`.
 
 You can also specify an array of URLs or a string of \`|\` delimited URLs to import several files at once. Please also check the \`url_delimiter\` parameter for that.
+
+Delimited URL lists are split before variables are interpolated. A delimiter introduced by a variable remains part of that URL. To supply several URLs through a variable, have the entire \`url\` value interpolate to an array of URLs.
 `),
     url_delimiter: z
       .string()
       .default('|')
       .describe(`
 Provides the delimiter that is used to split the URLs in your \`url\` parameter value.
+
+The delimiter must be literal. Only delimiters outside interpolation expressions in the original \`url\` value separate imports; variable values are never split.
 `),
     headers: z
       .union([

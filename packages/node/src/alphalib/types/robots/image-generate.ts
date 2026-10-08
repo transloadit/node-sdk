@@ -7,6 +7,7 @@ import {
   imageGenerateLegacyModelAlias,
   imageGenerateModelIdentifiers,
 } from './_ai-models.ts'
+import { googleImageSeedMaximum } from './_google-image-seed.ts'
 import {
   autoProviderDescription,
   interpolateRobot,
@@ -101,7 +102,13 @@ Best practice:
       .describe(
         'Output format. Defaults depend on model: png for Google and OpenAI models, svg for recraft-v3, jpeg for others. Google models currently return PNG only.',
       ),
-    seed: z.number().optional().describe(robotParameterDocs.seed.description),
+    // Provider-specific limits are checked by the Robot so other models retain their seed range.
+    seed: z
+      .number()
+      .optional()
+      .describe(
+        `${robotParameterDocs.seed.description} For Google models, use an integer from 0 to ${googleImageSeedMaximum}. Each output increments the seed by 1, so the final output’s seed must also fit this range. A seed does not guarantee identical images.`,
+      ),
     aspect_ratio: z
       .string()
       .optional()
