@@ -1,5 +1,12 @@
 # @transloadit/node
 
+## 6.0.1
+
+### Patch Changes
+
+- f85459c: Include the SDK name and version in the Transloadit-Client header on bearer token requests from the
+  SDK and CLI. Preserve the configured SDK client name when minting tokens.
+
 ## 6.0.0
 
 ### Major Changes

@@ -1,5 +1,14 @@
 # @transloadit/mcp-server
 
+## 0.6.1
+
+### Patch Changes
+
+- f85459c: Include the SDK name and version in the Transloadit-Client header on bearer token requests from the
+  SDK and CLI. Preserve the configured SDK client name when minting tokens.
+- Updated dependencies [f85459c]
+  - @transloadit/node@6.0.1
+
 ## 0.6.0
 
 ### Minor Changes
