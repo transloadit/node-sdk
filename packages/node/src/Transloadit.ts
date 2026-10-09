@@ -900,7 +900,7 @@ export class Transloadit {
    * If `scope` is omitted, the token inherits the auth key's scope.
    */
   async mintBearerToken(
-    options: Omit<MintBearerTokenOptions, 'endpoint'> & { endpoint?: string } = {},
+    options: Omit<MintBearerTokenOptions, 'clientName' | 'endpoint'> & { endpoint?: string } = {},
   ): Promise<BearerTokenResponse> {
     if (this._authToken) {
       throw new Error(
@@ -912,6 +912,7 @@ export class Transloadit {
       { authKey: this._authKey, authSecret: this._authSecret },
       {
         ...options,
+        clientName: this._clientName,
         endpoint: options.endpoint ?? this._endpoint,
       },
     )

@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import packageJson from '../../../package.json' with { type: 'json' }
 import { main } from '../../../src/cli.ts'
 
 const resetExitCode = () => {
@@ -83,6 +84,14 @@ describe('cli auth token', () => {
       'application/x-www-form-urlencoded',
     )
     expect((init.headers as Record<string, string>).Accept).toBe('application/json')
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://api2.transloadit.com/token',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Transloadit-Client': `node-sdk:${packageJson.version}`,
+        }),
+      }),
+    )
 
     const auth = (init.headers as Record<string, string>).Authorization
     expect(auth).toMatch(/^Basic /)

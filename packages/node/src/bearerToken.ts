@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import packageJson from '../package.json' with { type: 'json' }
+
 export type BearerTokenAudience = 'mcp' | 'api2' | (string & {})
 
 export type BearerTokenResponse = {
@@ -11,6 +13,8 @@ export type BearerTokenResponse = {
 
 export type MintBearerTokenOptions = {
   allowProcessEnvEndpointFallback?: boolean
+  /** Client identity reported in the Transloadit-Client header. */
+  clientName?: string
   endpoint?: string
   aud?: BearerTokenAudience | string
   /**
@@ -158,6 +162,7 @@ export async function mintBearerTokenWithCredentials(
         Authorization: buildBasicAuthHeaderValue(credentials),
         Accept: 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Transloadit-Client': options.clientName?.trim() || `node-sdk:${packageJson.version}`,
       },
       body: params.toString(),
     })
