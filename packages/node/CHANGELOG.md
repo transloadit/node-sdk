@@ -1,5 +1,13 @@
 # @transloadit/node
 
+## 6.0.2
+
+### Patch Changes
+
+- 3a73ec2: Keep caller-owned request parameters unchanged when signing requests. Reusing the same params or auth object now generates a fresh default expiration for each request instead of retaining the first request’s expiration. Explicit Auth Keys and expiration timestamps are still respected.
+
+  When using `calcSignature`, read the generated auth values from its returned `params` JSON string rather than from the input object. Send that returned string together with its signature.
+
 ## 6.0.1
 
 ### Patch Changes
