@@ -2123,9 +2123,9 @@ Retrieves the billing data for a given `date` string with format `YYYY-MM`. See 
 
 #### calcSignature(params)
 
-Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
+Calculates a signature for a `params` object without modifying it or its nested `auth` object. Missing `auth.key` and `auth.expires` values default to the client’s Auth Key and a fresh expiration one day from now. Explicit values are preserved.
 
-This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
+Returns `{ signature, params }`, where `params` is the exact JSON string that was signed, including the auth defaults. Send this returned string together with its signature; do not serialize the input object instead.
 
 See [Signature Generation](#signature-generation) in the CLI section for command-line usage.
 

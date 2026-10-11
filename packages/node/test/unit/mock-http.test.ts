@@ -1,5 +1,6 @@
 import type { AssemblyStatus, Options } from '../../src/Transloadit.ts'
 
+import { createHmac } from 'node:crypto'
 import { inspect } from 'node:util'
 
 import nock from 'nock'
@@ -24,6 +25,41 @@ describe('Mocked API tests', () => {
   afterEach(() => {
     nock.cleanAll()
     nock.abortPendingRequests() // Abort delayed requests preventing them from ruining the next test
+    vi.useRealTimers()
+  })
+
+  it('sends a fresh signed expiry when createAssembly reuses params after 25 hours', async () => {
+    const client = new Transloadit({
+      authKey: 'foo_key',
+      authSecret: 'foo_secret',
+      endpoint: 'http://localhost',
+      maxRetries: 0,
+    })
+    const params = { steps: {}, auth: {} }
+    // Check the signed wire bytes independently, without calling calcSignature as the oracle.
+    const matchesSignedParams = (expires: string) => (body: unknown) => {
+      const json = JSON.stringify({ steps: {}, auth: { key: 'foo_key', expires } })
+      const signature = `sha384:${createHmac('sha384', 'foo_secret').update(json).digest('hex')}`
+      return (
+        typeof body === 'string' &&
+        body.includes(`name="params"\r\n\r\n${json}\r\n`) &&
+        body.includes(`name="signature"\r\n\r\n${signature}\r\n`)
+      )
+    }
+    const requests = nock('http://localhost')
+      .post(createAssemblyRegex, matchesSignedParams('2026-01-13T12:00:00.000Z'))
+      .reply(200, { ok: 'ASSEMBLY_UPLOADING' })
+      .post(createAssemblyRegex, matchesSignedParams('2026-01-14T13:00:00.000Z'))
+      .reply(200, { ok: 'ASSEMBLY_UPLOADING' })
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-01-12T12:00:00.000Z'))
+
+    await client.createAssembly({ params })
+    vi.setSystemTime(new Date('2026-01-13T13:00:00.000Z'))
+    await client.createAssembly({ params })
+
+    requests.done()
+    expect(params).toEqual({ steps: {}, auth: {} })
   })
 
   it('continues to follow API redirects by default', async () => {

@@ -1619,12 +1619,10 @@ export class Transloadit {
 
   // Responsible for including auth parameters in all requests
   private _prepareParams(paramsIn?: OptionalAuthParams): string {
-    let params = paramsIn
-    if (params == null) {
-      params = {}
-    }
-    if (params.auth == null) {
-      params.auth = {}
+    // Keep defaults request-local so reused params do not retain an expired timestamp or key.
+    const params = {
+      ...paramsIn,
+      auth: { ...paramsIn?.auth },
     }
     if (params.auth.key == null) {
       params.auth.key = this._authKey
