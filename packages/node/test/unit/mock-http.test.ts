@@ -36,6 +36,7 @@ describe('Mocked API tests', () => {
       maxRetries: 0,
     })
     const params = { steps: {}, auth: {} }
+    // Check the signed wire bytes independently, without calling calcSignature as the oracle.
     const matchesSignedParams = (expires: string) => (body: unknown) => {
       const json = JSON.stringify({ steps: {}, auth: { key: 'foo_key', expires } })
       const signature = `sha384:${createHmac('sha384', 'foo_secret').update(json).digest('hex')}`
