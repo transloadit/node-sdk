@@ -1,12 +1,14 @@
 import type { FrameLocator, Page } from '@playwright/test'
 
 import { expect, test } from '@playwright/test'
+import { z } from 'zod'
 
 import { widgetStateFixture } from './fixtures.ts'
 import { mountWidget, routeHostAndMedia, settleWidget } from './host.ts'
 
 const fixture = widgetStateFixture('completed-mixed')
 const result = fixture.result
+const jsonObject = z.record(z.string(), z.unknown())
 
 declare global {
   interface Window {
@@ -65,9 +67,6 @@ test.describe('assembly result widget stability', () => {
   })
 
   test('keeps previews when the host repeats the same tool-result', async ({ page }) => {
-    // Known failure: render() starts with app.replaceChildren() for every tool-result, so a host
-    // that re-delivers the result (reconnects, re-mounts, history replay) rebuilds every preview.
-    test.fail()
     const mediaRequests = await routeHostAndMedia(page)
     const widget = await mountWidget(page, { fixture, host: 'mcp', theme: 'light', width: 760 })
     await settleWidget(page, widget.frame)
@@ -82,15 +81,12 @@ test.describe('assembly result widget stability', () => {
     })
     await settleAfterHostEvent(page, widget.frame)
 
-    expect.soft(mediaRequests.length).toBe(requestsBefore)
-    expect.soft(await sizeChanges(page)).toBe(resizesBefore)
     expect(await keptMedia(widget.frame)).toBe(media)
+    expect(mediaRequests.length).toBe(requestsBefore)
+    expect(await sizeChanges(page)).toBe(resizesBefore)
   })
 
   test('keeps previews when ChatGPT changes theme and maxHeight', async ({ page }) => {
-    // Known failure: the openai:set_globals listener calls renderFromOpenAi(), which re-renders
-    // from toolOutput on every globals change, even when only theme or maxHeight changed.
-    test.fail()
     const mediaRequests = await routeHostAndMedia(page)
     const widget = await mountWidget(page, { fixture, host: 'openai', theme: 'light', width: 760 })
     await settleWidget(page, widget.frame)
@@ -108,16 +104,73 @@ test.describe('assembly result widget stability', () => {
     })
     await settleAfterHostEvent(page, widget.frame)
 
-    expect.soft(mediaRequests.length).toBe(requestsBefore)
-    expect.soft(await sizeChanges(page)).toBe(resizesBefore)
     expect(await keptMedia(widget.frame)).toBe(media)
+    expect(mediaRequests.length).toBe(requestsBefore)
+    // A taller maxHeight may let the capped card grow once; the theme alone changes nothing.
+    expect(await sizeChanges(page)).toBeLessThanOrEqual(resizesBefore + 1)
+  })
+
+  test('ignores an MCP Apps tool-result that repeats ChatGPT’s toolOutput', async ({ page }) => {
+    const mediaRequests = await routeHostAndMedia(page)
+    const widget = await mountWidget(page, { fixture, host: 'openai', theme: 'light', width: 760 })
+    await settleWidget(page, widget.frame)
+    const media = await rememberMedia(widget.frame)
+    const requestsBefore = mediaRequests.length
+    const resizesBefore = await sizeChanges(page)
+
+    await widget.sendToWidget({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: result,
+    })
+    await settleAfterHostEvent(page, widget.frame)
+
+    expect(await keptMedia(widget.frame)).toBe(media)
+    expect(mediaRequests.length).toBe(requestsBefore)
+    expect(await sizeChanges(page)).toBe(resizesBefore)
+  })
+
+  test('keeps upload previews when the result moves from executing to completed', async ({
+    page,
+  }) => {
+    const executing = widgetStateFixture('executing').result
+    const executingPayload = jsonObject.parse(executing?.structuredContent)
+    const completedAssembly = jsonObject.parse(jsonObject.parse(result?.structuredContent).assembly)
+    const mediaRequests = await routeHostAndMedia(page)
+    const widget = await mountWidget(page, {
+      fixture: widgetStateFixture('executing'),
+      host: 'mcp',
+      theme: 'light',
+      width: 760,
+    })
+    await settleWidget(page, widget.frame)
+    const media = await rememberMedia(widget.frame)
+    const requestsBefore = mediaRequests.length
+
+    await widget.sendToWidget({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        ...executing,
+        structuredContent: {
+          ...executingPayload,
+          assembly: {
+            ...jsonObject.parse(executingPayload.assembly),
+            ok: 'ASSEMBLY_COMPLETED',
+            results: completedAssembly.results,
+          },
+        },
+      },
+    })
+    await widget.frame.getByText('Completed').first().waitFor()
+    await settleWidget(page, widget.frame)
+
+    expect(await keptMedia(widget.frame)).toBe(media)
+    // Only the new result files are fetched; the upload preview stays as it was.
+    expect(mediaRequests.slice(requestsBefore)).not.toContain(mediaRequests[0])
   })
 
   test('reserves preview space, so loading previews do not resize the card', async ({ page }) => {
-    // Known failure: previews have no width/height or aspect-ratio box. The card first renders
-    // with the 72px min-height placeholders, then grows as each image loads, and a video is 300x150
-    // until its metadata arrives, so the host resizes the frame several times after the result.
-    test.fail()
     // Result files arrive over the network after the result itself, as they do in a real chat.
     await routeHostAndMedia(page, { latencyMs: 250 })
     const widget = await mountWidget(page, {
@@ -146,10 +199,6 @@ test.describe('assembly result widget stability', () => {
   })
 
   test('reports its content height when the host starts with a taller frame', async ({ page }) => {
-    // Known failure: size-changed carries documentElement.scrollHeight, which is never smaller
-    // than the frame itself. A host that starts with a placeholder height (or a preview that is
-    // briefly taller while loading) leaves the frame too tall, with empty space below the content.
-    test.fail()
     await routeHostAndMedia(page)
     const widget = await mountWidget(page, {
       fixture: widgetStateFixture('waiting'),

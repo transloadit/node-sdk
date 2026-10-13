@@ -280,11 +280,8 @@ export const settleWidget = async (page: Page, frame: FrameLocator): Promise<voi
 }
 
 /**
- * Sizes the frame to the widget's content, independent of the height the widget reported. The
- * widget reports `documentElement.scrollHeight`, which never drops below the frame's own height,
- * so a preview that is briefly taller while loading (a video is 150px tall until its metadata
- * arrives) leaves a timing-dependent gap at the bottom. Screenshots should show the state, not
- * that race; stability.spec.ts covers the race itself.
+ * Sizes the frame to the widget's content, independent of the height the widget reported, so a
+ * screenshot shows the state itself. stability.spec.ts checks that the reported height matches.
  */
 export const fitFrameToContent = async (page: Page): Promise<void> => {
   await page.evaluate(() => {

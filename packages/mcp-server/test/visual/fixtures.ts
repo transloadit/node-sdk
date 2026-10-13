@@ -2,7 +2,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 import type { WidgetContext } from '../../src/ui/assembly-result-widget.ts'
 
-import { widgetContextMetaKey } from '../../src/ui/assembly-result-widget.ts'
+import { describeAssemblySteps, widgetContextMetaKey } from '../../src/ui/assembly-result-widget.ts'
 
 /**
  * Result and upload file entries as API2 reports them (the subset of `assemblyStatusResultSchema`
@@ -135,6 +135,27 @@ interface AssemblyInput {
   results?: Record<string, FixtureFile[]>
 }
 
+// Robots behind the fixture Steps, as they would appear in the Assembly's instructions.
+const stepRobots: Record<string, string> = {
+  ':original': '/upload/handle',
+  audio_extracted: '/audio/encode',
+  described: '/image/describe',
+  documented: '/document/convert',
+  encoded: '/video/encode',
+  resized: '/image/resize',
+  thumbnailed: '/image/resize',
+}
+
+const instructions = (stepNames: string[]): string =>
+  JSON.stringify({
+    steps: Object.fromEntries(
+      [':original', ...stepNames].map((name) => [
+        name,
+        { robot: stepRobots[name] ?? '/image/resize', use: ':original' },
+      ]),
+    ),
+  })
+
 const assembly = ({ ok, error, message, uploads = [], results = {} }: AssemblyInput) => ({
   ok,
   error,
@@ -146,6 +167,7 @@ const assembly = ({ ok, error, message, uploads = [], results = {} }: AssemblyIn
   assembly_url: assemblySslUrl.replace('https:', 'http:'),
   assembly_ssl_url: assemblySslUrl,
   template_id: null,
+  merged_params: instructions(Object.keys(results)),
   bytes_received: uploads.reduce((sum, item) => sum + item.size, 0),
   bytes_expected: uploads.reduce((sum, item) => sum + item.size, 0),
   execution_duration: 4.812,
@@ -160,12 +182,19 @@ const assembly = ({ ok, error, message, uploads = [], results = {} }: AssemblyIn
 const toolResponse = (
   payload: Record<string, unknown>,
   extras: { context?: WidgetContext; isError?: boolean } = { context: signedInContext },
-): CallToolResult => ({
-  content: [{ type: 'text', text: JSON.stringify(payload) }],
-  structuredContent: payload,
-  ...(extras.isError ? { isError: true } : {}),
-  ...(extras.context ? { _meta: { [widgetContextMetaKey]: extras.context } } : {}),
-})
+): CallToolResult => {
+  const merged = payload.assembly
+  const steps =
+    typeof merged === 'object' && merged !== null && 'merged_params' in merged
+      ? describeAssemblySteps({ merged_params: String(merged.merged_params) })
+      : undefined
+  return {
+    content: [{ type: 'text', text: JSON.stringify(payload) }],
+    structuredContent: payload,
+    ...(extras.isError ? { isError: true } : {}),
+    ...(extras.context ? { _meta: { [widgetContextMetaKey]: { ...extras.context, steps } } } : {}),
+  }
+}
 
 const completed = (input: Omit<AssemblyInput, 'ok'>, extra: Record<string, unknown> = {}) => ({
   status: 'ok',
@@ -299,7 +328,7 @@ export const widgetStateFixtures: WidgetStateFixture[] = [
     toolInput: true,
     cancelled: false,
     openai: true,
-    waitForText: 'ASSEMBLY_EXECUTING',
+    waitForText: 'Processing',
     result: toolResponse({
       status: 'ok',
       assembly: assembly({ ok: 'ASSEMBLY_EXECUTING', uploads: [upload('portrait.png')] }),
@@ -313,7 +342,7 @@ export const widgetStateFixtures: WidgetStateFixture[] = [
     toolInput: true,
     cancelled: false,
     openai: true,
-    waitForText: 'ASSEMBLY_COMPLETED',
+    waitForText: 'Completed',
     result: toolResponse(completed({ results: { resized: [image('portrait-800w.png')] } })),
   },
   {
@@ -322,7 +351,7 @@ export const widgetStateFixtures: WidgetStateFixture[] = [
     toolInput: true,
     cancelled: false,
     openai: true,
-    waitForText: 'ASSEMBLY_COMPLETED',
+    waitForText: 'Completed',
     result: toolResponse(
       completed({
         uploads: [upload('interview.png')],
@@ -341,7 +370,7 @@ export const widgetStateFixtures: WidgetStateFixture[] = [
     toolInput: true,
     cancelled: false,
     openai: true,
-    waitForText: 'ASSEMBLY_COMPLETED',
+    waitForText: 'Completed',
     result: toolResponse(completed(manySteps())),
   },
   {
@@ -359,7 +388,7 @@ export const widgetStateFixtures: WidgetStateFixture[] = [
     toolInput: true,
     cancelled: false,
     openai: true,
-    waitForText: 'Preview not available yet',
+    waitForText: 'Preview unavailable',
     result: toolResponse(
       completed({
         results: {
@@ -376,7 +405,7 @@ export const widgetStateFixtures: WidgetStateFixture[] = [
     toolInput: true,
     cancelled: false,
     openai: true,
-    waitForText: 'ASSEMBLY_COMPLETED',
+    waitForText: 'Completed',
     result: toolResponse(completed({ results: { resized: [image('portrait-800w.png')] } }), {
       context: signedOutContext,
     }),

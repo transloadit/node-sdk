@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import packageJson from '../../package.json' with { type: 'json' }
 import {
   assemblyResultWidgetHtml,
+  describeAssemblySteps,
   widgetContextMetaKey,
 } from '../../src/ui/assembly-result-widget.ts'
 
@@ -144,7 +145,7 @@ describe('assembly result widget handshake (MCP Apps 2026-01-26)', () => {
 
     const document = widget.window.document
     expect(widget.appText()).toContain('Assembly abc123')
-    expect(widget.appText()).toContain('ASSEMBLY_COMPLETED')
+    expect(widget.appText()).toContain('Completed')
     expect(document.querySelector('img')?.getAttribute('src')).toBe(
       'https://pub-123.r2.dev/pixel.png',
     )
@@ -217,6 +218,43 @@ describe('assembly result widget handshake (MCP Apps 2026-01-26)', () => {
     )
   })
 
+  it('does not offer a failed Assembly as a Template, nor call an unread one executing', async () => {
+    await initialize()
+    const context = {
+      authenticated: true,
+      new_template_url: 'https://transloadit.com/c/acme/templates/new',
+    }
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          assembly: {
+            assembly_id: 'abc123',
+            error: 'INVALID_FILE_META_DATA',
+            message: 'Bad file.',
+          },
+        },
+        _meta: { [widgetContextMetaKey]: context },
+      },
+    })
+    expect(widget.appText()).toContain('Failed')
+    expect(widget.appText()).toContain('Bad file.')
+    expect(widget.appText()).not.toContain('Save as Template')
+
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: { status: 'error', assembly: { assembly_id: 'abc123' } },
+        _meta: { [widgetContextMetaKey]: context },
+      },
+    })
+    expect(widget.appText()).toContain('Status unknown')
+    expect(widget.appText()).not.toContain('Processing')
+  })
+
   it('shows the error text of a failed tool call instead of waiting forever', async () => {
     await initialize()
     await widget.fromHost({
@@ -287,6 +325,22 @@ describe('assembly result widget in ChatGPT', () => {
   })
 })
 
+describe('assembly result widget Step labels', () => {
+  it('names each Step after its Robot, from the instructions API2 echoes', () => {
+    expect(
+      describeAssemblySteps({
+        merged_params: JSON.stringify({
+          steps: { ':original': { robot: '/upload/handle' }, resized: { robot: '/image/resize' } },
+        }),
+      }),
+    ).toEqual({
+      ':original': { robot: '/upload/handle', title: expect.any(String) },
+      resized: { robot: '/image/resize', title: 'Convert, resize, or watermark images' },
+    })
+    expect(describeAssemblySteps({ params: 'not json' })).toBeUndefined()
+  })
+})
+
 describe('assembly result widget previews', () => {
   it('retries a preview that is not readable yet, then says so', async () => {
     // Collapse the widget's 1 s / 3 s / 6 s retry delays.
@@ -324,7 +378,7 @@ describe('assembly result widget previews', () => {
     image?.dispatchEvent(new widget.window.Event('error'))
     await settle()
 
-    expect(widget.appText()).toContain('Preview not available yet')
+    expect(widget.appText()).toContain('Preview unavailable')
     expect(widget.appText()).toContain('Download resized.jpg')
     await widget.window.happyDOM.close()
   })

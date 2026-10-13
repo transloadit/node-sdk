@@ -28,7 +28,9 @@ for (const fixture of widgetStateFixtures) {
           await settleWidget(page, frame)
           await fitFrameToContent(page)
 
-          await expect(card).toHaveScreenshot(`${name}.png`)
+          // Chromium shows or hides the audio player's time readout depending on when the
+          // duration arrives, so its controls are masked instead of compared.
+          await expect(card).toHaveScreenshot(`${name}.png`, { mask: [frame.locator('audio')] })
           if (statesDir) await card.screenshot({ path: join(statesDir, `${name}.png`) })
         })
       }
