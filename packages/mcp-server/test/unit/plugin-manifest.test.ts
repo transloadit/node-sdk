@@ -63,6 +63,27 @@ describe('plugin manifests', () => {
     await expectSubmittableListing(manifest.extensions['com.openai'].interface)
   })
 
+  it('carry what OpenAI review requires before submission', async () => {
+    const manifest = z
+      .object({
+        extensions: z.object({
+          'com.openai': z.object({
+            review: z.object({
+              // The portal refuses to submit without a demo recording reviewers can open.
+              demo_recording_url: httpsUrlSchema,
+              test_cases: z.object({
+                positive: z.array(z.unknown()).length(5),
+                negative: z.array(z.unknown()).length(3),
+              }),
+            }),
+          }),
+        }),
+      })
+      .parse(await readJson('plugin.json'))
+
+    expect(manifest.extensions['com.openai'].review.demo_recording_url).toBeTruthy()
+  })
+
   it('meet the Codex listing requirements', async () => {
     const manifest = z
       .object({ interface: interfaceSchema })

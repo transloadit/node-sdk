@@ -51,6 +51,7 @@
         "logo": "./assets/logo.png"
       },
       "review": {
+        "demo_recording_url": "https://my-app.tlcdn.com/builtin%2Fstorage-serve%400.0.1/openai-review%2Ftransloadit-chatgpt-demo.mp4?auth_key=vCVOYt0c6Z2FnKNzpWIDHNDABMfHKa3F&exp=1823439046000&sig=sha256%3Aa31168b33864ee9c063e41918a59fc4aca8782b5edb02bf993b8ce43174de8b8",
         "test_cases": {
           "positive": [
             {
