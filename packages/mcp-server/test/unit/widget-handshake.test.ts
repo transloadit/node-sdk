@@ -151,7 +151,9 @@ describe('assembly result widget handshake (MCP Apps 2026-01-26)', () => {
     )
     expect(widget.appText()).toContain('Download pixel.png')
     expect(widget.appText()).toContain('Save as Template')
-    expect(widget.appText()).toContain('Open in Console')
+    expect(document.querySelector('a[title="Open in Console"]')?.getAttribute('href')).toBe(
+      'https://transloadit.com/c/acme/assemblies/abc123',
+    )
   })
 
   it('opens download links through the host so sandboxed frames can still download', async () => {

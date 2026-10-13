@@ -146,8 +146,6 @@ const icons = {
   down: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
   download:
     '<svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>',
-  external:
-    '<svg viewBox="0 0 24 24"><path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/></svg>',
   file: '<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
   image:
     '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>',
@@ -215,9 +213,6 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   .tone-err { color: var(--err); background: var(--err-soft); }
   .tone-err .dot { background: var(--err); }
   .tone-busy .dot { background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
-  .text-link { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-weight: 500; text-decoration: none; }
-  .text-link .icon svg { width: 13px; height: 13px; }
-  .text-link:hover { color: var(--fg); }
   .button { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--button-bg); background: var(--button-bg); color: var(--button-fg); font-size: 12px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer; }
   .button:hover { opacity: 0.88; }
 
@@ -225,7 +220,6 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   .step-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 12px; color: var(--muted); }
   .step-head h2, .fold h2 { margin: 0; flex: none; color: var(--fg); font: 600 12px/1.5 var(--mono); }
   .robot { min-width: 0; font: 11px/1.5 var(--mono); color: var(--subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .robot.plain { font: 12px/1.5 var(--font); color: var(--muted); }
   .step-head .count { margin-left: auto; flex: none; }
   .group { display: flex; flex-direction: column; gap: 8px; }
   .files { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
@@ -245,7 +239,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   .name .base { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .name .ext { flex: none; }
   .meta { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .meta .tag { font: 11px var(--mono); color: var(--fg); }
+  .tag { font: 11px/1.5 var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .step .tag, .fold .tag { display: none; }
   .download { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; color: var(--muted); }
   .download:hover { background: var(--surface-2); color: var(--fg); }
@@ -440,13 +434,16 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   // A capped card scrolls; the fade and count at its bottom say there is more below.
   const moreBelowLabel = el('span')
   const moreBelow = el('div', { className: 'more-below', 'aria-hidden': 'true' }, [moreBelowLabel, icon('down')])
+  let fileCount = 0
   const updateMoreBelow = () => {
     if (!('capped' in root.dataset) || app.scrollHeight - app.scrollTop - app.clientHeight <= 4) {
       moreBelow.classList.remove('show')
       return
     }
+    // Everything not in view counts, including files inside folded steps.
     const bottom = app.getBoundingClientRect().bottom
-    const below = [...app.querySelectorAll('.file, .audio-row')].filter((node) => node.getBoundingClientRect().top > bottom - 32).length
+    const inView = [...app.querySelectorAll('.file, .audio-row')].filter((node) => node.getBoundingClientRect().top <= bottom - 32).length
+    const below = fileCount - inView
     moreBelowLabel.textContent = below > 0 ? plural(below, 'more file') + ' below' : 'More below'
     moreBelow.classList.add('show')
   }
@@ -573,7 +570,8 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     const meta = details.join(' · ') || text(file.mime)
     return el('span', { className: 'caption-text' }, [
       nameLabel(fileName(file)),
-      el('span', { className: 'meta' }, [el('span', { className: 'tag', text: tag + (meta ? ' · ' : '') }), meta]),
+      el('span', { className: 'tag', text: tag }),
+      el('span', { className: 'meta', text: meta }),
     ])
   }
 
@@ -623,7 +621,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     files.map((file, index) => ({ file, node: () => item(stepName, file, offset + index) }))
 
   const stepLabel = (stepName, stepsMeta) => {
-    if (stepName === ':original') return 'Uploaded files'
+    if (stepName === ':original') return ''
     const step = isRecord(stepsMeta) && isRecord(stepsMeta[stepName]) ? stepsMeta[stepName] : {}
     return text(step.robot)
   }
@@ -650,7 +648,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     const section = el('section', { className: 'step' }, [
       el('div', { className: 'step-head' }, [
         el('h2', { text: stepName }),
-        label ? el('span', { className: stepName === ':original' ? 'robot plain' : 'robot', title: label, text: label }) : null,
+        label ? el('span', { className: 'robot', title: label, text: label }) : null,
         el('span', { className: 'count', text: plural(files.length, 'file') }),
       ]),
       group(stepEntries(stepName, files.slice(0, visible), 0)),
@@ -728,7 +726,6 @@ export const assemblyResultWidgetHtml = `<!doctype html>
       ]),
       el('div', { className: 'sub-row' }, [
         el('span', { className: 'status tone-' + status.tone, title: status.code || null }, [el('span', { className: 'dot' }), status.label]),
-        consoleUrl ? hostLink({ className: 'text-link' }, consoleUrl, ['Open in Console', icon('external')]) : null,
       ]),
     ])
   }
@@ -757,6 +754,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
       .map(([stepName, files]) => [stepName, Array.isArray(files) ? files.filter(isRecord) : []])
       .filter(([, files]) => files.length > 0)
     if (uploads.length > 0) steps.unshift([':original', uploads])
+    fileCount = steps.reduce((sum, [, files]) => sum + files.length, 0)
     nodes.push(...buildSteps(steps, meta.steps))
 
     // The busy note and any warnings read as one message.
