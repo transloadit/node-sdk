@@ -326,7 +326,7 @@ describe('assembly result widget in ChatGPT', () => {
 })
 
 describe('assembly result widget Step labels', () => {
-  it('names each Step after its Robot, from the instructions API2 echoes', () => {
+  it('names each Step’s Robot, from the instructions API2 echoes', () => {
     expect(
       describeAssemblySteps({
         merged_params: JSON.stringify({
@@ -334,8 +334,8 @@ describe('assembly result widget Step labels', () => {
         }),
       }),
     ).toEqual({
-      ':original': { robot: '/upload/handle', title: expect.any(String) },
-      resized: { robot: '/image/resize', title: 'Convert, resize, or watermark images' },
+      ':original': { robot: '/upload/handle' },
+      resized: { robot: '/image/resize' },
     })
     expect(describeAssemblySteps({ params: 'not json' })).toBeUndefined()
   })

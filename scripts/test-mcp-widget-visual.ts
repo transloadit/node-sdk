@@ -73,8 +73,6 @@ async function main(): Promise<void> {
   const uid = process.getuid?.()
   const gid = process.getgid?.()
 
-  // The widget imports @transloadit/node, which the specs load from its built dist.
-  await execa('corepack', ['yarn', 'tsc:node'], { cwd: root, stdio: 'inherit' })
   const run = await execa(
     'docker',
     [
