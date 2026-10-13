@@ -191,6 +191,26 @@ jobs:
           path: test-results/sdk-edge
           if-no-files-found: ignore
 
+  mcp-widget-visual:
+    name: MCP result widget states
+    # No secrets: fork PRs run it too. Media comes from local fixtures, nothing hits the network.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Keep the tag equal to the pinned @playwright/test in packages/mcp-server/package.json; the
+    # committed baselines were rendered in this image (`corepack yarn test:widget-visual:update`).
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
+    steps:
+      - uses: actions/checkout@v6
+      - run: corepack yarn install --immutable
+      - run: corepack yarn workspace @transloadit/mcp-server test:visual
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mcp-widget-visual-evidence
+          path: test-results/mcp-widget-visual
+          if-no-files-found: ignore
+
   unit:
     name: Unit tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
