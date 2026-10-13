@@ -35,7 +35,11 @@ import {
   resolveToolAuthMode,
   toolMetadata,
 } from './tool-metadata.ts'
-import { registerAssemblyResultWidget, widgetContextMetaKey } from './ui/assembly-result-widget.ts'
+import {
+  describeAssemblySteps,
+  registerAssemblyResultWidget,
+  widgetContextMetaKey,
+} from './ui/assembly-result-widget.ts'
 import { buildUploadInstructions, uploadInstructionSchema } from './upload-instructions.ts'
 
 export type TransloaditMcpServerOptions = {
@@ -700,7 +704,8 @@ const buildWidgetContext = (
   const slug = isNonEmptyString(assembly.account_slug) ? assembly.account_slug : undefined
   const assemblyId = isNonEmptyString(assembly.assembly_id) ? assembly.assembly_id : undefined
   const templateId = isNonEmptyString(assembly.template_id) ? assembly.template_id : undefined
-  if (!slug || !consoleUrl) return { authenticated: true }
+  const steps = describeAssemblySteps(assembly)
+  if (!slug || !consoleUrl) return { authenticated: true, steps }
 
   const workspaceUrl = `${consoleUrl}/c/${encodeURIComponent(slug)}`
   const newTemplateUrl = new URL(`${workspaceUrl}/templates/new`)
@@ -720,6 +725,7 @@ const buildWidgetContext = (
       ? `${workspaceUrl}/assemblies/${encodeURIComponent(assemblyId)}`
       : undefined,
     new_template_url: newTemplateUrl.toString(),
+    steps,
   }
 }
 
