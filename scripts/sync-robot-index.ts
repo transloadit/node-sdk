@@ -1,8 +1,7 @@
 import { execFileSync } from 'node:child_process'
-import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { readdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 
 import ts from 'typescript'
 
@@ -184,9 +183,6 @@ export async function syncRobotIndex(directory: string): Promise<void> {
   if (formatted !== index) await writeFile(indexPath, formatted)
 }
 
-if (
-  process.argv[1] !== undefined &&
-  pathToFileURL(resolve(process.argv[1])).href === import.meta.url
-) {
+if (process.argv[1] !== undefined && (await realpath(process.argv[1])) === import.meta.filename) {
   await syncRobotIndex(resolve(import.meta.dirname, '../packages/node/src/alphalib/types/robots'))
 }

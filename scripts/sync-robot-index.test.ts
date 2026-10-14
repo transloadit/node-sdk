@@ -1,15 +1,5 @@
 import { execFile } from 'node:child_process'
-import {
-  copyFile,
-  cp,
-  mkdir,
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises'
+import { copyFile, cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -20,7 +10,7 @@ import { syncRobotIndex } from './sync-robot-index.ts'
 
 const execFileAsync = promisify(execFile)
 
-it('regenerates when the formatter installation has only a Windows command shim', async () => {
+it('regenerates through a symlink with only a Windows formatter command shim', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'robot-index-shim-'))
   try {
     const scripts = join(directory, 'scripts')
@@ -45,6 +35,7 @@ it('regenerates when the formatter installation has only a Windows command shim'
       join(modules, '@biomejs'),
       'junction',
     )
+    await symlink(scripts, join(directory, 'entry'), 'junction')
     await writeFile(join(modules, '.bin/biome.cmd'), '@echo off\r\nexit /b 1\r\n')
     const index = await readFile(join(robots, '_index.ts'), 'utf8')
     await writeFile(
@@ -52,7 +43,7 @@ it('regenerates when the formatter installation has only a Windows command shim'
       index.replaceAll('documentExtractMeta', 'obsoleteDocumentExtractMeta'),
     )
 
-    await execFileAsync(process.execPath, [await realpath(join(scripts, 'sync-robot-index.ts'))])
+    await execFileAsync(process.execPath, [join(directory, 'entry/sync-robot-index.ts')])
     expect(await readFile(join(robots, '_index.ts'), 'utf8')).toContain('  documentExtractMeta,')
   } finally {
     await rm(directory, { recursive: true, force: true })
