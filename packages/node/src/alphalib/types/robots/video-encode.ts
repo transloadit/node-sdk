@@ -39,6 +39,12 @@ export const robotVideoEncodeInstructionsSchema = robotBase
     robot: z.literal('/video/encode').describe(`
 The /video/encode Robot is a versatile tool for video processing that handles transcoding, resizing, and watermarking. It supports various formats including modern standards like HEVC (H.265), and provides features such as presets for common devices, custom FFmpeg parameters for powerusers, watermark positioning, and more.
 
+## iPhone spatial audio
+
+Videos recorded with iPhone spatial audio can contain a stereo AAC track alongside an Apple Positional Audio Codec (APAC) track. When unsupported audio is present, this <dfn>Robot</dfn> keeps one supported audio track by default. Spatial audio is not preserved or converted.
+
+Files containing only unsupported audio still fail. Individual audio track selections and stream-copy requests keep the tracks you select; the output format must support copied tracks.
+
 ## Adding text overlays with FFmpeg
 
 You can add text overlays to videos using FFmpeg's \`drawtext\` filter through this <dfn>Robot</dfn>'s \`ffmpeg\` parameter. Here are two examples — one with the default font and one with a custom font family name:

@@ -42,7 +42,7 @@ export const robotDigitaloceanStoreInstructionsSchema = robotBase
       .describe(`
 The URL prefix used for the returned URL, such as \`"https://my.cdn.com/some/path"\`.
 `),
-    acl: storageAcl,
+    acl: storageAcl.default('private'),
     headers: z
       .record(z.string())
       .default({ 'Content-Type': '${file.mime}' })

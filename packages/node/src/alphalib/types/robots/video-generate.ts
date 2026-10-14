@@ -49,7 +49,7 @@ export const robotVideoGenerateInstructionsSchema = robotBase
         `The AI model to use for video generation. Defaults to ${videoGenerateDefaultModelIdentifier}.`,
       ),
     prompt: z.string().describe('The prompt describing the desired video content.'),
-    format: z.enum(['mp4', 'gif']).optional().describe('Format of the generated video.'),
+    format: z.enum(['mp4']).optional().describe('Format of the generated video.'),
     seed: z.number().optional().describe(robotParameterDocs.seed.description),
     aspect_ratio: z.string().optional().describe('Aspect ratio of the generated video.'),
     height: z.number().optional().describe('Height of the generated video.'),

@@ -17,6 +17,13 @@ import {
   robotUse,
 } from './_instructions-primitives.ts'
 
+export {
+  imageDescribeFullMetaSchema,
+  imageDescribeFullOutputSchema,
+  imageDescribeLabelSchema,
+  imageDescribeListMetaSchema,
+} from './_image-describe-output.ts'
+
 export const meta: RobotMetaInput = {
   ...robotArtificialIntelligenceMeta,
   example_code: createProcessingExample('described', '/image/describe', {
@@ -50,7 +57,7 @@ You can use the labels that we return in your application to automatically class
 Whether to return a full response (\`"full"\`) including confidence percentages for each found label, or just a flat list of labels (\`"list"\`).
 `),
     format: z
-      .enum(['json', 'meta', 'text'])
+      .enum(['json', 'meta'])
       .default('json')
       .describe(`
 In what format to return the descriptions.

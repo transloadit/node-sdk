@@ -25,19 +25,10 @@ export const imageFacedetectFaceSelectionModes = [
 
 export const imageFacedetectFaceSelectionModeSchema = z.enum(imageFacedetectFaceSelectionModes)
 
-export const imageFacedetectFaceCoordinatesSchema = z
-  .object({
-    confidence: z.number().optional(),
-    height: z.number(),
-    width: z.number(),
-    x1: z.number(),
-    x2: z.number().optional(),
-    y1: z.number(),
-    y2: z.number().optional(),
-  })
-  .passthrough()
-
-export type ImageFacedetectFaceCoordinates = z.infer<typeof imageFacedetectFaceCoordinatesSchema>
+export {
+  type ImageFacedetectFaceCoordinates,
+  imageFacedetectFaceCoordinatesSchema,
+} from './_image-facedetect-output.ts'
 
 export const meta: RobotMetaInput = {
   ...robotArtificialIntelligenceMeta,

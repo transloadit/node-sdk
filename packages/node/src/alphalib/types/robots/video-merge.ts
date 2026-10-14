@@ -24,6 +24,8 @@ export const meta: RobotMetaInput = {
     steps: {
       merged: {
         robot: '/video/merge',
+        preset: 'empty',
+        ffmpeg: { f: 'mp4' },
         use: [
           { name: ':original', as: 'image' },
           { name: ':original', as: 'audio' },
@@ -51,7 +53,12 @@ export const robotVideoMergeInstructionsSchema = robotBase
   .merge(robotUse)
   .merge(robotFFmpegVideo)
   .extend({
-    robot: z.literal('/video/merge'),
+    // The robot literal's description supplies the Robot page introduction.
+    robot: z.literal('/video/merge').describe(`
+When concatenating videos end-to-end, all inputs must have the same width and height, with or without a \`transition\`. For joining clips, use [🤖/video/concat](/docs/robots/video-concat/), which pre-transcodes inputs to matching specifications when needed.
+
+When both \`preset\` and \`ffmpeg\` are omitted, this Robot uses the legacy \`"flash"\` preset and outputs FLV. Choose an output preset or set \`ffmpeg.f\` explicitly to select another format, such as \`"mp4"\`.
+`),
     resize_strategy: resize_strategy.describe(`
 If the given width/height parameters are bigger than the input image's dimensions, then the \`resize_strategy\` determines how the image will be resized to match the provided width/height. See the [available resize strategies](/docs/topics/resize-strategies/).
 `),
@@ -107,6 +114,7 @@ Stacks the input media vertically. All streams need to have the same pixel forma
 The URL of an image to be merged with the audio or video. When this parameter is provided, the robot will download the image from the URL and merge it with the other media.
 `),
     sort_by: inputSortBySchema,
+    // Include join constraints in parameter help as well as the Robot introduction.
     transition: z
       .enum(['none', 'crossfade', 'fade_to_black'])
       .default('none')
@@ -116,12 +124,18 @@ The type of transition effect to apply between concatenated video clips. Only ap
 - \`"none"\` — No transition effect. Videos are joined end-to-end.
 - \`"crossfade"\` — A gradual blend from one clip to the next (both video and audio).
 - \`"fade_to_black"\` — The current clip fades out to black, then the next clip fades in from black.
+
+Both \`"crossfade"\` and \`"fade_to_black"\` overlap adjacent clips and shorten the output by the applied \`transition_duration\` at each join. The applied duration is capped at half of the shorter clip in each pair.
+
+All concatenated videos must have the same width and height, even when \`transition\` is \`"none"\`. For joining clips with different dimensions, use [🤖/video/concat](/docs/robots/video-concat/).
 `),
     transition_duration: z
       .number()
       .default(1)
       .describe(`
 The duration of the transition effect in seconds. Only applies when \`transition\` is not \`"none"\`. Supports float values (e.g., \`0.5\` for a 500ms transition) and must be greater than \`0\` whenever transitions are enabled. The applied transition is automatically capped at half of the shorter clip in each transition pair to prevent overlapping transitions.
+
+For \`"crossfade"\`, this is the overlap duration where both clips are visible. For \`"fade_to_black"\`, the video fades out over approximately the first 20% of the transition and fades in over the remaining 80% (about 0.2 seconds out and 0.8 seconds in for a 1-second transition). Audio is crossfaded throughout the transition for both effects. Both effects shorten the output by the applied duration at each join.
 `),
   })
   .strict()

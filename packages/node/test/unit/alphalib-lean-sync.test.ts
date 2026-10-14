@@ -9,6 +9,7 @@ import { z } from 'zod'
 
 import {
   ecmaWhitespaceCharacterClass,
+  zodCaseInsensitiveEnum,
   zodCodePointLength,
   zodInputPreservingTransform,
   zodStableJsonDefault,
@@ -403,6 +404,17 @@ describe('Assembly parsing through the SDK client', () => {
 })
 
 describe('runtime adapters for shared Robot schemas', () => {
+  it('normalizes ASCII enum casing and retains canonical outputs without widening accepted input', () => {
+    const schema = zodCaseInsensitiveEnum(z.enum(['Letter', 'K']))
+    expect(schema.parse('lEtTeR')).toBe('Letter')
+    expect(schema.parse('k')).toBe('K')
+    expect(schema.safeParse('Letter\n').success).toBe(false)
+    expect(schema.safeParse('K').success).toBe(false)
+    expect(schema.safeParse(123).success).toBe(false)
+    expectTypeOf<z.input<typeof schema>>().toEqualTypeOf<string>()
+    expectTypeOf<z.output<typeof schema>>().toEqualTypeOf<'Letter' | 'K'>()
+  })
+
   it('describes Storage fields without changing defaults, validation or the source shape', () => {
     const original = {
       limit: z.number().int().min(1).max(500).default(100),

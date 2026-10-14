@@ -70,7 +70,9 @@ You can also use an array of path strings here to import multiple paths in the s
     rendition: z
       .enum(['240p', '360p', '540p', '720p', '1080p', 'source'])
       .default('720p')
-      .describe('The quality of the video to import.'),
+      .describe(
+        'The quality of the video to import. Use `source` for the original upload. Source availability depends on video permissions, your Vimeo account, the access token’s `video_files` scope, and whether Vimeo has retained the source file. The import fails with an error if the source file is unavailable.',
+      ),
   })
   .strict()
 

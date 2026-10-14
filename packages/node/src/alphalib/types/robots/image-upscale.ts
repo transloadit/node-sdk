@@ -6,6 +6,7 @@ import type {
 
 import { z } from 'zod'
 
+import { formatEnglishInteger } from '../../englishInteger.ts'
 import { imageUpscaleDefaultModelIdentifier, imageUpscaleModelIdentifiers } from './_ai-models.ts'
 import {
   autoProviderDescription,
@@ -29,7 +30,13 @@ export const meta: RobotMetaInput = {
   purpose_words: 'Upscale images',
   title: 'Upscale images',
   name: 'ImageUpscaleRobot',
+  // Preserve the runtime fallback; positive provider costs replace it during usage accounting.
   minimumChargeUsd: 0.06,
+  providerCostPricing: {
+    provider: 'replicate',
+    model: imageUpscaleDefaultModelIdentifier,
+    models: [...imageUpscaleModelIdentifiers],
+  },
   stage: 'beta',
 }
 
@@ -39,6 +46,12 @@ const upscaleModelSchema = z
 const upscaleScaleSchema = z.union([z.literal(2), z.literal(4)]).default(2)
 const upscaleFaceEnhanceSchema = z.boolean().default(false)
 
+/**
+ * Maximum input area accepted by the pinned Real-ESRGAN Replicate predictor.
+ * @see https://github.com/replicate/cog-real-esrgan/blob/6cbd5e6ce8bd0fa90db54af899a8a9a85eb3db41/predict.py#L19
+ */
+export const realEsrganMaxInputPixels = 1448 * 1448
+
 export const robotImageUpscaleInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
@@ -47,11 +60,13 @@ export const robotImageUpscaleInstructionsSchema = robotBase
     model: upscaleModelSchema
       .optional()
       .describe(
-        `The AI model to use for image upscaling. Defaults to ${upscaleModelSchema.parse(undefined)}.`,
+        `The AI model to use for image upscaling. Defaults to ${upscaleModelSchema.parse(undefined)}. Real-ESRGAN inputs exceeding ${formatEnglishInteger(realEsrganMaxInputPixels)} pixels are resized proportionally before upscaling.`,
       ),
     scale: upscaleScaleSchema
       .optional()
-      .describe(`Upscale factor. Defaults to ${upscaleScaleSchema.parse(undefined)}.`),
+      .describe(
+        `Upscale factor, applied after any input resizing. Defaults to ${upscaleScaleSchema.parse(undefined)}. GFPGAN results are resized after restoration to match this factor.`,
+      ),
     face_enhance: upscaleFaceEnhanceSchema
       .optional()
       .describe(

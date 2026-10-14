@@ -45,7 +45,14 @@ export const robotAudioEncodeInstructionsSchema = robotBase
       .boolean()
       .optional()
       .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
-    robot: z.literal('/audio/encode'),
+    // The page renders the purpose sentence separately; add only the spatial-audio section here.
+    robot: z.literal('/audio/encode').describe(`
+## iPhone spatial audio
+
+Videos recorded with iPhone spatial audio can contain a stereo AAC track alongside an Apple Positional Audio Codec (APAC) track. When unsupported audio is present, this <dfn>Robot</dfn> keeps one supported audio track by default. Spatial audio is not preserved or converted.
+
+Files containing only unsupported audio still fail. Individual audio track selections and stream-copy requests keep the tracks you select; the output format must support copied tracks.
+`),
     bitrate: bitrateSchema.optional().describe(robotParameterDocs.audio_bitrate.description),
     sample_rate: sampleRateSchema
       .optional()

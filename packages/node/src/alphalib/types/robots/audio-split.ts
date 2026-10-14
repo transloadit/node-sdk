@@ -65,6 +65,8 @@ export const robotAudioSplitInstructionsSchema = robotBase
       .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
     robot: z.literal('/audio/split').describe(`
 Splits an audio file into multiple segments based on an array of from/to durations. Each segment produces a separate output file. This is useful for cutting an audio file into parts, for example to insert ads later via [🤖/audio/concat](/docs/robots/audio-concat/).
+
+For iPhone videos with spatial audio, see [iPhone spatial audio in 🤖/audio/encode](/docs/robots/audio-encode/#iphone-spatial-audio).
 `),
     segments: z
       .array(segmentSchema)

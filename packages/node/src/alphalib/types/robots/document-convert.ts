@@ -6,6 +6,7 @@ import type {
 
 import { z } from 'zod'
 
+import { zodCaseInsensitiveEnum } from '../../lib/zodInputSemantics.ts'
 import {
   createProcessingExample,
   defineRobot,
@@ -13,6 +14,11 @@ import {
   robotDocumentProcessingMeta,
   robotUse,
 } from './_instructions-primitives.ts'
+
+/** Accepts Playwright's paper-format case variants while publishing canonical spellings. */
+export const documentConvertPdfFormatSchema = zodCaseInsensitiveEnum(
+  z.enum(['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'Ledger', 'Legal', 'Letter', 'Tabloid']),
+)
 
 export const meta: RobotMetaInput = {
   ...robotDocumentProcessingMeta,
@@ -209,11 +215,8 @@ Print PDF background graphics.
 
 Currently this parameter is only supported when converting from \`html\`.
 `),
-    pdf_format: z
-      .enum(['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'Ledger', 'Legal', 'Letter', 'Tabloid'])
-      .default('Letter')
-      .describe(`
-PDF paper format.
+    pdf_format: documentConvertPdfFormatSchema.default('Letter').describe(`
+PDF paper format. Values are case-insensitive.
 
 Currently this parameter is only supported when converting from \`html\`.
 `),
