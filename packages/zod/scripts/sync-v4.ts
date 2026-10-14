@@ -398,6 +398,13 @@ const patchFile = (filePath: string, contents: string): string => {
   if (filePath.endsWith(`${sep}robots${sep}ai-chat.ts`)) {
     next = patchAiChatSchema(next)
   }
+  if (filePath.endsWith(`${sep}robots${sep}youtube-store.ts`)) {
+    // The source deliberately widens this legacy preprocessed field’s input to unknown.
+    next = next.replace(
+      /const youtubeCategorySchema: z\.ZodEffects<[\s\S]+?\n> =/,
+      'const youtubeCategorySchema: z.ZodType<z.output<typeof youtubeCategoryValueSchema>, unknown> =',
+    )
+  }
   if (filePath.endsWith(`${sep}aiMessages.ts`)) {
     // Zod 3 treats File as an object; keep that legacy snapshot behavior in Zod 4.
     next = next.replaceAll(
@@ -406,6 +413,21 @@ const patchFile = (filePath: string, contents: string): string => {
     )
   }
   if (filePath.endsWith(`${sep}lib${sep}zodInputSemantics.ts`)) {
+    const enumStart = next.indexOf('export function zodCaseInsensitiveEnum')
+    const enumEnd = next.indexOf('/** Apply the Robot', enumStart)
+    if (enumStart === -1 || enumEnd === -1) throw new Error('Case-insensitive enum patch failed')
+    // Zod 4 replaces the source’s typed ZodEffects constructor with a public transform pipeline.
+    next =
+      next.slice(0, enumStart) +
+      `export function zodCaseInsensitiveEnum<Schema extends z.ZodEnum<Record<string, string>>>(schema: Schema) {
+  const lowercaseAscii = (value: string): string => value.replace(/[A-Z]/gu, (character) => character.toLowerCase())
+  return z.string().transform((value) =>
+    schema.options.find((option) => lowercaseAscii(option) === lowercaseAscii(value)) ?? value,
+  ).pipe(schema)
+}
+
+` +
+      next.slice(enumEnd)
     const original = 'return schema.default(() => structuredClone(snapshot))'
     if (!next.includes(original)) {
       throw new Error('Stable JSON default patch failed')

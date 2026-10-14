@@ -6,7 +6,10 @@ import { z as z4 } from 'zod/v4'
 
 import { normalizeCoreMessage as v3NormalizeMessage } from '../src/v3/aiMessages.ts'
 import { assemblyStatusSchema as v3AssemblyStatus } from '../src/v3/assemblyStatus.ts'
-import { zodStableJsonDefault as v3StableDefault } from '../src/v3/lib/zodInputSemantics.ts'
+import {
+  zodCaseInsensitiveEnum as v3CaseInsensitiveEnum,
+  zodStableJsonDefault as v3StableDefault,
+} from '../src/v3/lib/zodInputSemantics.ts'
 import { MODEL_CAPABILITIES as v3ModelCapabilities } from '../src/v3/robots/_ai-models.ts'
 import {
   interpolateRecursive as v3Interpolate,
@@ -25,7 +28,10 @@ import {
 import { assemblyInstructionsSchema as v3AssemblyInstructions } from '../src/v3/template.ts'
 import { normalizeCoreMessage as v4NormalizeMessage } from '../src/v4/aiMessages.ts'
 import { assemblyStatusSchema as v4AssemblyStatus } from '../src/v4/assemblyStatus.ts'
-import { zodStableJsonDefault as v4StableDefault } from '../src/v4/lib/zodInputSemantics.ts'
+import {
+  zodCaseInsensitiveEnum as v4CaseInsensitiveEnum,
+  zodStableJsonDefault as v4StableDefault,
+} from '../src/v4/lib/zodInputSemantics.ts'
 import { MODEL_CAPABILITIES as v4ModelCapabilities } from '../src/v4/robots/_ai-models.ts'
 import {
   interpolateRecursive as v4Interpolate,
@@ -59,6 +65,19 @@ const schemas = [
     fixtures: assemblyInstructionFixtures,
   },
 ]
+
+for (const { version, schema } of [
+  { version: 'v3', schema: v3CaseInsensitiveEnum(z3.enum(['Letter', 'K'])) },
+  { version: 'v4', schema: v4CaseInsensitiveEnum(z4.enum(['Letter', 'K'])) },
+]) {
+  test(`${version} enum casing preserves canonical output and rejects non-ASCII lookalikes`, () => {
+    assert.equal(schema.parse('lEtTeR'), 'Letter')
+    assert.equal(schema.parse('k'), 'K')
+    assert.equal(schema.safeParse('Letter\n').success, false)
+    assert.equal(schema.safeParse('K').success, false)
+    assert.equal(schema.safeParse(123).success, false)
+  })
+}
 
 for (const { version, schema } of [
   { version: 'v3', schema: v3AssemblyStatus },
