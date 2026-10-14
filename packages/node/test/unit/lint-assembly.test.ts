@@ -3,6 +3,22 @@ import { describe, expect, it } from 'vitest'
 import { lintAssemblyInstructions } from '../../src/lintAssemblyInstructions.ts'
 
 describe('lintAssemblyInstructions', () => {
+  it('accepts document extraction without errors or warnings', async () => {
+    const result = await lintAssemblyInstructions({
+      assemblyInstructions: {
+        steps: {
+          imported: { robot: '/http/import', url: 'https://example.com/document.pdf' },
+          extracted: { robot: '/document/extract', use: 'imported' },
+          stored: { robot: '/transloadit/store', use: 'extracted' },
+        },
+      },
+      fatal: 'warning',
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.issues).toEqual([])
+  })
+
   it.each([
     'resize',
     ['resize'],
