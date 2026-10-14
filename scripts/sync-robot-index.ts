@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -171,8 +172,13 @@ export async function syncRobotIndex(directory: string): Promise<void> {
   }
   // Use the repository formatter so a later build does not dirty the checked-in index again.
   const formatted = execFileSync(
-    resolve(import.meta.dirname, '../node_modules/.bin/biome'),
-    ['format', '--stdin-file-path', indexPath],
+    process.execPath,
+    [
+      createRequire(import.meta.url).resolve('@biomejs/biome/bin/biome'),
+      'format',
+      '--stdin-file-path',
+      indexPath,
+    ],
     { input: generated, encoding: 'utf8' },
   )
   if (formatted !== index) await writeFile(indexPath, formatted)

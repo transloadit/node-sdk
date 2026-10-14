@@ -1,5 +1,7 @@
 import type { z } from 'zod'
 
+import { ZodEffects } from 'zod'
+
 import { getRobotSchemaOptions, robotsMeta } from './alphalib/types/robots/_index.ts'
 
 export type RobotListOptions = {
@@ -74,6 +76,11 @@ const unwrapSchema = (schema: z.ZodTypeAny): { base: z.ZodTypeAny; optional: boo
   let optional = typeof base.isOptional === 'function' ? base.isOptional() : false
 
   while (true) {
+    // Preprocessing changes accepted inputs, while help still needs the underlying choices.
+    if (base instanceof ZodEffects) {
+      base = base.innerType()
+      continue
+    }
     const def = getDef(base)
     const defType = getDefType(def)
     if (

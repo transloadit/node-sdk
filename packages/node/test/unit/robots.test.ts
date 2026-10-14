@@ -10,6 +10,13 @@ import { stepSchema, stepSchemaWithHiddenFields } from '../../src/alphalib/types
 import { getRobotHelp, listRobots } from '../../src/Transloadit.ts'
 
 describe('robot catalog helpers', () => {
+  it('documents PDF paper-format choices through preprocessing wrappers', () => {
+    const help = getRobotHelp({ robotName: '/document/convert', detailLevel: 'full' })
+    expect(
+      help.optionalParams.find((parameter) => parameter.name === 'pdf_format')?.type,
+    ).toContain('enum(A0 | A1 | A2 | A3 | A4 | A5 | A6 | Ledger | Legal | Letter | Tabloid)')
+  })
+
   it('exposes HTTP requests through the public catalog and offline help', () => {
     expect(listRobots({ search: '/http/request' }).robots).toEqual([
       expect.objectContaining({ name: '/http/request', category: 'code-evaluation' }),
