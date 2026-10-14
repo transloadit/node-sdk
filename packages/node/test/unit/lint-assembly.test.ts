@@ -9,7 +9,7 @@ describe('lintAssemblyInstructions', () => {
         steps: {
           imported: { robot: '/http/import', url: 'https://example.com/document.pdf' },
           extracted: { robot: '/document/extract', use: 'imported' },
-          stored: { robot: '/transloadit/store', use: 'extracted' },
+          stored: { robot: '/s3/store', use: 'extracted', credentials: 's3-credentials' },
         },
       },
       fatal: 'warning',
