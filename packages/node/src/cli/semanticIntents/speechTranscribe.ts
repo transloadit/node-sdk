@@ -4,6 +4,7 @@ import type {
 } from '../intentRuntime.ts'
 import type { SemanticIntentDescriptor, SemanticIntentPresentation } from './index.ts'
 
+import { robotSpeechTranscribeInstructionsSchema } from '../../alphalib/types/robots/speech-transcribe.ts'
 import { parseOptionalEnumValue } from './parsing.ts'
 
 const speechTranscribeProviders = ['aws', 'gcp', 'replicate'] as const
@@ -53,9 +54,9 @@ const speechTranscribeExecutionDefinition = {
       kind: 'string',
       propertyName: 'targetLanguage',
       optionFlags: '--target-language',
-      description: 'Target written language for providers that support translation.',
+      description: robotSpeechTranscribeInstructionsSchema.shape.target_language.description,
       required: false,
-      exampleValue: 'en-US',
+      exampleValue: 'french',
     },
   ] as const satisfies readonly IntentOptionDefinition[],
 } satisfies IntentDynamicStepExecutionDefinition
