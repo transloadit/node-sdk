@@ -56,7 +56,10 @@ function renderArray(name: string, values: string[]): string {
   return `const ${name}: RobotSchemaOptions = [\n${values.map((value) => `  ${value},`).join('\n')}\n]`
 }
 
-/** Regenerate SDK membership while retaining its declaration-compatible schema wrappers. */
+/**
+ * Regenerate SDK membership while retaining its declaration-compatible schema wrappers.
+ * Schema behavior stays API2-owned; subtitle style defaults are tracked in transloadit/api2#9887.
+ */
 export async function syncRobotIndex(directory: string): Promise<void> {
   const indexPath = resolve(directory, '_index.ts')
   const index = await readFile(indexPath, 'utf8')
@@ -75,6 +78,7 @@ export async function syncRobotIndex(directory: string): Promise<void> {
     )
     modules.push({
       file,
+      // Match API2's canonical keys exactly; legacy aliases would add registry entries.
       metadataKey: `${file.slice(0, -3).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())}Meta`,
       schema,
       hiddenFieldsSchema: names.includes(hiddenFieldsSchema) ? hiddenFieldsSchema : schema,

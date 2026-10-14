@@ -73,6 +73,8 @@ import { z } from 'zod/v3'
 import type { SchemaDefinition } from './definitions.ts'
 import type { MergeObjects } from '../utility.ts'
 
+export { type ImageFacedetectFaceCoordinates as FaceCoordinates, runtimeFlag } from './definitions.ts'
+
 export type RobotSchemaVariantTypes<Variants extends {
   schema: z.ZodTypeAny
   withHiddenFields: z.ZodTypeAny
@@ -115,6 +117,7 @@ import type {
   InterpolatableRobotVideoEncodeInstructionsInput as Interpolatable,
   ExtendedInput,
   ParameterId,
+  FaceCoordinates,
 } from './src/generated/index.ts'
 
 const output: Output = { robot: '/video/encode', width: 320, result: false }
@@ -123,6 +126,7 @@ const hidden: Hidden = { ...output, internal: true }
 const interpolatable: Interpolatable = { robot: '/video/encode', width: 320 }
 const extended: ExtendedInput<{ added: number; kept: boolean }> = { added: 'updated', kept: true }
 const parameter: ParameterId = 'width'
+const coordinates: FaceCoordinates = { x: 1, y: 2 }
 
 // @ts-expect-error Generic merge helpers retain their source-wins behavior.
 const wrongMerge: ExtendedInput<{ added: number; kept: boolean }> = { added: 123, kept: true }
@@ -155,7 +159,7 @@ test('emits composed Robot types with an isolated generator command', async () =
     await writeFile(fixturePath, fixture)
     await writeFile(
       join(dirname(fixturePath), 'definitions.ts'),
-      "import type { z } from 'zod/v3'\nexport type SchemaDefinition<Schema extends z.ZodTypeAny> = { schema: Schema }\n",
+      "import type { z } from 'zod/v3'\nexport type SchemaDefinition<Schema extends z.ZodTypeAny> = { schema: Schema }\nexport interface ImageFacedetectFaceCoordinates { x: number; y: number }\nexport const runtimeFlag = true\n",
     )
     await copyFile(
       join(import.meta.dirname, '../../node/src/alphalib/types/utility.ts'),
@@ -166,6 +170,11 @@ test('emits composed Robot types with an isolated generator command', async () =
 
     await execFileAsync(process.execPath, [generatorPath], { cwd: temporaryRoot })
     assertCompiles([consumerPath])
+    const generated = await readFile(
+      join(packageRoot, 'src/generated/robots/video-encode.ts'),
+      'utf8',
+    )
+    assert.doesNotMatch(generated, /runtimeFlag/)
 
     // These preexisting helper tests import the copy because importing also runs the generator.
     const { escapeStringLiteral, normalizeExportPath } = await import(
