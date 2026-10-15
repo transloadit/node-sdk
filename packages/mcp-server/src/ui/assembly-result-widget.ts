@@ -158,6 +158,8 @@ const visibleFilesPerStep = 8
 const visibleFilesTotal = 12
 /** Steps with at most this many files share one grid instead of a row each. */
 const sparseStepFiles = 2
+/** Card height when the host sets no maxHeight, so a long result never takes over the chat. */
+const defaultMaxHeight = 720
 
 // The usual native UI stack, without a bare system-ui first: Linux resolves that through
 // fontconfig to whatever font matched, which can be a CJK face with a mid-line "…".
@@ -189,8 +191,8 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   * { box-sizing: border-box; }
   html { background: var(--bg); }
   body { margin: 0; padding: 16px; font: 14px/1.5 var(--font); color: var(--fg); background: var(--bg); -webkit-font-smoothing: antialiased; }
-  #app { display: flex; flex-direction: column; gap: 16px; }
-  :root[data-capped] #app { max-height: var(--max-height); overflow-y: auto; }
+  /* Without a host maxHeight (ChatGPT inline passes none), a long result scrolls inside the card. */
+  #app { display: flex; flex-direction: column; gap: 16px; max-height: var(--max-height, ${defaultMaxHeight - 32}px); overflow-y: auto; }
   a { color: var(--accent); }
   p { margin: 0; }
   code { font: 12px/1.4 var(--mono); background: var(--surface-2); border-radius: 4px; padding: 1px 4px; }
@@ -241,9 +243,10 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   .meta { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tag { font: 11px/1.5 var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .step .tag, .fold .tag { display: none; }
+  .fold-title { color: var(--fg); font-weight: 500; }
   .download { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; color: var(--muted); }
   .download:hover { background: var(--surface-2); color: var(--fg); }
-  .audio-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "icon text dl" "player player player"; align-items: center; gap: 6px 10px; padding: 8px 4px 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  .audio-row { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "icon text dl" "player player player"; align-items: center; gap: 6px 10px; padding: 8px 4px 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
   .audio-row > .icon { grid-area: icon; color: var(--muted); }
   .audio-row > .caption-text { grid-area: text; }
   .audio-row > .download { grid-area: dl; }
@@ -277,9 +280,8 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   .callout.warn > .icon { color: var(--warn); }
   p.note { font-size: 13px; }
 
-  .more-below { display: none; }
-  :root[data-capped] .more-below { position: sticky; bottom: 0; flex: none; display: flex; align-items: flex-end; justify-content: center; gap: 4px; height: 48px; margin-top: -64px; padding-bottom: 4px; background: linear-gradient(to bottom, transparent, var(--bg) 75%); color: var(--muted); font-size: 12px; pointer-events: none; opacity: 0; transition: opacity 0.15s ease; }
-  :root[data-capped] .more-below.show { opacity: 1; }
+  .more-below { position: sticky; bottom: 0; flex: none; display: flex; align-items: flex-end; justify-content: center; gap: 4px; height: 48px; margin-top: -64px; padding-bottom: 4px; background: linear-gradient(to bottom, transparent, var(--bg) 75%); color: var(--muted); font-size: 12px; pointer-events: none; opacity: 0; transition: opacity 0.15s ease; }
+  .more-below.show { opacity: 1; }
   .more-below .icon svg { width: 14px; height: 14px; }
 
   .pending { display: flex; flex-direction: column; gap: 16px; }
@@ -436,7 +438,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   const moreBelow = el('div', { className: 'more-below', 'aria-hidden': 'true' }, [moreBelowLabel, icon('down')])
   let fileCount = 0
   const updateMoreBelow = () => {
-    if (!('capped' in root.dataset) || app.scrollHeight - app.scrollTop - app.clientHeight <= 4) {
+    if (app.scrollHeight - app.scrollTop - app.clientHeight <= 4) {
       moreBelow.classList.remove('show')
       return
     }
@@ -459,7 +461,6 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     const maxHeight = positive(dimensions.maxHeight)
     if (maxHeight > 0) {
       root.style.setProperty('--max-height', Math.max(maxHeight - 32, 160) + 'px')
-      root.dataset.capped = ''
       updateMoreBelow()
     }
   }
@@ -661,6 +662,19 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     return section
   }
 
+  const originalsFold = (originals) => {
+    const signature = JSON.stringify(originals)
+    const cached = sectionCache.get('\\noriginals')
+    if (cached && cached.signature === signature) return cached.node
+    const node = foldable(
+      [icon('caret'), el('span', { className: 'fold-title', text: 'Uploaded files' }), el('span', { text: '· ' + originals.length })],
+      'fold originals',
+      () => group(stepEntries(':original', originals, 0)),
+    )
+    sectionCache.set('\\noriginals', { signature, node })
+    return node
+  }
+
   const buildSteps = (steps, stepsMeta) => {
     // Few files per step: one shared grid where each card names its step.
     const total = steps.reduce((sum, [, files]) => sum + files.length, 0)
@@ -749,13 +763,21 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     for (const error of toolErrors) nodes.push(errorCallout(error))
 
     const results = isRecord(assembly.results) ? assembly.results : {}
-    const uploads = Array.isArray(assembly.uploads) ? assembly.uploads.filter(isRecord) : []
     const steps = Object.entries(results)
       .map(([stepName, files]) => [stepName, Array.isArray(files) ? files.filter(isRecord) : []])
-      .filter(([, files]) => files.length > 0)
-    if (uploads.length > 0) steps.unshift([':original', uploads])
-    fileCount = steps.reduce((sum, [, files]) => sum + files.length, 0)
-    nodes.push(...buildSteps(steps, meta.steps))
+      .filter(([stepName, files]) => stepName !== ':original' && files.length > 0)
+    // Some Templates also export the uploads as an ':original' result Step; show them once.
+    const exported = Array.isArray(results[':original']) ? results[':original'].filter(isRecord) : []
+    const uploads = Array.isArray(assembly.uploads) ? assembly.uploads.filter(isRecord) : []
+    const originals = exported.length > 0 ? exported : uploads
+    fileCount = steps.reduce((sum, [, files]) => sum + files.length, originals.length)
+    if (steps.length === 0 && originals.length > 0) {
+      nodes.push(...buildSteps([[':original', originals]], meta.steps))
+    } else {
+      nodes.push(...buildSteps(steps, meta.steps))
+      // Inputs are the least interesting part of a result, so they stay folded at the bottom.
+      if (originals.length > 0) nodes.push(originalsFold(originals))
+    }
 
     // The busy note and any warnings read as one message.
     const notes = []

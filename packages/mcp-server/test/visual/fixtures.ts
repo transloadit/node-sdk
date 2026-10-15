@@ -138,12 +138,18 @@ interface AssemblyInput {
 // Robots behind the fixture Steps, as they would appear in the Assembly's instructions.
 const stepRobots: Record<string, string> = {
   ':original': '/upload/handle',
+  audio_64kbps: '/audio/encode',
   audio_extracted: '/audio/encode',
   described: '/image/describe',
+  document_page_1: '/document/thumbs',
   documented: '/document/convert',
   encoded: '/video/encode',
+  image_640: '/image/resize',
+  image_square_200: '/image/resize',
   resized: '/image/resize',
   thumbnailed: '/image/resize',
+  video_720p: '/video/encode',
+  video_thumb: '/video/thumbs',
 }
 
 const instructions = (stepNames: string[]): string =>
@@ -219,6 +225,64 @@ const manySteps = (): { uploads: FixtureFile[]; results: Record<string, FixtureF
       described: range(6).map((index) =>
         document(`photo-${index}-labels.json`, 'application/json'),
       ),
+    },
+  }
+}
+
+const chatGptOriginalsAndResults = (): {
+  uploads: FixtureFile[]
+  results: Record<string, FixtureFile[]>
+} => {
+  const originals = [
+    file({
+      name: 'brochure.pdf',
+      mime: 'application/pdf',
+      type: 'document',
+      size: 182_044,
+      origin: uploadOrigin,
+      field: 'file',
+    }),
+    file({
+      name: 'teaser.mp4',
+      mime: 'video/mp4',
+      type: 'video',
+      size: 2_381_102,
+      width: 320,
+      height: 180,
+      duration: 1,
+      origin: uploadOrigin,
+      field: 'file',
+    }),
+    file({
+      name: 'portrait.jpg',
+      mime: 'image/jpeg',
+      type: 'image',
+      size: 14_108,
+      width: 640,
+      height: 400,
+      origin: uploadOrigin,
+      field: 'file',
+    }),
+    file({
+      name: 'jingle.mp3',
+      mime: 'audio/mpeg',
+      type: 'audio',
+      size: 4406,
+      duration: 1,
+      origin: uploadOrigin,
+      field: 'file',
+    }),
+  ]
+  return {
+    uploads: originals,
+    results: {
+      ':original': originals,
+      document_page_1: [image('brochure-page-1.png', { width: 400, height: 566 })],
+      audio_64kbps: [audio('jingle-64kbps.mp3')],
+      image_square_200: [image('portrait-200.png', { width: 200, height: 200 })],
+      image_640: [image('portrait-640.png')],
+      video_720p: [video('teaser-720p.webm')],
+      video_thumb: [image('teaser-thumb.png', { width: 320, height: 180 })],
     },
   }
 }
@@ -363,6 +427,17 @@ export const widgetStateFixtures: WidgetStateFixture[] = [
         },
       }),
     ),
+  },
+  {
+    // A ChatGPT smoke test: four mixed uploads, echoed as an `:original` result Step, and six
+    // result Steps with one file each.
+    name: 'chatgpt-mixed-with-originals',
+    initialize: 'accept',
+    toolInput: true,
+    cancelled: false,
+    openai: true,
+    waitForText: 'Completed',
+    result: toolResponse(completed(chatGptOriginalsAndResults())),
   },
   {
     name: 'completed-40-files',

@@ -27,9 +27,8 @@ const rememberMedia = async (frame: FrameLocator): Promise<number> =>
 const keptMedia = (frame: FrameLocator): Promise<number> =>
   frame.locator('body').evaluate((body) => {
     const now = [...body.querySelectorAll('img, video, audio')]
-    return (window.mediaBefore ?? []).filter(
-      (node, index) => node.isConnected && now[index] === node,
-    ).length
+    return (window.mediaBefore ?? []).filter((node) => node.isConnected && now.includes(node))
+      .length
   })
 
 const sizeChanges = async (page: Page): Promise<number> =>
@@ -163,6 +162,8 @@ test.describe('assembly result widget stability', () => {
       },
     })
     await widget.frame.getByText('Completed').first().waitFor()
+    // Next to results, the uploads fold away; opening them shows the same preview node.
+    await widget.frame.getByText('Uploaded files').click()
     await settleWidget(page, widget.frame)
 
     expect(await keptMedia(widget.frame)).toBe(media)
