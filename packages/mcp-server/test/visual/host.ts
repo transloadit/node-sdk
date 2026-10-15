@@ -110,9 +110,13 @@ const hostPageHtml = `<!doctype html>
 
 const mediaDir = join(import.meta.dirname, 'media')
 const mediaFiles: Record<string, { file: string; contentType: string }> = {
+  // Chromium sniffs images, so a .jpg can carry png bytes. Playwright's Chromium has no H.264,
+  // so an .mp4 name is served as the webm clip with its real type.
+  '.jpg': { file: 'photo.png', contentType: 'image/jpeg' },
+  '.mp3': { file: 'tone.mp3', contentType: 'audio/mpeg' },
+  '.mp4': { file: 'clip.webm', contentType: 'video/webm' },
   '.png': { file: 'photo.png', contentType: 'image/png' },
   '.webm': { file: 'clip.webm', contentType: 'video/webm' },
-  '.mp3': { file: 'tone.mp3', contentType: 'audio/mpeg' },
 }
 
 /**
