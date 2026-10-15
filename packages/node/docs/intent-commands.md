@@ -673,6 +673,8 @@ Transcribe speech in audio or video files
 
 Runs `/speech/transcribe` with a text-first default and writes the transcript to `--output`.
 
+`--target-language`: Sets the spoken language hint for the `"replicate"` provider. Omit this parameter to detect the spoken language automatically. Set it to the full lowercase English language name, such as `"french"`, when the spoken language is known. Despite its name, this parameter does not translate speech. For the `"aws"` and `"gcp"` providers, use `--source-language` instead.
+
 **Usage**
 
 ```bash
@@ -698,7 +700,7 @@ npx transloadit speech transcribe --input <path|dir|url|-> [options]
 | `--provider` | `string` | no | `replicate` | Provider to use for transcription. Defaults to replicate. |
 | `--format` | `string` | no | `text` | Output format. Defaults to text. |
 | `--source-language` | `string` | no | `en-US` | Spoken language as a BCP-47 code, for providers that support explicit source languages. |
-| `--target-language` | `string` | no | `en-US` | Target written language for providers that support translation. |
+| `--target-language` | `string` | no | `french` | Sets the spoken language hint for the "replicate" provider. Omit this parameter to detect the spoken language automatically. Set it to the full lowercase English language name,… |
 
 **Examples**
 

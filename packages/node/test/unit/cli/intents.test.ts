@@ -6,6 +6,10 @@ import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+import {
+  robotSpeechTranscribeInstructionsSchema,
+  meta as robotSpeechTranscribeMeta,
+} from '../../../src/alphalib/types/robots/speech-transcribe.ts'
 import * as assembliesCommands from '../../../src/cli/commands/assemblies.ts'
 import {
   findIntentDefinitionByPaths,
@@ -13,7 +17,7 @@ import {
   getIntentResultStepName,
   intentCatalog,
 } from '../../../src/cli/intentCommandSpecs.ts'
-import { intentCommands } from '../../../src/cli/intentCommands.ts'
+import { intentCommands, resolveIntentCommandDefinitions } from '../../../src/cli/intentCommands.ts'
 import {
   coerceIntentFieldValue,
   inferIntentFieldKind,
@@ -736,6 +740,32 @@ describe('intent commands', () => {
         },
       }),
     )
+  })
+
+  it('matches speech transcribe target-language guidance to the Robot schema and example', () => {
+    const definition = resolveIntentCommandDefinitions().find(
+      (candidate) => candidate.paths.join(' ') === 'speech transcribe',
+    )
+    if (definition == null) {
+      throw new Error('Missing speech transcribe intent definition')
+    }
+
+    const targetLanguageOption = getIntentOptionDefinitions(definition.intentDefinition).find(
+      (field) => field.optionFlags === '--target-language',
+    )
+    const schemaExample = z
+      .object({ steps: z.object({ transcribed: robotSpeechTranscribeInstructionsSchema }) })
+      .parse(robotSpeechTranscribeMeta.example_code)
+
+    expect(targetLanguageOption).toMatchObject({
+      description: robotSpeechTranscribeInstructionsSchema.shape.target_language.description
+        ?.replaceAll('`source_language`', '`--source-language`')
+        .replace(/\s+/g, ' ')
+        .trim(),
+      exampleValue: schemaExample.steps.transcribed.target_language,
+    })
+    expect(targetLanguageOption?.description).toContain('use `--source-language` instead.')
+    expect(targetLanguageOption?.exampleValue).toBe('french')
   })
 
   it('maps speech transcribe to text output with the SOTA provider default', async () => {

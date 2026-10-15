@@ -4,6 +4,7 @@ import type {
 } from '../intentRuntime.ts'
 import type { SemanticIntentDescriptor, SemanticIntentPresentation } from './index.ts'
 
+import { robotSpeechTranscribeInstructionsSchema } from '../../alphalib/types/robots/speech-transcribe.ts'
 import { parseOptionalEnumValue } from './parsing.ts'
 
 const speechTranscribeProviders = ['aws', 'gcp', 'replicate'] as const
@@ -14,6 +15,13 @@ type SpeechTranscribeFormat = (typeof speechTranscribeFormats)[number]
 
 const defaultSpeechTranscribeProvider = 'replicate' satisfies SpeechTranscribeProvider
 const defaultSpeechTranscribeFormat = 'text' satisfies SpeechTranscribeFormat
+// Keep schema guidance canonical while displaying the CLI flag and a single aligned option line.
+const targetLanguageDescription = (
+  robotSpeechTranscribeInstructionsSchema.shape.target_language.description ?? ''
+)
+  .replaceAll('`source_language`', '`--source-language`')
+  .replace(/\s+/g, ' ')
+  .trim()
 
 const speechTranscribeExecutionDefinition = {
   kind: 'dynamic-step',
@@ -53,17 +61,19 @@ const speechTranscribeExecutionDefinition = {
       kind: 'string',
       propertyName: 'targetLanguage',
       optionFlags: '--target-language',
-      description: 'Target written language for providers that support translation.',
+      description: targetLanguageDescription,
       required: false,
-      exampleValue: 'en-US',
+      exampleValue: 'french',
     },
   ] as const satisfies readonly IntentOptionDefinition[],
 } satisfies IntentDynamicStepExecutionDefinition
 
 const speechTranscribeCommandPresentation = {
   description: 'Transcribe speech in audio or video files',
-  details:
-    'Runs `/speech/transcribe` with a text-first default and writes the transcript to `--output`.',
+  // Option tables abbreviate descriptions, so keep the complete language guidance in the details.
+  details: `Runs \`/speech/transcribe\` with a text-first default and writes the transcript to \`--output\`.
+
+\`--target-language\`: ${targetLanguageDescription}`,
   examples: [
     [
       'Transcribe an audio file to text',
