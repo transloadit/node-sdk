@@ -15,7 +15,7 @@ describe('intent docs generation', () => {
     expect(markdown).toContain('Despite its name, this parameter does not translate speech.')
     expect(markdown).toContain('full lowercase English language name')
     expect(markdown).toContain(
-      'For the `"aws"` and `"gcp"` providers, use `source_language` instead.',
+      'For the `"aws"` and `"gcp"` providers, use `--source-language` instead.',
     )
   })
 

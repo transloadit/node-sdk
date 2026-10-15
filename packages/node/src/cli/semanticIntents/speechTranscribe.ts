@@ -15,8 +15,13 @@ type SpeechTranscribeFormat = (typeof speechTranscribeFormats)[number]
 
 const defaultSpeechTranscribeProvider = 'replicate' satisfies SpeechTranscribeProvider
 const defaultSpeechTranscribeFormat = 'text' satisfies SpeechTranscribeFormat
-const targetLanguageDescription =
+// Keep schema guidance canonical while displaying the CLI flag and a single aligned option line.
+const targetLanguageDescription = (
   robotSpeechTranscribeInstructionsSchema.shape.target_language.description ?? ''
+)
+  .replaceAll('`source_language`', '`--source-language`')
+  .replace(/\s+/g, ' ')
+  .trim()
 
 const speechTranscribeExecutionDefinition = {
   kind: 'dynamic-step',
@@ -68,7 +73,7 @@ const speechTranscribeCommandPresentation = {
   // Option tables abbreviate descriptions, so keep the complete language guidance in the details.
   details: `Runs \`/speech/transcribe\` with a text-first default and writes the transcript to \`--output\`.
 
-\`--target-language\`: ${targetLanguageDescription.trim()}`,
+\`--target-language\`: ${targetLanguageDescription}`,
   examples: [
     [
       'Transcribe an audio file to text',

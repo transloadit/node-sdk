@@ -758,9 +758,13 @@ describe('intent commands', () => {
       .parse(robotSpeechTranscribeMeta.example_code)
 
     expect(targetLanguageOption).toMatchObject({
-      description: robotSpeechTranscribeInstructionsSchema.shape.target_language.description,
+      description: robotSpeechTranscribeInstructionsSchema.shape.target_language.description
+        ?.replaceAll('`source_language`', '`--source-language`')
+        .replace(/\s+/g, ' ')
+        .trim(),
       exampleValue: schemaExample.steps.transcribed.target_language,
     })
+    expect(targetLanguageOption?.description).toContain('use `--source-language` instead.')
     expect(targetLanguageOption?.exampleValue).toBe('french')
   })
 
