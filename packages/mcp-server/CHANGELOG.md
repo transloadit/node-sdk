@@ -1,5 +1,19 @@
 # @transloadit/mcp-server
 
+## 0.6.5
+
+### Patch Changes
+
+- 283922a: Refresh Robot schemas from API2 and register `/document/extract` so Assembly Instructions lint clean through the SDK and MCP server. Regenerate the SDK Robot registry during builds to keep new schemas registered, and align the Tigris metadata keys with API2.
+
+  In `@transloadit/zod`, replace `robotsMeta.tigrisImport` and `robotsMeta.tigrisStore` with `robotsMeta.tigrisImportMeta` and `robotsMeta.tigrisStoreMeta`. This metadata API change requires a major release of that package; the other packages receive patch updates.
+
+- ef9600e: Type the documented `listAssemblies` filters `template_id`, `region`, `sort` and `order`, and accept `keywords` as a string, which is what API2 searches for (an array only works with a single element).
+- ca863fe: Keep the Assembly result widget compact when uploads are listed with the results: the shared grid is decided on the result Steps alone, uploads fold into an "Uploaded files" row at the bottom (and are listed once even when a Template also exports them as `:original`), and a result that would grow taller than 720px scrolls inside the card when the host sets no maxHeight.
+- Updated dependencies [283922a]
+- Updated dependencies [ef9600e]
+  - @transloadit/node@6.0.3
+
 ## 0.6.4
 
 ### Patch Changes
