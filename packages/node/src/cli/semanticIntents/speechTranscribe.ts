@@ -15,6 +15,8 @@ type SpeechTranscribeFormat = (typeof speechTranscribeFormats)[number]
 
 const defaultSpeechTranscribeProvider = 'replicate' satisfies SpeechTranscribeProvider
 const defaultSpeechTranscribeFormat = 'text' satisfies SpeechTranscribeFormat
+const targetLanguageDescription =
+  robotSpeechTranscribeInstructionsSchema.shape.target_language.description ?? ''
 
 const speechTranscribeExecutionDefinition = {
   kind: 'dynamic-step',
@@ -54,7 +56,7 @@ const speechTranscribeExecutionDefinition = {
       kind: 'string',
       propertyName: 'targetLanguage',
       optionFlags: '--target-language',
-      description: robotSpeechTranscribeInstructionsSchema.shape.target_language.description,
+      description: targetLanguageDescription,
       required: false,
       exampleValue: 'french',
     },
@@ -63,8 +65,10 @@ const speechTranscribeExecutionDefinition = {
 
 const speechTranscribeCommandPresentation = {
   description: 'Transcribe speech in audio or video files',
-  details:
-    'Runs `/speech/transcribe` with a text-first default and writes the transcript to `--output`.',
+  // Option tables abbreviate descriptions, so keep the complete language guidance in the details.
+  details: `Runs \`/speech/transcribe\` with a text-first default and writes the transcript to \`--output\`.
+
+\`--target-language\`: ${targetLanguageDescription.trim()}`,
   examples: [
     [
       'Transcribe an audio file to text',
