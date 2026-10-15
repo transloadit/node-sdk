@@ -1,5 +1,12 @@
 # @transloadit/notify-url-relay
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [283922a]
+  - @transloadit/zod@7.0.0
+
 ## 0.3.0
 
 ### Minor Changes
