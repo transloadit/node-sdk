@@ -18,6 +18,8 @@ the existing presentation props: `sizes`, `style`, `className`, `loading`, `prel
 `errorFallback`, `retryKey`, `placeholder`, and native serializable attributes. It accepts neither separate
 dimensions nor arbitrary transforms. `TransloaditPicture` remains exported from `/react` and
 `/next` for precomputed models. Change `retryKey` after sign-in to retry a failed image.
+Client-side `Image` and `TransloaditPicture` also accept native `onLoad` and `onError` handlers.
+These callbacks are not serializable Next.js server props.
 
 The shared default endpoint is `/api/transloadit/media`. Override `route` with a same-origin
 absolute path without query/fragment; include your application's base path. Pass the same route
@@ -184,6 +186,44 @@ The placeholder uses cover sizing without stretching the source hash; it approxi
 original, not a separately encoded rendition of each crop. Use `errorFallback` to replace both
 the image and its blur on delivery failure; without it, the native broken-image UI can retain
 the background.
+
+## Immediate photo previews and bounded preloading
+
+The optional client entry `@transloadit/viewer/react/preview` provides a letterboxed preview
+with a removable ThumbHash and explicit loading/error feedback. Unlike a background blur,
+the placeholder disappears on load, including when an SSR image loads before hydration.
+
+```tsx
+import { ImagePrefetch, ImagePreview } from '@transloadit/viewer/react/preview'
+
+<ImagePreview
+  src={currentReceipt}
+  alt={description}
+  sizes="100vw"
+  loadingFallback={<span role="status">Loading photo…</span>}
+  errorFallback={<p role="alert">This photo could not be loaded.</p>}
+  onReady={() => setLoadedVersion(currentReceipt.version_id)}
+/>
+{loadedVersion === currentReceipt.version_id && nextReceipt && allowPrefetch ? (
+  <ImagePrefetch src={nextReceipt} sizes="100vw" />
+) : null}
+```
+
+Translate the fallbacks in your application. Change the selected receipt immediately on
+navigation; do not wrap it in a transition that waits for images. Loading state resets for
+each exact asset/version/route, rendition policy and `sizes`. Change `retryKey` after signing in
+or an explicit retry to recover a failed preview. `onReady` fires once per reset after a successful load.
+Missing ThumbHash metadata still shows your loading fallback.
+
+`ImagePrefetch` warms one browser-selected rendition at low priority, using the same
+responsive candidates as the preview. Mount it only after the current image loads, and skip
+speculative work for data-saving/slow connections and videos. Unmounting it does not guarantee
+that a browser cancels an already started request. Pass identical `route`, `policy`, and `sizes`
+to both components. Permission checks, URL signing, and expiry remain unchanged; the receipt
+and its ThumbHash must already be authorized before either component renders.
+
+URL state, gallery ordering, album membership, and video controls remain application concerns.
+These components do not introduce a router or an album data model.
 
 ## Policy, caching, and limits
 

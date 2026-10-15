@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactEventHandler, ReactNode } from 'react'
 
 import type { TransloaditImageLayoutProps } from './picture.tsx'
 import type { StorageImageReceipt, StorageRenditionPolicy } from './storage.ts'
@@ -33,6 +33,8 @@ export type ImageProps = TransloaditImageLayoutProps & {
   placeholder?: 'empty' | 'blur'
   width?: never
   height?: never
+  onLoad?: ReactEventHandler<HTMLImageElement>
+  onError?: ReactEventHandler<HTMLImageElement>
 }
 
 /** Uses canonical receipt dimensions and stable route URLs, including on long-open client pages. */

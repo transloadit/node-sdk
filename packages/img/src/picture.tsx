@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, ReactEventHandler, ReactNode } from 'react'
 
 import type {
   TransloaditImageCandidate,
@@ -45,6 +45,9 @@ export type TransloaditPictureProps = TransloaditImagePresentationProps & {
   model: TransloaditImageModel
   /** A pre-decoded placeholder; this low-level renderer does not import a ThumbHash decoder. */
   blurDataURL?: string
+  /** Client renderers may handle loading without making a view transition wait for the image. */
+  onLoad?: ReactEventHandler<HTMLImageElement>
+  onError?: ReactEventHandler<HTMLImageElement>
 }
 
 function getSourceSet(candidates: readonly TransloaditImageCandidate[]): string {
@@ -168,6 +171,8 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
       alt={attributes.alt}
       decoding={attributes.decoding ?? 'async'}
       loading={resolvedLoading}
+      onLoad={props.onLoad}
+      onError={props.onError}
       // Without img srcset, only lazy auto sizing is valid here. Fallback lengths stay on source.
       sizes={automaticSizes ? 'auto' : undefined}
       src={model.fallbackUrl}
