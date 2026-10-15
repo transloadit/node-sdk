@@ -57,6 +57,8 @@ export const robotVideoSplitInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/video/split').describe(`
 Splits a video into multiple segments based on an array of from/to durations. Each segment produces a separate output file. This is useful for cutting a video into parts, for example to insert ads later via [🤖/video/concat](/docs/robots/video-concat/).
+
+For iPhone videos with spatial audio, see [iPhone spatial audio in 🤖/video/encode](/docs/robots/video-encode/#iphone-spatial-audio).
 `),
     segments: z
       .array(segmentSchema)

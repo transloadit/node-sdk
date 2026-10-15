@@ -89,9 +89,11 @@ Please note this parameter is independent of adding video fades between sections
       .boolean()
       .default(false)
       .describe(`
-When set to \`true\`, the concatenated video will contain chapter markers at the positions where the input videos are joined. Each chapter will be titled with the basename of the corresponding input video file.
+When set to \`true\`, the concatenated video will contain a chapter marker where each input video starts in the output. Each chapter will be titled with the basename of the corresponding input video file. When a \`transition\` is enabled, the incoming clip’s chapter starts at the beginning of its transition, accounting for the overlap between clips.
 
 This is useful for navigation in video players that support chapter-based seeking.
+
+In MP4 output, chapter markers add a \`bin_data\` track containing the chapter information. This is normal and does not affect video or audio playback.
 `),
     sort_by: inputSortBySchema,
     transition: z
@@ -104,7 +106,7 @@ Specifies the transition effect to apply between concatenated video clips.
 - \`"crossfade"\`: Applies a crossfade transition where the end of one clip gradually blends into the beginning of the next clip. Both video and audio are crossfaded.
 - \`"fade_to_black"\`: Applies a fade-to-black transition where each clip fades out to black before the next clip fades in from black.
 
-When using \`"crossfade"\` or \`"fade_to_black"\`, the \`transition_duration\` parameter controls how long the transition lasts. Note that crossfade transitions will reduce the total output duration since clips overlap during the transition.
+When using \`"crossfade"\` or \`"fade_to_black"\`, the \`transition_duration\` parameter controls how long the transition lasts. Both effects overlap adjacent clips and reduce the total output duration by the applied transition duration at each join. The applied duration is capped at half of the shorter clip in each pair.
 `),
     transition_duration: z
       .number()
@@ -114,7 +116,9 @@ The duration of the transition effect in seconds. Only applies when \`transition
 
 For example, a value of \`1.0\` creates a 1-second transition between clips. The value can be a float for sub-second precision (e.g., \`0.5\` for 500 milliseconds) and must be greater than \`0\` whenever transitions are enabled.
 
-For crossfade transitions, this is the overlap duration where both clips are visible. For fade_to_black transitions, this is the total time for the fade out and fade in (half for each). The applied transition is capped at half of the shorter clip in each transition pair.
+For crossfade transitions, this is the overlap duration where both clips are visible. For \`"fade_to_black"\`, the video fades out over approximately the first 20% of the transition and fades in over the remaining 80% (about 0.2 seconds out and 0.8 seconds in for a 1-second transition). Audio is crossfaded throughout the transition for both effects.
+
+The applied transition is capped at half of the shorter clip in each transition pair. Both effects shorten the output by this applied duration at each join.
 `),
   })
   .strict()

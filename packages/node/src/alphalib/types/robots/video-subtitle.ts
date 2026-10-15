@@ -19,54 +19,47 @@ import {
   robotVideoEncodingMeta,
 } from './_instructions-primitives.ts'
 
+const subtitleColorSchema = z.union([color_without_alpha, color_with_alpha])
+const subtitleColorDescription = `Use \`"rgb"\`, \`"rrggbb"\`, or \`"aarrggbb"\` format, optionally prefixed with \`#\`. Three-digit colors are expanded to six digits. Colors without alpha are fully opaque. For eight-digit colors, the first two digits specify transparency (\`"00"\` is fully opaque, \`"ff"\` is fully transparent).`
+
+/** Appearance defaults for the social caption preset, before customer overrides. */
+export const videoSubtitleSocialStyle = {
+  // Static Poppins faces are included by API2's shared fontsConf google-fonts package.
+  font: 'Poppins',
+  // ASS includes the font's ascent and descent; Poppins capitals occupy about 40% of it.
+  font_size: 54,
+  bold: true,
+  outline_width: 2,
+}
+
 export const meta: RobotMetaInput = {
   ...robotVideoEncodingMeta,
   example_code: {
     steps: {
-      add_english_subtitles: {
-        robot: '/video/subtitle',
-        use: {
-          steps: [
-            {
-              name: ':original',
-              fields: 'input_video',
-              as: 'video',
-            },
-            {
-              name: ':original',
-              fields: 'input_srt_en',
-              as: 'subtitles',
-            },
-          ],
-        },
-        language: 'eng',
-        name: 'English',
-        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
+      transcript: {
+        robot: '/speech/transcribe',
+        use: ':original',
+        provider: 'aws',
+        format: 'json',
+        source_language: 'en-US',
       },
-      add_german_subtitles: {
+      captioned: {
         robot: '/video/subtitle',
         use: {
           steps: [
-            {
-              name: 'add_english_subtitles',
-              as: 'video',
-            },
-            {
-              name: ':original',
-              fields: 'input_srt_de',
-              as: 'subtitles',
-            },
+            { name: ':original', as: 'video' },
+            { name: 'transcript', as: 'subtitles' },
           ],
         },
-        language: 'deu',
-        name: 'Deutsch',
-        keep_subtitles: true,
+        subtitles_type: 'burned',
+        preset: 'empty',
+        style: 'social',
         ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },
   example_code_description:
-    'If you have file input fields in a form — one for a video and one for each subtitle language (named `input_video`, `input_srt_en`, and `input_srt_de` via the HTML `name` attribute) — here’s how to add multiple subtitle streams with language tags to the video. Chain multiple `/video/subtitle` Steps with `keep_subtitles` set to `true` so each new stream is added alongside existing ones:',
+    'Transcribe an uploaded video into timestamped words, then burn in uppercase social captions with the spoken word highlighted. Captions normally contain up to three words, breaking at sentence endings and pauses longer than 0.4 seconds. A trailing function word can move to the next caption, allowing one extra word there:',
   purpose_sentence: 'adds subtitles and closed captions to videos',
   purpose_verb: 'subtitle',
   purpose_word: 'subtitle',
@@ -81,7 +74,9 @@ export const robotVideoSubtitleInstructionsSchema = robotBase
   .merge(robotFFmpegVideo)
   .extend({
     robot: z.literal('/video/subtitle').describe(`
-This <dfn>Robot</dfn> supports both SRT and VTT subtitle files.
+This <dfn>Robot</dfn> supports SRT, VTT, ASS, and the timestamped JSON output of \`/speech/transcribe\` with \`"format": "json"\`. Pass the video as \`"video"\` and the transcript as \`"subtitles"\` in the \`use\` parameter. JSON words are grouped into captions and converted to ASS for burned word highlighting, or plain SRT cues for external subtitle streams. External JSON cues preserve casing and punctuation. Provider segments do not control caption breaks. SRT and VTT timing is preserved.
+
+Without a \`preset\` or custom \`ffmpeg\` options, the legacy \`"flash"\` preset produces FLV output. With this default, burned subtitles use MP3 audio; external subtitles copy the input audio. Set \`"preset": "empty"\` to keep the input container, such as MP4 for an MP4 input.
 `),
     subtitles_type: zodInputPreservingTransform(z.enum(['burned', 'external', 'burn']), (val) =>
       val === 'burn' ? 'burned' : val,
@@ -90,29 +85,49 @@ This <dfn>Robot</dfn> supports both SRT and VTT subtitle files.
       .describe(`
 Determines if subtitles are added as a separate stream to the video (value \`"external"\`) that then can be switched on and off in your video player, or if they should be burned directly into the video (value \`"burned"\` or \`"burn"\`) so that they become part of the video stream.
 `),
+    style: z
+      .enum(['social'])
+      .optional()
+      .describe(`
+Applies a ready-made appearance for burned subtitles: heavy Poppins text and a large font scaled with the video height. JSON captions render in uppercase in the lower third with a thick outline and a soft black shadow. Each caption grows from 85% to full size over 120 milliseconds, then its words stay in place while the highlight changes color. The transcript file is preserved. Existing styling parameters override the preset. ASS files retain their own styles. With timestamped JSON from \`/speech/transcribe\`, the active word is highlighted until the next word or caption starts; other words use \`font_color\`. Trailing commas and periods are omitted from social JSON captions; question marks and exclamation marks are preserved. Word highlighting and grouping require JSON input.
+`),
+    highlight_color: subtitleColorSchema.default('FFD60A').describe(`
+The accent color of the active word in JSON subtitles. Only applies to burned JSON subtitles. With \`"style": "social"\`, the previous word stays highlighted through short gaps until the next word or caption starts. Without the social style, gaps use \`font_color\` for the entire caption.
+
+${subtitleColorDescription}
+`),
+    max_words_per_caption: z
+      .number()
+      .int()
+      .min(1)
+      .default(3)
+      .describe(`
+The target maximum number of timestamped JSON words shown in a caption. Captions break earlier at sentence-ending punctuation or pauses longer than 0.4 seconds. With \`"style": "social"\`, a trailing English function word such as “by,” “to,” or “the” moves to the next caption when possible, allowing at most one extra word in that caption. Single-word captions are preserved when the limit is 1. A caption stays visible until the next caption starts when the pause is at most 0.4 seconds, and disappears at its last word’s end during longer pauses. Does not change SRT, VTT, or ASS cues.
+`),
     border_style: z
       .enum(['box', 'outline', 'shadow'])
       .default('outline')
       .describe(`
 Specifies the style of the subtitle. Use the \`border_color\` parameter to specify the color of the border.
 `),
-    border_color: color_with_alpha.default('40000000').describe(`
-The color for the subtitle border. The first two hex digits specify the alpha value of the color.
+    border_color: subtitleColorSchema.default('000000').describe(`
+The color for the subtitle border. The default is opaque black. Only applies to burned subtitles.
+
+${subtitleColorDescription}
 `),
     // TODO: Make font an enum
     font: z
       .string()
       .default('Arial')
       .describe(`
-The font family to use. Also includes boldness and style of the font.
+The font family to use. Also includes boldness and style of the font. With \`"style": "social"\`, the default is Poppins, using its ExtraBold weight for JSON captions. An explicit font overrides the style.
 
 [Here](/docs/supported-formats/fonts/) is a list of all supported fonts.
 `),
-    font_color: z
-      .union([color_without_alpha, color_with_alpha])
-      .default('FFFFFF')
-      .describe(`
-The color of the subtitle text in \`"rgb"\`, \`"rrggbb"\`, or \`"aarrggbb"\` format. If 8 hex digits are provided, the first two specify the alpha value of the color (\`"00"\` is fully opaque, \`"ff"\` is fully transparent).
+    font_color: subtitleColorSchema.default('FFFFFF').describe(`
+The color of the subtitle text. Only applies to burned subtitles.
+
+${subtitleColorDescription}
 `),
     font_size: z
       .number()
@@ -120,13 +135,13 @@ The color of the subtitle text in \`"rgb"\`, \`"rrggbb"\`, or \`"aarrggbb"\` for
       .min(1)
       .default(16)
       .describe(`
-Specifies the size of the text.
+Specifies the size of the text in the 288-pixel subtitle coordinate space, scaled with the video height. With \`"style": "social"\`, the default is 54. Poppins capital letters are about 7.5% of the video height at this size. An explicit value overrides the style.
 `),
     bold: z
       .boolean()
       .default(false)
       .describe(`
-Specifies whether the subtitle text should be bold. Only applies to burned subtitles.
+Specifies whether the subtitle text should be bold. Only applies to burned subtitles. With \`"style": "social"\`, the default is \`true\`; an explicit \`false\` overrides the style.
 `),
     italic: z
       .boolean()
@@ -142,10 +157,10 @@ Specifies whether the subtitle text should be italic. Only applies to burned sub
       .optional()
       .nullable()
       .describe(`
-Specifies the width of the text outline in pixels. Only applies to burned subtitles with \`"outline"\` or \`"box"\` border styles. If not specified, the default width is used.
+Specifies the width of the text outline in the 288-pixel subtitle coordinate space, scaled with the video height. Numeric strings such as \`"4"\` are also accepted. Only applies to burned subtitles with \`"outline"\` or \`"box"\` border styles. If omitted or \`null\`, the default width is used (2 with \`"style": "social"\`, about 3.7 pixels on a video 534 pixels high).
 `),
     position: positionSchema.default('bottom').describe(`
-Specifies the position of the subtitles.
+Specifies the position of the subtitles. With \`"style": "social"\`, the default bottom position places JSON captions in the lower third. An explicit value overrides the style.
 `),
     language: z
       .string()

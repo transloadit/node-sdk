@@ -132,6 +132,13 @@ export const robotMetaSchema = z.object({
   preserveInputFileUrls: z.boolean().optional(),
   minimumCharge: z.number().optional(),
   minimumChargeUsd: z.number().optional(),
+  providerCostPricing: z
+    .object({
+      provider: z.literal('replicate'),
+      model: z.string().min(1),
+      models: z.array(z.string().min(1)).min(1),
+    })
+    .optional(),
   minimumChargeUsdPerSpeechTranscribeMinute: awsGcpMinimumChargeUsdSchema
     .extend({
       replicate: z.literal('variable').optional(),
@@ -436,10 +443,34 @@ export const interpolationSchemaFull = zodWithJsonInputSchema(
   ),
   z.string().regex(/^\$\{[^\n\r\u2028\u2029]+\}$/u),
 )
-const interpolationRegexPartial = /\${.+}/
+function hasPartialInterpolation(input: string): boolean {
+  // Retain the first opening marker on each line: the legacy .+ also accepts nested braces.
+  // A single scan avoids retrying the regex at every unterminated opening marker.
+  let interpolationStart = -1
+  for (let index = 0; index < input.length; index += 1) {
+    const character = input[index]
+    if (
+      character === '\n' ||
+      character === '\r' ||
+      character === '\u2028' ||
+      character === '\u2029'
+    ) {
+      interpolationStart = -1
+      continue
+    }
+    if (character === '}' && interpolationStart !== -1 && index > interpolationStart + 2) {
+      return true
+    }
+    if (interpolationStart === -1 && character === '$' && input[index + 1] === '{') {
+      interpolationStart = index
+    }
+  }
+  return false
+}
+
 export const interpolationSchemaPartial = zodWithJsonInputSchema(
   z.custom<string>(
-    (input) => typeof input === 'string' && interpolationRegexPartial.test(input),
+    (input) => typeof input === 'string' && hasPartialInterpolation(input),
     'Must be a partially interpolatable string',
   ),
   z.string().regex(/\$\{[^\n\r\u2028\u2029]+\}/u),
@@ -1167,6 +1198,24 @@ Array of field names to filter input files by when using steps.
 `),
   })
   .strict()
+
+const useParamDependencySchema = useParamObjectSchema.pick({ name: true }).passthrough()
+const useParamDependencyStepsSchema = z.union([
+  useParamStringSchema,
+  z.array(z.union([useParamStringSchema, useParamDependencySchema])),
+])
+
+/**
+ * Reads authored dependency names without normalizing legacy Instructions. Mixed arrays and
+ * additional options are accepted by runtime; only dependency fields belong to this view.
+ */
+export const useParamDependenciesSchema = z.union([
+  useParamDependencyStepsSchema,
+  useParamObjectOfStepsSchema
+    .pick({ steps: true })
+    .extend({ steps: useParamDependencyStepsSchema })
+    .passthrough(),
+])
 
 // Hidden fields variants for use parameters
 export const useParamObjectWithHiddenFieldsSchema = useParamObjectSchema.extend({

@@ -1,56 +1,28 @@
 import type {
-  RobotDefinition,
+  RobotDefinitionWithHiddenFields,
   RobotMetaInput,
   RobotSchemaVariantTypes,
 } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { zodCodePointLength, zodWithJsonInputSchema } from '../../lib/zodInputSemantics.ts'
+import { zodCaseInsensitiveEnum, zodCodePointLength } from '../../lib/zodInputSemantics.ts'
+import { youtubeCategories } from '../../youtubeCategories.ts'
 import {
   createProcessingExample,
-  defineRobot,
+  defineRobotWithHiddenFields,
   robotBase,
   robotStoreMeta,
   robotUse,
 } from './_instructions-primitives.ts'
 
-const youtubeCategories = [
-  'autos & vehicles',
-  'comedy',
-  'education',
-  'entertainment',
-  'film & animation',
-  'gaming',
-  'howto & style',
-  'music',
-  'news & politics',
-  'people & blogs',
-  'pets & animals',
-  'science & technology',
-  'sports',
-  'travel & events',
-] as const
-
-function asciiCaseInsensitiveLiteral(value: string): string {
-  return [...value]
-    .map((character) =>
-      character >= 'a' && character <= 'z' ? `[${character}${character.toUpperCase()}]` : character,
-    )
-    .join('')
-}
-
 const youtubeCategoryValueSchema = z.enum(youtubeCategories)
-const youtubeCategoryInputSchema = z
-  .string()
-  .regex(new RegExp(`^(?:${youtubeCategories.map(asciiCaseInsensitiveLiteral).join('|')})$`, 'u'))
-const youtubeCategorySchema = zodWithJsonInputSchema(
-  z.preprocess(
-    (value) => (typeof value === 'string' ? value.toLowerCase() : value),
-    youtubeCategoryValueSchema,
-  ),
-  youtubeCategoryInputSchema,
-)
+// Preserve the existing SDK input type for this already-preprocessed field.
+const youtubeCategorySchema: z.ZodEffects<
+  typeof youtubeCategoryValueSchema,
+  z.output<typeof youtubeCategoryValueSchema>,
+  unknown
+> = zodCaseInsensitiveEnum(youtubeCategoryValueSchema)
 
 export const meta: RobotMetaInput = {
   ...robotStoreMeta,
@@ -116,14 +88,27 @@ The category to which this video will be assigned.
     keywords: z.string().describe(`
 Tags used to describe the video, separated by commas. These tags will also be displayed on YouTube.
 `),
-    visibility: z.enum(['public', 'private', 'unlisted']).describe(`
+    visibility: z
+      .enum(['public', 'private', 'unlisted'])
+      .default('public')
+      .describe(`
 Defines the visibility of the uploaded video.
 `),
   })
   .strict()
 
-export const robotDefinition: RobotDefinition<typeof robotYoutubeStoreInstructionsSchema.shape> =
-  defineRobot(meta, robotYoutubeStoreInstructionsSchema)
+// Credential alternatives stay optional while Templates and Assembly overrides are merged.
+// YoutubeStoreRobot validates the resolved tokens after credential injection.
+const hiddenFields = {
+  access_token: z.string().optional(),
+  credentials: robotYoutubeStoreInstructionsSchema.shape.credentials.optional(),
+  refresh_token: z.string().optional(),
+}
+
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotYoutubeStoreInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotYoutubeStoreInstructionsSchema, hiddenFields)
 
 export const {
   withHiddenFields: robotYoutubeStoreInstructionsWithHiddenFieldsSchema,

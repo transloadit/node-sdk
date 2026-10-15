@@ -461,9 +461,29 @@ const generateFile = (sourceFile: ts.SourceFile, checker: ts.TypeChecker): strin
       continue
     }
 
-    if (ts.isExportDeclaration(statement) && statement.isTypeOnly) {
+    if (!ts.isExportDeclaration(statement)) continue
+    if (statement.isTypeOnly) {
       lines.push(printer.printNode(ts.EmitHint.Unspecified, statement, sourceFile))
+      continue
     }
+    if (statement.exportClause === undefined || !ts.isNamedExports(statement.exportClause)) continue
+    // Mixed Robot re-exports keep their type specifiers without publishing schema values.
+    const typeSpecifiers = statement.exportClause.elements.filter((element) => element.isTypeOnly)
+    if (typeSpecifiers.length === 0) continue
+    const declaration = ts.factory.updateExportDeclaration(
+      statement,
+      statement.modifiers,
+      true,
+      ts.factory.updateNamedExports(
+        statement.exportClause,
+        typeSpecifiers.map((element) =>
+          ts.factory.updateExportSpecifier(element, false, element.propertyName, element.name),
+        ),
+      ),
+      statement.moduleSpecifier,
+      statement.attributes,
+    )
+    lines.push(printer.printNode(ts.EmitHint.Unspecified, declaration, sourceFile))
   }
 
   const identifiers = new Set<string>()

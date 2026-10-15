@@ -39,7 +39,7 @@ export const robotMegaStoreInstructionsSchema = robotBase
 The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
 `),
     path: storeFilePath,
-    acl: storageAcl,
+    acl: storageAcl.default('private'),
     headers: z
       .record(z.string())
       .default({ 'Content-Type': '${file.mime}' })

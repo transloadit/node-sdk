@@ -17,7 +17,19 @@ import {
 } from './_instructions-primitives.ts'
 
 const s3StoreAclSchema = z
-  .enum(['bucket-default', 'private', 'public', 'public-read'])
+  // AWS object canned ACLs, plus the existing omission sentinel and legacy `public` value.
+  // `log-delivery-write` is bucket-only: https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl
+  .enum([
+    'authenticated-read',
+    'aws-exec-read',
+    'bucket-default',
+    'bucket-owner-full-control',
+    'bucket-owner-read',
+    'private',
+    'public',
+    'public-read',
+    'public-read-write',
+  ])
   .default('public-read')
 
 export const meta: RobotMetaInput = {
@@ -95,7 +107,7 @@ Short-lived AWS credentials are a matching set of \`key\`, \`secret\` and \`sess
 The URL prefix used for the returned URL, such as \`"http://my.cdn.com/some/path/"\`.
 `),
     acl: s3StoreAclSchema.describe(`
-The ACL used for this file. The default remains \`"${s3StoreAclSchema.parse(undefined)}"\`, which can conflict with S3 Block Public Access and disabled ACLs. For modern private buckets, explicitly set \`"bucket-default"\` to omit the generated ACL header, and do not supply ACL/grant headers in \`headers\`. \`"private"\` still sends an ACL.
+The ACL used for this file. Supports AWS’s [canned ACLs for objects](https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl). Other S3-compatible providers may support different ACLs. The default remains \`"${s3StoreAclSchema.parse(undefined)}"\`, which can conflict with S3 Block Public Access and disabled ACLs. For modern private buckets, explicitly set \`"bucket-default"\` to omit the generated ACL header, and do not supply ACL/grant headers in \`headers\`. \`"private"\` still sends an ACL.
 `),
     check_integrity: z
       .boolean()

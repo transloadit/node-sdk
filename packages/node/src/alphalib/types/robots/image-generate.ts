@@ -97,7 +97,7 @@ Best practice:
         'Prompt describing the desired image. For inpainting, describe what should appear in the masked/transparent region and that the rest should stay unchanged.',
       ),
     format: z
-      .enum(['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg'])
+      .enum(['jpeg', 'jpg', 'png', 'webp', 'svg'])
       .optional()
       .describe(
         'Output format. Defaults depend on model: png for Google and OpenAI models, svg for recraft-v3, jpeg for others. Google models currently return PNG only.',

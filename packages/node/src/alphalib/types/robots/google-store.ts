@@ -1,5 +1,5 @@
 import type {
-  RobotDefinition,
+  RobotDefinitionWithHiddenFields,
   RobotMetaInput,
   RobotSchemaVariantTypes,
 } from './_instructions-primitives.ts'
@@ -8,7 +8,7 @@ import { z } from 'zod'
 
 import {
   createStorageStoreExample,
-  defineRobot,
+  defineRobotWithHiddenFields,
   getGoogleCredentialsDescription,
   googleBase,
   robotBase,
@@ -87,8 +87,19 @@ The SSL URL of the file in the result JSON. The following [Assembly variables](/
   })
   .strict()
 
-export const robotDefinition: RobotDefinition<typeof robotGoogleStoreInstructionsSchema.shape> =
-  defineRobot(meta, robotGoogleStoreInstructionsSchema)
+// Credential alternatives stay optional while Templates and Assembly overrides are merged.
+// GoogleStoreRobot validates the resolved values after credential injection.
+const hiddenFields = {
+  bucket: z.string().optional(),
+  credentials: robotGoogleStoreInstructionsSchema.shape.credentials.optional(),
+  key_file_contents: z.string().optional(),
+  project_id: z.string().optional(),
+}
+
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotGoogleStoreInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotGoogleStoreInstructionsSchema, hiddenFields)
 
 export const {
   withHiddenFields: robotGoogleStoreInstructionsWithHiddenFieldsSchema,

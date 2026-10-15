@@ -1,4 +1,4 @@
-import type { z } from 'zod'
+import { z } from 'zod'
 
 export interface ZodCodePointLengthOptions {
   readonly max?: number
@@ -7,6 +7,27 @@ export interface ZodCodePointLengthOptions {
 
 /** ECMAScript whitespace for the runtime regular expressions in shared Robot schemas. */
 export const ecmaWhitespaceCharacterClass = String.raw`[\s]`
+
+/** Accept ASCII case variants and return the enum’s canonical spelling. */
+export function zodCaseInsensitiveEnum<Schema extends z.ZodEnum<[string, ...string[]]>>(
+  schema: Schema,
+): z.ZodEffects<Schema, z.output<Schema>, string> {
+  const lowercaseAscii = (value: string): string =>
+    value.replace(/[A-Z]/gu, (character) => character.toLowerCase())
+  // Keep API2’s effect shape: shared callers annotate it explicitly, and preprocess rejects
+  // nonstrings through the original enum while exposing the string-only authoring input.
+  return new z.ZodEffects<Schema, z.output<Schema>, string>({
+    effect: {
+      type: 'preprocess',
+      transform: (value) =>
+        typeof value === 'string'
+          ? (schema.options.find((option) => lowercaseAscii(option) === lowercaseAscii(value)) ?? value)
+          : value,
+    },
+    schema,
+    typeName: z.ZodFirstPartyTypeKind.ZodEffects,
+  })
+}
 
 /** Apply the Robot's output transform using the public Zod API. */
 export function zodInputPreservingTransform<Schema extends z.ZodTypeAny, Output>(
