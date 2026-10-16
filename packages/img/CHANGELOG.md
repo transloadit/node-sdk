@@ -1,5 +1,11 @@
 # @transloadit/viewer
 
+## 0.0.8
+
+### Patch Changes
+
+- f02b313: Add an optional native React Video component for exact Storage receipts. Private range failures renew through the existing authorized app route while preserving position and playback intent; refused renewal and decode failures do not loop or fall back to public media.
+
 ## 0.0.7
 
 ### Patch Changes
