@@ -110,13 +110,36 @@ export function ImagePreview(props: ImagePreviewProps): ReactNode {
 /**
  * Warm one likely next image using the same browser-selected candidates as ImagePreview.
  * Mount only after the current image loads; request cancellation on unmount is browser-dependent.
- * The caller chooses the neighbor and whether the guest's connection permits speculative work.
+ * The caller chooses the neighbor; Save-Data and slow connection estimates suppress prefetch.
  */
 export interface ImagePrefetchProps
   extends Pick<ImageProps, 'src' | 'route' | 'policy' | 'sizes'> {}
 
 /** Low-priority image prefetch using the viewer's responsive source selection. */
 export function ImagePrefetch(props: ImagePrefetchProps): ReactNode {
+  const [allowed, setAllowed] = useState(false)
+  useEffect(() => {
+    // Check on mount, not during SSR: speculative bytes must wait for client network policy.
+    if (!('connection' in navigator)) {
+      setAllowed(true)
+      return
+    }
+    const connection = navigator.connection
+    if (!connection || typeof connection !== 'object' || Array.isArray(connection)) {
+      setAllowed(true)
+      return
+    }
+    setAllowed(
+      !('saveData' in connection && connection.saveData === true) &&
+        !(
+          'effectiveType' in connection &&
+          (connection.effectiveType === 'slow-2g' ||
+            connection.effectiveType === '2g' ||
+            connection.effectiveType === '3g')
+        ),
+    )
+  }, [])
+  if (!allowed) return null
   return (
     <div hidden aria-hidden="true">
       <Image {...props} alt="" sizes={props.sizes ?? '100vw'} loading="eager" fetchPriority="low" />

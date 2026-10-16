@@ -195,30 +195,55 @@ the placeholder disappears on load, including when an SSR image loads before hyd
 
 ```tsx
 import { ImagePrefetch, ImagePreview } from '@transloadit/viewer/react/preview'
+import type { StorageImageReceipt } from '@transloadit/viewer/react'
+import { useState } from 'react'
 
-<ImagePreview
-  src={currentReceipt}
-  alt={description}
-  sizes="100vw"
-  loadingFallback={<span role="status">Loading photo…</span>}
-  errorFallback={<p role="alert">This photo could not be loaded.</p>}
-  onReady={() => setLoadedVersion(currentReceipt.version_id)}
+function GallerySlide({ current, neighbor, description }: {
+  current: StorageImageReceipt
+  neighbor?: StorageImageReceipt
+  description: string
+}) {
+  const [ready, setReady] = useState(false)
+  return (
+    <>
+      <ImagePreview
+        src={current}
+        alt={description}
+        sizes="100vw"
+        loadingFallback={<span role="status">Loading photo…</span>}
+        errorFallback={<p role="alert">This photo could not be loaded.</p>}
+        onReady={() => setReady(true)}
+      />
+      {ready && neighbor ? <ImagePrefetch src={neighbor} sizes="100vw" /> : null}
+    </>
+  )
+}
+
+// App-owned: select one likely neighbor, using the gallery's order and navigation direction.
+// This example keeps route/policy/sizes fixed; include them in the key if they are configurable.
+<GallerySlide
+  key={JSON.stringify([currentReceipt.workspace, currentReceipt.asset_id, currentReceipt.version_id])}
+  current={currentReceipt}
+  neighbor={neighborReceipt}
+  description={description}
 />
-{loadedVersion === currentReceipt.version_id && nextReceipt && allowPrefetch ? (
-  <ImagePrefetch src={nextReceipt} sizes="100vw" />
-) : null}
 ```
 
 Translate the fallbacks in your application. Change the selected receipt immediately on
 navigation; do not wrap it in a transition that waits for images. Loading state resets for
 each exact asset/version/route, rendition policy and `sizes`. Change `retryKey` after signing in
 or an explicit retry to recover a failed preview. `onReady` fires once per reset after a successful load.
-Missing ThumbHash metadata still shows your loading fallback.
+Missing ThumbHash metadata still shows your loading fallback. Keep the app's ready gate in a keyed
+slide as above so each visit, changed delivery setting or explicit retry gets fresh readiness;
+include `retryKey` in that slide's key when using it. `ImagePreview` never selects or loads a neighbor.
 
 `ImagePrefetch` warms one browser-selected rendition at low priority, using the same
-responsive candidates as the preview. Mount it only after the current image loads, and skip
-speculative work for data-saving/slow connections and videos. Unmounting it does not guarantee
-that a browser cancels an already started request. Pass identical `route`, `policy`, and `sizes`
+responsive candidates as the preview. Mount it only after the current image loads, and supply only
+an image, not a video. On mount it waits for hydration, then suppresses prefetch when the browser
+reports Save-Data or a `slow-2g`, `2g` or `3g` connection. Without connection information it allows
+the one image. It does not subscribe to later connection changes or emit server-side image/preload
+markup. Low priority is a browser hint; unmounting does not guarantee cancellation of an already
+started request. Pass identical `route`, `policy`, and `sizes`
 to both components. Permission checks, URL signing, and expiry remain unchanged; the receipt
 and its ThumbHash must already be authorized before either component renders.
 

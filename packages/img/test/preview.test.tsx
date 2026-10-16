@@ -2,7 +2,8 @@
 import type { Root } from 'react-dom/client'
 
 import { act } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot } from 'react-dom/client'
+import { renderToString } from 'react-dom/server'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { ImagePrefetch, ImagePreview } from '../src/preview.tsx'
@@ -90,6 +91,48 @@ test('prefetches only one image at low priority using the same authorized respon
   expect(
     [...container.querySelectorAll('source')].map((node) => node.getAttribute('srcset')),
   ).toEqual(candidates)
+})
+
+test.each([
+  { saveData: true, effectiveType: '4g' },
+  { saveData: false, effectiveType: 'slow-2g' },
+  { saveData: false, effectiveType: '2g' },
+  { saveData: false, effectiveType: '3g' },
+])('does not prefetch on a constrained connection: %j', async (connection) => {
+  vi.stubGlobal('navigator', { connection })
+  await act(() => root.render(<ImagePrefetch src={src} />))
+  expect(container.querySelector('img')).toBeNull()
+})
+
+test.each([
+  undefined,
+  {},
+  { saveData: false, effectiveType: '4g' },
+])('allows one prefetch with an unconstrained or unavailable connection estimate: %j', async (connection) => {
+  vi.stubGlobal('navigator', { connection })
+  await act(() => root.render(<ImagePrefetch src={src} />))
+  expect(container.querySelectorAll('img')).toHaveLength(1)
+  expect(image().getAttribute('fetchpriority')).toBe('low')
+})
+
+test.each([
+  true,
+  false,
+])('hydrates without server prefetch markup, with Save-Data=%s', async (saveData) => {
+  vi.stubGlobal('navigator', { connection: { saveData, effectiveType: '4g' } })
+  const preview = <ImagePrefetch src={src} />
+  const html = renderToString(preview)
+  expect(html).toBe('')
+  await act(() => root.unmount())
+  container.innerHTML = html
+  const recoverableErrors: unknown[] = []
+  await act(() => {
+    root = hydrateRoot(container, preview, {
+      onRecoverableError: (error) => recoverableErrors.push(error),
+    })
+  })
+  expect(container.querySelectorAll('img')).toHaveLength(saveData ? 0 : 1)
+  expect(recoverableErrors).toEqual([])
 })
 
 test('recognizes an image that finished before hydration and notifies once', async () => {
