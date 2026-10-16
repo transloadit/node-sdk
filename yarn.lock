@@ -1623,6 +1623,8 @@ __metadata:
     "@transloadit/sev-logger": "npm:^0.1.9"
     "@types/express": "npm:^5.0.6"
     "@types/node": "npm:^25.8.0"
+    ajv: "npm:^8.17.1"
+    ajv-formats: "npm:^3.0.1"
     express: "npm:^5.2.1"
     happy-dom: "npm:^20.9.0"
     nock: "npm:^14.0.15"

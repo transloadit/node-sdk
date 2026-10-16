@@ -368,10 +368,77 @@ declares `oauth2` with the scopes above for every tool; a server holding `TRANSL
 the others `noauth`. `TRANSLOADIT_MCP_TOKEN` and `TRANSLOADIT_MCP_RESOURCE_METADATA_URL` cannot be
 combined.
 
+The authenticated `tools/list` also discovers these outcome shortcuts when the catalog exposes
+their field contracts:
+
+| Shortcut | Outcome |
+| --- | --- |
+| `transloadit_transcribe` | Recording to text, JSON timestamps, SRT or WebVTT |
+| `transloadit_video_covers` | Cover images by count, smart selection or exact offsets |
+| `transloadit_extract_text` | Text from PDFs, scans, photos and Office documents |
+| `transloadit_prepare_image` | Resize, rotate, convert and optimize website images |
+| `transloadit_remove_background` | Transparent PNG cutout by default |
+| `transloadit_caption_video` | Video with burned plain captions, plus SRT |
+| `transloadit_capture_webpage` | Public web page or uploaded HTML to image or PDF |
+| `transloadit_encode_video` | Web MP4 or VP9 WebM; output size depends on source and preset |
+| `transloadit_convert_to_pdf` | Office, HTML, Markdown or text to PDF |
+
+Each shortcut uses its reviewed `builtin/<outcome>@0.0.1` Template. Its `fields` input schema
+comes from the catalog's standalone draft-07 `fields_schema`; no Robot steps, enums or limits
+are copied into the adapter. The server merges `content.fields` defaults with caller fields
+before validating, preserving JSON numbers, booleans, arrays and explicit null values.
+`x-transloadit-input-fidelity: conservative` marks approximate constraints: the Builtin's runtime
+validation remains authoritative, including cross-field rules. A null or missing schema means
+no declared schema, so that shortcut stays unavailable until its contract can be discovered.
+Catalog reads have a three-second overall deadline and no automatic retries. If an authenticated
+catalog read fails, the reviewed shortcut names stay discoverable with an unconstrained `fields`
+record; each call still fetches and validates its contract before creating an Assembly. This lets
+clients that cache discovery recover without reconnecting. The next discovery retries the schema
+lookup, and `transloadit_list_templates` can also show the accepted fields. Generic tools remain
+available throughout. Schemas are compiled before discovery; malformed contracts use the same
+unconstrained fallback and return a sanitized contract-unavailable error when called.
+Default-sensitive root compositions or dependencies also use that permissive discovery fallback,
+so valid calls are not rejected before the server merges defaults and validates the full contract.
+The static server card lists the generic tools; authenticated `tools/list` includes the shortcuts.
+
+The shortcuts accept `files`, `attachments`, `expected_uploads` and the upload/wait options of
+`transloadit_create_assembly`, and return the same Assembly results, upload instructions and
+result widget. Their reviewed workflows have no storage overwrite steps, so they declare
+`destructiveHint: false`; they still create billable Assemblies and can fetch public URLs.
+They require `assemblies:write` and `templates:read`. Use the generic tools to resume uploads.
+
+For example, prepare an image that exists only in the caller's sandbox:
+
+```json
+{
+  "name": "transloadit_prepare_image",
+  "arguments": {
+    "fields": { "w": 1024, "h": 1024, "f": "webp", "strip": true },
+    "expected_uploads": 1
+  }
+}
+```
+
+Run the returned upload command, then call `transloadit_wait_for_assembly`.
+For a web page, call `transloadit_capture_webpage` with
+`{"fields":{"url":"https://example.com","format":"png"},"wait_for_completion":true}`.
+Transcription language fields are spoken-language hints; they do not translate speech.
+
+Plain captions are pinned to version `0.0.1`; social styling is deferred. The encode shortcut
+temporarily removes and rejects legacy `preset: "webm"` while the fix for
+[api2#9960](https://github.com/transloadit/api2/issues/9960) awaits deployment and verification.
+The catalog's `web/webm/*` presets use VP9 and remain available. Generic tools retain their
+existing behavior. The released SDK dependency already includes the
+[document extraction registry fix](https://github.com/transloadit/node-sdk/issues/559), so the
+extraction shortcut can use the deployed Builtin directly.
+
 `transloadit_list_templates` supports:
 
 - `include_builtin`: `all`, `latest`, `exclusively-all`, `exclusively-latest`
 - `include_content`: include parsed `steps` in each template item
+
+Builtin items also carry `fields_schema` unchanged, including conservative-fidelity metadata
+and null for older Builtins without a declared schema. Workspace Templates omit that property.
 
 `transloadit_get_profile` returns `{ id, name?, nickname? }` for the Workspace behind the current
 credentials, derived from the Workspace's own Assemblies or Templates.

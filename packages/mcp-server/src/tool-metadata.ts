@@ -23,7 +23,20 @@ export const toolNames = [
   'transloadit_get_profile',
 ] as const
 
-export type ToolName = (typeof toolNames)[number]
+/** Outcome tools are discoverable when the API catalog exposes their reviewed field contract. */
+export const builtinShortcutNames = [
+  'transloadit_transcribe',
+  'transloadit_video_covers',
+  'transloadit_extract_text',
+  'transloadit_prepare_image',
+  'transloadit_remove_background',
+  'transloadit_caption_video',
+  'transloadit_capture_webpage',
+  'transloadit_encode_video',
+  'transloadit_convert_to_pdf',
+] as const
+
+export type ToolName = (typeof toolNames)[number] | (typeof builtinShortcutNames)[number]
 
 export type ToolMetadata = {
   title: string
@@ -79,10 +92,30 @@ const widgetMeta = {
   'openai/outputTemplate': assemblyResultWidgetUri,
 }
 
+const builtinMetadata = (title: string, description: string): ToolMetadata => ({
+  title,
+  description: `${description} Uses a reviewed Builtin Template. Supply its parameters under fields. Accepts the same files, attachments, expected_uploads and wait options as transloadit_create_assembly.`,
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
+  access: 'account',
+  scopes: [mcpScopes.assembliesWrite, mcpScopes.templatesRead],
+  meta: {
+    ...widgetMeta,
+    'openai/fileParams': ['attachments'],
+    'openai/toolInvocation/invoking': 'Processing files with Transloadit…',
+    'openai/toolInvocation/invoked': 'Transloadit processed the files',
+  },
+})
+
 /** Names of the hosted tools whose results render in the Assembly result widget. */
 export const widgetToolNames: readonly ToolName[] = [
   'transloadit_create_assembly',
   'transloadit_wait_for_assembly',
+  ...builtinShortcutNames,
 ]
 
 /**
@@ -90,6 +123,42 @@ export const widgetToolNames: readonly ToolName[] = [
  * server and the static server card so the two never drift.
  */
 export const toolMetadata: Record<ToolName, ToolMetadata> = {
+  transloadit_transcribe: builtinMetadata(
+    'Transcribe a recording',
+    'Transcribe audio or video to text, timestamps, SRT or WebVTT. Language parameters describe spoken language and do not translate speech.',
+  ),
+  transloadit_video_covers: builtinMetadata(
+    'Make video cover images',
+    'Choose cover images from a video using a count, smart selection or exact offsets.',
+  ),
+  transloadit_extract_text: builtinMetadata(
+    'Extract text from documents and images',
+    'Get text from PDFs, scans, photos and Office documents. Native extraction and OCR rules are enforced by the Builtin.',
+  ),
+  transloadit_prepare_image: builtinMetadata(
+    'Prepare images for a website',
+    'Resize, rotate, convert and optimize images for a website or app.',
+  ),
+  transloadit_remove_background: builtinMetadata(
+    'Remove an image background',
+    'Remove the background from a photo, producing a transparent PNG by default.',
+  ),
+  transloadit_caption_video: builtinMetadata(
+    'Add plain video captions',
+    'Transcribe a video and burn readable plain captions into it, with an SRT file.',
+  ),
+  transloadit_capture_webpage: builtinMetadata(
+    'Capture a web page',
+    'Capture a public web page as PNG, JPEG or PDF. Set fields.url, or upload HTML with fields.url omitted.',
+  ),
+  transloadit_encode_video: builtinMetadata(
+    'Encode a video for the web',
+    'Encode a video as web MP4 or VP9 WebM. Output size depends on the source and preset. Legacy VP8 WebM is temporarily unavailable.',
+  ),
+  transloadit_convert_to_pdf: builtinMetadata(
+    'Convert a document to PDF',
+    'Convert Office, HTML, Markdown or text documents to PDF.',
+  ),
   transloadit_lint_assembly_instructions: {
     title: 'Lint Assembly Instructions',
     description:
