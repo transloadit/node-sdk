@@ -9,3 +9,5 @@ current-image readiness and authorization remain owned by the consuming app.
 Previews preserve receipt geometry and centered feedback on errors, with quiet optional blur
 fallbacks. Invalid receipt errors name the field and expected format; the React guide includes a
 valid fixture and an explicit pre-release installation path.
+Prefetch attaches the complete picture before enabling eager loading, avoiding an extra JPEG
+fallback request in WebKit.

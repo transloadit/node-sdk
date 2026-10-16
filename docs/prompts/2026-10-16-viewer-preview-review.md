@@ -18,6 +18,9 @@ latency or production authorization was tested. GitHub had no open review thread
 - [x] State the preview entry's version floor and an executable pre-release tarball workflow.
   Do not claim that the old registry alpha already includes the entry.
 - [x] Reconcile council and Opus follow-up findings and run required repository checks.
+- [x] Preserve the one-neighbor request bound in WebKit: mount the complete hidden picture before
+  enabling eager loading. Keep the real browser regression strict rather than ignoring its extra
+  fallback download.
 
 Post-fix evidence: the same consumer keeps identical loading/error heights at 1280×800 and
 390×844, with centered feedback and no unexpected browser errors or warnings. Opus 5.5
@@ -25,6 +28,12 @@ independently confirmed the screenshots and clarified parent sizing. The documen
 installation and export check ran successfully; registry `alpha` remained 0.0.5 during this test.
 Full `yarn check` passes, including 493 Viewer tests. New-head CI is tracked on the PR, not inferred
 from its earlier green run.
+
+The new successful-prefetch browser regression first failed on WebKit in CI and locally: the
+detached eager image requested a JPEG fallback before choosing its picture source. After the mount
+ordering fix, the same assertion passes in Chromium and WebKit. The packaged fixture passes all
+78 production checks with Next's cache components enabled and all 78 without them, plus 10
+development checks. These local fixture results are not a substitute for new-head CI.
 
 Council reconciliation: the geometry finding against the previous commit is covered by this
 update; missing IDs retain the receipt-sync remedy, distinct from malformed-ID errors; the cached

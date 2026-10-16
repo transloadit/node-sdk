@@ -131,32 +131,43 @@ export interface ImagePrefetchProps
 
 /** Low-priority image prefetch using the viewer's responsive source selection. */
 export function ImagePrefetch(props: ImagePrefetchProps): ReactNode {
-  const [allowed, setAllowed] = useState(false)
+  const [state, setState] = useState<'initial' | 'mounted' | 'ready'>('initial')
   useEffect(() => {
     // Check on mount, not during SSR: speculative bytes must wait for client network policy.
     if (!('connection' in navigator)) {
-      setAllowed(true)
+      setState('mounted')
       return
     }
     const connection = navigator.connection
     if (!connection || typeof connection !== 'object' || Array.isArray(connection)) {
-      setAllowed(true)
+      setState('mounted')
       return
     }
-    setAllowed(
+    const allowed =
       !('saveData' in connection && connection.saveData === true) &&
-        !(
-          'effectiveType' in connection &&
-          (connection.effectiveType === 'slow-2g' ||
-            connection.effectiveType === '2g' ||
-            connection.effectiveType === '3g')
-        ),
-    )
+      !(
+        'effectiveType' in connection &&
+        (connection.effectiveType === 'slow-2g' ||
+          connection.effectiveType === '2g' ||
+          connection.effectiveType === '3g')
+      )
+    if (allowed) setState('mounted')
   }, [])
-  if (!allowed) return null
+  useEffect(() => {
+    // WebKit can fetch the fallback before a detached eager img joins its picture. Attach the
+    // complete hidden picture lazily, then enable loading so it selects only the final source.
+    if (state === 'mounted') setState('ready')
+  }, [state])
+  if (state === 'initial') return null
   return (
     <div hidden aria-hidden="true">
-      <Image {...props} alt="" sizes={props.sizes ?? '100vw'} loading="eager" fetchPriority="low" />
+      <Image
+        {...props}
+        alt=""
+        sizes={props.sizes ?? '100vw'}
+        loading={state === 'ready' ? 'eager' : 'lazy'}
+        fetchPriority="low"
+      />
     </div>
   )
 }
