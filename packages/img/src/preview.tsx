@@ -11,7 +11,18 @@ import { Image } from './react.tsx'
 import { snapshotStorageImage, snapshotStoragePolicy } from './storage.ts'
 
 const frame: CSSProperties = { position: 'relative', width: '100%', height: '100%' }
-const fitted: CSSProperties = { width: '100%', height: '100%', objectFit: 'contain' }
+const fitted: CSSProperties = {
+  display: 'block',
+  width: '100%',
+  height: '100%',
+  objectFit: 'contain',
+}
+const feedback: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  display: 'grid',
+  placeItems: 'center',
+}
 
 /** Caller-owned accessible loading/error UI; receipt pixels must already be authorized. */
 export interface ImagePreviewProps
@@ -27,7 +38,8 @@ export interface ImagePreviewProps
 function Preview(props: ImagePreviewProps): ReactNode {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   // Metadata can be enriched for the same version; normalize alpha without resetting its load.
-  const blur = state === 'loading' ? createBlurDataURL(snapshotStorageImage(props.src)) : undefined
+  const source = snapshotStorageImage(props.src)
+  const blur = state === 'loading' ? createBlurDataURL(source, { warn: false }) : undefined
   const frameRef = useRef<HTMLDivElement>(null)
   const notified = useRef(false)
   const onReady = props.onReady
@@ -45,12 +57,18 @@ function Preview(props: ImagePreviewProps): ReactNode {
     }
   }, [onReady, state])
   return (
-    <div ref={frameRef} className={props.className} style={frame} aria-busy={state === 'loading'}>
+    <div
+      ref={frameRef}
+      className={props.className}
+      style={{ ...frame, aspectRatio: `${source.width} / ${source.height}` }}
+      aria-busy={state === 'loading'}
+    >
       {state === 'error' ? (
-        props.errorFallback
+        <div style={feedback}>{props.errorFallback}</div>
       ) : (
         <>
           {state !== 'loading' || blur === undefined ? null : (
+            // ThumbHash geometry is approximate; contain avoids stretching blur across letterbox bars.
             // biome-ignore lint/performance/noImgElement: Already decoded, inline receipt pixels.
             <img
               src={blur}
@@ -77,11 +95,7 @@ function Preview(props: ImagePreviewProps): ReactNode {
             }}
             onError={() => setState('error')}
           />
-          {state === 'loading' ? (
-            <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
-              {props.loadingFallback}
-            </div>
-          ) : null}
+          {state === 'loading' ? <div style={feedback}>{props.loadingFallback}</div> : null}
         </>
       )}
     </div>

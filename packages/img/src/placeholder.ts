@@ -5,7 +5,7 @@ import { thumbHashToDataURL } from 'thumbhash'
 /** Decode bounded, normalized receipt metadata only when the caller may expose its pixels. */
 export function createBlurDataURL(
   source: TransloaditImageSource,
-  inlinePixels = true,
+  { inlinePixels = true, warn = true }: { inlinePixels?: boolean; warn?: boolean } = {},
 ): string | undefined {
   const hash = source.thumbhash
   // Hand-edited receipts are untrusted. Check padding before atob, then canonical spelling.
@@ -32,7 +32,7 @@ export function createBlurDataURL(
   )
     return thumbHashToDataURL(bytes)
 
-  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+  if (warn && typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
     console.warn(
       !inlinePixels
         ? `[Image] ${JSON.stringify(source.path)} uses request-authorized private delivery; placeholder="blur" is a no-op so its pixels are not exposed before authorization.`

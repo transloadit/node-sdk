@@ -31,6 +31,7 @@ afterEach(async () => {
   await act(() => root.unmount())
   container.remove()
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
   vi.unstubAllGlobals()
 })
 function image(): HTMLImageElement {
@@ -139,17 +140,25 @@ test('recognizes an image that finished before hydration and notifies once', asy
   vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true)
   vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1200)
   const ready = vi.fn()
-  await act(() =>
-    root.render(
-      <ImagePreview
-        src={src}
-        alt="Wedding"
-        onReady={ready}
-        loadingFallback={<span role="status">Loading photo</span>}
-        errorFallback={<p role="alert">Unavailable</p>}
-      />,
-    ),
+  const preview = (
+    <ImagePreview
+      src={src}
+      alt="Wedding"
+      onReady={ready}
+      loadingFallback={<span role="status">Loading photo</span>}
+      errorFallback={<p role="alert">Unavailable</p>}
+    />
   )
+  await act(() => root.unmount())
+  container.innerHTML = renderToString(preview)
+  expect(container.querySelector('[role=status]')).not.toBeNull()
+  const recoverableErrors: unknown[] = []
+  await act(() => {
+    root = hydrateRoot(container, preview, {
+      onRecoverableError: (error) => recoverableErrors.push(error),
+    })
+  })
+  expect(recoverableErrors).toEqual([])
   expect(container.querySelector('[role=status]')).toBeNull()
   expect(container.querySelector('img[aria-hidden]')).toBeNull()
   await act(() => image().dispatchEvent(new Event('load')))
@@ -219,6 +228,55 @@ test('plain loading feedback is overlaid inside the frame instead of adding a cl
   expect(overlay?.style.inset).toBe('0')
 })
 
+test('reserves receipt geometry and centers the error without keeping a broken image', async () => {
+  await act(() =>
+    root.render(
+      <ImagePreview
+        src={src}
+        alt="Wedding"
+        loadingFallback={<span role="status">Loading photo</span>}
+        errorFallback={<p role="alert">Unavailable</p>}
+      />,
+    ),
+  )
+  const frame = container.firstElementChild
+  if (!(frame instanceof HTMLDivElement)) throw new Error('Missing preview frame')
+  // Reserved geometry and overlay alignment are the public layout contract in every state.
+  expect(frame.style.aspectRatio).toBe('1200 / 800')
+  await act(() => image().dispatchEvent(new Event('error')))
+  expect(frame.style.aspectRatio).toBe('1200 / 800')
+  expect(frame.getAttribute('aria-busy')).toBe('false')
+  const error = container.querySelector('[role=alert]')
+  expect(error?.textContent).toBe('Unavailable')
+  expect(error?.parentElement?.style.position).toBe('absolute')
+  expect(error?.parentElement?.style.inset).toBe('0')
+  expect(error?.parentElement?.style.placeItems).toBe('center')
+  expect(container.querySelector('picture')).toBeNull()
+})
+
+test.each([
+  undefined,
+  'not base64',
+])('optional preview blur %j falls back quietly', async (thumbhash) => {
+  vi.stubEnv('NODE_ENV', 'development')
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  await act(() =>
+    root.render(
+      <ImagePreview
+        src={{ ...src, thumbhash }}
+        alt="Wedding"
+        loadingFallback={<span role="status">Loading photo</span>}
+        errorFallback={<p role="alert">Unavailable</p>}
+      />,
+    ),
+  )
+  expect(container.querySelector('[role=status]')?.textContent).toBe('Loading photo')
+  expect(container.querySelector('img[aria-hidden]')).toBeNull()
+  expect(warn).not.toHaveBeenCalled()
+  await act(() => image().dispatchEvent(new Event('load')))
+  expect(container.querySelector('[role=status]')).toBeNull()
+})
+
 test('an explicit retry key recovers the same failed version without changing its URL', async () => {
   const preview = (retryKey: number) => (
     <ImagePreview
@@ -258,6 +316,8 @@ test('receipt metadata can add or remove a loading blur without remounting the p
 })
 
 test('canonical alpha metadata suppresses the blur even if the hash has no alpha bit', async () => {
+  vi.stubEnv('NODE_ENV', 'development')
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
   await act(() =>
     root.render(
       <ImagePreview
@@ -269,4 +329,5 @@ test('canonical alpha metadata suppresses the blur even if the hash has no alpha
     ),
   )
   expect(container.querySelector('img[aria-hidden]')).toBeNull()
+  expect(warn).not.toHaveBeenCalled()
 })

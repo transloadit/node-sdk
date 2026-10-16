@@ -54,6 +54,25 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+test.each([
+  ['asset_id', 'photo-1', /Storage receipt asset_id must be a canonical 22-character base64url ID/],
+  [
+    'version_id',
+    'version-1',
+    /Storage receipt version_id must be a canonical 22-character base64url ID/,
+  ],
+  [
+    'asset_id',
+    'B'.repeat(22),
+    /Storage receipt asset_id must be a canonical 22-character base64url ID/,
+  ],
+  ['workspace', '', /Storage receipt workspace must be a nonempty string/],
+] as const)('names an invalid %s without requiring callers to inspect package internals', (field, value, message) => {
+  const invalid = { ...receipt, [field]: value }
+  expect(() => preview(invalid)).toThrow(message)
+  expect(() => getStorageAssetHref(invalid, { action: 'download' })).toThrow(message)
+})
+
 test('React opts into receipt blur without changing URLs, markup semantics or loading behavior', () => {
   const src: StorageImageReceipt = { ...receipt, thumbhash, has_alpha: false }
   const markup = renderToStaticMarkup(<Image src={src} alt="Canal house" placeholder="blur" />)

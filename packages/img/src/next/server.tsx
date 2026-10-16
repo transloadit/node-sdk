@@ -623,7 +623,7 @@ function renderPicture(
   inlinePixels = false,
 ): ReactNode {
   const blurDataURL =
-    props.placeholder === 'blur' ? createBlurDataURL(props.source, inlinePixels) : undefined
+    props.placeholder === 'blur' ? createBlurDataURL(props.source, { inlinePixels }) : undefined
   const errorFallback =
     props.errorFallback === undefined || process.env.NODE_ENV !== 'development' ? (
       props.errorFallback
