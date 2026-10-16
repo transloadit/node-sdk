@@ -46,14 +46,38 @@ function Preview(props: ImagePreviewProps): ReactNode {
   useEffect(() => {
     // Fallbacks may contain their own images; they must never count as the primary load.
     if (state !== 'loading') return
-    // SSR images can finish before hydration attaches onLoad. Read the actual native image.
     const image = frameRef.current?.querySelector('picture img')
-    if (image instanceof HTMLImageElement && image.complete) {
-      setState(image.naturalWidth > 0 ? 'ready' : 'error')
-      if (image.naturalWidth > 0 && !notified.current) {
-        notified.current = true
-        onReady?.()
+    if (!(image instanceof HTMLImageElement)) return
+    let active = true
+    let generation = 0
+    const loaded = () => {
+      const request = image.currentSrc
+      const current = ++generation
+      const isCurrent = () => active && current === generation && request === image.currentSrc
+      const ready = () => {
+        if (!isCurrent()) return
+        setState('ready')
+        if (!notified.current) {
+          notified.current = true
+          onReady?.()
+        }
       }
+      // A native load can precede async pixel decoding. Keep the blur until it can be painted.
+      void image.decode().then(ready, () => {
+        // Some browsers refuse decode for large but displayable images; retain native success.
+        if (image.complete && image.naturalWidth > 0) ready()
+        else if (isCurrent()) setState('error')
+      })
+    }
+    image.addEventListener('load', loaded)
+    // SSR images can finish before hydration attaches the load listener.
+    if (image.complete) {
+      if (image.naturalWidth > 0) loaded()
+      else setState('error')
+    }
+    return () => {
+      active = false
+      image.removeEventListener('load', loaded)
     }
   }, [onReady, state])
   return (
@@ -86,13 +110,6 @@ function Preview(props: ImagePreviewProps): ReactNode {
             loading="eager"
             objectFit="contain"
             style={{ ...fitted, position: 'relative' }}
-            onLoad={() => {
-              setState('ready')
-              if (!notified.current) {
-                notified.current = true
-                props.onReady?.()
-              }
-            }}
             onError={() => setState('error')}
           />
           {state === 'loading' ? <div style={feedback}>{props.loadingFallback}</div> : null}

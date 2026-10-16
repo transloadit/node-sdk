@@ -23,6 +23,7 @@ beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   // This DOM does not fetch picture sources; loading is controlled by each test.
   vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false)
+  vi.spyOn(HTMLImageElement.prototype, 'decode').mockResolvedValue()
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
@@ -38,6 +39,14 @@ function image(): HTMLImageElement {
   const element = container.querySelector('picture img')
   if (!(element instanceof HTMLImageElement)) throw new Error('Missing responsive image')
   return element
+}
+
+function deferred() {
+  let resolve = () => {}
+  const promise = new Promise<void>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
 }
 
 test('renders an immediate blur and loading feedback, clears both on load, resets on navigation', async () => {
@@ -67,6 +76,100 @@ test('renders an immediate blur and loading feedback, clears both on load, reset
   expect(container.querySelector('[role=alert]')?.textContent).toBe('Unavailable')
   expect(container.querySelector('[role=status]')).toBeNull()
   expect(container.querySelector('picture')).toBeNull()
+})
+
+test('keeps the blur and loading feedback until the image is decoded, not merely downloaded', async () => {
+  const decoded = deferred()
+  vi.mocked(HTMLImageElement.prototype.decode).mockReturnValue(decoded.promise)
+  const ready = vi.fn()
+  await act(() =>
+    root.render(
+      <ImagePreview
+        src={src}
+        alt="Wedding"
+        onReady={ready}
+        loadingFallback={<span role="status">Loading photo</span>}
+        errorFallback={<p role="alert">Unavailable</p>}
+      />,
+    ),
+  )
+  await act(() => image().dispatchEvent(new Event('load')))
+  expect(container.querySelector('[role=status]')?.textContent).toBe('Loading photo')
+  expect(container.querySelector('img[aria-hidden]')).not.toBeNull()
+  expect(ready).not.toHaveBeenCalled()
+  await act(() => decoded.resolve())
+  expect(container.querySelector('[role=status]')).toBeNull()
+  expect(container.querySelector('img[aria-hidden]')).toBeNull()
+  expect(ready).toHaveBeenCalledOnce()
+})
+
+test('failed decoding shows the error fallback without announcing readiness', async () => {
+  vi.mocked(HTMLImageElement.prototype.decode).mockRejectedValue(
+    new DOMException('Invalid image', 'EncodingError'),
+  )
+  const ready = vi.fn()
+  await act(() =>
+    root.render(
+      <ImagePreview
+        src={src}
+        alt="Wedding"
+        onReady={ready}
+        loadingFallback={<span role="status">Loading photo</span>}
+        errorFallback={<p role="alert">Unavailable</p>}
+      />,
+    ),
+  )
+  await act(() => image().dispatchEvent(new Event('load')))
+  expect(container.querySelector('[role=alert]')?.textContent).toBe('Unavailable')
+  expect(container.querySelector('[role=status]')).toBeNull()
+  expect(ready).not.toHaveBeenCalled()
+})
+
+test('an old image finishing decoding cannot clear the next image loading state', async () => {
+  const decoded = deferred()
+  vi.mocked(HTMLImageElement.prototype.decode).mockReturnValueOnce(decoded.promise)
+  const ready = vi.fn()
+  const preview = (version_id: string) => (
+    <ImagePreview
+      src={{ ...src, version_id }}
+      alt="Wedding"
+      onReady={ready}
+      loadingFallback={<span role="status">Loading photo</span>}
+      errorFallback={<p role="alert">Unavailable</p>}
+    />
+  )
+  await act(() => root.render(preview(src.version_id)))
+  await act(() => image().dispatchEvent(new Event('load')))
+  await act(() => root.render(preview('C'.repeat(21) + 'A')))
+  await act(() => decoded.resolve())
+  expect(container.querySelector('[role=status]')?.textContent).toBe('Loading photo')
+  expect(ready).not.toHaveBeenCalled()
+  await act(() => image().dispatchEvent(new Event('load')))
+  expect(container.querySelector('[role=status]')).toBeNull()
+  expect(ready).toHaveBeenCalledOnce()
+})
+
+test('a browser decode refusal does not hide an otherwise successfully loaded image', async () => {
+  vi.mocked(HTMLImageElement.prototype.decode).mockRejectedValue(
+    new DOMException('Decode unavailable', 'EncodingError'),
+  )
+  vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true)
+  vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1200)
+  const ready = vi.fn()
+  await act(() =>
+    root.render(
+      <ImagePreview
+        src={src}
+        alt="Wedding"
+        onReady={ready}
+        loadingFallback={<span role="status">Loading photo</span>}
+        errorFallback={<p role="alert">Unavailable</p>}
+      />,
+    ),
+  )
+  expect(ready).toHaveBeenCalledOnce()
+  expect(image().alt).toBe('Wedding')
+  expect(container.querySelector('[role=alert]')).toBeNull()
 })
 
 test('prefetches only one image at low priority using the same authorized responsive candidates', async () => {
