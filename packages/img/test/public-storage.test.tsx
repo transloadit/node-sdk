@@ -296,7 +296,7 @@ test('a geometry-only Storage receipt requires recovery instead of inventing a v
     public: ['website/'],
   })
   expect(() => renderToStaticMarkup(<Image src="website/legacy.jpg" alt="Legacy" />)).toThrow(
-    /storage receipts sync/,
+    /Storage receipt asset_id is missing.*storage receipts sync/,
   )
 })
 

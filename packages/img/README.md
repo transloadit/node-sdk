@@ -5,7 +5,7 @@
 Native responsive images from Smart CDN (`<workspace>.tlcdn.com`); bytes bypass Next's optimizer.
 
 - **Build-time Next images:** use the catalog Quickstart below.
-- **Live user uploads:** use [React receipts](docs/react-storage.md) with app authorization (Viewer 0.0.3+).
+- **Live uploads and gallery previews:** [React receipts](docs/react-storage.md) (version requirements and pre-release setup).
 - **HTTP/S3 assets:** use a [restricted Template](#existing-http-or-s3-assets).
 
 ## Quickstart

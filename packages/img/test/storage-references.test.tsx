@@ -108,7 +108,7 @@ test('Storage rejects missing identity and a receipt from a different Workspace'
     renderToStaticMarkup(
       <Image src={{ path: original.path, width: 800, height: 600 }} alt="Photo" />,
     ),
-  ).toThrow(/receipt.*storage receipts sync/i)
+  ).toThrow(/Storage receipt asset_id is missing.*storage receipts sync/)
   expect(() =>
     renderToStaticMarkup(<Image src={{ ...original, workspace: 'another-app' }} alt="Photo" />),
   ).toThrow(/Workspace/)

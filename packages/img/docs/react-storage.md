@@ -1,9 +1,11 @@
 # Dynamic receipts in React
 
-**Alpha — API may change.** These entries require Viewer 0.0.3 or newer (0.0.2 includes only
+**Alpha — API may change.** The `/react` and `/server` entries require Viewer 0.0.3 or newer (0.0.2 includes only
 the Next.js adapter). Requires a matching API2 deployment with the pinned Storage
 Built-ins. Install `@transloadit/viewer@alpha` alongside React 19. Receipts come from your
 authenticated data layer; credentials stay in your server route.
+The optional `/react/preview` entry requires **0.0.6+**, pending release; see
+[testing the preview entry before release](#testing-the-preview-entry-before-release).
 
 ```tsx
 import { Image, getStorageAssetHref } from '@transloadit/viewer/react'
@@ -18,6 +20,34 @@ the existing presentation props: `sizes`, `style`, `className`, `loading`, `prel
 `errorFallback`, `retryKey`, `placeholder`, and native serializable attributes. It accepts neither separate
 dimensions nor arbitrary transforms. `TransloaditPicture` remains exported from `/react` and
 `/next` for precomputed models. Change `retryKey` after sign-in to retry a failed image.
+Client-side `Image` and `TransloaditPicture` also accept native `onLoad` and `onError` handlers.
+These callbacks are not serializable Next.js server props.
+
+### Receipt shape
+
+Use the exact `workspace`, `asset_id`, and `version_id` from a saved Storage receipt, plus its
+intrinsic `width` and `height`. Each ID is 16 bytes encoded as **22 canonical base64url characters**,
+without `=` padding (the final character is `A`, `Q`, `g`, or `w`). Labels such as `photo-1` and
+`version-1` are not IDs. The SDK names the invalid field if validation fails.
+
+This syntactically valid fixture illustrates the shape; it does **not** identify a real asset:
+
+```ts
+import type { StorageImageReceipt } from '@transloadit/viewer/react'
+
+const receipt = {
+  workspace: 'my-album',
+  asset_id: 'AAAAAAAAAAAAAAAAAAAAAA',
+  version_id: 'BBBBBBBBBBBBBBBBBBBBBA',
+  path: 'photos/canal-house.jpg',
+  width: 1200,
+  height: 800,
+} satisfies StorageImageReceipt
+```
+
+Do not generate replacement IDs for production data. For an existing Storage prefix with missing
+local receipts, use `transloadit storage receipts sync`. Optional `thumbhash` and `has_alpha` come
+from the producing Step; neither is required to render a preview.
 
 The shared default endpoint is `/api/transloadit/media`. Override `route` with a same-origin
 absolute path without query/fragment; include your application's base path. Pass the same route
@@ -185,6 +215,96 @@ original, not a separately encoded rendition of each crop. Use `errorFallback` t
 the image and its blur on delivery failure; without it, the native broken-image UI can retain
 the background.
 
+## Immediate photo previews and bounded preloading
+
+The optional client entry `@transloadit/viewer/react/preview` provides a letterboxed preview
+with a removable ThumbHash and explicit loading/error feedback. Unlike a background blur,
+the placeholder disappears on load, including when an SSR image loads before hydration.
+The frame reserves the receipt's aspect ratio, including during errors. Inside a container with
+an explicit width and height it fills that container instead; loading and error feedback stay
+centered. Missing, malformed, or transparent ThumbHashes quietly use your loading fallback.
+Size the parent container rather than setting width/height through `className`, which is intended
+for decoration: the preview's inline width/height always fill its parent.
+
+```tsx
+import { ImagePrefetch, ImagePreview } from '@transloadit/viewer/react/preview'
+import type { StorageImageReceipt } from '@transloadit/viewer/react'
+import { useState } from 'react'
+
+function GallerySlide({ current, neighbor, description }: {
+  current: StorageImageReceipt
+  neighbor?: StorageImageReceipt
+  description: string
+}) {
+  const [ready, setReady] = useState(false)
+  return (
+    <>
+      <ImagePreview
+        src={current}
+        alt={description}
+        sizes="100vw"
+        loadingFallback={<span role="status">Loading photo…</span>}
+        errorFallback={<p role="alert">This photo could not be loaded.</p>}
+        onReady={() => setReady(true)}
+      />
+      {ready && neighbor ? <ImagePrefetch src={neighbor} sizes="100vw" /> : null}
+    </>
+  )
+}
+
+// App-owned: select one likely neighbor, using the gallery's order and navigation direction.
+// This example keeps route/policy/sizes fixed; include them in the key if they are configurable.
+<GallerySlide
+  key={JSON.stringify([currentReceipt.workspace, currentReceipt.asset_id, currentReceipt.version_id])}
+  current={currentReceipt}
+  neighbor={neighborReceipt}
+  description={description}
+/>
+```
+
+Translate the fallbacks in your application. Change the selected receipt immediately on
+navigation; do not wrap it in a transition that waits for images. Loading state resets for
+each exact asset/version/route, rendition policy and `sizes`. Change `retryKey` after signing in
+or an explicit retry to recover a failed preview. `onReady` fires once per reset after a successful load.
+Missing ThumbHash metadata still shows your loading fallback. Keep the app's ready gate in a keyed
+slide as above so each visit, changed delivery setting or explicit retry gets fresh readiness;
+include `retryKey` in that slide's key when using it. `ImagePreview` never selects or loads a neighbor.
+
+`ImagePrefetch` warms one browser-selected rendition at low priority, using the same
+responsive candidates as the preview. Mount it only after the current image loads, and supply only
+an image, not a video. On mount it waits for hydration, then suppresses prefetch when the browser
+reports Save-Data or a `slow-2g`, `2g` or `3g` connection. Without connection information it allows
+the one image. It does not subscribe to later connection changes or emit server-side image/preload
+markup. Low priority is a browser hint; unmounting does not guarantee cancellation of an already
+started request. Pass identical `route`, `policy`, and `sizes`
+to both components. Permission checks, URL signing, and expiry remain unchanged; the receipt
+and its ThumbHash must already be authorized before either component renders.
+
+URL state, gallery ordering, album membership, and video controls remain application concerns.
+These components do not introduce a router or an album data model.
+
+### Testing the preview entry before release
+
+Viewer 0.0.5 and earlier do not export `/react/preview`. Until a release containing this entry is
+published, installing `@alpha` alone is not a way to test this PR. In an existing Node SDK checkout
+on the preview PR's head, build and pack the package:
+
+```bash
+yarn install --immutable
+yarn workspace @transloadit/viewer pack --out /tmp/transloadit-viewer-preview.tgz
+```
+
+In your React 19 application, install that tarball (packing runs the package's build):
+
+```bash
+yarn add @transloadit/viewer@file:/tmp/transloadit-viewer-preview.tgz
+node --input-type=module -e "import('@transloadit/viewer/react/preview').then(m => console.log(Object.keys(m)))"
+```
+
+The export check must list `ImagePrefetch` and `ImagePreview`. Do not commit the temporary tarball
+dependency. After publication, replace it with the exact released version containing this entry
+(0.0.6+) and commit the normal dependency and lockfile changes.
+
 ## Policy, caching, and limits
 
 Share one non-secret policy between the component and route:
@@ -237,7 +357,9 @@ parameters retain the existing canonical spelling.
 Every response is `private, no-store`. Redirects are 307 with an empty body; denied/malformed
 requests share a safe 404, unsupported methods get 405, and internal failures get a sanitized 500.
 GET/HEAD share authorization rules. No media byte proxy or per-rendition DAM lookup occurs.
-A trusted server `baseUrl` can support local testing; never derive it from requests. Set
+A trusted server `baseUrl` can support local testing; never derive it from requests. A mock CDN
+must handle the signed Built-in Template URL with asset/version IDs, not just `receipt.path`.
+Use a local HTTP origin for an HTTP mock; `baseUrl` does not bypass route authorization. Set
 `diagnostics: process.env.NODE_ENV === 'development'` in app configuration for redacted policy
 drift guidance after authorization. Logs contain permitted candidates and the policy-sharing
 remedy, never original URLs, IDs, paths, receipts, or credentials.

@@ -27,22 +27,36 @@ export function isStorageIdentifier(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{21}[AQgw]$/u.test(value)
 }
 
+function snapshotStorageReference(source: {
+  asset_id?: unknown
+  version_id?: unknown
+  workspace?: unknown
+}): TransloaditStorageReference {
+  const { asset_id, version_id, workspace } = source
+  if (asset_id == null || version_id == null || workspace == null) {
+    const field = asset_id == null ? 'asset_id' : version_id == null ? 'version_id' : 'workspace'
+    throw new TypeError(
+      `Storage receipt ${field} is missing. Run transloadit storage receipts sync for this image prefix.`,
+    )
+  }
+  if (!isStorageIdentifier(asset_id)) {
+    throw new TypeError('Storage receipt asset_id must be a canonical 22-character base64url ID')
+  }
+  if (!isStorageIdentifier(version_id)) {
+    throw new TypeError('Storage receipt version_id must be a canonical 22-character base64url ID')
+  }
+  if (typeof workspace !== 'string' || workspace.length === 0) {
+    throw new TypeError('Storage receipt workspace must be a nonempty string')
+  }
+  return { asset_id, version_id, workspace }
+}
+
 /** Require a complete pinned receipt before constructing any Storage delivery URL. */
 export function getStorageImageReference(
   source: Partial<TransloaditStorageReference>,
   workspace?: string,
 ): TransloaditStorageReference {
-  const { asset_id, version_id, workspace: receiptWorkspace } = source
-  if (
-    !isStorageIdentifier(asset_id) ||
-    !isStorageIdentifier(version_id) ||
-    typeof receiptWorkspace !== 'string' ||
-    receiptWorkspace.length === 0
-  ) {
-    throw new TypeError(
-      'Storage needs a version-pinned receipt with workspace, asset_id and version_id. Run transloadit storage receipts sync for this image prefix.',
-    )
-  }
+  const { asset_id, version_id, workspace: receiptWorkspace } = snapshotStorageReference(source)
   if (workspace !== undefined && receiptWorkspace !== workspace) {
     throw new TypeError(
       `Storage receipt belongs to Workspace ${receiptWorkspace}, not ${workspace}`,
@@ -109,20 +123,11 @@ export function snapshotImageSource(props: {
           ? src.hasAlpha
           : undefined
     if ('asset_id' in src || 'version_id' in src || 'workspace' in src) {
-      const asset_id = 'asset_id' in src ? src.asset_id : undefined
-      const version_id = 'version_id' in src ? src.version_id : undefined
-      const workspace = 'workspace' in src ? src.workspace : undefined
-      if (
-        !isStorageIdentifier(asset_id) ||
-        !isStorageIdentifier(version_id) ||
-        typeof workspace !== 'string' ||
-        workspace.length === 0
-      ) {
-        throw new TypeError(
-          'Storage receipt identity is incomplete. Run transloadit storage receipts sync for this image prefix.',
-        )
-      }
-      reference = { asset_id, version_id, workspace }
+      reference = snapshotStorageReference({
+        asset_id: 'asset_id' in src ? src.asset_id : undefined,
+        version_id: 'version_id' in src ? src.version_id : undefined,
+        workspace: 'workspace' in src ? src.workspace : undefined,
+      })
     }
   }
   if (typeof path !== 'string') throw new TypeError('Storage image receipt path must be a string')

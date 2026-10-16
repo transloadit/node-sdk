@@ -3,6 +3,7 @@
 import type { StorageImageReceipt } from '@transloadit/viewer/react'
 
 import { getStorageAssetHref, Image } from '@transloadit/viewer/react'
+import { ImagePrefetch, ImagePreview } from '@transloadit/viewer/react/preview'
 import { useState } from 'react'
 
 import { dynamicPolicy } from '../../dynamic-policy.ts'
@@ -18,6 +19,8 @@ export function DynamicImage({
 }) {
   const [revision, setRevision] = useState(0)
   const [showVariants, setShowVariants] = useState(false)
+  const [showPreviews, setShowPreviews] = useState(false)
+  const [previewReady, setPreviewReady] = useState(false)
   return (
     <>
       <h1>Dynamic receipt image</h1>
@@ -37,6 +40,42 @@ export function DynamicImage({
         Refresh receipt: {revision}
       </button>
       <a href={getStorageAssetHref(receipt, { action: 'download', route })}>Download avatar</a>
+      <button type="button" onClick={() => setShowPreviews(true)}>
+        Show photo previews
+      </button>
+      {showPreviews ? (
+        <>
+          <section aria-label="Intrinsic preview" style={{ width: 320 }}>
+            <ImagePreview
+              src={receipt}
+              route={route}
+              policy={dynamicPolicy}
+              sizes="320px"
+              alt="Intrinsic photo"
+              loadingFallback={<span role="status">Loading photo…</span>}
+              errorFallback={<span role="alert">Photo unavailable</span>}
+              onReady={() => setPreviewReady(true)}
+            />
+          </section>
+          <section aria-label="Caller-sized preview" style={{ width: 320, height: 160 }}>
+            <ImagePreview
+              src={receipt}
+              route={route}
+              policy={dynamicPolicy}
+              sizes="320px"
+              alt="Letterboxed photo"
+              loadingFallback={<span role="status">Loading photo…</span>}
+              errorFallback={<span role="alert">Photo unavailable</span>}
+            />
+          </section>
+          {previewReady ? (
+            <>
+              <p>Preview ready</p>
+              <ImagePrefetch src={alpha} route={route} policy={dynamicPolicy} sizes="320px" />
+            </>
+          ) : null}
+        </>
+      ) : null}
       <button type="button" onClick={() => setShowVariants(true)}>
         Show placeholder variants
       </button>

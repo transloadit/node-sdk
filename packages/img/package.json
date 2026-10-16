@@ -58,6 +58,10 @@
       "types": "./dist/react.d.ts",
       "default": "./dist/react.js"
     },
+    "./react/preview": {
+      "types": "./dist/preview.d.ts",
+      "default": "./dist/preview.js"
+    },
     "./server": {
       "types": "./dist/server.d.ts",
       "workerd": "./dist/server.js",

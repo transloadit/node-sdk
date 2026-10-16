@@ -1484,6 +1484,82 @@ test('dynamic React blur shows before delivery and stays safe for alpha, letterb
   }
 })
 
+test('preview feedback preserves intrinsic and caller-sized geometry after delivery failure', async ({
+  page,
+  audit,
+}, info) => {
+  const delivery = Promise.withResolvers<void>()
+  await page.route('**/api/transloadit/media?**', async (route) => {
+    await delivery.promise
+    audit.expectedFailures.set(route.request().url(), 404)
+    await route.fulfill({ status: 404, body: '' })
+  })
+  try {
+    await page.goto('/fixture/dynamic-storage', { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Show photo previews' }).click()
+    const intrinsic = page.getByRole('region', { name: 'Intrinsic preview', exact: true })
+    const sized = page.getByRole('region', { name: 'Caller-sized preview', exact: true })
+    await expect(intrinsic.getByRole('status')).toHaveText('Loading photo…')
+    await expect(sized.getByRole('status')).toHaveText('Loading photo…')
+    await expect(intrinsic).toHaveCSS('height', '240px')
+    await expect(sized).toHaveCSS('height', '160px')
+    delivery.resolve()
+    await expect(intrinsic.getByRole('alert')).toHaveText('Photo unavailable')
+    await expect(sized.getByRole('alert')).toHaveText('Photo unavailable')
+    await expect(intrinsic).toHaveCSS('height', '240px')
+    await expect(sized).toHaveCSS('height', '160px')
+    const intrinsicBox = await intrinsic.boundingBox()
+    const intrinsicError = await intrinsic.getByRole('alert').boundingBox()
+    const sizedBox = await sized.boundingBox()
+    const sizedError = await sized.getByRole('alert').boundingBox()
+    assert(intrinsicBox && intrinsicError && sizedBox && sizedError)
+    expect(intrinsicError.x + intrinsicError.width / 2).toBeCloseTo(intrinsicBox.x + 160, 0)
+    expect(intrinsicError.y + intrinsicError.height / 2).toBeCloseTo(intrinsicBox.y + 120, 0)
+    expect(sizedError.x + sizedError.width / 2).toBeCloseTo(sizedBox.x + 160, 0)
+    expect(sizedError.y + sizedError.height / 2).toBeCloseTo(sizedBox.y + 80, 0)
+    await info.attach('preview-error-geometry', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  } finally {
+    delivery.resolve()
+  }
+})
+
+test('preview readiness starts one actual neighbor request after the current image loads', async ({
+  page,
+}) => {
+  const delivery = Promise.withResolvers<void>()
+  const neighbor = fixtureStorageIdentity('documents/alpha.png')
+  const prefetched: string[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (
+      url.pathname === '/fixture/api/transloadit/media' &&
+      url.searchParams.get('asset_id') === neighbor.asset_id
+    )
+      prefetched.push(request.url())
+  })
+  await page.route('**/api/transloadit/media?**', async (route) => {
+    await delivery.promise
+    await route.continue()
+  })
+  try {
+    await page.goto('/fixture/dynamic-storage', { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Show photo previews' }).click()
+    const preview = page.getByRole('region', { name: 'Intrinsic preview', exact: true })
+    await expect(preview.getByRole('status')).toHaveText('Loading photo…')
+    expect(prefetched).toHaveLength(0)
+    delivery.resolve()
+    await expect(page.getByText('Preview ready', { exact: true })).toBeVisible()
+    await decode(page.getByRole('img', { name: 'Intrinsic photo', exact: true }))
+    await expect.poll(() => prefetched.length).toBe(1)
+    await expect(preview).toHaveCSS('height', '240px')
+  } finally {
+    delivery.resolve()
+  }
+})
+
 test('the dynamic app does not return private hashes before query authorization', async ({
   page,
   context,
