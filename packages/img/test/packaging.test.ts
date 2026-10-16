@@ -20,6 +20,7 @@ test('React and Utils install no new runtime schema or SDK dependencies', async 
 
 test.each([
   ['@transloadit/viewer/react', 'browser', 24_000, 8_000],
+  ['@transloadit/viewer/react/video', 'browser', 12_000, 4_000],
   ['@transloadit/viewer/server', 'neutral', 20_000, 7_000],
 ] as const)('%s stays small and imports no Next, Node SDK or generated schemas', async (entry, platform, rawBudget, compressedBudget) => {
   const bundled = await build({
@@ -44,6 +45,13 @@ test.each([
     ),
   ).toBe(false)
   expect(new TextDecoder().decode(output)).not.toMatch(/node:|\bBuffer\b/)
+})
+
+test('the published video entry keeps its React client boundary', async () => {
+  const source = await readFile(new URL('../dist/video.js', import.meta.url), 'utf8')
+  expect(source).toMatch(/^['"]use client['"]/)
+  const { Video } = await import('@transloadit/viewer/react/video')
+  expect(typeof Video).toBe('function')
 })
 
 test('browser bundles cannot import the credential-bearing server factory', async () => {
