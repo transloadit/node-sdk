@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.6.6
+
+### Patch Changes
+
+- 76562ed: Correct the `speech transcribe --target-language` help and example: this is a spoken-language hint for Replicate using a full lowercase English name such as `french`. It does not translate speech; AWS and GCP use `--source-language` instead.
+- Updated dependencies [76562ed]
+  - @transloadit/node@6.0.4
+
 ## 0.6.5
 
 ### Patch Changes
