@@ -1297,6 +1297,9 @@ npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input image.jpg 
 # Process with custom fields
 npx transloadit assemblies create --template YOUR_TEMPLATE_ID --field size=100 --input image.jpg --output thumb.jpg
 
+# Save every result from a Template, creating the output directory
+npx transloadit assemblies create --template builtin/caption-video@0.0.2 --field style=social --field vocabulary=Transloadit --input video.mp4 --output out/
+
 # Process a directory of files
 npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/
 
@@ -1475,6 +1478,10 @@ All commands support these common options:
 
 The `assemblies create` command additionally supports:
 
+- `--output, -o` - Write to a file or directory, or use `-` for stdout. A trailing `/` or `\`
+  marks a directory and creates it recursively when needed. Existing directories accept all results.
+  A missing path without a trailing separator stays a single-file output; if the Template returns
+  multiple results, use `-o <dir>/`. Stdout accepts a single result.
 - `--single-assembly` - Pass all input files to a single assembly instead of one assembly per file
 
 #### Log Levels
