@@ -103,62 +103,42 @@
             "groups": [
               {
                 "type": true,
-                "source": [
-                  ":NODE:"
-                ]
+                "source": [":NODE:"]
               },
               ":BLANK_LINE:",
               {
                 "type": true,
-                "source": [
-                  ":PACKAGE:"
-                ]
+                "source": [":PACKAGE:"]
               },
               ":BLANK_LINE:",
               {
                 "type": true,
-                "source": [
-                  ":ALIAS:",
-                  ":/**",
-                  "\\{*\\}/**"
-                ]
+                "source": [":ALIAS:", ":/**", "\\{*\\}/**"]
               },
               ":BLANK_LINE:",
               {
                 "type": true,
-                "source": [
-                  ":PATH:"
-                ]
+                "source": [":PATH:"]
               },
               ":BLANK_LINE:",
               {
                 "type": false,
-                "source": [
-                  ":NODE:"
-                ]
+                "source": [":NODE:"]
               },
               ":BLANK_LINE:",
               {
                 "type": false,
-                "source": [
-                  ":PACKAGE:"
-                ]
+                "source": [":PACKAGE:"]
               },
               ":BLANK_LINE:",
               {
                 "type": false,
-                "source": [
-                  ":ALIAS:",
-                  ":/**",
-                  "\\{*\\}/**"
-                ]
+                "source": [":ALIAS:", ":/**", "\\{*\\}/**"]
               },
               ":BLANK_LINE:",
               {
                 "type": false,
-                "source": [
-                  ":PATH:"
-                ]
+                "source": [":PATH:"]
               }
             ]
           }
@@ -168,9 +148,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "scripts/fixtures/img-next/app/**"
-      ],
+      "includes": ["scripts/fixtures/img-next/app/**"],
       "linter": {
         "rules": {
           "correctness": {
@@ -180,25 +158,19 @@
       }
     },
     {
-      "includes": [
-        "**/package.json"
-      ],
+      "includes": ["**/package.json"],
       "formatter": {
         "expand": "always"
       }
     },
     {
-      "includes": [
-        "docs/fingerprint/*.package.json"
-      ],
+      "includes": ["docs/fingerprint/*.package.json"],
       "formatter": {
         "expand": "always"
       }
     },
     {
-      "includes": [
-        "*.html"
-      ],
+      "includes": ["*.html"],
       "javascript": {
         "formatter": {
           "quoteStyle": "double"
@@ -206,10 +178,7 @@
       }
     },
     {
-      "includes": [
-        "*.scss",
-        "*.css"
-      ],
+      "includes": ["*.scss", "*.css"],
       "javascript": {
         "formatter": {
           "quoteStyle": "double"

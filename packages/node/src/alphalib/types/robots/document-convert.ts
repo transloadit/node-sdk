@@ -8,6 +8,10 @@ import { z } from 'zod'
 
 import { zodCaseInsensitiveEnum } from '../../lib/zodInputSemantics.ts'
 import {
+  documentConvertLoadInternalErrorReason,
+  documentConvertLoadUserErrorReason,
+} from '../responseErrors/DocumentConvertRobot.ts'
+import {
   createProcessingExample,
   defineRobot,
   robotBase,
@@ -27,6 +31,12 @@ export const documentConvertPdfFormatSchema = zodCaseInsensitiveEnum(
   z.enum(['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'Ledger', 'Legal', 'Letter', 'Tabloid']),
 )
 
+const documentLoadErrorDocumentation = `
+A generic LibreOffice load refusal returns \`USER_COMMAND_ERROR\` with the reason “${documentConvertLoadUserErrorReason}” This preserves the user error code for integrations without assuming the document is corrupt.
+
+When diagnostics identify a problem in the conversion service, the load failure returns \`INTERNAL_COMMAND_ERROR\` with the reason “${documentConvertLoadInternalErrorReason}” Private diagnostics are not included in either response.
+`
+
 export const meta: RobotMetaInput = {
   ...robotDocumentProcessingMeta,
   example_code: createProcessingExample('converted', '/document/convert', {
@@ -43,6 +53,8 @@ Using this <dfn>Robot</dfn>, you can bypass the issues that certain file types m
 
 > ![Warning]
 > A general rule of this <dfn>Robot</dfn> is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format, but not to an image.
+
+${documentLoadErrorDocumentation}
 
 ${transcriptSrtDocumentation}
 
@@ -116,6 +128,8 @@ Using this Robot, you can bypass the issues that certain file types may bring, b
 
 > [!Warning]
 > A general rule of this Robot is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format (and vice versa), but not to an image.
+
+${documentLoadErrorDocumentation}
 
 ${transcriptSrtDocumentation}
 
