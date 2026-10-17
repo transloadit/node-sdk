@@ -116,23 +116,6 @@ async function main(): Promise<void> {
       await readFile(join(legacyProject, 'demo.ts'), 'utf8'),
       await readFile(join(project, 'demo.ts'), 'utf8'),
     )
-    await command(
-      process.execPath,
-      [
-        join(root, 'node_modules/typescript/bin/tsc'),
-        '--noEmit',
-        '--strict',
-        '--types',
-        'node',
-        '--target',
-        'ES2022',
-        '--module',
-        'NodeNext',
-        'demo.ts',
-      ],
-      { cwd: project },
-    )
-
     // No saved file: a valid shell pair must win even when the optional fallback does not exist.
     const credentials = join(directory, 'fixture-credentials')
     const trace = join(directory, 'uploads')
@@ -158,7 +141,41 @@ async function main(): Promise<void> {
     assert(!`${failed.stdout}${failed.stderr}`.includes('fixture-signed-secret'))
     const first = await command('npm', ['run', 'demo'], { cwd: project, env })
     const repeated = await command('npm', ['run', 'demo'], { cwd: project, env })
-    assert.equal(await readFile(trace, 'utf8'), 'upload\n', 'Second demo run uploaded again')
+    assert.match(first.stdout, /Uploaded "upload-once\/photo\.[a-f0-9]{8}\.jpg"\./)
+    assert.match(
+      repeated.stdout,
+      /Reused "upload-once\/photo\.[a-f0-9]{8}\.jpg"; no upload needed\./,
+    )
+    const rejectedDelivery = await command('npm', ['run', 'demo'], {
+      cwd: project,
+      env: { ...env, TRANSLOADIT_INIT_FIXTURE_FAIL_DELIVERY: 'true' },
+      reject: false,
+    })
+    assert(rejectedDelivery.failed)
+    assert(rejectedDelivery.stderr.includes('HTTP 400, GET_ACCOUNT_UNKNOWN_AUTH_KEY'))
+    assert(!rejectedDelivery.stdout.includes('Open gallery.html'))
+    assert(
+      !`${rejectedDelivery.stdout}${rejectedDelivery.stderr}`.includes('fixture-signed-secret'),
+    )
+    assert.equal(await readFile(trace, 'utf8'), 'upload\ndelivery\ndelivery\ndelivery\n')
+    // The standalone script does not import the optional Viewer declarations generated beside it.
+    // Check after generation too, with Viewer absent from this consumer's dependencies.
+    await command(
+      process.execPath,
+      [
+        join(root, 'node_modules/typescript/bin/tsc'),
+        '--noEmit',
+        '--strict',
+        '--types',
+        'node',
+        '--target',
+        'ES2022',
+        '--module',
+        'NodeNext',
+        'demo.ts',
+      ],
+      { cwd: project },
+    )
     const html = await readFile(join(project, 'gallery.html'), 'utf8')
     assert.equal([...html.matchAll(/<img /g)].length, 3)
     const urls = [...html.matchAll(/src="([^"]+)"/g)].map(
@@ -177,7 +194,7 @@ async function main(): Promise<void> {
     )
     assert.equal((await stat(join(project, 'gallery.html'))).mode & 0o777, 0o600)
     console.log(
-      'Both packed CLIs, scaffold, npm install, strict types, secret-safe failure, first demo and repeat demo PASS; one mocked upload, three real signed URLs, no production calls.',
+      'Both packed CLIs, scaffold, npm install, strict types without Viewer, secret-safe upload/delivery failures, first demo and repeat demo PASS; one mocked upload, one mocked delivery probe per run, three real signed URLs, no production calls.',
     )
   } finally {
     await rm(directory, { recursive: true, force: true })

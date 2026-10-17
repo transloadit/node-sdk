@@ -2,8 +2,10 @@ import { createHmac } from 'node:crypto'
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { runInNewContext } from 'node:vm'
 
 import { getSignedSmartCdnUrl } from '@transloadit/utils/node'
+import { imageSize } from 'image-size'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 const calls = vi.hoisted(() => vi.fn())
@@ -19,6 +21,9 @@ beforeEach(async () => {
   process.argv = ['node', 'demo.ts']
   vi.resetModules()
   calls.mockReset()
+  vi.spyOn(globalThis, 'fetch').mockImplementation(
+    async () => new Response('fixture image', { headers: { 'content-type': 'image/webp' } }),
+  )
   vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
@@ -31,22 +36,22 @@ afterEach(async () => {
   await rm(directory, { recursive: true, force: true })
 })
 
-test.each([
-  true,
-  false,
-])('the actual example reuses CLI auth/store/signing with saved login=%s', async (loggedIn) => {
-  const receipt = {
-    workspace: 'example',
-    asset_id: 'A'.repeat(22),
-    version_id: `${'B'.repeat(21)}A`,
-  }
+const receipt = {
+  workspace: 'example',
+  asset_id: 'A'.repeat(22),
+  version_id: `${'B'.repeat(21)}A`,
+  path: 'upload-once/photo.12345678.jpg',
+}
+
+function mockCommands(loggedIn = true, uploaded = true): void {
   calls.mockImplementation((_node: string, args: string[], options?: { input?: string }) => {
     const command = args.slice(1, 3).join(' ')
     if (command === 'auth status')
       return { failed: false, stdout: JSON.stringify({ configured: loggedIn }) }
     if (command === 'auth login') return { failed: false, stdout: '' }
     if (command === 'storage publications') return { failed: false, stdout: '{}' }
-    if (command === 'storage store') return { failed: false, stdout: JSON.stringify(receipt) }
+    if (command === 'storage store')
+      return { failed: false, stdout: JSON.stringify({ ...receipt, uploaded }) }
     if (command === 'auth smart-cdn') {
       const params = JSON.parse(options?.input ?? '')
       return {
@@ -64,6 +69,13 @@ test.each([
     }
     throw new Error(`Unexpected command ${command}`)
   })
+}
+
+test.each([
+  true,
+  false,
+])('the actual example reuses CLI auth/store/signing with saved login=%s', async (loggedIn) => {
+  mockCommands(loggedIn)
   await import('../../../examples/upload-once/demo.ts')
   expect(process.exitCode).toBeUndefined()
   const commands = calls.mock.calls.map(([, args]) => args.slice(1, 3).join(' '))
@@ -103,18 +115,30 @@ test.each([
     (match) => new URL(match[1].replaceAll('&amp;', '&')),
   )
   expect(urls).toHaveLength(3)
+  expect(fetch).toHaveBeenCalledExactlyOnceWith(urls[0].href, {
+    signal: expect.any(AbortSignal),
+    redirect: 'manual',
+  })
   expect(
     urls.map((url) => [
       url.searchParams.get('w'),
       url.searchParams.get('h'),
       url.searchParams.get('f'),
+      url.searchParams.get('r'),
     ]),
   ).toEqual([
-    ['640', '480', 'webp'],
-    ['1280', '960', 'avif'],
-    ['240', '240', 'jpg'],
+    ['640', '480', 'webp', 'pad'],
+    ['480', '480', 'avif', 'pad'],
+    ['320', '180', 'jpg', 'fillcrop'],
   ])
+  expect(html).toContain('Square AVIF image')
+  expect(html).toContain('Wide JPEG crop')
+  const source = imageSize(
+    await readFile(new URL('../../../examples/fixtures/berkley.jpg', import.meta.url)),
+  )
   for (const url of urls) {
+    expect(Number(url.searchParams.get('w'))).toBeLessThanOrEqual(source.width)
+    expect(Number(url.searchParams.get('h'))).toBeLessThanOrEqual(source.height)
     expect(url.searchParams.get('v')).toBe(receipt.version_id)
     expect(url.pathname).toContain(receipt.asset_id)
     const signature = url.searchParams.get('sig')
@@ -123,6 +147,19 @@ test.each([
       `sha256:${createHmac('sha256', 'do-not-print-secret').update(`example${url.pathname}?${url.searchParams}`).digest('hex')}`,
     )
   }
+})
+
+test.each([
+  { uploaded: true, message: 'Uploaded "upload-once/photo.12345678.jpg".' },
+  { uploaded: false, message: 'Reused "upload-once/photo.12345678.jpg"; no upload needed.' },
+])('reports the store result with uploaded=$uploaded', async ({ uploaded, message }) => {
+  mockCommands(true, uploaded)
+  await import('../../../examples/upload-once/demo.ts')
+  expect(process.exitCode).toBeUndefined()
+  expect(console.log).toHaveBeenCalledWith(message)
+  expect(
+    calls.mock.calls.filter(([, args]) => args[1] === 'storage' && args[2] === 'store'),
+  ).toHaveLength(1)
 })
 
 test('does not upload after an access failure or print a credential-bearing subprocess error', async () => {
@@ -141,4 +178,110 @@ test('does not upload after an access failure or print a credential-bearing subp
   expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('do-not-print-secret')
   expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain('storage publications')
   await expect(readFile('gallery.html')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test.each([
+  {
+    body: JSON.stringify({
+      error: 'GET_ACCOUNT_UNKNOWN_AUTH_KEY',
+      reason: 'https://example.test/?sig=do-not-print-secret',
+    }),
+    detail: 'GET_ACCOUNT_UNKNOWN_AUTH_KEY',
+  },
+  { body: '{"error":"do-not-print-secret","reason":"do-not-print-secret"}', detail: 'HTTP 400' },
+  { body: '<html>do-not-print-secret</html>', detail: 'HTTP 400' },
+])('stops on rejected delivery with safe feedback: $detail', async ({ body, detail }) => {
+  mockCommands()
+  vi.mocked(fetch).mockResolvedValue(new Response(body, { status: 400 }))
+  await import('../../../examples/upload-once/demo.ts')
+  expect(process.exitCode).toBe(1)
+  expect(fetch).toHaveBeenCalledOnce()
+  const errors = JSON.stringify(vi.mocked(console.error).mock.calls)
+  expect(errors).toContain(detail)
+  expect(errors).toContain('Smart CDN')
+  expect(errors).not.toContain('do-not-print-secret')
+  expect(errors).not.toContain('https://example.test')
+  expect(JSON.stringify(vi.mocked(console.log).mock.calls)).not.toContain('Open gallery.html')
+  await expect(readFile('gallery.html')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('explains how normal device login differs from a supplied upload-only key', async () => {
+  mockCommands()
+  vi.mocked(fetch).mockResolvedValue(
+    Response.json({ error: 'GET_ACCOUNT_UNKNOWN_AUTH_KEY' }, { status: 400 }),
+  )
+  await import('../../../examples/upload-once/demo.ts')
+  expect(console.error).toHaveBeenCalledWith(expect.stringContaining('credential source'))
+  expect(console.error).toHaveBeenCalledWith(expect.stringContaining('device login'))
+  expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Smart-CDN-enabled'))
+})
+
+test('withholds a delivery timeout error containing a signed URL', async () => {
+  mockCommands()
+  const deadline = new AbortController()
+  vi.spyOn(AbortSignal, 'timeout').mockReturnValue(deadline.signal)
+  vi.mocked(fetch).mockRejectedValue(new Error('https://example.test/?sig=do-not-print-secret'))
+  await import('../../../examples/upload-once/demo.ts')
+  expect(process.exitCode).toBe(1)
+  expect(AbortSignal.timeout).toHaveBeenCalledExactlyOnceWith(30_000)
+  expect(console.error).toHaveBeenCalledWith(expect.stringContaining('check your connection'))
+  expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('do-not-print-secret')
+})
+
+test('reports a redirect status without following or exposing its location', async () => {
+  mockCommands()
+  vi.mocked(fetch).mockImplementation((_url, options) => {
+    // Fetch rejects before returning a Response in error mode; manual mode exposes only this hop.
+    if (options?.redirect === 'error') return Promise.reject(new TypeError('unexpected redirect'))
+    return Promise.resolve(
+      new Response(null, {
+        status: 302,
+        headers: { location: 'https://example.test/?sig=do-not-print-secret' },
+      }),
+    )
+  })
+  await import('../../../examples/upload-once/demo.ts')
+  expect(process.exitCode).toBe(1)
+  expect(fetch).toHaveBeenCalledExactlyOnceWith(
+    expect.any(String),
+    expect.objectContaining({ redirect: 'manual' }),
+  )
+  expect(console.error).toHaveBeenCalledWith(expect.stringContaining('HTTP 302'))
+  expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('example.test')
+  expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('do-not-print-secret')
+  await expect(readFile('gallery.html')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('rejects a successful HTTP response that is not an image', async () => {
+  mockCommands()
+  const response = new Response('do-not-print-secret', { headers: { 'content-type': 'text/html' } })
+  if (response.body === null) throw new Error('Missing mock response body')
+  const cancel = vi.spyOn(response.body, 'cancel')
+  vi.mocked(fetch).mockResolvedValue(response)
+  await import('../../../examples/upload-once/demo.ts')
+  expect(process.exitCode).toBe(1)
+  expect(cancel).toHaveBeenCalledOnce()
+  expect(console.error).toHaveBeenCalledWith(expect.stringContaining('expected an image'))
+  expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('do-not-print-secret')
+})
+
+test('releases the successful probe body and shows recovery text on a later browser image error', async () => {
+  mockCommands()
+  const response = new Response('image bytes', { headers: { 'content-type': 'image/webp' } })
+  if (response.body === null) throw new Error('Missing mock response body')
+  const cancel = vi.spyOn(response.body, 'cancel')
+  vi.mocked(fetch).mockResolvedValue(response)
+  await import('../../../examples/upload-once/demo.ts')
+  expect(process.exitCode).toBeUndefined()
+  expect(cancel).toHaveBeenCalledOnce()
+  const html = await readFile('gallery.html', 'utf8')
+  expect(html).toContain('role="status" hidden')
+  expect(html).toContain('This variant could not load')
+  expect(html).toContain('npm run demo')
+  const handler = html.match(/onerror="([^"]+)"/)?.[1]
+  expect(handler).toBeDefined()
+  const image = { hidden: false, nextElementSibling: { hidden: true } }
+  runInNewContext(`(function () { ${handler} }).call(image)`, { image })
+  expect(image.hidden).toBe(true)
+  expect(image.nextElementSibling.hidden).toBe(false)
 })
