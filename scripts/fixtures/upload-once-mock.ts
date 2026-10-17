@@ -7,8 +7,25 @@ const packagePath = process.env.TRANSLOADIT_INIT_FIXTURE_PACKAGE
 const tracePath = process.env.TRANSLOADIT_INIT_FIXTURE_TRACE
 if (!packagePath || !tracePath) throw new Error('Missing packed-example fixture paths')
 const { Transloadit } = await import(pathToFileURL(packagePath).href)
-globalThis.fetch = () => {
-  throw new Error('Unexpected network request in the example fixture')
+globalThis.fetch = async (input, options) => {
+  const url = new URL(input instanceof Request ? input.url : input)
+  if (
+    url.origin !== 'https://init-fixture.tlcdn.com' ||
+    !decodeURIComponent(url.pathname).includes('builtin/storage-preview@0.0.3') ||
+    url.searchParams.get('f') !== 'webp' ||
+    !url.searchParams.has('sig') ||
+    options?.redirect !== 'manual' ||
+    !(options.signal instanceof AbortSignal)
+  )
+    throw new Error('Unexpected network request in the example fixture')
+  await appendFile(tracePath, 'delivery\n')
+  if (process.env.TRANSLOADIT_INIT_FIXTURE_FAIL_DELIVERY === 'true') {
+    return Response.json(
+      { error: 'GET_ACCOUNT_UNKNOWN_AUTH_KEY', reason: 'fixture-signed-secret' },
+      { status: 400 },
+    )
+  }
+  return new Response('mocked image bytes', { headers: { 'content-type': 'image/webp' } })
 }
 Transloadit.prototype._remoteJson = () => {
   throw new Error('Unexpected SDK request in the example fixture')
@@ -39,7 +56,7 @@ Transloadit.prototype.storeImage = async (file: string, options: { path: string 
     size: bytes.length,
     md5hash: createHash('md5').update(bytes).digest('hex'),
     mime: 'image/jpeg',
-    width: 800,
-    height: 600,
+    width: 640,
+    height: 640,
   }
 }

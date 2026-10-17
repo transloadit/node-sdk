@@ -7,8 +7,8 @@ import { z } from 'zod'
 // Edit these, then rerun npm run demo. Matching originals are not uploaded again.
 const variants = [
   { label: 'WebP card', w: 640, h: 480, f: 'webp', r: 'pad' },
-  { label: 'AVIF image', w: 1280, h: 960, f: 'avif', r: 'pad' },
-  { label: 'Square JPEG thumbnail', w: 240, h: 240, f: 'jpg', r: 'fillcrop' },
+  { label: 'Square AVIF image', w: 480, h: 480, f: 'avif', r: 'pad' },
+  { label: 'Wide JPEG crop', w: 320, h: 180, f: 'jpg', r: 'fillcrop' },
 ]
 
 const cliPath = fileURLToPath(
@@ -31,6 +31,29 @@ function escapeHtml(text: string): string {
     .replaceAll('"', '&quot;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
+}
+
+async function checkDelivery(url: string): Promise<void> {
+  stage = 'checking Smart CDN delivery; check your connection and rerun npm run demo'
+  // One bounded GET checks delivery, not just signing. The browser loads the other variants.
+  // Manual redirects preserve the status without sending the signed request to another location.
+  const response = await fetch(url, { signal: AbortSignal.timeout(30_000), redirect: 'manual' })
+  if (!response.ok) {
+    stage = `checking Smart CDN delivery (HTTP ${response.status}); rerun npm run demo and check your credential source and Storage access`
+    // Only a known code is safe to print. Never relay upstream reasons, URLs or other body fields.
+    const failure = z
+      .object({ error: z.literal('GET_ACCOUNT_UNKNOWN_AUTH_KEY') })
+      .safeParse(await response.json().catch(() => null))
+    if (failure.success) {
+      stage = `checking Smart CDN delivery (HTTP ${response.status}, ${failure.data.error}); check the credential source shown above: this key is not enabled for Smart CDN. Normal CLI device login creates a Smart-CDN-enabled combined key; run npm exec -- transloadit auth login if needed, then rerun npm run demo`
+    }
+    throw new Error('Smart CDN rejected delivery')
+  }
+  await response.body?.cancel()
+  if (!response.headers.get('content-type')?.startsWith('image/')) {
+    stage = `checking Smart CDN delivery (HTTP ${response.status}, expected an image); rerun npm run demo and check Storage access`
+    throw new Error('Smart CDN did not return an image')
+  }
 }
 
 async function main(): Promise<void> {
@@ -71,8 +94,15 @@ async function main(): Promise<void> {
       workspace: z.string().min(1),
       asset_id: z.string().min(1),
       version_id: z.string().min(1),
+      path: z.string().min(1),
+      uploaded: z.boolean(),
     })
     .parse(JSON.parse(output))
+  console.log(
+    image.uploaded
+      ? `Uploaded ${JSON.stringify(image.path)}.`
+      : `Reused ${JSON.stringify(image.path)}; no upload needed.`,
+  )
   const HOUR = 60 * 60 * 1000
   const expiresAt = (Math.floor(Date.now() / HOUR) + 2) * HOUR
   const figures = []
@@ -87,8 +117,12 @@ async function main(): Promise<void> {
         url_params: { v: image.version_id, w, h, f, r, q: 75 },
       }),
     )
+    if (figures.length === 0) {
+      console.log('Checking Smart CDN delivery…')
+      await checkDelivery(url)
+    }
     figures.push(
-      `<figure><img src="${escapeHtml(url)}" width="${w}" height="${h}" alt="${escapeHtml(label)}"><figcaption>${escapeHtml(label)}</figcaption></figure>`,
+      `<figure><img src="${escapeHtml(url)}" width="${w}" height="${h}" alt="${escapeHtml(label)}" onerror="this.hidden = true; this.nextElementSibling.hidden = false"><p role="status" hidden>This variant could not load. Its temporary access may have expired. Rerun npm run demo, reopen gallery.html, and check the terminal for Smart CDN delivery errors if it still fails.</p><figcaption>${escapeHtml(label)}</figcaption></figure>`,
     )
   }
   stage = 'writing gallery.html; check that the current directory is writable'
@@ -107,6 +141,7 @@ body { font: 1rem system-ui; max-width: 80rem; margin: 2rem auto; padding: 0 1re
 main { display: flex; flex-wrap: wrap; align-items: start; gap: 1rem; }
 figure { margin: 0; max-width: 30rem; }
 img { display: block; max-width: 100%; height: auto; }
+img[hidden] { display: none; }
 </style>
 </head>
 <body><h1>One original, three variants</h1><main>${figures.join('\n')}</main></body>

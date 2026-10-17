@@ -735,7 +735,9 @@ async function resolveResultDownloadTargets({
         throw new Error('stdout can only receive a single result file')
       }
 
-      throw new Error('file outputs can only receive a single result file')
+      throw new Error(
+        'file outputs can only receive a single result file; use -o <dir>/ to write multiple results to a directory',
+      )
     }
 
     return getSingleResultDownloadTarget(allFiles, outputPath)
@@ -1357,12 +1359,14 @@ export async function create(
   // Determine output stat async before entering the Promise constructor
   let outstat: StatLike | undefined
   if (resolvedOutput != null) {
+    const isDirectoryOutput =
+      outputMode === 'directory' || resolvedOutput.endsWith('/') || resolvedOutput.endsWith('\\')
     const [err, stat] = await tryCatch(myStat(process.stdout, resolvedOutput))
     if (err && (!isErrnoException(err) || err.code !== 'ENOENT')) throw err
     outstat =
       stat ??
       ({
-        isDirectory: () => outputMode === 'directory',
+        isDirectory: () => isDirectoryOutput,
       } satisfies StatLike)
 
     if (outputMode === 'directory' && stat != null && !stat.isDirectory()) {
@@ -1826,7 +1830,8 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
   inputs = inputPathsOption()
 
   outputPath = Option.String('--output,-o', {
-    description: 'Specify an output file or directory',
+    description:
+      'Specify an output file or directory; a trailing / or \\ creates a directory recursively',
   })
 
   fields = Option.Array('--field,-f', {
@@ -1945,7 +1950,8 @@ export class RunCommand extends AuthenticatedCommand {
   inputs = inputPathsOption()
 
   outputPath = Option.String('--output,-o', {
-    description: 'Specify an output file or directory',
+    description:
+      'Specify an output file or directory; a trailing / or \\ creates a directory recursively',
   })
 
   fields = Option.Array('--field,-f', {
