@@ -247,11 +247,50 @@ export class AuthStatusCommand extends UnauthenticatedCommand {
     category: 'Authentication',
     description: 'Show the saved CLI workspace and key description',
   })
-  protected run(): Promise<number | undefined> {
+  effective = Option.Boolean('--effective', false, {
+    description:
+      'Check effective key-pair configuration, including environment overrides (offline)',
+  })
+
+  protected async run(): Promise<number | undefined> {
+    if (this.effective) {
+      const config = resolveCliConfig()
+      // Match requireCliCredentials: a usable pair takes precedence over a broken fallback file.
+      if (config.credentials == null && (config.loadError != null || config.auth != null)) {
+        this.output.error(
+          'The effective signing credentials are incomplete or invalid. Check your shell, project .env and saved credentials before logging in again.',
+        )
+        return 1
+      }
+      const configured = config.credentials != null
+      // Login never overwrites an existing file implicitly, even if it has no usable key pair.
+      if (!configured) {
+        const saved = await lstat(getConfiguredCredentialsFilePath('shell')).catch(
+          (error: unknown) => {
+            if (isErrnoException(error) && error.code === 'ENOENT') return undefined
+            throw error
+          },
+        )
+        if (saved !== undefined) {
+          this.output.error(
+            'The saved credentials file has no usable key pair. It was preserved. Choose a separate TRANSLOADIT_CREDENTIALS_FILE for browser login, or use auth login --replace only if you intend to replace it.',
+          )
+          return 1
+        }
+      }
+      const source = config.credentialsSource ?? null
+      this.output.print(
+        configured
+          ? `Key pair configured from ${source}; remote access has not been checked.`
+          : 'No key pair configured.',
+        { configured, source },
+      )
+      return undefined
+    }
     const config = resolveCliConfig('login')
     if (config.credentials === undefined) {
       this.output.error(config.loadError ?? 'Not logged in. Run transloadit auth login.')
-      return Promise.resolve(1)
+      return 1
     }
     const workspace = config.credentialsWorkspace ?? 'not recorded'
     const description =
@@ -260,7 +299,7 @@ export class AuthStatusCommand extends UnauthenticatedCommand {
       `Saved login: ${workspace}\n${description}\nStorage commands report any shell or project credential override before use.`,
       { workspace, description },
     )
-    return Promise.resolve(undefined)
+    return undefined
   }
 }
 

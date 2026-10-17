@@ -21,6 +21,7 @@ import {
 import { BillsGetCommand } from './bills.ts'
 import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
 import { ImageInitCommand } from './image.ts'
+import { InitCommand } from './init.ts'
 import { AuthLoginCommand, AuthLogoutCommand, AuthStatusCommand } from './login.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
 import {
@@ -51,6 +52,7 @@ export function createCli(): Cli {
   // Built-in commands
   cli.register(Builtins.HelpCommand)
   cli.register(Builtins.VersionCommand)
+  cli.register(InitCommand)
 
   // Auth commands (signature generation)
   cli.register(AuthHelpCommand)
