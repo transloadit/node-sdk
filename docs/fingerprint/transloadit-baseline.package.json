@@ -1,6 +1,6 @@
 {
   "name": "transloadit",
-  "version": "5.2.0",
+  "version": "6.1.0",
   "description": "Node.js SDK for Transloadit",
   "homepage": "https://github.com/transloadit/node-sdk/tree/main/packages/node",
   "bugs": {
@@ -90,7 +90,9 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "examples/upload-once",
+    "examples/fixtures/berkley.jpg"
   ],
   "bin": "./dist/cli.js"
 }

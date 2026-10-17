@@ -1,25 +1,30 @@
 {
   "packageDir": "packages/transloadit",
   "tarball": {
-    "filename": "transloadit-5.2.0.tgz",
-    "sizeBytes": 1219673,
-    "sha256": "0634ee4d41291f69f18a6ff8ef7e9dc1014d7863873f3bb41001c7ad33daecb5"
+    "filename": "transloadit-6.1.0.tgz",
+    "sizeBytes": 1402724,
+    "sha256": "14526d4b871971dd47c8417411299e0526ad67a2158f1698e566674d6bcd6137"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "5.2.0",
+    "version": "6.1.0",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
       "./package.json": "./package.json"
     },
-    "files": ["dist", "src"]
+    "files": ["dist", "src", "examples/upload-once", "examples/fixtures/berkley.jpg"]
   },
   "files": [
     {
       "path": "LICENSE",
       "sizeBytes": 1081,
       "sha256": "f2ef2628f6aafeca9a1b1230f13c21670af294088cb42d39fb764f8e5d569146"
+    },
+    {
+      "path": "examples/fixtures/berkley.jpg",
+      "sizeBytes": 147052,
+      "sha256": "abcf2215e55841377b0c0de389d164882e90f202d9c83d77adc56e32e3ed4f65"
     },
     {
       "path": "dist/alphalib/types/robots/_ai-models.js",
@@ -32,14 +37,29 @@
       "sha256": "8d0bfd045e5adc4018227601d65aba28207b58bc297354c4c9b6cf9157c85ed5"
     },
     {
+      "path": "dist/alphalib/types/robots/_image-describe-output.js",
+      "sizeBytes": 855,
+      "sha256": "2a22bb079601d316799596eaa842c0cb5c432c427437833bbc74c68cf5df98d8"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_image-facedetect-output.js",
+      "sizeBytes": 540,
+      "sha256": "3b8e823918fdb4c0ca96b4714d093b0a436a6fbbcb7161338020562523fdc8b6"
+    },
+    {
       "path": "dist/alphalib/types/robots/_index.js",
-      "sizeBytes": 33480,
-      "sha256": "350b4ada01eccdb48a541fad0fca8fd7565fb78003b44892705109921e54ba47"
+      "sizeBytes": 33848,
+      "sha256": "5d3673210df6eb1ba544c56efa5d7b42743033d7cbe6d44dfc81b9990fe3163b"
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.js",
-      "sizeBytes": 85439,
-      "sha256": "94ae433c4704bc5cdb23cf07f3b8a13015cb88463683936843e0f94702bc920b"
+      "sizeBytes": 87121,
+      "sha256": "5e54d3242e7cf9742553cc85f062f4f837cb829a4e8ab5d8af23151ac090d782"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_ocr-output.js",
+      "sizeBytes": 896,
+      "sha256": "72f99f724025aad2c66962cd05ed8910608cc9f241f521ecc649acccb86002a5"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.js",
@@ -128,8 +148,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/audio-encode.js",
-      "sizeBytes": 1885,
-      "sha256": "d3070c3ad5b5f0d0860a901f486348d64196a879a29e519835240c10ae03b2ee"
+      "sizeBytes": 2483,
+      "sha256": "a388fe993eeadc36e547be1579c9d12ff3445438363b4acb6bc10d8065fe6867"
     },
     {
       "path": "dist/alphalib/types/robots/audio-loop.js",
@@ -143,8 +163,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/audio-split.js",
-      "sizeBytes": 2971,
-      "sha256": "e525259c9eef94eb876b5bb37688cdc313230b611cfda1ff9faf2f35dc007f51"
+      "sizeBytes": 3108,
+      "sha256": "bffbeda9783c255a312df1f37391ba30e8414b64298cb5b7d209258159446597"
     },
     {
       "path": "dist/alphalib/types/robots/audio-waveform.js",
@@ -183,8 +203,8 @@
     },
     {
       "path": "dist/bearerToken.js",
-      "sizeBytes": 5732,
-      "sha256": "1fe9a30b6b737c36576a87c61e9b86c008d1a7d109341055fcfbc59aaee6e1b2"
+      "sizeBytes": 5900,
+      "sha256": "7c9fee5fac69e646f3ca112dbc4e81495689e727bd6bf2238ac01c34476e6ddb"
     },
     {
       "path": "dist/alphalib/types/bill.js",
@@ -208,8 +228,8 @@
     },
     {
       "path": "dist/alphalib/types/builtinTemplates.js",
-      "sizeBytes": 552,
-      "sha256": "c69974779485260068e93df6949ae05b36270f233618748b831c7acc7dfabba2"
+      "sizeBytes": 1992,
+      "sha256": "f0936e6b253eed6b7e67753831ce924d0e8a39babcd23c411371c4377d3efac5"
     },
     {
       "path": "dist/cli.js",
@@ -248,8 +268,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/digitalocean-store.js",
-      "sizeBytes": 2371,
-      "sha256": "5fb250dbb9c432a3ba184058e872deed2646334b3b95bb32c874cc41c55925d8"
+      "sizeBytes": 2390,
+      "sha256": "9076408e76d9ea419aeccd8eb4eb8f67c379303c53c6e0f37581bf5b136efc9d"
     },
     {
       "path": "dist/cli/commands/docs.js",
@@ -263,13 +283,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/document-convert.js",
-      "sizeBytes": 8757,
-      "sha256": "2d5ec31fbef568192d4bfb534a371c4aa1c97e105e171eac3aed3d7aa73d833f"
+      "sizeBytes": 10266,
+      "sha256": "d62b31b7a91d0661f3713adca929043c3bcaf24f16ae3cd4a65291f112825c03"
     },
     {
       "path": "dist/alphalib/types/robots/document-extract.js",
-      "sizeBytes": 5864,
-      "sha256": "16d0e7c455df429f2750098cb608a9803bd780fa0fd62c6914632dff2e5f0fbd"
+      "sizeBytes": 8231,
+      "sha256": "19682d59394fc83636f560e777630ad4216f54db4249e7ed4ca01ffdd8fe4e5f"
     },
     {
       "path": "dist/alphalib/types/robots/document-merge.js",
@@ -297,6 +317,11 @@
       "sha256": "90794182e168093d72c5add9b5b4b267452ff1aa847f258e27aa0fbf6d04337b"
     },
     {
+      "path": "dist/alphalib/types/responseErrors/DocumentConvertRobot.js",
+      "sizeBytes": 1052,
+      "sha256": "4f023566a58c20d9be7ca1891196172991766ebcaf32afe99ef2fd0099ea7874"
+    },
+    {
       "path": "dist/alphalib/types/robots/dropbox-import.js",
       "sizeBytes": 2345,
       "sha256": "0fc8f26ab4006d1ad1a9af23cb727df1606f08b03f9fcb3d7f4f48b3498b0772"
@@ -310,6 +335,11 @@
       "path": "dist/alphalib/types/robots/edgly-deliver.js",
       "sizeBytes": 1615,
       "sha256": "80ed1200c367cd189ab10bea4ca0271923bc6bcc6142886fb2a61f662b770ab8"
+    },
+    {
+      "path": "dist/alphalib/englishInteger.js",
+      "sizeBytes": 579,
+      "sha256": "185376acdaa4346929619f0e96731423acb8a19436c16b3328907f9720b11135"
     },
     {
       "path": "dist/alphalib/englishList.js",
@@ -418,8 +448,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/google-store.js",
-      "sizeBytes": 3938,
-      "sha256": "44428f79a074b6d07ac4c040a77614bb994ba03f4c8b3ce68aebdd06d501466c"
+      "sizeBytes": 4382,
+      "sha256": "89118c036cee08497f861429ca68a7413c50e3eff5bda6c55469c0556530db4f"
     },
     {
       "path": "dist/cli/helpers.js",
@@ -428,8 +458,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.js",
-      "sizeBytes": 4837,
-      "sha256": "8d6f8e87a8c0276a1ee1ca907898cfa109f3f0216129b6313326499cc483f54d"
+      "sizeBytes": 4916,
+      "sha256": "f62131c88f06f4f019a7af2480d4c443ed0651abba39764695506be6ebb09aa8"
     },
     {
       "path": "dist/alphalib/types/robots/http-import.js",
@@ -458,8 +488,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-describe.js",
-      "sizeBytes": 3671,
-      "sha256": "7ad5ec432332809093264c621ed5e3332d704966306bbf0f93e14094cb46a759"
+      "sizeBytes": 3825,
+      "sha256": "20a4f01b5e3d9de573b8acab1b93d50380c13ae80fdf4e426d88af85d452d429"
     },
     {
       "path": "dist/alphalib/types/robots/image-enhance.js",
@@ -468,13 +498,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.js",
-      "sizeBytes": 6004,
-      "sha256": "6a29b4d2890db5d70c7fb5d93e5299c04353e92f0debd7a943686492d53a4f67"
+      "sizeBytes": 5812,
+      "sha256": "d13f2dcf3493f08905ea5ca0721ab3b0143f4fade972eaa84822a6f8e9c46836"
     },
     {
       "path": "dist/alphalib/types/robots/image-generate.js",
-      "sizeBytes": 5787,
-      "sha256": "ed7b3bc8737dfad383babc709bbd342e446268861b61946ab46b43d3d9b9172f"
+      "sizeBytes": 5780,
+      "sha256": "3446935c3fe912f9125a897200ddbec8e363433901eb4fb2c3aa497c86ed502b"
     },
     {
       "path": "dist/alphalib/types/robots/image-merge.js",
@@ -498,8 +528,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-upscale.js",
-      "sizeBytes": 2372,
-      "sha256": "8bc876a4b6e1b3e6ee81d9e0b0489ca29899bb6dbcf23ac1f9dd5bdb62ae99d8"
+      "sizeBytes": 3186,
+      "sha256": "7ba319de4045956abe55a9490e966b12051ece652fbe4eb29d2db2e8d49d1dbc"
     },
     {
       "path": "dist/cli/commands/image.js",
@@ -528,13 +558,18 @@
     },
     {
       "path": "dist/cli/commands/index.js",
-      "sizeBytes": 3251,
-      "sha256": "0250aa6a4d34699ea978de0dbcf0b744986cb2bcd8c7e99b0372b34d7a8207e9"
+      "sizeBytes": 3323,
+      "sha256": "4ac2236f19ca98964f8bb7c776b1e989621e852ae651b200b19d1c92e8e0b2e1"
     },
     {
       "path": "dist/cli/semanticIntents/index.js",
       "sizeBytes": 998,
       "sha256": "5d2ad2e96e113b98800d93403c3a13909c54b4b8b34cd7dd123e3d9817345549"
+    },
+    {
+      "path": "dist/cli/commands/init.js",
+      "sizeBytes": 4814,
+      "sha256": "7cabcb4621973851341d0bc6b4b2ae7efd1e582a6a04a2a47b0e3fb036ca8611"
     },
     {
       "path": "dist/inputFiles.js",
@@ -578,8 +613,8 @@
     },
     {
       "path": "dist/cli/commands/login.js",
-      "sizeBytes": 15331,
-      "sha256": "5f90c42bcbce1c151f9b6daa70c6ec7c84a0e69e76c324bb9133b98e22d6da81"
+      "sizeBytes": 17084,
+      "sha256": "12a3b31c148fb17b08a7b23b9f0bb8c49a21cb434ffa66847ad09e870f76d3a8"
     },
     {
       "path": "dist/cli/semanticIntents/markdownPdf.js",
@@ -598,8 +633,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/mega-store.js",
-      "sizeBytes": 2089,
-      "sha256": "dc3d0a16119904e6a8c40f4d586c8bffccbd3b636a080c2d1799d99be2598bbe"
+      "sizeBytes": 2108,
+      "sha256": "2a19c1d7086939b401e7689b489a4571f1ea16aaa66439e3da4da884a5800070"
     },
     {
       "path": "dist/alphalib/types/robots/meta-read.js",
@@ -673,8 +708,8 @@
     },
     {
       "path": "dist/robots.js",
-      "sizeBytes": 8386,
-      "sha256": "71e4ccf2c47d989161230edd7d44e67ae06e02cfd97d6ede8ebb62f581b6f117"
+      "sizeBytes": 8628,
+      "sha256": "e89e2271a3575e7c23c66c88b9add5560f5ce2a728b72ff75afa843dee71a36c"
     },
     {
       "path": "dist/alphalib/types/robots/s3-import.js",
@@ -683,8 +718,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/s3-store.js",
-      "sizeBytes": 10367,
-      "sha256": "586a07f968c325fb36c676f9e7cc37b063fbfef32ec33c59545d7ef032276c47"
+      "sizeBytes": 10923,
+      "sha256": "7511be38221ef778ea07f5d57dc4e2c88db23105c55ccfeb8d5d0432b3f89516"
     },
     {
       "path": "dist/alphalib/types/robots/script-run.js",
@@ -713,13 +748,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/speech-transcribe.js",
-      "sizeBytes": 7282,
-      "sha256": "8070b6b74e380b8125336ea1e9072dad410c6e02589f6ad7474238512d920321"
+      "sizeBytes": 9768,
+      "sha256": "3e6626a1dceceee32f3ee0ab805d158aff238d1cbf3c7d365f7b7d156f1b7ec5"
     },
     {
       "path": "dist/cli/semanticIntents/speechTranscribe.js",
-      "sizeBytes": 4125,
-      "sha256": "6dcbf60450e6a79984d2ed0f655cdeb507d1666b6b13376013d35a08b3befedc"
+      "sizeBytes": 4665,
+      "sha256": "a8ace647ab37820277a40b1c531a870c1aa0b54d18a6e0d057be6e2ec55c6586"
     },
     {
       "path": "dist/alphalib/types/stackVersions.js",
@@ -813,8 +848,8 @@
     },
     {
       "path": "dist/alphalib/types/template.js",
-      "sizeBytes": 12640,
-      "sha256": "4d6b47a8d3949a5bffb2bfa3fdc00ea492eb3840fbcba184b872aeb83fca3306"
+      "sizeBytes": 12799,
+      "sha256": "508843f103494e61582243a6596fa25b6c6744068daaa9ff8e866c17324159cb"
     },
     {
       "path": "dist/alphalib/types/templateCredential.js",
@@ -868,8 +903,8 @@
     },
     {
       "path": "dist/Transloadit.js",
-      "sizeBytes": 49674,
-      "sha256": "e6dc7096cc1c45396fe233318338c21b65b7962cef2e3a37f5710122a758020f"
+      "sizeBytes": 49746,
+      "sha256": "166c04214c864f8a6ee7b1832de00baf3175290ae2a6095738ec2157a875faec"
     },
     {
       "path": "dist/alphalib/tryCatch.js",
@@ -908,8 +943,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.js",
-      "sizeBytes": 6622,
-      "sha256": "43a390784a680d93e9759096d34d579baf4e87fa744bde24f6ce75fdf6e8482c"
+      "sizeBytes": 10297,
+      "sha256": "aea00a41996bddda6d33387cf6778a34fac356a197e8b9c4fabb1f021a69e464"
     },
     {
       "path": "dist/alphalib/types/robots/video-artwork.js",
@@ -918,23 +953,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-concat.js",
-      "sizeBytes": 6088,
-      "sha256": "1881fca1b46caf8e62b2927b8f9b7988ea1cb6e292c7914174f38396281e4b21"
+      "sizeBytes": 6704,
+      "sha256": "1725237cd191f5e05891478c7a4d0a7dd1e00ce997faf11fedf7734c62897623"
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.js",
-      "sizeBytes": 3978,
-      "sha256": "76edf0d86b2f403fa913a76220daf402a27285a8986502effb7fe4357ae77841"
+      "sizeBytes": 4465,
+      "sha256": "0248275fe64520d1cca169e1ef3d09e2dea8fe1ebf42856e1c25863f61c051e7"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.js",
-      "sizeBytes": 3849,
-      "sha256": "dfb14a57d2f56566902c7df8fdeda0f83373691a5daeaff1945c03393a6fbd56"
+      "sizeBytes": 3842,
+      "sha256": "0e0a5ed907a9cdd67eb14ca60b30da492c0ac594a30d1b87ce3080e7c66bb43d"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.js",
-      "sizeBytes": 6490,
-      "sha256": "60782b907506fb255fa5c0b11a13638710a34eab4ee0ccca8aaf1d88ffde9730"
+      "sizeBytes": 8045,
+      "sha256": "16d5b980d15f98274d70c901128ca02c2a1ab5d4b657776dbda3f7d3ff079539"
     },
     {
       "path": "dist/alphalib/types/robots/video-ondemand.js",
@@ -943,23 +978,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-split.js",
-      "sizeBytes": 2523,
-      "sha256": "d6046f8adc49e405522191df4721085910bda02a949c2c5a72b8bfcdc5b81816"
+      "sizeBytes": 2752,
+      "sha256": "29c4e720e819b88922ef26497e2b77015f158ac1122f205d9772f408855da991"
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.js",
-      "sizeBytes": 6705,
-      "sha256": "2137c2ad179a86a243a0927ede596bf12c5549daf54473144d14bbe04e3a76aa"
+      "sizeBytes": 11026,
+      "sha256": "6823665bec92c667601f7753ac3f44ad40cd3063414b704b12fe2f4d1af5392c"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.js",
-      "sizeBytes": 11180,
-      "sha256": "e50493c8920cadda1b882d46c9510349953c28c73e6300c482ca10ffd6501ae0"
+      "sizeBytes": 11346,
+      "sha256": "f27807b5137184d522d6f98f4ee4fd9c5491da747a9800ebccdcfee379e68960"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.js",
-      "sizeBytes": 3256,
-      "sha256": "ce01ad61f5573377f568471da596aa8e7bc6afaa684507ac6cb9b11e84c05a01"
+      "sizeBytes": 3520,
+      "sha256": "74fb302b4ae25d864d96c5ec610df669aadb00321c2607e9d7db23f276117eb6"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-store.js",
@@ -978,13 +1013,18 @@
     },
     {
       "path": "dist/alphalib/types/robots/youtube-store.js",
-      "sizeBytes": 4668,
-      "sha256": "806528815c106358a2692a6e1c3d1e82c70e38fe741b2e8440e297f1780d1fb8"
+      "sizeBytes": 4475,
+      "sha256": "dd80d8eaf03f5a6d42042e57b506da7d5c2e2c69d9d87d12deaf7cd4f89c8121"
+    },
+    {
+      "path": "dist/alphalib/youtubeCategories.js",
+      "sizeBytes": 754,
+      "sha256": "33c2a0966a831cd6cdd66ea1243a4397ecf0017a7eda58faefdc617a1d7bbfa1"
     },
     {
       "path": "dist/alphalib/lib/zodInputSemantics.js",
-      "sizeBytes": 3826,
-      "sha256": "dd29677e29d79f3d4950a85bb802c190d2f211241914ad7f8e473ef7e914f173"
+      "sizeBytes": 4638,
+      "sha256": "27817a262234c99d3e65ac9fa610859f607871331c2b3c9e6dc19dc5c19844cf"
     },
     {
       "path": "dist/alphalib/zodParseWithContext.js",
@@ -993,8 +1033,8 @@
     },
     {
       "path": "package.json",
-      "sizeBytes": 2705,
-      "sha256": "a87338924f261dc124594d3524615071fb90742d0e2566167f640909ad44a47a"
+      "sizeBytes": 2770,
+      "sha256": "4c355369ba6665aae1134c8314cd992d919b331012f87b9c0587164af2bb4463"
     },
     {
       "path": "dist/alphalib/types/robots/_ai-models.d.ts.map",
@@ -1017,24 +1057,54 @@
       "sha256": "9b4313ebb722c9e2147ecaff3192d68f15ffff6e36de5bfb7149752dc165dc12"
     },
     {
+      "path": "dist/alphalib/types/robots/_image-describe-output.d.ts.map",
+      "sizeBytes": 435,
+      "sha256": "1a34384ae916257b9a769ef96be855f9c40bfa378f3efbee10b04c8908f3e353"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_image-describe-output.js.map",
+      "sizeBytes": 700,
+      "sha256": "1fc207b1cfce6bfb405d45fc86e5d5073bb04a44f98cdf75ff593d00f37f16a0"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_image-facedetect-output.d.ts.map",
+      "sizeBytes": 366,
+      "sha256": "35c497f01aeeb3765e3008d899ef7887a7315a3f0894879d4b23e3c221e71cca"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_image-facedetect-output.js.map",
+      "sizeBytes": 615,
+      "sha256": "4ea23cca643b89caa870ade2e95a4c32a33c4eb939764692a73812a20f1d7b39"
+    },
+    {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
-      "sizeBytes": 14021,
-      "sha256": "f7f44202b3ea635869f00dd20032f659e0a902f16e41199d32274bc5e92720b1"
+      "sizeBytes": 14665,
+      "sha256": "1dfc381ca3050ebe416662e14e3b03592b9ef474f03730f122932c13e9106cd4"
     },
     {
       "path": "dist/alphalib/types/robots/_index.js.map",
-      "sizeBytes": 12547,
-      "sha256": "7f0775656e91d2192a332b7fab4fa27c88de2f90111db367468e10fb7ce2d4ee"
+      "sizeBytes": 12674,
+      "sha256": "e5e41ddb435749cdf3f0dcfbce8cae898d5131aa1b0ac0338f0087af877e91e3"
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.d.ts.map",
-      "sizeBytes": 15820,
-      "sha256": "d7b3ada5242b9ffcd6bf3f7e80f7d90e1a57f3997d9bcc0460386f855ef32ed1"
+      "sizeBytes": 15943,
+      "sha256": "1f4e73e620f141bacf191f5390675b6c7b22487b9f3892eb94a552d7696f120a"
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.js.map",
-      "sizeBytes": 48438,
-      "sha256": "086136b168419c48d74e22d2d7df904b8a2ffe0cea800db6286537598143d45d"
+      "sizeBytes": 49835,
+      "sha256": "25cc6c1f66c6f616e39eebea323b4b7ddd74cd24e9f18341903e8833f1d84287"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_ocr-output.d.ts.map",
+      "sizeBytes": 480,
+      "sha256": "a94f199e7ed7dd6f3f58bab608aaf557a95d0eff9939bc21aececdfcb000af63"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_ocr-output.js.map",
+      "sizeBytes": 782,
+      "sha256": "68d383b2fe7f68e5fee110a9cb77462f7535064a1cd79af5abf512735238d9f3"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts.map",
@@ -1078,8 +1148,8 @@
     },
     {
       "path": "dist/apiTypes.d.ts.map",
-      "sizeBytes": 3731,
-      "sha256": "7f17ae045404668d4946d0e636bba528a5999d80e9caea4babdb4a0ba09976aa"
+      "sizeBytes": 3945,
+      "sha256": "bf4cfa7c32704c71e67cb28dafb72741a1403b506ea062d67b1930aa0d552906"
     },
     {
       "path": "dist/apiTypes.js.map",
@@ -1208,13 +1278,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/audio-encode.d.ts.map",
-      "sizeBytes": 3709,
-      "sha256": "e1007a9b9507f8bb49456e82ab98a9ff247db68249564645d7969d8cb69b282a"
+      "sizeBytes": 3710,
+      "sha256": "2088b74d2542186f7e4402ff649cfbbe533215cde04e2e5551f8b3d912c443dd"
     },
     {
       "path": "dist/alphalib/types/robots/audio-encode.js.map",
-      "sizeBytes": 1370,
-      "sha256": "8cea07810b23bceaeafae3ca0a40df67b8c2f3751a3f0981de0d527739d0974c"
+      "sizeBytes": 1413,
+      "sha256": "6121c840accdaac73b7ebaa3b6e6c16c21a555639cf91daa4978ed797c0421ca"
     },
     {
       "path": "dist/alphalib/types/robots/audio-loop.d.ts.map",
@@ -1239,12 +1309,12 @@
     {
       "path": "dist/alphalib/types/robots/audio-split.d.ts.map",
       "sizeBytes": 3781,
-      "sha256": "0079c1f8014f70a7d4d53995370411dcf984976815ac6ac302b857156780cd1e"
+      "sha256": "3cce8424b362992b3176417ae9bdfb00d3b95a83316fed9e319862e7c6bb03fa"
     },
     {
       "path": "dist/alphalib/types/robots/audio-split.js.map",
-      "sizeBytes": 1895,
-      "sha256": "2b4dd5678508d85ba83057c6d767dce5373d56a3a6cdc24023a76ac8a7546771"
+      "sizeBytes": 1897,
+      "sha256": "775f0115f3a58572792a9e56a70b65d9190367197852a2c758bf4cfdccc12e89"
     },
     {
       "path": "dist/alphalib/types/robots/audio-waveform.d.ts.map",
@@ -1318,13 +1388,13 @@
     },
     {
       "path": "dist/bearerToken.d.ts.map",
-      "sizeBytes": 900,
-      "sha256": "c10732e07a2bbb0d47d9d40a0d755716384033e9b6839a0ec189fe6fb7e6aaab"
+      "sizeBytes": 944,
+      "sha256": "04f794f0a1d1ab75d10b3f7b365a4bd8d6c5c4f80f88d7c13c3df31f47c98a57"
     },
     {
       "path": "dist/bearerToken.js.map",
-      "sizeBytes": 5867,
-      "sha256": "b584405efd14cd4e22920d6be5c66a21e2cb62352a17760bc8225918a98445d9"
+      "sizeBytes": 6009,
+      "sha256": "20d40d3824baff4930ddd5bf5695368269c0ccd9405f3603b94d6d41bc394425"
     },
     {
       "path": "dist/alphalib/types/bill.d.ts.map",
@@ -1368,13 +1438,13 @@
     },
     {
       "path": "dist/alphalib/types/builtinTemplates.d.ts.map",
-      "sizeBytes": 400,
-      "sha256": "7ae83c04c8d92b40e298959e720330472610945d7893e07d086d43b1ba862dc8"
+      "sizeBytes": 743,
+      "sha256": "179cd8d9a6e02a1c0515a4b5b05e2518d98daf69f14b1f878a0809e2962dfa13"
     },
     {
       "path": "dist/alphalib/types/builtinTemplates.js.map",
-      "sizeBytes": 790,
-      "sha256": "b734fed0fe28149adef6544cf1757012ccd7d5604e613e03ca957ebef6d1c5d3"
+      "sizeBytes": 1593,
+      "sha256": "a39a2d017181fdb5cda088faa9463d931b144bfa2626d32afaa1b68791b6b57e"
     },
     {
       "path": "dist/cli.d.ts.map",
@@ -1453,8 +1523,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/digitalocean-store.js.map",
-      "sizeBytes": 1261,
-      "sha256": "229415c0b4001e4dedd85f4f381d3bd6d593759f72f6ec7ec9599b0cc97403d3"
+      "sizeBytes": 1287,
+      "sha256": "0f7999ac144ca584753f6d2132bc5203f715779965026912ac0488d6abbbbc29"
     },
     {
       "path": "dist/cli/commands/docs.d.ts.map",
@@ -1478,23 +1548,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/document-convert.d.ts.map",
-      "sizeBytes": 1368,
-      "sha256": "f00becb05b24aaa3535e6d2ac1e826dca1d0e296fe12605ed3c354fffd6e6fe1"
+      "sizeBytes": 1416,
+      "sha256": "b178b7351649f75c9e7e66ca27b0f40875ce70554d760d5f5bae2ff309678249"
     },
     {
       "path": "dist/alphalib/types/robots/document-convert.js.map",
-      "sizeBytes": 2672,
-      "sha256": "e82e262634317050fb2df37d50627eb83b4a13581a184b5a9a7b09ae744856d9"
+      "sizeBytes": 3056,
+      "sha256": "fe7701df6257c17ab0a0174489a1714c72ead62877074f58bde341f77e7355c4"
     },
     {
       "path": "dist/alphalib/types/robots/document-extract.d.ts.map",
-      "sizeBytes": 1416,
-      "sha256": "1707f7c9f201b9fc7bd5dd928abac0c56d1e0825d8079c2d809e24946b884ae7"
+      "sizeBytes": 1782,
+      "sha256": "31d353acc3f117c54b9189f8f99c9055e53e96195753cfc7e66795832965849f"
     },
     {
       "path": "dist/alphalib/types/robots/document-extract.js.map",
-      "sizeBytes": 2973,
-      "sha256": "ff3dd03ae2b654c2690f3fb8b6326394dc708e298ce4d4c21ea57721ba66ebe8"
+      "sizeBytes": 4486,
+      "sha256": "20e7fd4c9c9ab62cc8414f31118e2f0cc9efe49fc4384e0acb8b7a9d6f520001"
     },
     {
       "path": "dist/alphalib/types/robots/document-merge.d.ts.map",
@@ -1547,6 +1617,16 @@
       "sha256": "8aee28724a79a449c956a5f23e4c41a28bf148db57a6e47604dab990ef2d2d64"
     },
     {
+      "path": "dist/alphalib/types/responseErrors/DocumentConvertRobot.d.ts.map",
+      "sizeBytes": 323,
+      "sha256": "33d270a0cdcb75380656d403d57f392f4178c4540e802735bf376abe8630d0b4"
+    },
+    {
+      "path": "dist/alphalib/types/responseErrors/DocumentConvertRobot.js.map",
+      "sizeBytes": 499,
+      "sha256": "971f4448a2c3f34c9e784fca1fd69a4029f628671c2fe7e1d61806f19441753c"
+    },
+    {
       "path": "dist/alphalib/types/robots/dropbox-import.d.ts.map",
       "sizeBytes": 1023,
       "sha256": "4dfb439538c1649a55ee72f3980557840b3c51557c1833d7889afa973bc1fb8b"
@@ -1575,6 +1655,16 @@
       "path": "dist/alphalib/types/robots/edgly-deliver.js.map",
       "sizeBytes": 987,
       "sha256": "bc48117baa766f7a0fcbb2cdfb5aae9cd155147bfbf43d1475706c789ceca71d"
+    },
+    {
+      "path": "dist/alphalib/englishInteger.d.ts.map",
+      "sizeBytes": 201,
+      "sha256": "57917b2254730254552a650843ee1fc882e1a779d92525f2cbf534b33cc1cd39"
+    },
+    {
+      "path": "dist/alphalib/englishInteger.js.map",
+      "sizeBytes": 746,
+      "sha256": "20cdd086094c20f72e69ff65cb2ecfcfdeb02a8c80b323beada274ee089bd478"
     },
     {
       "path": "dist/alphalib/englishList.d.ts.map",
@@ -1788,13 +1878,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/google-store.d.ts.map",
-      "sizeBytes": 1321,
-      "sha256": "ef9cbbc4d2535b89de0d92c8e2e3238c05b626bc4bf92ced5dc0be1467a62b5f"
+      "sizeBytes": 1396,
+      "sha256": "86b52c4b5692cdd6af8c73bfe76051ac0585a18b4ce97629509c91901dab456f"
     },
     {
       "path": "dist/alphalib/types/robots/google-store.js.map",
-      "sizeBytes": 1633,
-      "sha256": "0319ce9280f052d795a808264c7181f26db3786c25284ed9e14e949a9f0d4601"
+      "sizeBytes": 1918,
+      "sha256": "def1533c997758417b00831a7406b7926104dfc0c030c7171cc254713b6005d1"
     },
     {
       "path": "dist/cli/helpers.d.ts.map",
@@ -1809,12 +1899,12 @@
     {
       "path": "dist/alphalib/types/robots/html-convert.d.ts.map",
       "sizeBytes": 1433,
-      "sha256": "bcb1bc71934ac87580926d94927a9fc9d96f2e25645354cc410bbfb8b49f2f7c"
+      "sha256": "ba017879b66c1a36a73fba9a54b7b2ae82e453449a8437b265b90b21a0c26a8f"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.js.map",
-      "sizeBytes": 2378,
-      "sha256": "0155c89a712bdcb9c70f00b8eb2b49f739234c4fd85fe0c50fe5d31456da565f"
+      "sizeBytes": 2379,
+      "sha256": "33c7c159ec0983dcecd0fcf4c40d7b7f08703b093c63c212526badcfa4ed3e16"
     },
     {
       "path": "dist/alphalib/types/robots/http-import.d.ts.map",
@@ -1868,13 +1958,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-describe.d.ts.map",
-      "sizeBytes": 1303,
-      "sha256": "13d556bd5dbffe73dd308dfbd675080ef80f0ef944e4832a30349af75416dc92"
+      "sizeBytes": 1388,
+      "sha256": "cc390cc5af346d207571833e1eb0086999706cff1ee44699ba4ab8cba3654a15"
     },
     {
       "path": "dist/alphalib/types/robots/image-describe.js.map",
-      "sizeBytes": 1425,
-      "sha256": "8ff339dc3cd2e73f75fedc5d688563a9ad5e8fd6c1a83feb8621b8ff89015fc7"
+      "sizeBytes": 1500,
+      "sha256": "7fffe55d69c4ac279ca375f4b496ab038aaa58478af09eacf226d006b060c7c4"
     },
     {
       "path": "dist/alphalib/types/robots/image-enhance.d.ts.map",
@@ -1888,13 +1978,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.d.ts.map",
-      "sizeBytes": 1529,
-      "sha256": "00452fa3386be1001620285737b3fe401a002401474a9c323b5099ec8bec527d"
+      "sizeBytes": 1465,
+      "sha256": "bff2484fcdb79103d77efebd720bb7f1ca00a730e44930a9ea07fcf870e486fc"
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.js.map",
-      "sizeBytes": 2409,
-      "sha256": "528f1b7db6d8fa2a427fee5ff60bfd8552a1d5d0226ac57fd5be7e83f5e921a2"
+      "sizeBytes": 2076,
+      "sha256": "9f54d77af14494f9668751cf220f113873ad227f06ca99066105c4ce9a6afe12"
     },
     {
       "path": "dist/alphalib/types/robots/image-generate.d.ts.map",
@@ -1903,8 +1993,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-generate.js.map",
-      "sizeBytes": 3029,
-      "sha256": "77626958717115153e9aeaddd831b08886b66e3bc0d7f141b6742a29eba4d28c"
+      "sizeBytes": 3019,
+      "sha256": "36aea3ecfac32cf4b20631a9a4620b0acd04102040a8756162f853079d8d16ba"
     },
     {
       "path": "dist/alphalib/types/robots/image-merge.d.ts.map",
@@ -1948,13 +2038,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-upscale.d.ts.map",
-      "sizeBytes": 1348,
-      "sha256": "b8823dd99585de8cb87f4a95d8269ba554a913ebba1bc687ae95307a609c0b47"
+      "sizeBytes": 1394,
+      "sha256": "781ae19fbb61d5e94efd328e8f881f75478ab29a00876b8981d80236cb8a8da4"
     },
     {
       "path": "dist/alphalib/types/robots/image-upscale.js.map",
-      "sizeBytes": 1822,
-      "sha256": "a1008d30fce0bd6ac716886ad9e0d47ce4e3efc1dc7cf20e5bc7e1615ae89c7a"
+      "sizeBytes": 2085,
+      "sha256": "4caad5affa23c6cae29852f6fb3e6c4076c7fba5908a85ba69f270e643c7efa8"
     },
     {
       "path": "dist/cli/commands/image.d.ts.map",
@@ -2009,7 +2099,7 @@
     {
       "path": "dist/cli/commands/index.d.ts.map",
       "sizeBytes": 198,
-      "sha256": "cc87bb5e46acc0b80f8945452714bf7d0dbbf03fb8100800578df87d2f757618"
+      "sha256": "7605e46e24e7648f335266557764812c3f770cc3deed457a40957528cdca59cf"
     },
     {
       "path": "dist/cli/semanticIntents/index.d.ts.map",
@@ -2018,13 +2108,23 @@
     },
     {
       "path": "dist/cli/commands/index.js.map",
-      "sizeBytes": 2910,
-      "sha256": "f3b39a24f8ff6908049afddc46afc61f61d1702b535f1ce25ae24b1032b2a90f"
+      "sizeBytes": 2992,
+      "sha256": "3aa67d40bd516abff383c52b8b0c1b186c46575f2cf9944f618f7c9af25af662"
     },
     {
       "path": "dist/cli/semanticIntents/index.js.map",
       "sizeBytes": 704,
       "sha256": "ae1da614453a69cbcd3da38a4cdc966f60fbd3549578abf5836306596046c11d"
+    },
+    {
+      "path": "dist/cli/commands/init.d.ts.map",
+      "sizeBytes": 353,
+      "sha256": "c3e77e30277845be7161f50c55222202326ec27ead6f2b6a06f2b003ecbf1857"
+    },
+    {
+      "path": "dist/cli/commands/init.js.map",
+      "sizeBytes": 3633,
+      "sha256": "94c097b9ae113f508c07c1770153f83bd3b821dbf2f91a585ed58808a2ddc4ea"
     },
     {
       "path": "dist/inputFiles.d.ts.map",
@@ -2108,13 +2208,13 @@
     },
     {
       "path": "dist/cli/commands/login.d.ts.map",
-      "sizeBytes": 665,
-      "sha256": "820af3fadca36210e19faf925ec1f507986bad067ad81105e5035ba4d7d2ccf3"
+      "sizeBytes": 671,
+      "sha256": "7ffb11552a235836d2e000c3ae6d01235124a2bffed798f2a106e2da0d035993"
     },
     {
       "path": "dist/cli/commands/login.js.map",
-      "sizeBytes": 10649,
-      "sha256": "d42f4c22a28cb44f3242ecd3da3fae700a6e407db1035eb06e8bff4ad0b88e7e"
+      "sizeBytes": 11671,
+      "sha256": "1952a67f72107a1013c6b3a1f2887c14281cafa5b4d4ab4717281b7a77cb871b"
     },
     {
       "path": "dist/cli/semanticIntents/markdownPdf.d.ts.map",
@@ -2153,8 +2253,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/mega-store.js.map",
-      "sizeBytes": 1170,
-      "sha256": "049aaa309fa0b45ce75e685909010b0b2cf67bb64c265d356d6973388bed6cc9"
+      "sizeBytes": 1196,
+      "sha256": "313d873c00b42a3bc1d036e40680661a0b996ebebac5f96fc79eaed60f1c4cfa"
     },
     {
       "path": "dist/alphalib/types/robots/meta-read.d.ts.map",
@@ -2299,12 +2399,12 @@
     {
       "path": "dist/robots.d.ts.map",
       "sizeBytes": 1181,
-      "sha256": "bc1a5a73c668ba05eeb658544ba7a9471c2cf191684e6dc6993bdc748c028450"
+      "sha256": "45d372129151fdff879b88a22c4968389d9723d06021b0b0b41a6cdd7f2de860"
     },
     {
       "path": "dist/robots.js.map",
-      "sizeBytes": 9411,
-      "sha256": "6793d6bc877e590274d302b1fe49ed4cbd87ab88fe667eb6f10a1a2d46afc7ba"
+      "sizeBytes": 9562,
+      "sha256": "468d110ddc0aed3438d0ae3467286e88d79a79a3315b9e791425bcb3de3b89f5"
     },
     {
       "path": "dist/alphalib/types/robots/s3-import.d.ts.map",
@@ -2319,12 +2419,12 @@
     {
       "path": "dist/alphalib/types/robots/s3-store.d.ts.map",
       "sizeBytes": 1537,
-      "sha256": "e42c48bace9a4599fc6bfe42f6649dda74a7d977d86ddea1d3260c8967a4e63b"
+      "sha256": "1b46301d4ff4a2a963789a2f06da9180dc1230419c96f0bccb5532a4af098f24"
     },
     {
       "path": "dist/alphalib/types/robots/s3-store.js.map",
-      "sizeBytes": 2240,
-      "sha256": "672ce7711048c1d492d85aa8759def53acc5889db900380b318d6b209e964634"
+      "sizeBytes": 2328,
+      "sha256": "bdb796e7b608c8ca1304cf6a46279a2ada8b052738173d1283eeee50d36f4d75"
     },
     {
       "path": "dist/alphalib/types/robots/script-run.d.ts.map",
@@ -2378,23 +2478,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/speech-transcribe.d.ts.map",
-      "sizeBytes": 1408,
-      "sha256": "a74e64e2cfc514bb0e99189a5402e6db40aaaac8ff3e987a72cefeec2e86a735"
+      "sizeBytes": 1468,
+      "sha256": "df99abc3ee5e3c1d59746c12f9b2f4881862e27d4aea98d616335930331586bc"
     },
     {
       "path": "dist/alphalib/types/robots/speech-transcribe.js.map",
-      "sizeBytes": 2341,
-      "sha256": "c8413ec39c970f5802fdaf120ea182d60c400c65c5d26288746f5d7108c2c678"
+      "sizeBytes": 3188,
+      "sha256": "933fcc22418093e7ffce7099246117afaac22b25270e2160ebe7b9d61c1d39fa"
     },
     {
       "path": "dist/cli/semanticIntents/speechTranscribe.d.ts.map",
-      "sizeBytes": 434,
-      "sha256": "8ccd62b2364a9b007562b52c35efe1f2e1400f2e651e32e0a28b6cb5241070db"
+      "sizeBytes": 436,
+      "sha256": "1c1b8d31d6f7ca855e1307ea92053215e99258a7e712af0e3256ab5a5c297612"
     },
     {
       "path": "dist/cli/semanticIntents/speechTranscribe.js.map",
-      "sizeBytes": 2823,
-      "sha256": "5ec20e8234207ad2fe0eb2591ef7cac49522dec55f2fdd8f8ca5654759e31d36"
+      "sizeBytes": 3083,
+      "sha256": "eb7882c87797315b0e4adc1002261cd5f2a9822920ebb47279d8b1876a33a5dd"
     },
     {
       "path": "dist/alphalib/types/stackVersions.d.ts.map",
@@ -2579,12 +2679,12 @@
     {
       "path": "dist/alphalib/types/template.d.ts.map",
       "sizeBytes": 2476,
-      "sha256": "b21728edfc07568820abc7e824d8d217e306d6f385f0a112baea2878f8c16f07"
+      "sha256": "27a567e326048d38451d37a624c6bcd07a3d777e1d794930ed25f6809f2cdacd"
     },
     {
       "path": "dist/alphalib/types/template.js.map",
-      "sizeBytes": 5849,
-      "sha256": "d9d0911219820bb88e162c0158695c0a37438edbac3dd4289d7cb20a1bddbf18"
+      "sizeBytes": 5950,
+      "sha256": "e02310195a6e177cea36c08b9490b4a0412f686a881598fea11afb6925f12ee7"
     },
     {
       "path": "dist/alphalib/types/templateCredential.d.ts.map",
@@ -2688,13 +2788,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts.map",
-      "sizeBytes": 9361,
-      "sha256": "e28eecd8371a90594c3fdaa6ab7506b461a08b196b9df06e2f850cb03457a361"
+      "sizeBytes": 9371,
+      "sha256": "fc836795cf11cfdf460564f2c42e81cebdb9ab5566b123dc2e74e099e9d76ce5"
     },
     {
       "path": "dist/Transloadit.js.map",
-      "sizeBytes": 35745,
-      "sha256": "58534e046fc5daa0e5656d89c65054a4271f11788e576219cee0b23d227778b3"
+      "sizeBytes": 35686,
+      "sha256": "cea20b293e76c7558708501f2ab1a1de1ed6749769563f55bf70b936aed43d46"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts.map",
@@ -2768,13 +2868,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.d.ts.map",
-      "sizeBytes": 3789,
-      "sha256": "f33a000252240af979a57dc9404cc1651e777ef5bd6ef2a119220e5844a812ba"
+      "sizeBytes": 3786,
+      "sha256": "63d1b51a9fa846361ea949cd83a43a75eb24dbd36017c19f05bcbb0615c64056"
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.js.map",
-      "sizeBytes": 2200,
-      "sha256": "d30d99d80580872fdf16bef1753268ae2bc541896bb3209e6e1b34401c13c001"
+      "sizeBytes": 2592,
+      "sha256": "d5f3e3b8302da07ae1216c8c48901603c94aedbc3b85eba4b08aef109359d3e1"
     },
     {
       "path": "dist/alphalib/types/robots/video-artwork.d.ts.map",
@@ -2789,22 +2889,22 @@
     {
       "path": "dist/alphalib/types/robots/video-concat.d.ts.map",
       "sizeBytes": 3785,
-      "sha256": "9456205c8efcd218def6c4dc5ddd76417a5102e888bd36cc9af3f5fffde93872"
+      "sha256": "89431a264cf6e13531632e07690bc7e208cece9d52489564ae4c1caec0b172d6"
     },
     {
       "path": "dist/alphalib/types/robots/video-concat.js.map",
-      "sizeBytes": 1841,
-      "sha256": "d05cbcdc6265f24d3659038b5a6f14332826ee84a9a68ad8fdd80dbcb17e5516"
+      "sizeBytes": 1845,
+      "sha256": "b41094f1f49353f15fd1b433329b8148eb7f70ff373d014e84b64ddaa160736a"
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.d.ts.map",
       "sizeBytes": 4187,
-      "sha256": "c6abb57ea02d868274013b90172f788d1a32846334c63889d80f8b86e5b199f3"
+      "sha256": "cfb283c440a77e75de95ed8685f2cd0167535471c880801a45a509dc01c904a5"
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.js.map",
-      "sizeBytes": 1527,
-      "sha256": "aef1a582bd671a13e21cb42d0aeb657047f52c3a6e720032fb809935c97eab34"
+      "sizeBytes": 1533,
+      "sha256": "06b317935c13749e9b0d89b69e8292930bd000fc0577ad9e5f9881a10ccff141"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.d.ts.map",
@@ -2813,18 +2913,18 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.js.map",
-      "sizeBytes": 2780,
-      "sha256": "260171229f258ff11ca4837e5771d2d1ae8e0f22cd372484dbd93a996cee0a90"
+      "sizeBytes": 2770,
+      "sha256": "a7be32153ca6d8e338169d9a2c8f8323fa761d0444bdc6f86a0ad1c41e215f70"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.d.ts.map",
       "sizeBytes": 3927,
-      "sha256": "39829e607cb48832dbe1407a655e9d92e8fe2cff28394a09223bfd6bbcf74313"
+      "sha256": "a849ba23b31a263756f569264be2d5683999dec01a60073ea0ad47677f89fc79"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.js.map",
-      "sizeBytes": 2498,
-      "sha256": "8e39ff7c306d5dfb95a043a3682f30aa96b405f3fa3653d9fbac3c53776aeab2"
+      "sizeBytes": 2621,
+      "sha256": "a4a8565894c95dab36819e708f5c6ace3ec9ca365ae4f20f35e3bcd6e7ee9697"
     },
     {
       "path": "dist/alphalib/types/robots/video-ondemand.d.ts.map",
@@ -2838,43 +2938,43 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-split.d.ts.map",
-      "sizeBytes": 3784,
-      "sha256": "622e87e9b2cd2893aab54a988a2598d2f6b97bffe996bb52a4bb06e3b06ef8f5"
+      "sizeBytes": 3834,
+      "sha256": "8f75aac5b9d7455e078899a474dc52232706e6eb234244a837baedbff105dea8"
     },
     {
       "path": "dist/alphalib/types/robots/video-split.js.map",
-      "sizeBytes": 1610,
-      "sha256": "a4552d8467ba657aa1a43fb9111291d049651471226a8eefa92b0ec977cc0733"
+      "sizeBytes": 1635,
+      "sha256": "67df4a2a12ccb7fe6a57dd5e5401dfc3480f48cbe186908cf42226a600c0fa27"
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.d.ts.map",
-      "sizeBytes": 3873,
-      "sha256": "feed0fe99cf52d6551a4791d2d6ef4ea910884fcf36215662285db44aa0c73aa"
+      "sizeBytes": 3960,
+      "sha256": "96651c1485d0e0565cd5bab0ab0d457ba3846da24af49eb013fd651053917111"
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.js.map",
-      "sizeBytes": 3207,
-      "sha256": "cc849eb0566445c8ba30e91db0bced9550547d0ab5170159dfb1b0c9a1e903c0"
+      "sizeBytes": 3601,
+      "sha256": "cc48ea0f50429b6d63ca43e8a9620f8794c6a89ead251206c4ac531eaadce242"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.d.ts.map",
       "sizeBytes": 4084,
-      "sha256": "fc9efdcfde2fac4fac76987e8a9076e0fb382df14b985833da48b8eaef303256"
+      "sha256": "7ac197c330617013c5d2a2b4782f137ad0c6e481a0fcdec06fc911b4008345da"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.js.map",
-      "sizeBytes": 3559,
-      "sha256": "378ea0e8544e8641ca93cd43cf87278194247445972381278586cbc49ae03dca"
+      "sizeBytes": 3621,
+      "sha256": "03d953d01bc4698ace8a613ed4fc7b803cbcb0ec707fc105f6beba5e6ddf7507"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.d.ts.map",
       "sizeBytes": 1095,
-      "sha256": "4a3de03a50bedab8a04221ed48fd78bda945b2412c966a2973d7bc7abf3ed1c1"
+      "sha256": "fb731ac3182180bfc546f92ee776c286b3ac55414afed5f0694c46d263fd7164"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.js.map",
       "sizeBytes": 1901,
-      "sha256": "e975a65d53e5b739df80a6b68b520c7f3a9b8bd67e5c38bc5ecaeec128870ca3"
+      "sha256": "3b51149a30dbd754c6162ecbbd5e626d920d012833a93b58330a1e9e1988bcac"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-store.d.ts.map",
@@ -2908,23 +3008,33 @@
     },
     {
       "path": "dist/alphalib/types/robots/youtube-store.d.ts.map",
-      "sizeBytes": 1326,
-      "sha256": "276e4dbe418986e352702fed772919132cc3beca1c5ea52be98bbe689cc92f41"
+      "sizeBytes": 1394,
+      "sha256": "fa1442cbcb141a21819c9edf620fc3b93110b527450b002697c22757a1db0bd2"
     },
     {
       "path": "dist/alphalib/types/robots/youtube-store.js.map",
-      "sizeBytes": 2467,
-      "sha256": "59b3f699b0fa1f9f249be5843a1f1306e618b15a4296598a9a5cc6f093dcca6c"
+      "sizeBytes": 2013,
+      "sha256": "15bc241d2f3aeb7277e90d0597b0c4f43ebcf2e6df398b052b9d2af4256b95f2"
+    },
+    {
+      "path": "dist/alphalib/youtubeCategories.d.ts.map",
+      "sizeBytes": 317,
+      "sha256": "0ba664d80883c95cb1c0741e172b9fe1977fd99f67d0ffe68799e6a66d613934"
+    },
+    {
+      "path": "dist/alphalib/youtubeCategories.js.map",
+      "sizeBytes": 592,
+      "sha256": "ad46f3b545c805fd969c46b1f5a41a8c7a93823c776d867caef436e29e9d2c54"
     },
     {
       "path": "dist/alphalib/lib/zodInputSemantics.d.ts.map",
-      "sizeBytes": 1075,
-      "sha256": "5a3a12da76de1d8e322cf4f4f625219d7f1f302943774e77103006f3e57bfa96"
+      "sizeBytes": 1285,
+      "sha256": "d72209061d858fa9fb14ffc6eb5a0bc494c067a8378a1c84330424677eeebbc8"
     },
     {
       "path": "dist/alphalib/lib/zodInputSemantics.js.map",
-      "sizeBytes": 3208,
-      "sha256": "8956cc45a4b382136c9b7578e69d5960876203e9415b4607263eb2acd9e909c0"
+      "sizeBytes": 3834,
+      "sha256": "ddf275e79a2f7a4529e2231d56b4ee8b71e4e23e41a7f0261507a906874bef9d"
     },
     {
       "path": "dist/alphalib/zodParseWithContext.d.ts.map",
@@ -2937,9 +3047,14 @@
       "sha256": "7bd67d48db9b97e0883703ed38f839f42f5e1cb014f2088684764d4f66a2e9a6"
     },
     {
+      "path": "examples/upload-once/README.md",
+      "sizeBytes": 3773,
+      "sha256": "6e4d6096c9269140bd77a67ff030a33195313e5aa667e7650add5b2280f0af51"
+    },
+    {
       "path": "README.md",
-      "sizeBytes": 110717,
-      "sha256": "f60be3d35feb8dc1ab251051abc98875e46415b252eedb675675b4206bb2a1ca"
+      "sizeBytes": 111785,
+      "sha256": "71ab2751f383d43db0cc5a2240a2094ec1a3079827747acc1e2614e3ebd66ad6"
     },
     {
       "path": "dist/alphalib/types/robots/_ai-models.d.ts",
@@ -2962,29 +3077,59 @@
       "sha256": "d6ec477cfd18108dbb65ffbaa508331032104b8b4a66e3553cb6089132f227fd"
     },
     {
+      "path": "dist/alphalib/types/robots/_image-describe-output.d.ts",
+      "sizeBytes": 1606,
+      "sha256": "48370a0d1028deedfef2ca5d4dd33928b5b72e449989686bcfff580138e603df"
+    },
+    {
+      "path": "src/alphalib/types/robots/_image-describe-output.ts",
+      "sizeBytes": 799,
+      "sha256": "d87142948212ccc281a0261487cd36ad5d09f04d04ea9ff29584df3b08d17cde"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_image-facedetect-output.d.ts",
+      "sizeBytes": 1174,
+      "sha256": "00a8f327327b29dcb4b1665f2bc4b91ec2447263c33a498dd31d94f3d817ed43"
+    },
+    {
+      "path": "src/alphalib/types/robots/_image-facedetect-output.ts",
+      "sizeBytes": 651,
+      "sha256": "7834e65f1f02010449bcdb9e779b5e850aa95d741dfd3127293d066e6365c5a9"
+    },
+    {
       "path": "dist/alphalib/types/robots/_index.d.ts",
-      "sizeBytes": 494744,
-      "sha256": "75405d75ea7f7da3e85f5b32d6767aa29f93a8d6bacd3fcee4b524fe205e79b0"
+      "sizeBytes": 514298,
+      "sha256": "4bde29427a2992419c6cc60eb797a065e6c89cbf69ad6a7dfd3e1f6e2d0d15bd"
     },
     {
       "path": "src/alphalib/types/robots/_index.ts",
-      "sizeBytes": 61379,
-      "sha256": "e539f3f22ff9300e3a145075b270e37c44356702a7b3a858da77942e09e0fc48"
+      "sizeBytes": 62156,
+      "sha256": "cbf5e67b25821170834e67bfbf01012de6f0d3129ebd94f6a0bce0c02cdbd39b"
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.d.ts",
-      "sizeBytes": 242715,
-      "sha256": "70d6ba2b9968a45a9f7d28626da8da06a255e022481cc25adcaa136557497777"
+      "sizeBytes": 246223,
+      "sha256": "9d320aee384611c863b124b333f5f8b8bde8fa1d3ebc0dd7168f07a40e78bb8a"
     },
     {
       "path": "src/alphalib/types/robots/_instructions-primitives.ts",
-      "sizeBytes": 92738,
-      "sha256": "fba18afdc4c9871f6759d9d706f6157d416d6695595f8508a58cf89443051c03"
+      "sizeBytes": 94325,
+      "sha256": "dac2f7b90b9e16b1994c5611bfaa112e63af61bcda21a736a1d39fb8c5efa218"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_ocr-output.d.ts",
+      "sizeBytes": 2018,
+      "sha256": "d1c3ced5d5ff547fb411094386d73f823622c784bbef491e4e1e240507164ebf"
+    },
+    {
+      "path": "src/alphalib/types/robots/_ocr-output.ts",
+      "sizeBytes": 852,
+      "sha256": "2644b81a4c28a846cfa925cc2010e1a0eb6f18da158c71f08429f1f8ac364e80"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts",
       "sizeBytes": 613569,
-      "sha256": "4e1e6e01d8586e555226115fadb62d1ae2d9e91cf0aa109f239be185ec843847"
+      "sha256": "007eca19196b0f181e5d21168297b877efd0d509e2edd59089eabd1c6cd4eedd"
     },
     {
       "path": "src/alphalib/types/robots/ai-chat.ts",
@@ -3023,13 +3168,13 @@
     },
     {
       "path": "dist/apiTypes.d.ts",
-      "sizeBytes": 4021,
-      "sha256": "3ee52bed6ab1a3e19ca1bdb29c5dc2d1a0e579d8d47d966ae3394cfbf8db74be"
+      "sizeBytes": 4457,
+      "sha256": "802f51d3ad25c7b2ea77ff77740b8b0ac08deafe8f99ad2c841a9f1b4cc186fa"
     },
     {
       "path": "src/apiTypes.ts",
-      "sizeBytes": 4402,
-      "sha256": "25a7b2e492c0cc10c227ff8a954face3ab66eb16388f30e61f96795baf8edd2c"
+      "sizeBytes": 4812,
+      "sha256": "506e8911e8192ce97eb8ea3268aaf25f27eebd985cb14528d52b9547cafed1b5"
     },
     {
       "path": "dist/cli/commands/assemblies.d.ts",
@@ -3158,8 +3303,8 @@
     },
     {
       "path": "src/alphalib/types/robots/audio-encode.ts",
-      "sizeBytes": 2678,
-      "sha256": "04bbb695aae3c5c57b353e4eb00da36dbf471984f54f06246589787986927a69"
+      "sizeBytes": 3276,
+      "sha256": "78460467b273eca16f9654cc7b0ec15ad968d8f72fd7b11f8ff6043593569cee"
     },
     {
       "path": "dist/alphalib/types/robots/audio-loop.d.ts",
@@ -3188,8 +3333,8 @@
     },
     {
       "path": "src/alphalib/types/robots/audio-split.ts",
-      "sizeBytes": 3768,
-      "sha256": "179ae89dec44ae6e7158b8255712b026e7ea3e717a856acf0c60e2c9ef8f7f1f"
+      "sizeBytes": 3905,
+      "sha256": "db11b6277df5f4b61b260d6d5a098976f38889e64cd4030bc5f141b527648af9"
     },
     {
       "path": "dist/alphalib/types/robots/audio-waveform.d.ts",
@@ -3263,13 +3408,13 @@
     },
     {
       "path": "dist/bearerToken.d.ts",
-      "sizeBytes": 927,
-      "sha256": "4d9b6cc1958365ef0377d1350b19522de395cd35f36f319527d0b3cd8adb0e38"
+      "sizeBytes": 1022,
+      "sha256": "6921a14450f16fea2d212dbb7a406a96fb5fa1eb5d4980e31480e137ba5919d6"
     },
     {
       "path": "src/bearerToken.ts",
-      "sizeBytes": 6207,
-      "sha256": "b9dbceaadeed8fd59aa1cf16db6e062a377c4a9256c9f6308488e0d173965646"
+      "sizeBytes": 6457,
+      "sha256": "8fa6ae1aa7dbeeed5ac9f930eaf38b7cdb79e2ef80693a1a2165e3349f2ee128"
     },
     {
       "path": "dist/alphalib/types/bill.d.ts",
@@ -3313,13 +3458,13 @@
     },
     {
       "path": "dist/alphalib/types/builtinTemplates.d.ts",
-      "sizeBytes": 2371,
-      "sha256": "7ab47c9229b09a9fafad20009b9d54a33cb06d16bb0dd33fb62faa8a471d187d"
+      "sizeBytes": 4239,
+      "sha256": "c25fbe5df0da3ac636aea3043b42b1489c319fffce50771c6ffbc90abb015143"
     },
     {
       "path": "src/alphalib/types/builtinTemplates.ts",
-      "sizeBytes": 601,
-      "sha256": "4216c2fedf539c16add2e93a4e0566fa2be63bcba2f65510766c4b0bcbef1dcb"
+      "sizeBytes": 2269,
+      "sha256": "7b0271bf8fbb916dff88e25374a197fe7d7acbfe51bfdf953d7c1cd932a37a01"
     },
     {
       "path": "dist/cli.d.ts",
@@ -3372,6 +3517,11 @@
       "sha256": "4887cf32ee127bad45fb271f98450ba1ec5b77c768b82cf8638c7f076acc654a"
     },
     {
+      "path": "examples/upload-once/demo.ts",
+      "sizeBytes": 4978,
+      "sha256": "01a9b933d5c51485e6ff405ace895bfac055062b0384d2bc2f6dd270e9127b0f"
+    },
+    {
       "path": "dist/cli/deviceLogin.d.ts",
       "sizeBytes": 609,
       "sha256": "e8eff04963f86944e91a3a73928ddc16ab89988f2fe1a306f4780e0f45f17c86"
@@ -3393,13 +3543,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/digitalocean-store.d.ts",
-      "sizeBytes": 24088,
-      "sha256": "acd1a2f92cd962ec4edfdc54a98a631e53fe54405bbf86f0277d6fa495ca8e0a"
+      "sizeBytes": 24144,
+      "sha256": "6f900f20b188307492c08ecbb99e3fd63b5dfaf6bf24f88f511a57e2f5706221"
     },
     {
       "path": "src/alphalib/types/robots/digitalocean-store.ts",
-      "sizeBytes": 3219,
-      "sha256": "d671a7b117ba00c89ae9feb4d1ef260645621dd5711b2fabc21246004ddc6235"
+      "sizeBytes": 3238,
+      "sha256": "71e0b17bcb04aa92be88f1681d1994d33dfb63b11313b54b739dd17e63a730b4"
     },
     {
       "path": "dist/cli/commands/docs.d.ts",
@@ -3423,23 +3573,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/document-convert.d.ts",
-      "sizeBytes": 27150,
-      "sha256": "4b25df86b299fc9030f5eecade1a4819790c9fbe56be22353098d71d77983e31"
+      "sizeBytes": 27793,
+      "sha256": "5fd83fba71de9a602e47def3bee417e39ae91330c046b6f9715899436324bc33"
     },
     {
       "path": "src/alphalib/types/robots/document-convert.ts",
-      "sizeBytes": 9519,
-      "sha256": "b6ee871a1307f276acaada0b7e915aa69c4669ac384cf549a7d02c775b897568"
+      "sizeBytes": 11035,
+      "sha256": "3f814698dc53a3ebcc737fd3c90755961fd0ebbee6b17f5e5edd81d91c26fce9"
     },
     {
       "path": "dist/alphalib/types/robots/document-extract.d.ts",
-      "sizeBytes": 27546,
-      "sha256": "98fc93f3389ae53d367e1fd05c75516b04f5a26ee761e46809b585ccd5b70461"
+      "sizeBytes": 27965,
+      "sha256": "00744ccbae0877816af68a3a2d16716fbbd5e068f9c082705e14daef66a30b21"
     },
     {
       "path": "src/alphalib/types/robots/document-extract.ts",
-      "sizeBytes": 6672,
-      "sha256": "3e5a7e8fbe5a0582b24895c9af730b286f3e704d22fa6424eb47093162b80ee3"
+      "sizeBytes": 9142,
+      "sha256": "95f491af4f9e011a9babf41a639d49832e8d4d1dca23cfe64e0ac2b7a590917b"
     },
     {
       "path": "dist/alphalib/types/robots/document-merge.d.ts",
@@ -3454,7 +3604,7 @@
     {
       "path": "dist/alphalib/types/robots/document-ocr.d.ts",
       "sizeBytes": 21040,
-      "sha256": "bf859e3bf28c94716a9edda62372755f8e1dc559b59c63dffb34d7536c2a625f"
+      "sha256": "c0bb4856fac4a96b49b15c566fa454933c9ec67c7e2fa41cc9ed4343951f42c5"
     },
     {
       "path": "src/alphalib/types/robots/document-ocr.ts",
@@ -3492,6 +3642,16 @@
       "sha256": "1f179b0d80469c41d17798121706899ec8f79e52dbe08615d2975117f2765e09"
     },
     {
+      "path": "dist/alphalib/types/responseErrors/DocumentConvertRobot.d.ts",
+      "sizeBytes": 1140,
+      "sha256": "26b9d3505b7890911e06fc32743627f31853f7bf518b06b9e71c8f56d5482a76"
+    },
+    {
+      "path": "src/alphalib/types/responseErrors/DocumentConvertRobot.ts",
+      "sizeBytes": 994,
+      "sha256": "5a5c6f1a653e818f864c94ba89f614e217baebdcc64e919b37a0de838a632b4f"
+    },
+    {
       "path": "dist/alphalib/types/robots/dropbox-import.d.ts",
       "sizeBytes": 12508,
       "sha256": "935f9fd25afb832c845a724b4d5f209c3e65f2903be79a33e6093bd5003766bc"
@@ -3520,6 +3680,16 @@
       "path": "src/alphalib/types/robots/edgly-deliver.ts",
       "sizeBytes": 2385,
       "sha256": "453fcd750413d32a9012f8d91eec6302c80298288a37fceba74a615be5c728f4"
+    },
+    {
+      "path": "dist/alphalib/englishInteger.d.ts",
+      "sizeBytes": 203,
+      "sha256": "0213d1b1edf33a0dc29e6c59c89c9a4edd691afdbf53bf0fab65c8264ec19dd1"
+    },
+    {
+      "path": "src/alphalib/englishInteger.ts",
+      "sizeBytes": 538,
+      "sha256": "72705c5cde8e656cbbd29a150090657a1dee5261cba42e19df1dffe70502e10b"
     },
     {
       "path": "dist/alphalib/englishList.d.ts",
@@ -3733,13 +3903,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/google-store.d.ts",
-      "sizeBytes": 22648,
-      "sha256": "29a95be17ef0a0d28642d2f39bc8fe88477a41bb3eab99f5a81299236ee08e91"
+      "sizeBytes": 23722,
+      "sha256": "e58ff99dbad930473665b7caacdad586f01a55500d66e99012356803c137152b"
     },
     {
       "path": "src/alphalib/types/robots/google-store.ts",
-      "sizeBytes": 4731,
-      "sha256": "c2f8e11bffa6d2c94f119fbe6baa17ef69e4686b5ff1781ec5b487e3720b4a0e"
+      "sizeBytes": 5224,
+      "sha256": "c54a01467d45b943f17012b9c5a7cf5a79c78d02b74bb9e96aa8d9d45c2d5960"
     },
     {
       "path": "dist/cli/helpers.d.ts",
@@ -3758,8 +3928,8 @@
     },
     {
       "path": "src/alphalib/types/robots/html-convert.ts",
-      "sizeBytes": 5580,
-      "sha256": "a363a2bd382d715991a430652da73960b342e9194c020114fa2fdcb62cc0fd2a"
+      "sizeBytes": 5659,
+      "sha256": "430693a5a708b9c56e1caeda90e81bb58b3c1f62ff7306c5619ada7a9ef8f8ee"
     },
     {
       "path": "dist/alphalib/types/robots/http-import.d.ts",
@@ -3794,7 +3964,7 @@
     {
       "path": "dist/alphalib/types/robots/image-bgremove.d.ts",
       "sizeBytes": 21748,
-      "sha256": "62845fd08e7d702592777a1b4fab458bf243f7c5cf746f5a11ee163dc64dedce"
+      "sha256": "9985700f5cb0c4f9673429fa5da5bb6d39c43271d5d0a579f5467a1c4ce49b56"
     },
     {
       "path": "src/alphalib/types/robots/image-bgremove.ts",
@@ -3813,13 +3983,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-describe.d.ts",
-      "sizeBytes": 21738,
-      "sha256": "f56707f601eb972bd0e51df35a3f914cf8a6144f7b9fd76210b815151c47e4a4"
+      "sizeBytes": 21821,
+      "sha256": "37b2c0bdc548f28d4de49a8ef8ccfb2d3f96716d961ddd8e3054c1381d9b1a9f"
     },
     {
       "path": "src/alphalib/types/robots/image-describe.ts",
-      "sizeBytes": 4481,
-      "sha256": "15614e4f5f206ca709d06bf0d3a5fa44f8c06796dd1ca75378abcd343c2f9200"
+      "sizeBytes": 4643,
+      "sha256": "5fe4624949b8a6b604b9b1a8af702a9c568882229627a0624fe8040318e0a0bb"
     },
     {
       "path": "dist/alphalib/types/robots/image-enhance.d.ts",
@@ -3833,23 +4003,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.d.ts",
-      "sizeBytes": 24272,
-      "sha256": "f74b00d21659bdfe41e1a937daeb2acc8e8ce6c41473da7c4d5339bafcdb3be6"
+      "sizeBytes": 23452,
+      "sha256": "29ff403ec5f8d931fa3d56a30d018b1bc02270498415ba08851a8c4b473cabe4"
     },
     {
       "path": "src/alphalib/types/robots/image-facedetect.ts",
-      "sizeBytes": 6894,
-      "sha256": "d8945cdb56a1aeaa6d6aabe8a1a35daca226578dedbbc5767c1fe59628ca807f"
+      "sizeBytes": 6646,
+      "sha256": "15fd90bf7eac67fefb5c2a4211a805fc09bc5011d29670574eb20ca1490de2c8"
     },
     {
       "path": "dist/alphalib/types/robots/image-generate.d.ts",
-      "sizeBytes": 24202,
-      "sha256": "474df551fc131a3f197cdb71a6e9a42e3348f1f59ed36e81f3b6ab9bfe486a22"
+      "sizeBytes": 24142,
+      "sha256": "9c7c7b92be67efc805c528477e28e080e82aa6084c17ce641510630d02dbf3ca"
     },
     {
       "path": "src/alphalib/types/robots/image-generate.ts",
-      "sizeBytes": 6839,
-      "sha256": "083e3f0454a065584c43c92a7d4b07cbe347413bdd58f3b5a85de9708a0972ba"
+      "sizeBytes": 6832,
+      "sha256": "3f1d8d4840b4876bce12afa216072850a0ddff724c3692e44387ba7f808fdcc9"
     },
     {
       "path": "dist/alphalib/types/robots/image-merge.d.ts",
@@ -3864,7 +4034,7 @@
     {
       "path": "dist/alphalib/types/robots/image-ocr.d.ts",
       "sizeBytes": 20968,
-      "sha256": "f09ff9e56765838f69152c7c52e4bdb28008d3c819ad1fc48bbd7d6f2234559e"
+      "sha256": "ab215972bc21129c9a8858d953b18b4f4948c1d139a9e80b301410bc77dd7189"
     },
     {
       "path": "src/alphalib/types/robots/image-ocr.ts",
@@ -3893,13 +4063,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-upscale.d.ts",
-      "sizeBytes": 22091,
-      "sha256": "4d21c9598c19a00612152df78edcac6e7252a77747f212ab3c41f3a8df25a1bf"
+      "sizeBytes": 22346,
+      "sha256": "7a8a74855f57070ed60dd7a68cf968211b1b086b5c874b6a2580a351966d1e9e"
     },
     {
       "path": "src/alphalib/types/robots/image-upscale.ts",
-      "sizeBytes": 3246,
-      "sha256": "922c8b3e37afdf0c2553a99a9b757be5185ecadfeaca27964e4be006405d6d44"
+      "sizeBytes": 4058,
+      "sha256": "f58d347ffa0ba6887b28f70e3a4976bc7b972caecfa23154114dc769b64c76c3"
     },
     {
       "path": "dist/cli/commands/image.d.ts",
@@ -3963,13 +4133,23 @@
     },
     {
       "path": "src/cli/commands/index.ts",
-      "sizeBytes": 3117,
-      "sha256": "59c22b2ac2d8c1e84830ef0d319a5dc358150dfec004e7ceb44ef123efcc4a92"
+      "sizeBytes": 3185,
+      "sha256": "564c1b2a8224737128caf9be99ff76ac9d76a296212dd232f5f849b7aaad6871"
     },
     {
       "path": "src/cli/semanticIntents/index.ts",
       "sizeBytes": 1850,
       "sha256": "b9adb4843bf94587ae58da4a5ffd5ef2e459c9f16975e659f1e41e6ac93fd723"
+    },
+    {
+      "path": "dist/cli/commands/init.d.ts",
+      "sizeBytes": 446,
+      "sha256": "96b58d2a52c2903279f899cc96cbdc79fae4c46662af6f9d6e7ec0d5c6c05944"
+    },
+    {
+      "path": "src/cli/commands/init.ts",
+      "sizeBytes": 4614,
+      "sha256": "626dc1c05f6fb6e29e3910fed259567b1db3ad0e6a7de1ee9b3015245c7158ea"
     },
     {
       "path": "dist/inputFiles.d.ts",
@@ -4058,13 +4238,13 @@
     },
     {
       "path": "dist/cli/commands/login.d.ts",
-      "sizeBytes": 1039,
-      "sha256": "2c3c24063ce208b752ac941034451c0beabd8d3b48d5efe69e3f1f102d1b6b5a"
+      "sizeBytes": 1063,
+      "sha256": "868bb9aac5ec3bdc018c2b5dc595c4b5870273aa399384f4a4e24dda4ef22288"
     },
     {
       "path": "src/cli/commands/login.ts",
-      "sizeBytes": 14618,
-      "sha256": "f27a216592546ffbf0e276e3fe68308ef64236d5a34f6276b20010c39ddeceec"
+      "sizeBytes": 16266,
+      "sha256": "0335e281d8add621c2ea8a54ffdf4d777e16ef99ae822c95e9df3ea1ab98efb3"
     },
     {
       "path": "dist/cli/semanticIntents/markdownPdf.d.ts",
@@ -4098,13 +4278,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/mega-store.d.ts",
-      "sizeBytes": 23976,
-      "sha256": "9a420e82d8cf6d2b020d8e9e42c3205246dca1d82a8bc2627ab96b9a5ad54165"
+      "sizeBytes": 24032,
+      "sha256": "05ff4a6b05e9b61386b03e3104439e39277d3af458b7346a69f9f032fa517b3b"
     },
     {
       "path": "src/alphalib/types/robots/mega-store.ts",
-      "sizeBytes": 2891,
-      "sha256": "8f4bedc0f21d3336427b3e3ee7e46c576cce71aa52b6ea300f21e5b3679c32ff"
+      "sizeBytes": 2910,
+      "sha256": "679889dc460ffda781d8a233ca0728404b32807d72a2624438ee3e23094a80b6"
     },
     {
       "path": "dist/alphalib/types/robots/meta-read.d.ts",
@@ -4253,8 +4433,8 @@
     },
     {
       "path": "src/robots.ts",
-      "sizeBytes": 9656,
-      "sha256": "2ad25172a8f6c04e12ee9849d7289ca2656f3aad9f22896cc3347de71ce1a504"
+      "sizeBytes": 9872,
+      "sha256": "ef3c4c8bb744821fc247174e9ab421af0f84a5bc9f1d24f24d87842ba20784c7"
     },
     {
       "path": "dist/alphalib/types/robots/s3-import.d.ts",
@@ -4268,13 +4448,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/s3-store.d.ts",
-      "sizeBytes": 27217,
-      "sha256": "705828e8c3d4bb05d3db28d8d34802f65a48b4e42e66b7b596e3baf339446ab3"
+      "sizeBytes": 28117,
+      "sha256": "7e00595ac77a2c1529eaf133e3a98fcc23a17fdf52dd78b5cecb10a8b4e59f29"
     },
     {
       "path": "src/alphalib/types/robots/s3-store.ts",
-      "sizeBytes": 11204,
-      "sha256": "0dfe1ff6a97895489140da610ec7a079d5023a9d5724347176107008e3467f76"
+      "sizeBytes": 11758,
+      "sha256": "40c22af405ec7774ab1b02189cd2c60f918738be74c935dce55fb6da49fbf020"
     },
     {
       "path": "dist/alphalib/types/robots/script-run.d.ts",
@@ -4328,23 +4508,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/speech-transcribe.d.ts",
-      "sizeBytes": 24111,
-      "sha256": "99df987665a8870d0d28474c994b7c2fd706a165778fa1df5f5c6354ce26caca"
+      "sizeBytes": 25286,
+      "sha256": "adae14f698744756da6416f9f390aa08d39f36948e30e65aa1f4a7b2cfe8a3d3"
     },
     {
       "path": "src/alphalib/types/robots/speech-transcribe.ts",
-      "sizeBytes": 8110,
-      "sha256": "24727674545c616e10d9099b00a47a566bc3e3cdc4ccc2c5ea2edc69fc58bc06"
+      "sizeBytes": 10648,
+      "sha256": "a49f0c75d20b6eafbe540cb1a023fda41ec76869a6d4d5de363c874121d935c9"
     },
     {
       "path": "dist/cli/semanticIntents/speechTranscribe.d.ts",
-      "sizeBytes": 2490,
-      "sha256": "2c5312726ded3e0d1a5c4f6453409d035cb371239db8d95a8bf31368a8deb25d"
+      "sizeBytes": 2470,
+      "sha256": "102681ccfc391e2b1f5b598a254c691de9a9c3643982d7f9c05b19dc946f5dfb"
     },
     {
       "path": "src/cli/semanticIntents/speechTranscribe.ts",
-      "sizeBytes": 4582,
-      "sha256": "d421453d8b85cabf0bf2c1e6c2c1043b9b2bd3fe11897f804696c6ce44e708b0"
+      "sizeBytes": 5112,
+      "sha256": "4d40df0be8503e8c880e2dd02d3a59f0aa6fc243f50574fab7bc7b067eda35b7"
     },
     {
       "path": "dist/alphalib/types/stackVersions.d.ts",
@@ -4533,8 +4713,8 @@
     },
     {
       "path": "src/alphalib/types/template.ts",
-      "sizeBytes": 14098,
-      "sha256": "65b43208e11f716cb50217daca28b092f263e1a73c4e0a53bc07bfdce26b9230"
+      "sizeBytes": 14252,
+      "sha256": "928ee64a7aed02708ba998131fe6a3987860f3e248858b8e8e4316004a549bc2"
     },
     {
       "path": "dist/alphalib/types/templateCredential.d.ts",
@@ -4569,7 +4749,7 @@
     {
       "path": "dist/alphalib/types/robots/text-speak.d.ts",
       "sizeBytes": 22320,
-      "sha256": "ff5ce403da0a8453dd2ba47ed90e942b93093a012798fb0b1544f6566165ffaf"
+      "sha256": "3d7b4cfd7813661e39285d2cb6ecc94fd12a5305d54c6dc961292970e5fa740f"
     },
     {
       "path": "src/alphalib/types/robots/text-speak.ts",
@@ -4579,7 +4759,7 @@
     {
       "path": "dist/alphalib/types/robots/text-translate.d.ts",
       "sizeBytes": 33200,
-      "sha256": "7e5638ca210f244c4f9a4e537fbae32baf70b0139843b52f62ff872ae977861d"
+      "sha256": "03066b0cf483ad8aeb0cf36eacd2b714dfcf6645e05d454f2bc49ca72a38b736"
     },
     {
       "path": "src/alphalib/types/robots/text-translate.ts",
@@ -4638,13 +4818,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts",
-      "sizeBytes": 18026,
-      "sha256": "78e16daa26f758bed6f11b099d8dc86ee05d3581d225219a34dfa5fe4871e251"
+      "sizeBytes": 18041,
+      "sha256": "227f8b9aff0b3e6b15656a2fde8340188d54e017624c6c30f78d7d1babbb64e1"
     },
     {
       "path": "src/Transloadit.ts",
-      "sizeBytes": 57400,
-      "sha256": "535f08c54f2aa475bd420bfa197a641551739b5c65e46f70d848f4026245289a"
+      "sizeBytes": 57493,
+      "sha256": "3a0f31d22aadcc44e8e11abd0bcb706ca3486a3f2c347c86c97d2237a3588049"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts",
@@ -4718,13 +4898,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.d.ts",
-      "sizeBytes": 216942,
-      "sha256": "92463ec3388d9f96533c715e18f5aa72e9e55964dc8413aac3687ef6d38e3259"
+      "sizeBytes": 216980,
+      "sha256": "aa3a7960ad6a61d34d8b69032264860bf1c5b1b68d78198ff05632bcc6c0ec5f"
     },
     {
       "path": "src/alphalib/types/robots/video-adaptive.ts",
-      "sizeBytes": 7181,
-      "sha256": "4fda400f4fb5d44c2d15cafd45af459769d0d675728b732e18bf238fca3cd991"
+      "sizeBytes": 10850,
+      "sha256": "180c03a120f29442aabfef8977b3816dd2ce8a06bc3d056c35f7243df3582461"
     },
     {
       "path": "dist/alphalib/types/robots/video-artwork.d.ts",
@@ -4743,8 +4923,8 @@
     },
     {
       "path": "src/alphalib/types/robots/video-concat.ts",
-      "sizeBytes": 6604,
-      "sha256": "b269b0ccf01546e45a45f5483e2161336b5efdfdc5dfb20c570c9a737c908b5c"
+      "sizeBytes": 7220,
+      "sha256": "79bb788bc2a374a33d1b62c5dfd5f892c9b65a6d3b7cf1153695c62345877e24"
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.d.ts",
@@ -4753,18 +4933,18 @@
     },
     {
       "path": "src/alphalib/types/robots/video-encode.ts",
-      "sizeBytes": 4834,
-      "sha256": "7f325056d35c5249e52714fda5380b5299fb2d81e8ca19b93325df490d85ef19"
+      "sizeBytes": 5321,
+      "sha256": "e142bb87e712f8b93450e6b5ac7fac977714f4ef96a68f529bb2e9f2fc07e9e0"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.d.ts",
-      "sizeBytes": 27264,
-      "sha256": "ac3a2796ab8f3325cef440145c2c82ab034ed16502cc7ab296188af067e5b299"
+      "sizeBytes": 27204,
+      "sha256": "cf579a8112c86a52a2ad8ae41482a2f719aa542fa9c4ac6b35e219b5e0e531a9"
     },
     {
       "path": "src/alphalib/types/robots/video-generate.ts",
-      "sizeBytes": 4793,
-      "sha256": "d1c06ba03f06c6b585361bb8bb579817c3c409816054984e13be8d6f6c285d68"
+      "sizeBytes": 4786,
+      "sha256": "fd3bdd20e897e0ea3597100400b49371cd2ddca5811868bfe699ecf75f3100c3"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.d.ts",
@@ -4773,8 +4953,8 @@
     },
     {
       "path": "src/alphalib/types/robots/video-merge.ts",
-      "sizeBytes": 7195,
-      "sha256": "8e474001af08e4d802a30e7b88990f9f1743785ddb99b6df250ec43c0f39ecae"
+      "sizeBytes": 8734,
+      "sha256": "0fa6bf0bd011a6b412939eb8af46be4e513eddb344e6013da66f2f252ec1df34"
     },
     {
       "path": "dist/alphalib/types/robots/video-ondemand.d.ts",
@@ -4788,33 +4968,33 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-split.d.ts",
-      "sizeBytes": 215826,
-      "sha256": "9a1ef3a92d4cfccc00bdf2d99250875baf19a97f8cd8c594c431f5c18f09421a"
+      "sizeBytes": 216201,
+      "sha256": "7e64f5594545ee1f31a320cab99ef7565f2f3096fa0b340718346d5a5de80ecd"
     },
     {
       "path": "src/alphalib/types/robots/video-split.ts",
-      "sizeBytes": 3320,
-      "sha256": "6b9c820703a3b739c4fb5c6c637175b6d9e4ce43099d09997527c8120213e059"
+      "sizeBytes": 3549,
+      "sha256": "eaeaff6234b473a9f40ca46de16e0e27a17190b733959dc0307c4d315f4e20dd"
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.d.ts",
-      "sizeBytes": 221610,
-      "sha256": "cfff5b332b6611e1dcf7b3d552b25e838636b3d3b283d7854ba427bc2079c031"
+      "sizeBytes": 223898,
+      "sha256": "ffa9b10d7e11a7de4be7611a432cc038d35ab08095413df9ccf50e0561e3d652"
     },
     {
       "path": "src/alphalib/types/robots/video-subtitle.ts",
-      "sizeBytes": 7039,
-      "sha256": "d9db1944fd6927c13dbba28380d5892df9fe55f0278b455b782c98e967f43fbf"
+      "sizeBytes": 11591,
+      "sha256": "632894759b650f8f17df5b699d282eec80e9277ba367df006401011839fbffc3"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.d.ts",
-      "sizeBytes": 164195,
-      "sha256": "66d3a46ca58b0af62445e1af4b6c400d8aec71383061392a5ffe6ebf26139c8a"
+      "sizeBytes": 164543,
+      "sha256": "8fa4a72aca8ee771848f4aa11565bcd54c80d73d04aa987af874ab420368a5d5"
     },
     {
       "path": "src/alphalib/types/robots/video-thumbs.ts",
-      "sizeBytes": 12040,
-      "sha256": "bb7b14a1138a424e6ac78a2cc41594b7b6cfeb9c046775908accfa6fb97f2171"
+      "sizeBytes": 12200,
+      "sha256": "ac838971519fa8cde295a6e7bf80e97a12f6519704184f8549c2ad0dc51b5e17"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.d.ts",
@@ -4823,8 +5003,8 @@
     },
     {
       "path": "src/alphalib/types/robots/vimeo-import.ts",
-      "sizeBytes": 4121,
-      "sha256": "2e5a024f3a5a4b7ed8fe5ef96513f0676c6cb03311e8b27b8897e40ca0c5a63f"
+      "sizeBytes": 4402,
+      "sha256": "60a6841bc1726fd69813b6335edef76be98372b701c1f77a9093a67770882dda"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-store.d.ts",
@@ -4858,23 +5038,33 @@
     },
     {
       "path": "dist/alphalib/types/robots/youtube-store.d.ts",
-      "sizeBytes": 23982,
-      "sha256": "108567d918de6a6bd5b324ea8d5efce17597f3f02d02d9342afc3d0c2db2f9a6"
+      "sizeBytes": 25926,
+      "sha256": "1d9a6b8dac9996d83dba893e9b54e13a2e6b2bdd958d2539ce676a1dc3d4bdda"
     },
     {
       "path": "src/alphalib/types/robots/youtube-store.ts",
-      "sizeBytes": 5470,
-      "sha256": "4fd67c66237e7a3a1185e41debd891d681753b55b801af045fefa3e6ffc02638"
+      "sizeBytes": 5418,
+      "sha256": "db14c999cd9970ef177f450ab6c08a1b97facffdf52488f4f4b0c0cb07423809"
+    },
+    {
+      "path": "dist/alphalib/youtubeCategories.d.ts",
+      "sizeBytes": 756,
+      "sha256": "cbcf0fd8475dbdb61d893c57fadc02984d140b68bf69720f7bb5074fc9164c76"
+    },
+    {
+      "path": "src/alphalib/youtubeCategories.ts",
+      "sizeBytes": 797,
+      "sha256": "24e58d2a1ff8dee72a85c9caa85af232a8793aeef9785cd8979d42f925bf2481"
     },
     {
       "path": "dist/alphalib/lib/zodInputSemantics.d.ts",
-      "sizeBytes": 1575,
-      "sha256": "dbb1b0815eb9c81cc7b97fa9327917b6a65c9f751caf01f7206246dc35ff31eb"
+      "sizeBytes": 1809,
+      "sha256": "0e34b2c9f5656f4bc219339654e93d3d11a26a874a454bbc258f5423ce301c42"
     },
     {
       "path": "src/alphalib/lib/zodInputSemantics.ts",
-      "sizeBytes": 4052,
-      "sha256": "7bf35cdfa2eba832aec0a515e08ae75eafed5b50fc4e62d1643ae4f27696efff"
+      "sizeBytes": 4955,
+      "sha256": "43e45fe068a4b583d5aded892cf07e33b7d8c22b13c31f7795648a023ab7e697"
     },
     {
       "path": "dist/alphalib/zodParseWithContext.d.ts",

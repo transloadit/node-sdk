@@ -191,6 +191,18 @@ jobs:
           path: test-results/sdk-edge
           if-no-files-found: ignore
 
+  init-example:
+    name: Packed upload-once example
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: corepack yarn install --immutable
+      - run: corepack yarn test:init:fixture
+
   mcp-widget-visual:
     name: MCP result widget states
     # No secrets: fork PRs run it too. Media comes from local fixtures, nothing hits the network.

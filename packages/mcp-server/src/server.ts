@@ -241,8 +241,11 @@ const hostFileSchema = z
 
 type HostFile = z.infer<typeof hostFileSchema>
 
+// Directory scanners require a typed schema; the server also accepts the instructions as a JSON string.
+const assemblyInstructionsInputSchema = z.union([z.record(z.string(), z.unknown()), z.string()])
+
 const createAssemblyInputSchema = z.object({
-  instructions: z.unknown().optional(),
+  instructions: assemblyInstructionsInputSchema.optional(),
   files: z.array(inputFileSchema).optional(),
   attachments: z.array(hostFileSchema).optional(),
   fields: z.record(z.string(), z.unknown()).optional(),
@@ -330,7 +333,7 @@ const listTemplatesOutputSchema = z.object({
 })
 
 const lintAssemblyInputSchema = z.object({
-  instructions: z.unknown(),
+  instructions: assemblyInstructionsInputSchema,
   strict: z.boolean().optional(),
   return_fixed: z.boolean().optional(),
 })
@@ -1090,7 +1093,8 @@ export const createTransloaditMcpServer = (
         description: metadata.description,
         inputSchema,
         outputSchema,
-        annotations: metadata.annotations,
+        // Directories read the listing name from `annotations.title`, not the tool's `title`.
+        annotations: { title: metadata.title, ...metadata.annotations },
         _meta: buildToolMeta(metadata, resolveSecuritySchemes(metadata, authMode)),
       },
       callback,

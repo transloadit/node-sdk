@@ -51,6 +51,19 @@ This package includes a full-featured CLI for interacting with Transloadit from 
 
 ### Quick Start
 
+Try Storage and Smart CDN with one maintained, runnable example:
+
+```bash
+npx @transloadit/node@latest init upload-once my-gallery
+cd my-gallery
+npm run demo
+```
+
+The initializer creates local files and installs dependencies; only `npm run demo` logs in and
+uploads. Change the sizes in `demo.ts` and rerun it without uploading the original again.
+See the [canonical example](./examples/upload-once/README.md) for requirements, credential scope
+and the path from a local demo to a real application. Existing projects are never overwritten.
+
 Log in through your browser, then run a command:
 
 ```bash

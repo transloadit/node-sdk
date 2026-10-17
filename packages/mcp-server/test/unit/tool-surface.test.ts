@@ -100,6 +100,15 @@ describe('tool surface', () => {
     )
   })
 
+  it('types the instructions parameter so directories can validate it', async () => {
+    const tools = await listTools()
+    for (const name of ['transloadit_create_assembly', 'transloadit_lint_assembly_instructions']) {
+      const schema = findTool(tools, name).inputSchema
+      const properties = isRecord(schema) && isRecord(schema.properties) ? schema.properties : {}
+      expect(JSON.stringify(properties.instructions), name).toMatch(/"type":"(object|string)"/)
+    }
+  })
+
   it('lists every tool with a title, annotations and security schemes in both places', async () => {
     const tools = await listTools()
     expect(tools.map((tool) => tool.name).sort()).toEqual([...toolNames].sort())
@@ -107,6 +116,7 @@ describe('tool surface', () => {
     for (const tool of tools) {
       expect(typeof tool.title, String(tool.name)).toBe('string')
       expect(tool.annotations).toMatchObject({
+        title: tool.title,
         readOnlyHint: expect.any(Boolean),
         destructiveHint: expect.any(Boolean),
         openWorldHint: expect.any(Boolean),
