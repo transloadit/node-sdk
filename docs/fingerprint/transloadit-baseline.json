@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-6.1.1.tgz",
-    "sizeBytes": 1406224,
-    "sha256": "61c0cdfd9812fb60883e07828323eafd61e330b1a5ddcc2120d8520a695cda98"
+    "sizeBytes": 1406137,
+    "sha256": "5e2ac8dfdd0a4b5230cedb9fa006d4c5f8d16ef91ccdfc7853dbb22e4919f742"
   },
   "packageJson": {
     "name": "transloadit",
@@ -863,8 +863,8 @@
     },
     {
       "path": "dist/cli/commands/templates.js",
-      "sizeBytes": 17211,
-      "sha256": "becb4a96fcbc7d6cd08143e7e64c091602ceadccf79c72934915c647570ffccf"
+      "sizeBytes": 17407,
+      "sha256": "47f95c21e765064e0131205bbb5359a310b0fba329934c36f5c6f7fa6601c875"
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.js",
@@ -923,8 +923,8 @@
     },
     {
       "path": "dist/cli/types.js",
-      "sizeBytes": 1433,
-      "sha256": "26181f39ef63756230a5ce4a3746b745e07949246d1ec72306f9960207f8bdeb"
+      "sizeBytes": 1203,
+      "sha256": "5e763f74bbacb3a876527caea9367d27760255a7399d160d14ab62c606b24864"
     },
     {
       "path": "dist/alphalib/types/robots/upload-handle.js",
@@ -2709,12 +2709,12 @@
     {
       "path": "dist/cli/commands/templates.d.ts.map",
       "sizeBytes": 2387,
-      "sha256": "09c111891534c6b5ef9887d467a99570d884c0ef8ec97f3973eebb462bea6662"
+      "sha256": "79ee65813953bb17268d12008cbe19e27dd3aa11a3ee933d2a5835d3645e0f75"
     },
     {
       "path": "dist/cli/commands/templates.js.map",
-      "sizeBytes": 15741,
-      "sha256": "758c162ef083ec482721ce70ea3b8ad48df73e4199d2899b894f0144a7e3115d"
+      "sizeBytes": 15922,
+      "sha256": "501de46b2e309f1e96e26bef9b5cadbb5c8acb6c3b1891de2118991cbbb35ca5"
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.d.ts.map",
@@ -2828,13 +2828,13 @@
     },
     {
       "path": "dist/cli/types.d.ts.map",
-      "sizeBytes": 988,
-      "sha256": "261ac30076855ce08fa47ed7e0ed50210628e90285e1ec778d91c97935afff6b"
+      "sizeBytes": 922,
+      "sha256": "407bd853f629e11ea7cfd234355187da43fb0c0de0ba9edc7dfed49301d1ed96"
     },
     {
       "path": "dist/cli/types.js.map",
-      "sizeBytes": 1487,
-      "sha256": "4cd95f2d46bbd9c8b962fb6b09489c9244d3043b0a4ff9688c0523a9b7df582f"
+      "sizeBytes": 1280,
+      "sha256": "5e3643d06892ccdf0787b1cae3ed7bcef86c28f6ded34c8e83050a0e75dfaddf"
     },
     {
       "path": "dist/alphalib/types/robots/upload-handle.d.ts.map",
@@ -4743,8 +4743,8 @@
     },
     {
       "path": "src/cli/commands/templates.ts",
-      "sizeBytes": 17684,
-      "sha256": "474f886585b2bf10002e0f4e507ec68f933025cefd406467800eefec8c813d7e"
+      "sizeBytes": 17913,
+      "sha256": "a2df9b312f36e20042837307cd602dbf4680f8cabdbcd90bdc2fd80936530bd3"
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.d.ts",
@@ -4858,13 +4858,13 @@
     },
     {
       "path": "dist/cli/types.d.ts",
-      "sizeBytes": 2503,
-      "sha256": "d72bbfc1e000a98b89d7a2db1865d957424cd22363f98eb9a95ff95d8688c130"
+      "sizeBytes": 2429,
+      "sha256": "33192a5316d6c6fe7e955547417932381a4ae6df24c8af424d29fadcc746f03a"
     },
     {
       "path": "src/cli/types.ts",
-      "sizeBytes": 1990,
-      "sha256": "56306a65f9f1b013ec3abfeeb3315b1e2c8d9ae0dea2fd38c332cdec25daffcc"
+      "sizeBytes": 1702,
+      "sha256": "5a0385158aa72722e2f791e2168609c8a77a9c6cf5aeee1ad5cf0b75be4e417e"
     },
     {
       "path": "dist/alphalib/types/robots/upload-handle.d.ts",

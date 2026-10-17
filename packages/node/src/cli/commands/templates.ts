@@ -1,7 +1,7 @@
 import type { TemplateContent } from '../../apiTypes.ts'
 import type { Transloadit } from '../../Transloadit.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
-import type { TemplateFile } from '../types.ts'
+import type { TemplateFile, TemplateFileData } from '../types.ts'
 
 import fsp from 'node:fs/promises'
 import path from 'node:path'
@@ -13,9 +13,9 @@ import { z } from 'zod'
 
 import { tryCatch } from '../../alphalib/tryCatch.ts'
 import { createReadStream, formatAPIError, streamToBuffer } from '../helpers.ts'
-import { parseStepsInputJson } from '../stepsInput.ts'
+import { createCliStepsSchema, parseStepsInputJson } from '../stepsInput.ts'
 import ModifiedLookup from '../template-last-modified.ts'
-import { ensureError, isTransloaditAPIError, TemplateFileDataSchema } from '../types.ts'
+import { ensureError, isTransloaditAPIError } from '../types.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 
 const rreaddirAsync = promisify(rreaddir)
@@ -225,6 +225,13 @@ export async function sync(
   client: Transloadit,
   { files, recursive }: TemplateSyncOptions,
 ): Promise<void> {
+  const templateFileDataSchema: z.ZodType<TemplateFileData> = z
+    .object({
+      transloadit_template_id: z.string().optional(),
+      steps: createCliStepsSchema(output).optional(),
+    })
+    .passthrough()
+
   // Promise [String] -- all files in the directory tree
   const relevantFilesNested = await Promise.all(
     files.map(async (file) => {
@@ -263,7 +270,7 @@ export async function sync(
     try {
       const data = await fsp.readFile(file, 'utf8')
       const parsed: unknown = JSON.parse(data)
-      const validated = TemplateFileDataSchema.safeParse(parsed)
+      const validated = templateFileDataSchema.safeParse(parsed)
       if (!validated.success) return null
       return 'transloadit_template_id' in validated.data ? { file, data: validated.data } : null
     } catch (e) {
