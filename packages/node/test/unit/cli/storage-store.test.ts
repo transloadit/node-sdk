@@ -738,12 +738,14 @@ describe('storage store', () => {
     expect(await readFile('transloadit-images.d.ts', 'utf8')).toBe(previous)
   })
 
-  test('upload output names both generated files to commit', async () => {
+  test('upload output makes the declarations follow the catalog commit policy', async () => {
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-      expect.stringContaining('transloadit-images.d.ts'),
+      expect.stringContaining(
+        'If you commit this catalog, commit transloadit-images.d.ts with it.',
+      ),
       { ...receipt, uploaded: true },
     )
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
@@ -1436,7 +1438,7 @@ describe('storage store', () => {
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toContain(
-      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <Image storage src="website/hero.jpg" alt="hero" width={800} />\nReplace alt with a description (or an empty string for a decorative image).',
+      'Saved website/hero.jpg in images.json. If you commit this catalog, commit transloadit-images.d.ts with it.\nRender it with <Image storage src="website/hero.jpg" alt="hero" width={800} />\nReplace alt with a description (or an empty string for a decorative image).',
     )
     expect(await readdir(directory)).toEqual([
       'credentials',

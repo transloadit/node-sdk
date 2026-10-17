@@ -475,7 +475,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
           ? `Render it with <Image storage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}}${blur ? ' placeholder="blur"' : ''} />\nReplace alt with a description (or an empty string for a decorative image).${setupAdvice}`
           : 'Use --receipts for a separate catalog before rendering images from this workspace.'
         this.output.print(
-          `${unchanged ? `Unchanged ${receipt.path}; no upload needed.\n` : ''}${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\n${renderAdvice}`,
+          `${unchanged ? `Unchanged ${receipt.path}; no upload needed.\n` : ''}${saved ? `Saved ${receipt.path} in ${this.receipts}. If you commit this catalog, commit ${storageTypesPath(this.receipts)} with it.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\n${renderAdvice}`,
           // This describes this invocation, so keep it out of the persisted asset receipt.
           { ...receipt, uploaded: !unchanged },
         )

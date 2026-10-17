@@ -36,7 +36,8 @@ function escapeHtml(text: string): string {
 async function checkDelivery(url: string): Promise<void> {
   stage = 'checking Smart CDN delivery; check your connection and rerun npm run demo'
   // One bounded GET checks delivery, not just signing. The browser loads the other variants.
-  const response = await fetch(url, { signal: AbortSignal.timeout(30_000), redirect: 'error' })
+  // Manual redirects preserve the status without sending the signed request to another location.
+  const response = await fetch(url, { signal: AbortSignal.timeout(30_000), redirect: 'manual' })
   if (!response.ok) {
     stage = `checking Smart CDN delivery (HTTP ${response.status}); rerun npm run demo and check your credential source and Storage access`
     // Only a known code is safe to print. Never relay upstream reasons, URLs or other body fields.

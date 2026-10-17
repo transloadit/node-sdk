@@ -117,7 +117,7 @@ test.each([
   expect(urls).toHaveLength(3)
   expect(fetch).toHaveBeenCalledExactlyOnceWith(urls[0].href, {
     signal: expect.any(AbortSignal),
-    redirect: 'error',
+    redirect: 'manual',
   })
   expect(
     urls.map((url) => [
@@ -226,6 +226,30 @@ test('withholds a delivery timeout error containing a signed URL', async () => {
   expect(AbortSignal.timeout).toHaveBeenCalledExactlyOnceWith(30_000)
   expect(console.error).toHaveBeenCalledWith(expect.stringContaining('check your connection'))
   expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('do-not-print-secret')
+})
+
+test('reports a redirect status without following or exposing its location', async () => {
+  mockCommands()
+  vi.mocked(fetch).mockImplementation((_url, options) => {
+    // Fetch rejects before returning a Response in error mode; manual mode exposes only this hop.
+    if (options?.redirect === 'error') return Promise.reject(new TypeError('unexpected redirect'))
+    return Promise.resolve(
+      new Response(null, {
+        status: 302,
+        headers: { location: 'https://example.test/?sig=do-not-print-secret' },
+      }),
+    )
+  })
+  await import('../../../examples/upload-once/demo.ts')
+  expect(process.exitCode).toBe(1)
+  expect(fetch).toHaveBeenCalledExactlyOnceWith(
+    expect.any(String),
+    expect.objectContaining({ redirect: 'manual' }),
+  )
+  expect(console.error).toHaveBeenCalledWith(expect.stringContaining('HTTP 302'))
+  expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('example.test')
+  expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('do-not-print-secret')
+  await expect(readFile('gallery.html')).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
 test('rejects a successful HTTP response that is not an image', async () => {
