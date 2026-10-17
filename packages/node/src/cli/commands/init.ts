@@ -82,6 +82,8 @@ export class InitCommand extends UnauthenticatedCommand {
       return 1
     }
 
+    // Manual recovery must keep the same workspace/lifecycle isolation as the automatic install.
+    const manualInstall = 'npm install --prefix . --ignore-scripts'
     if (this.install) {
       const result = await execa(
         'npm',
@@ -98,13 +100,13 @@ export class InitCommand extends UnauthenticatedCommand {
       )
       if (result.failed) {
         this.output.error(
-          'Dependency installation failed. The example is saved; run npm install in its directory, then npm run demo.',
+          `Dependency installation failed. The example is saved; run ${manualInstall} in its directory, then npm run demo.`,
         )
         return 1
       }
     }
     this.output.print(
-      `Created ${destination}. No files were uploaded or published.\n\ncd ${quoteCliArgument(destination)}\n${this.install ? '' : 'npm install\n'}npm run demo\n\nThe demo opens browser login when needed, then uploads one image. Storage must be enabled for your workspace.`,
+      `Created ${destination}. No files were uploaded or published.\n\ncd ${quoteCliArgument(destination)}\n${this.install ? '' : `${manualInstall}\n`}npm run demo\n\nThe demo opens browser login when needed, then uploads one image. Storage must be enabled for your workspace.`,
       { directory: destination, example: this.example, installed: this.install },
     )
     return undefined

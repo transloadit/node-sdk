@@ -65,11 +65,10 @@ test('creates the shipped source and compatible manifest without credentials or 
   })
   expect(await readFile('gallery/.gitignore', 'utf8')).toContain('gallery.html\n')
   expect(install).not.toHaveBeenCalled()
-  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(expect.stringContaining('npm install'), {
-    directory: resolve('gallery'),
-    example: 'upload-once',
-    installed: false,
-  })
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('npm install --prefix . --ignore-scripts'),
+    { directory: resolve('gallery'), example: 'upload-once', installed: false },
+  )
 })
 
 test('installs without lifecycle scripts and keeps JSON output free of npm progress', async () => {
@@ -93,7 +92,9 @@ test('keeps the scaffold and gives a recovery command when installation fails', 
   await main(['init', 'upload-once', 'gallery'])
   expect(process.exitCode).toBe(1)
   expect(await readFile('gallery/demo.ts', 'utf8')).toContain('storage')
-  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('npm install'))
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('npm install --prefix . --ignore-scripts'),
+  )
   expect(OutputCtl.prototype.print).not.toHaveBeenCalled()
 })
 
