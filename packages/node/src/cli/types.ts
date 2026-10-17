@@ -2,8 +2,6 @@ import type { Steps } from '../alphalib/types/template.ts'
 
 import { z } from 'zod'
 
-import { optionalStepsSchema } from '../alphalib/types/template.ts'
-
 // Zod schemas for runtime validation
 const APIErrorSchema = z.object({
   error: z.string(),
@@ -35,13 +33,6 @@ export interface TemplateFileData {
   steps?: Steps
   [key: string]: unknown // passthrough
 }
-
-export const TemplateFileDataSchema: z.ZodType<TemplateFileData> = z
-  .object({
-    transloadit_template_id: z.string().optional(),
-    steps: optionalStepsSchema,
-  })
-  .passthrough() as z.ZodType<TemplateFileData>
 
 export interface TemplateFile {
   file: string
