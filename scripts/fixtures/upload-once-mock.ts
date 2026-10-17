@@ -14,7 +14,7 @@ globalThis.fetch = async (input, options) => {
     !decodeURIComponent(url.pathname).includes('builtin/storage-preview@0.0.3') ||
     url.searchParams.get('f') !== 'webp' ||
     !url.searchParams.has('sig') ||
-    options?.redirect !== 'error' ||
+    options?.redirect !== 'manual' ||
     !(options.signal instanceof AbortSignal)
   )
     throw new Error('Unexpected network request in the example fixture')
