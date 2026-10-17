@@ -268,6 +268,33 @@ describe('cli smart_sig', () => {
 })
 
 describe('cli sig', () => {
+  it('warns while signing OCR overrides that inherit a Template provider', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const step = { robot: '/document/extract', text_method: 'ocr', use: ':original' }
+
+    await runSig({
+      providedInput: JSON.stringify({
+        template_id: 'template-with-ocr-provider',
+        steps: { extracted: step },
+      }),
+    })
+
+    expect(process.exitCode).toBeUndefined()
+    expect(error).not.toHaveBeenCalled()
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('extracted.ocr_provider'))
+    expect(stdout).toHaveBeenCalledOnce()
+    const output = JSON.parse(`${stdout.mock.calls[0]?.[0]}`)
+    expect(output.signature).toMatch(/^sha384:/)
+    expect(JSON.parse(output.params)).toMatchObject({
+      template_id: 'template-with-ocr-provider',
+      steps: { extracted: step },
+    })
+  })
+
   it('overwrites auth key with env credentials', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')

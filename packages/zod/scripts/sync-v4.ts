@@ -230,7 +230,12 @@ const patchInterpolatableHelpers = (contents: string): string => {
     "          .transform((value) => value === true || value === 'true'),\n" +
     '      ]) as unknown as InterpolatableSchema<Schema>\n' +
     `    case 'array': {\n` +
-    '      const arrayDef = def as { element: z.ZodTypeAny; checks?: unknown }\n' +
+    '      const arrayDef = def as { element: z.ZodTypeAny; checks?: z.core.$ZodCheck[] }\n' +
+    '      // Zod 3 wraps refined arrays in Effects: preserve their complete value checks,\n' +
+    '      // allowing only whole-field interpolation instead of widening their elements.\n' +
+    "      if (arrayDef.checks?.some((check) => check._zod.def.check === 'custom')) {\n" +
+    '        return z.union([interpolationSchemaFull, schema]) as unknown as InterpolatableSchema<Schema>\n' +
+    '      }\n' +
     '      let replacement = z.array(interpolateRecursive(arrayDef.element))\n' +
     '      replacement = applyArrayChecks(replacement, arrayDef.checks)\n' +
     '      return z.union([interpolationSchemaFull, replacement]) as unknown as InterpolatableSchema<Schema>\n' +

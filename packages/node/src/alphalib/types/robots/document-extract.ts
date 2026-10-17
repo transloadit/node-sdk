@@ -10,6 +10,7 @@ import { ecmaWhitespaceCharacterClass } from '../../lib/zodInputSemantics.ts'
 import {
   createProcessingExample,
   defineRobot,
+  interpolationSchemaFull,
   robotBase,
   robotDocumentProcessingMeta,
   robotUse,
@@ -21,6 +22,81 @@ const ocrProviders = z.enum(['aws', 'gcp'])
 const textFormats = z.enum(['txt', 'json'])
 const textGranularities = z.enum(['document', 'page'])
 const textMethods = z.enum(['native', 'ocr', 'auto'])
+
+/** Validate OCR dependencies after interpolation-aware parsing at the Assembly Step boundary. */
+export function refineDocumentExtractOcr(
+  step: {
+    robot: string
+    extract?: unknown
+    text_method?: unknown
+    ocr_provider?: unknown
+    password?: unknown
+    page_range?: unknown
+    text_granularity?: unknown
+  },
+  context: z.RefinementCtx,
+  options: { allowInterpolation?: boolean } = {},
+): void {
+  if (step.robot !== '/document/extract') return
+  if (step.text_method !== 'ocr' && step.text_method !== 'auto') return
+
+  // Image-only extraction never invokes OCR; unresolved targets are checked at runtime.
+  const extractsText =
+    step.extract === undefined ||
+    step.extract === 'text' ||
+    (Array.isArray(step.extract) && step.extract.includes('text'))
+  if (!extractsText) return
+
+  if (step.ocr_provider === undefined) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ocr_provider'],
+      message: 'The ocr_provider parameter is required when text_method is ocr or auto.',
+    })
+  }
+
+  // Assembly Steps preserve opaque interpolation until the Robot checks the resolved values.
+  // Builtin fields can opt out because those values are already resolved at their boundary.
+  // Keep these constraints aligned with the matching stepJsonInputSchema branch in template.ts.
+  if (
+    step.password !== undefined &&
+    step.password !== '' &&
+    !(
+      options.allowInterpolation !== false &&
+      interpolationSchemaFull.safeParse(step.password).success
+    )
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['password'],
+      message:
+        'The password parameter is only supported for native text extraction and embedded image extraction.',
+    })
+  }
+
+  // Defer full page-range interpolation to runtime, consistently with the other unresolved fields.
+  if (
+    step.page_range !== undefined &&
+    !(
+      options.allowInterpolation !== false &&
+      interpolationSchemaFull.safeParse(step.page_range).success
+    )
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['page_range'],
+      message: 'The page_range parameter is only supported for native text extraction.',
+    })
+  }
+
+  if (step.text_granularity === 'page') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['text_granularity'],
+      message: 'The page text_granularity is only supported for native text extraction.',
+    })
+  }
+}
 
 export const meta: RobotMetaInput = {
   ...robotDocumentProcessingMeta,

@@ -1,14 +1,40 @@
 import type { StepsInput } from '../alphalib/types/template.ts'
+import type { IOutputCtl } from './OutputCtl.ts'
 
 import fsp from 'node:fs/promises'
 
 import { z } from 'zod'
 
-import { stepsSchema } from '../alphalib/types/template.ts'
+import { robotsSchema } from '../alphalib/types/robots/_index.ts'
+import { refineDocumentExtractOcr } from '../alphalib/types/robots/document-extract.ts'
+import { refineTransloaditImportSelector } from '../alphalib/types/robots/transloadit-import.ts'
 
 const stepsWrapperSchema = z.object({ steps: z.record(z.unknown()) })
 
-export function parseStepsInputJson(content: string): StepsInput {
+/** CLI inputs can be partial overrides; API2 validates OCR after merging their runtime context. */
+export function createCliStepsSchema(
+  output: Pick<IOutputCtl, 'warn'> = console,
+): z.ZodType<StepsInput> {
+  const cliStepSchema = robotsSchema
+    .superRefine(refineTransloaditImportSelector)
+    .superRefine((step, context) => {
+      // API2 merges Template defaults before Robot validation. New OCR checks must not reject
+      // partial --steps overrides in a minor release; explicit Zod schemas remain strict.
+      refineDocumentExtractOcr(step, {
+        ...context,
+        addIssue(issue) {
+          const field = [...context.path, ...(issue.path ?? [])].join('.')
+          output.warn(`${field}: ${issue.message ?? 'Invalid OCR dependency.'}`)
+        },
+      })
+    })
+  return z.record(cliStepSchema)
+}
+
+export function parseStepsInputJson(
+  content: string,
+  output: Pick<IOutputCtl, 'warn'> = console,
+): StepsInput {
   const parsed: unknown = JSON.parse(content)
   const wrapped = stepsWrapperSchema.safeParse(parsed)
   let stepsInput = parsed
@@ -21,7 +47,7 @@ export function parseStepsInputJson(content: string): StepsInput {
     }
     stepsInput = validatedWrapper.data.steps
   }
-  const validated = stepsSchema.safeParse(stepsInput)
+  const validated = createCliStepsSchema(output).safeParse(stepsInput)
   if (!validated.success) {
     throw new Error(`Invalid steps format: ${validated.error.message}`)
   }
@@ -42,7 +68,10 @@ export function parseStepsInputJson(content: string): StepsInput {
   ) as StepsInput
 }
 
-export async function readStepsInputFile(filePath: string): Promise<StepsInput> {
+export async function readStepsInputFile(
+  filePath: string,
+  output: Pick<IOutputCtl, 'warn'> = console,
+): Promise<StepsInput> {
   const content = await fsp.readFile(filePath, 'utf8')
-  return parseStepsInputJson(content)
+  return parseStepsInputJson(content, output)
 }

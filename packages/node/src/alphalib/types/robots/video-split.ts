@@ -36,7 +36,8 @@ export const meta: RobotMetaInput = {
   name: 'VideoSplitRobot',
 }
 
-const segmentSchema = z
+/** A reusable clip window with the same time values accepted by video splitting. */
+export const segmentSchema = z
   .object({
     from: z
       .union([z.number(), z.string()])
