@@ -1,11 +1,11 @@
 # `@transloadit/viewer`
 
-**Alpha — API may change between releases. Pin the exact version in production. Images only for now.**
+**Alpha — API may change between releases. Pin the exact version in production.**
 
 Native responsive images from Smart CDN (`<workspace>.tlcdn.com`); bytes bypass Next's optimizer.
 
 - **Build-time Next images:** use the catalog Quickstart below.
-- **Live uploads and gallery previews:** [React receipts](docs/react-storage.md) (version requirements and pre-release setup).
+- **Live uploads, gallery previews and private video:** [React receipts](docs/react-storage.md) (video requires 0.0.8+).
 - **HTTP/S3 assets:** use a [restricted Template](#existing-http-or-s3-assets).
 
 ## Quickstart

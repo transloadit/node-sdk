@@ -4,8 +4,8 @@
 the Next.js adapter). Requires a matching API2 deployment with the pinned Storage
 Built-ins. Install `@transloadit/viewer@alpha` alongside React 19. Receipts come from your
 authenticated data layer; credentials stay in your server route.
-The optional `/react/preview` entry requires **0.0.6+**, pending release; see
-[testing the preview entry before release](#testing-the-preview-entry-before-release).
+The optional `/react/preview` entry requires **0.0.6+**. The `/react/video` entry requires
+**0.0.8+**; see [private video playback](#private-video-playback).
 
 ```tsx
 import { Image, getStorageAssetHref } from '@transloadit/viewer/react'
@@ -180,6 +180,35 @@ const results = extractStoredAssemblyResults(verifiedAssembly, {
 Assemblies throw; partial receipts never silently disappear. Node's `getStoredAssemblyResults`
 reuses this source and retains failed-Assembly `ApiError`. The parser belongs to the existing Zod
 package: Utils stays dependency-free, and Viewer installs/imports no generated schemas or SDK.
+
+## Private video playback
+
+The optional client entry `@transloadit/viewer/react/video` supplies a native `Video` element
+for a stored playback receipt (requires Viewer 0.0.8+). The app still chooses the encoded rendition, poster, caption tracks and accessible
+label. It uses the same authorized route as `Image`, without another signing endpoint.
+
+```tsx
+import { Video } from '@transloadit/viewer/react/video'
+
+<Video src={playbackReceipt} poster={posterReceipt} aria-label="First dance" />
+```
+
+Native controls, inline playback and metadata preloading are on by default. Native attributes,
+events, `<track>` children and React 19 refs are supported. For a gallery thumbnail use
+`controls={false}` and `preload="none"`. Use `getStorageAssetHref(originalReceipt,
+{ action: 'download' })` separately to download the original rather than the encoded rendition.
+
+An expired CDN byte-range grant can surface as a native network error. After a successful
+metadata load, `Video` reloads the **same authorized app route**, restoring playback position,
+speed and intent, including a user-paused autoplay video. It retries neither initial failures nor decoding errors. A refused renewal stays
+refused, and recovery is rearmed only after the restored media loads. Browser autoplay rules
+can still require pressing Play. Recovery temporarily requests frame data even with `preload="none"`
+or `"metadata"`, then restores that preload policy. Changing the exact source version or route resets the player
+and cancels pending recovery. This is not automatic encoding, HLS selection, a permanent URL,
+or an alternative to server-side album authorization.
+
+Browser error reporting varies. Do not assume recovery for native production expiry or every
+browser; test the target browsers and delivery route. Native controls remain available.
 
 ## Optional blur placeholders
 
