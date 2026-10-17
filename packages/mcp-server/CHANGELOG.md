@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.6.9
+
+### Patch Changes
+
+- cebb683: Clarify the upload-once example’s device approval and local catalog guidance, report uploaded versus reused originals through an additive CLI JSON `uploaded` boolean, and use sample-sized variants with a visible crop. Detect rejected Smart CDN delivery before reporting success and show safe recovery guidance for failed images. Release the legacy CLI and MCP server alongside the SDK.
+- Updated dependencies [cebb683]
+  - @transloadit/node@6.1.1
+
 ## 0.6.8
 
 ### Patch Changes
