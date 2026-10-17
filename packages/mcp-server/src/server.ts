@@ -9,6 +9,7 @@ import type {
 } from '@transloadit/node'
 import type { ZodObject } from 'zod'
 
+import type { BuiltinCatalog } from './builtin-shortcuts.ts'
 import type { ToolName } from './tool-metadata.ts'
 import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
@@ -27,10 +28,11 @@ import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
 import {
+  applyBuiltinCatalog,
   BuiltinFieldValidationError,
-  deriveShortcutFieldsSchema,
+  builtinShortcuts,
+  catalogFieldsSchema,
   loadBuiltinShortcuts,
-  shortcutTemplateId,
   validateBuiltinFields,
 } from './builtin-shortcuts.ts'
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
@@ -38,7 +40,6 @@ import { assertServerOptions } from './options.ts'
 import { mirrorSecuritySchemes } from './tool-list.ts'
 import {
   buildToolMeta,
-  builtinShortcutNames,
   resolveSecuritySchemes,
   resolveToolAuthMode,
   toolMetadata,
@@ -317,7 +318,7 @@ const listTemplatesOutputSchema = z.object({
       name: z.string().optional(),
       description: z.string().optional(),
       builtin_version: z.string().optional(),
-      fields_schema: z.record(z.string(), z.unknown()).nullable().optional(),
+      fields_schema: catalogFieldsSchema.optional(),
       steps: z.record(z.string(), z.unknown()).optional(),
     }),
   ),
@@ -936,7 +937,7 @@ const apiTemplateSchema = z
     name: z.string().optional(),
     description: z.string().optional(),
     builtin_version: z.string().optional(),
-    fields_schema: z.record(z.string(), z.unknown()).nullable().optional(),
+    fields_schema: catalogFieldsSchema.optional(),
     content: z.unknown().optional(),
     account_id: z.string().nullable().optional(),
   })
@@ -1461,13 +1462,13 @@ export const createTransloaditMcpServer = (
   const shortcutInputSchema = createAssemblyInputSchema
     .omit({ instructions: true, assembly_url: true })
     .strict()
-  for (const name of builtinShortcutNames) {
+  for (const { id, name } of builtinShortcuts) {
     register(name, shortcutInputSchema, createAssemblyOutputSchema, async (args, extra) => {
       const live = createLiveClient(options, extra, 0)
       if ('error' in live) return live.error
-      let catalog: Awaited<ReturnType<typeof loadBuiltinShortcuts>>
+      let catalog: BuiltinCatalog
       try {
-        catalog = await loadBuiltinShortcuts(live.client, name)
+        catalog = await loadBuiltinShortcuts(live.client, id)
       } catch (error) {
         const rejection = toAuthRejection(
           options,
@@ -1481,7 +1482,7 @@ export const createTransloaditMcpServer = (
           'Could not load the Builtin catalog. Retry discovery with transloadit_list_templates.',
         )
       }
-      const template = catalog.get(shortcutTemplateId(name))
+      const template = catalog.get(id)
       if (!template) {
         return buildShortcutError(
           'mcp_builtin_unavailable',
@@ -1781,41 +1782,9 @@ export const createTransloaditMcpServer = (
     const live = createLiveClient(options, extra, 0)
     // A failed catalog read must not prevent discovery of the existing generic tools. The
     // authenticated list/call tools still return actionable auth errors through their own paths.
-    const catalog: Awaited<ReturnType<typeof loadBuiltinShortcuts>> | undefined =
+    const catalog: BuiltinCatalog | undefined =
       'error' in live ? new Map() : await loadBuiltinShortcuts(live.client).catch(() => undefined)
-    const tools = result.tools.flatMap((tool) => {
-      if (!isRecord(tool)) return [tool]
-      const name = builtinShortcutNames.find((name) => name === tool.name)
-      if (!name) return [tool]
-      // Hosts can cache tools/list. During an outage keep reviewed names callable with the
-      // generic fields record, so a later call can fetch and validate its fresh contract.
-      // A successful discovery with a null/missing contract still hides that shortcut.
-      if (!catalog) return [tool]
-      const template = catalog.get(shortcutTemplateId(name))
-      if (!template || !isRecord(tool.inputSchema) || !isRecord(tool.inputSchema.properties))
-        return []
-      const fieldsSchema = deriveShortcutFieldsSchema(template)
-      if (!fieldsSchema) return [tool]
-      const fieldsRequired =
-        Array.isArray(fieldsSchema.required) && fieldsSchema.required.length > 0
-      const required = Array.isArray(tool.inputSchema.required)
-        ? tool.inputSchema.required.filter((name): name is string => typeof name === 'string')
-        : []
-      return [
-        {
-          ...tool,
-          inputSchema: {
-            ...tool.inputSchema,
-            ...(fieldsRequired ? { required: [...new Set([...required, 'fields'])] } : {}),
-            properties: {
-              ...tool.inputSchema.properties,
-              fields: fieldsSchema,
-            },
-          },
-        },
-      ]
-    })
-    return { ...result, tools }
+    return applyBuiltinCatalog(result, catalog)
   })
 
   return server

@@ -6,27 +6,54 @@ import formatsPlugin from 'ajv-formats'
 import { z } from 'zod'
 
 import { isRecord } from './json.ts'
-import { builtinShortcutNames } from './tool-metadata.ts'
+
+// Channel approvals are not published by alphalib yet (api2#10024). Keep only reviewed
+// IDs and deployment gates here; names/titles derive below, descriptions/contracts from API2.
+const builtinOverrides: Record<string, Record<string, string[]>> = {
+  'builtin/caption-video@0.0.1': {},
+  'builtin/capture-webpage@0.0.1': {},
+  'builtin/convert-to-pdf@0.0.1': {},
+  // Remove after api2#9960 is deployed and its VP8/turbo output is verified.
+  'builtin/encode-video@0.0.1': { preset: ['webm'] },
+  'builtin/extract-text@0.0.1': {},
+  'builtin/prepare-image@0.0.1': {},
+  'builtin/remove-background@0.0.1': {},
+  'builtin/transcribe@0.0.1': {},
+  'builtin/video-covers@0.0.1': {},
+}
+
+/** Single shortcut registry; replace the reviewed IDs with the shared manifest once published. */
+export const builtinShortcuts = Object.keys(builtinOverrides).map((id) => {
+  const slug = id.slice('builtin/'.length).split('@')[0] ?? ''
+  const name: `transloadit_${string}` = `transloadit_${slug.replaceAll('-', '_')}`
+  return { id, name, title: slug.charAt(0).toUpperCase() + slug.slice(1).replaceAll('-', ' ') }
+})
+
+/** Catalog descriptions supply the outcome wording; this suffix describes the MCP adapter. */
+export const describeBuiltinShortcut = (description = 'Run a reviewed Builtin Template.'): string =>
+  `${description} Supply parameters under fields. Accepts the same files, attachments, expected_uploads and wait options as transloadit_create_assembly.`
+
+/** Standalone catalog JSON Schema, or null for a legacy Builtin without a declared contract. */
+export const catalogFieldsSchema = z.record(z.string(), z.unknown()).nullable()
 
 /** Catalog contract; null and absent schemas both mean no declared validation schema. */
 export const builtinTemplateSchema = z.object({
   id: z.string(),
-  fields_schema: z.record(z.string(), z.unknown()).nullable().optional(),
+  description: z.string().optional(),
+  fields_schema: catalogFieldsSchema.optional(),
   content: z.object({ fields: z.record(z.string(), z.unknown()).default({}) }),
 })
 
-type BuiltinFieldsContract = {
-  id?: string
-  fields_schema?: Record<string, unknown> | null
-  content: { fields?: Record<string, unknown> }
-}
+type BuiltinFieldsContract = Pick<
+  z.input<typeof builtinTemplateSchema>,
+  'content' | 'fields_schema'
+> & { id?: string }
+
+/** Credential-scoped contracts for the approved workflow IDs. */
+export type BuiltinCatalog = Map<string, z.infer<typeof builtinTemplateSchema>>
 
 /** A caller-field validation failure whose message is safe to return through MCP. */
 export class BuiltinFieldValidationError extends Error {}
-
-/** Pin reviewed workflows, including plain captions, independently of future catalog versions. */
-export const shortcutTemplateId = (name: (typeof builtinShortcutNames)[number]): string =>
-  `builtin/${name.replace('transloadit_', '').replaceAll('_', '-')}@0.0.1`
 
 const compileFieldsSchema = (
   schema: Record<string, unknown>,
@@ -39,28 +66,26 @@ const compileFieldsSchema = (
   return validator.compile<Record<string, unknown>>(schema)
 }
 
-// Remove this gate after the api2#9960 fix is deployed and its VP8/turbo output is verified.
 const gatedFieldsSchema = (
   template: BuiltinFieldsContract,
 ): Record<string, unknown> | undefined => {
-  const schema = template.fields_schema
-  if (!schema) return undefined
-  if (template.id !== 'builtin/encode-video@0.0.1') return structuredClone(schema)
-  const properties = isRecord(schema.properties) ? schema.properties : {}
-  const preset = isRecord(properties.preset) ? properties.preset : {}
-  return {
-    ...structuredClone(schema),
-    properties: {
-      ...structuredClone(properties),
-      preset: {
-        ...structuredClone(preset),
-        ...(Array.isArray(preset.enum)
-          ? { enum: preset.enum.filter((value) => value !== 'webm') }
+  if (!template.fields_schema) return undefined
+  const schema = structuredClone(template.fields_schema)
+  for (const [name, excluded] of Object.entries(builtinOverrides[template.id ?? ''] ?? {})) {
+    const properties = isRecord(schema.properties) ? schema.properties : {}
+    const field = isRecord(properties[name]) ? properties[name] : {}
+    schema.properties = {
+      ...properties,
+      [name]: {
+        ...field,
+        ...(Array.isArray(field.enum)
+          ? { enum: field.enum.filter((value) => !excluded.includes(value)) }
           : {}),
-        not: { const: 'webm' },
+        not: { enum: excluded },
       },
-    },
+    }
   }
+  return schema
 }
 
 /** Caller fields override content.fields; defaults satisfy required fields before execution. */
@@ -120,9 +145,13 @@ export const validateBuiltinFields = (
   fields: Record<string, unknown> = {},
 ): Record<string, unknown> => {
   const merged = { ...template.content.fields, ...fields }
-  if (template.id === 'builtin/encode-video@0.0.1' && merged.preset === 'webm') {
+  if (
+    Object.entries(builtinOverrides[template.id ?? ''] ?? {}).some(([name, excluded]) =>
+      excluded.some((value) => value === merged[name]),
+    )
+  ) {
     throw new BuiltinFieldValidationError(
-      'The legacy ‘webm’ preset is temporarily unavailable. Choose another listed preset.',
+      'This Builtin field value is temporarily unavailable. Choose another listed value.',
     )
   }
   const schema = gatedFieldsSchema(template)
@@ -160,10 +189,10 @@ export const validateBuiltinFields = (
 /** Read approved Builtins with a dedicated, retry-disabled client; callers never share catalogs. */
 export const loadBuiltinShortcuts = async (
   client: Transloadit,
-  shortcut?: (typeof builtinShortcutNames)[number],
-): Promise<Map<string, z.infer<typeof builtinTemplateSchema>>> => {
-  const templates = new Map<string, z.infer<typeof builtinTemplateSchema>>()
-  const approved = new Set((shortcut ? [shortcut] : builtinShortcutNames).map(shortcutTemplateId))
+  templateId?: string,
+): Promise<BuiltinCatalog> => {
+  const templates: BuiltinCatalog = new Map()
+  const approved = new Set(templateId ? [templateId] : builtinShortcuts.map(({ id }) => id))
   const pageSize = 100
   const deadline = performance.now() + 3000
   for (let page = 1; ; page += 1) {
@@ -194,4 +223,38 @@ export const loadBuiltinShortcuts = async (
       break
   }
   return templates
+}
+
+/** Apply one catalog to the SDK's tool list, retaining generic tools and outage recovery. */
+export const applyBuiltinCatalog = (
+  result: unknown,
+  catalog: BuiltinCatalog | undefined,
+): unknown => {
+  if (!isRecord(result) || !Array.isArray(result.tools) || !catalog) return result
+  const tools = result.tools.flatMap((tool) => {
+    if (!isRecord(tool)) return [tool]
+    const shortcut = builtinShortcuts.find(({ name }) => name === tool.name)
+    if (!shortcut) return [tool]
+    const template = catalog.get(shortcut.id)
+    if (!template || !isRecord(tool.inputSchema) || !isRecord(tool.inputSchema.properties))
+      return []
+    const fields = deriveShortcutFieldsSchema(template)
+    const required = Array.isArray(tool.inputSchema.required) ? tool.inputSchema.required : []
+    return [
+      {
+        ...tool,
+        description: describeBuiltinShortcut(template.description),
+        inputSchema: fields
+          ? {
+              ...tool.inputSchema,
+              ...(Array.isArray(fields.required) && fields.required.length > 0
+                ? { required: [...new Set([...required, 'fields'])] }
+                : {}),
+              properties: { ...tool.inputSchema.properties, fields },
+            }
+          : tool.inputSchema,
+      },
+    ]
+  })
+  return { ...result, tools }
 }

@@ -368,69 +368,28 @@ declares `oauth2` with the scopes above for every tool; a server holding `TRANSL
 the others `noauth`. `TRANSLOADIT_MCP_TOKEN` and `TRANSLOADIT_MCP_RESOURCE_METADATA_URL` cannot be
 combined.
 
-The authenticated `tools/list` also discovers these outcome shortcuts when the catalog exposes
-their field contracts:
+Authenticated `tools/list` is the reference for outcome shortcuts, descriptions and field schemas.
+The single [shortcut registry](src/builtin-shortcuts.ts) derives tool names/titles from reviewed
+Builtin IDs. Descriptions, standalone draft-07 `fields_schema` and `content.fields` defaults come
+from the production Template catalog. Defaults merge before validation, preserving JSON types;
+conservative schema annotations leave runtime cross-field validation authoritative. A null or
+absent contract makes that shortcut unavailable. Generic tools keep their existing behavior.
 
-| Shortcut | Outcome |
-| --- | --- |
-| `transloadit_transcribe` | Recording to text, JSON timestamps, SRT or WebVTT |
-| `transloadit_video_covers` | Cover images by count, smart selection or exact offsets |
-| `transloadit_extract_text` | Text from PDFs, scans, photos and Office documents |
-| `transloadit_prepare_image` | Resize, rotate, convert and optimize website images |
-| `transloadit_remove_background` | Transparent PNG cutout by default |
-| `transloadit_caption_video` | Video with burned plain captions, plus SRT |
-| `transloadit_capture_webpage` | Public web page or uploaded HTML to image or PDF |
-| `transloadit_encode_video` | Web MP4 or VP9 WebM; output size depends on source and preset |
-| `transloadit_convert_to_pdf` | Office, HTML, Markdown or text to PDF |
+Alphalib currently syncs the Builtin documentation **type**, without catalog entries or MCP
+approvals. [api2#10024](https://github.com/transloadit/api2/issues/10024) tracks the shared manifest
+needed for sync-driven additions, renames and removals. Until then the registry holds the approved
+version pins and the temporary legacy VP8 `webm` gate; it copies no pipelines or field constraints.
+The gate remains until [api2#9960](https://github.com/transloadit/api2/issues/9960) is deployed and
+verified. Social captions are deferred. Transcription language hints do not translate speech.
 
-Each shortcut uses its reviewed `builtin/<outcome>@0.0.1` Template. Its `fields` input schema
-comes from the catalog's standalone draft-07 `fields_schema`; no Robot steps, enums or limits
-are copied into the adapter. The server merges `content.fields` defaults with caller fields
-before validating, preserving JSON numbers, booleans, arrays and explicit null values.
-`x-transloadit-input-fidelity: conservative` marks approximate constraints: the Builtin's runtime
-validation remains authoritative, including cross-field rules. A null or missing schema means
-no declared schema, so that shortcut stays unavailable until its contract can be discovered.
-Catalog reads have a three-second overall deadline and no automatic retries. If an authenticated
-catalog read fails, the reviewed shortcut names stay discoverable with an unconstrained `fields`
-record; each call still fetches and validates its contract before creating an Assembly. This lets
-clients that cache discovery recover without reconnecting. The next discovery retries the schema
-lookup, and `transloadit_list_templates` can also show the accepted fields. Generic tools remain
-available throughout. Schemas are compiled before discovery; malformed contracts use the same
-unconstrained fallback and return a sanitized contract-unavailable error when called.
-Default-sensitive root compositions or dependencies also use that permissive discovery fallback,
-so valid calls are not rejected before the server merges defaults and validates the full contract.
-The static server card lists the generic tools; authenticated `tools/list` includes the shortcuts.
-
-The shortcuts accept `files`, `attachments`, `expected_uploads` and the upload/wait options of
-`transloadit_create_assembly`, and return the same Assembly results, upload instructions and
-result widget. Their reviewed workflows have no storage overwrite steps, so they declare
-`destructiveHint: false`; they still create billable Assemblies and can fetch public URLs.
-They require `assemblies:write` and `templates:read`. Use the generic tools to resume uploads.
-
-For example, prepare an image that exists only in the caller's sandbox:
-
-```json
-{
-  "name": "transloadit_prepare_image",
-  "arguments": {
-    "fields": { "w": 1024, "h": 1024, "f": "webp", "strip": true },
-    "expected_uploads": 1
-  }
-}
-```
-
-Run the returned upload command, then call `transloadit_wait_for_assembly`.
-For a web page, call `transloadit_capture_webpage` with
-`{"fields":{"url":"https://example.com","format":"png"},"wait_for_completion":true}`.
-Transcription language fields are spoken-language hints; they do not translate speech.
-
-Plain captions are pinned to version `0.0.1`; social styling is deferred. The encode shortcut
-temporarily removes and rejects legacy `preset: "webm"` while the fix for
-[api2#9960](https://github.com/transloadit/api2/issues/9960) awaits deployment and verification.
-The catalog's `web/webm/*` presets use VP9 and remain available. Generic tools retain their
-existing behavior. The released SDK dependency already includes the
-[document extraction registry fix](https://github.com/transloadit/node-sdk/issues/559), so the
-extraction shortcut can use the deployed Builtin directly.
+Catalog reads have a three-second overall deadline without retries. During an authenticated
+catalog outage the reviewed names remain discoverable with permissive fields; each call still
+fetches and validates the current contract. Malformed or default-sensitive composed schemas also
+use permissive discovery, followed by full validation after merging defaults at execution.
+Supply `fields` and the same files/attachments/upload/wait options as `transloadit_create_assembly`.
+For a sandbox file, set `expected_uploads`, run the returned upload command, then call
+`transloadit_wait_for_assembly`. The SDK already includes the
+[document extraction registry fix](https://github.com/transloadit/node-sdk/issues/559).
 
 `transloadit_list_templates` supports:
 
@@ -575,8 +534,9 @@ but this does not enable private-network URL file downloads.
 - Disable via `metricsPath: false`.
 - Optional metrics basic auth via `TRANSLOADIT_MCP_METRICS_USER` +
   `TRANSLOADIT_MCP_METRICS_PASSWORD` or `metricsAuth`.
-- Public discovery endpoint at `/.well-known/mcp/server-card.json`, listing every tool with its
-  annotations and security schemes and, in hosted mode, the OAuth resource metadata URL.
+- Public discovery at `/.well-known/mcp/server-card.json` declares `tools: ["dynamic"]`;
+  authenticated `tools/list` supplies the complete inventory, schemas, annotations and security
+  schemes. Hosted cards also publish the OAuth resource metadata URL.
 
 ## MCP vs skills/CLI
 
