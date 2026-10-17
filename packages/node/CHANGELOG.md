@@ -1,5 +1,14 @@
 # @transloadit/node
 
+## 6.1.0
+
+### Minor Changes
+
+- 238c2ff: Add `transloadit init upload-once <directory>` with a versioned, runnable example that reuses the
+  existing browser login, Storage receipt/checksum handling and Smart CDN signer. Scaffold without
+  uploads or public policy changes, reuse matching originals on subsequent runs, and keep one
+  maintained example for the CLI and documentation.
+
 ## 6.0.4
 
 ### Patch Changes
