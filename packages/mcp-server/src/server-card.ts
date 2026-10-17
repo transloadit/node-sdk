@@ -179,7 +179,7 @@ const buildTools = (mode: ToolAuthMode): ServerCardToolDefinition[] =>
       ...tool,
       title: metadata.title,
       description: metadata.description,
-      annotations: metadata.annotations,
+      annotations: { title: metadata.title, ...metadata.annotations },
       securitySchemes: resolveSecuritySchemes(metadata, mode),
     }
   })
