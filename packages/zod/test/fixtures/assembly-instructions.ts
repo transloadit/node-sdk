@@ -126,6 +126,42 @@ const importServeTemplate: AssemblyInstructionsInput = {
 
 export const assemblyInstructionFixtures: AssemblyInstructionFixture[] = [
   {
+    name: 'speech-vocabulary-rejects-case-insensitive-duplicates',
+    value: {
+      steps: {
+        transcribed: { robot: '/speech/transcribe', vocabulary: ['Transloadit', 'transloadit'] },
+      },
+    },
+    valid: false,
+  },
+  {
+    name: 'speech-vocabulary-rejects-joined-utf8-budget-overflow',
+    value: {
+      steps: {
+        transcribed: { robot: '/speech/transcribe', vocabulary: ['é'.repeat(100), 'Uppy'] },
+      },
+    },
+    valid: false,
+  },
+  {
+    name: 'speech-vocabulary-accepts-valid-hints',
+    value: {
+      steps: {
+        transcribed: { robot: '/speech/transcribe', vocabulary: ['Transloadit', 'Uppy'] },
+      },
+    },
+    valid: true,
+  },
+  {
+    name: 'speech-vocabulary-preserves-full-interpolation',
+    value: {
+      steps: {
+        transcribed: { robot: '/speech/transcribe', vocabulary: '${fields.vocabulary}' },
+      },
+    },
+    valid: true,
+  },
+  {
     name: 'ocr-requires-provider',
     value: { steps: { extract: { robot: '/document/extract', text_method: 'ocr' } } },
     valid: false,

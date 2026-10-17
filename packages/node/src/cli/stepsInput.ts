@@ -11,6 +11,26 @@ import { refineTransloaditImportSelector } from '../alphalib/types/robots/transl
 
 const stepsWrapperSchema = z.object({ steps: z.record(z.unknown()) })
 
+/** CLI inputs can be partial overrides; API2 validates OCR after merging their runtime context. */
+export function createCliStepsSchema(
+  output: Pick<IOutputCtl, 'warn'> = console,
+): z.ZodType<StepsInput> {
+  const cliStepSchema = robotsSchema
+    .superRefine(refineTransloaditImportSelector)
+    .superRefine((step, context) => {
+      // API2 merges Template defaults before Robot validation. New OCR checks must not reject
+      // partial --steps overrides in a minor release; explicit Zod schemas remain strict.
+      refineDocumentExtractOcr(step, {
+        ...context,
+        addIssue(issue) {
+          const field = [...context.path, ...(issue.path ?? [])].join('.')
+          output.warn(`${field}: ${issue.message ?? 'Invalid OCR dependency.'}`)
+        },
+      })
+    })
+  return z.record(cliStepSchema)
+}
+
 export function parseStepsInputJson(
   content: string,
   output: Pick<IOutputCtl, 'warn'> = console,
@@ -27,20 +47,7 @@ export function parseStepsInputJson(
     }
     stepsInput = validatedWrapper.data.steps
   }
-  const cliStepSchema = robotsSchema
-    .superRefine(refineTransloaditImportSelector)
-    .superRefine((step, context) => {
-      // API2 merges Template defaults before Robot validation. New OCR checks must not reject
-      // partial --steps overrides in a minor release; explicit Zod schemas remain strict.
-      refineDocumentExtractOcr(step, {
-        ...context,
-        addIssue(issue) {
-          const field = [...context.path, ...(issue.path ?? [])].join('.')
-          output.warn(`${field}: ${issue.message ?? 'Invalid OCR dependency.'}`)
-        },
-      })
-    })
-  const validated = z.record(cliStepSchema).safeParse(stepsInput)
+  const validated = createCliStepsSchema(output).safeParse(stepsInput)
   if (!validated.success) {
     throw new Error(`Invalid steps format: ${validated.error.message}`)
   }
