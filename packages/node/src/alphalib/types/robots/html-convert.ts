@@ -57,6 +57,7 @@ Use [🤖/image/resize](/docs/robots/image-resize/) to resize or crop the screen
       .default(null)
       .describe(`
 The URL of the web page to be converted. Optional, as you can also upload/import HTML files and pass it to this <dfn>Robot</dfn>.
+Omit it, or use \`null\` or an empty string, to convert uploaded HTML instead.
 `),
     format: z
       .enum(['jpeg', 'jpg', 'pdf', 'png'])

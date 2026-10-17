@@ -22,6 +22,7 @@ import {
   requireCliCredentials,
   resolveCliConfig,
 } from '../helpers.ts'
+import { createCliStepsSchema } from '../stepsInput.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 type UrlParamPrimitive = string | number | boolean
@@ -113,6 +114,7 @@ function generateSignature(
   input: string,
   credentials: CliKeySecretCredentials,
   algorithm?: string,
+  output: Pick<IOutputCtl, 'warn'> = console,
 ): OutputResult {
   const { authKey } = credentials
   let params: CliSignatureParams
@@ -120,7 +122,10 @@ function generateSignature(
   if (input === '') {
     params = { auth: { key: authKey } }
   } else {
-    const parsedResult = parseJsonObject(input, cliSignatureParamsSchema)
+    const parsedResult = parseJsonObject(
+      input,
+      cliSignatureParamsSchema.extend({ steps: createCliStepsSchema(output).optional() }),
+    )
     if (!parsedResult.ok) {
       return { ok: false, error: parsedResult.error }
     }
@@ -347,7 +352,7 @@ export class SignatureCommand extends UnauthenticatedCommand {
 
     const { content } = await readCliInput({ allowStdinWhenNoPath: true })
     const rawInput = (content ?? '').trim()
-    const result = generateSignature(rawInput, credentials, this.algorithm)
+    const result = generateSignature(rawInput, credentials, this.algorithm, this.output)
 
     if (result.ok) {
       process.stdout.write(`${result.output}\n`)

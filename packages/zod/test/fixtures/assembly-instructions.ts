@@ -126,6 +126,75 @@ const importServeTemplate: AssemblyInstructionsInput = {
 
 export const assemblyInstructionFixtures: AssemblyInstructionFixture[] = [
   {
+    name: 'speech-vocabulary-rejects-case-insensitive-duplicates',
+    value: {
+      steps: {
+        transcribed: { robot: '/speech/transcribe', vocabulary: ['Transloadit', 'transloadit'] },
+      },
+    },
+    valid: false,
+  },
+  {
+    name: 'speech-vocabulary-rejects-joined-utf8-budget-overflow',
+    value: {
+      steps: {
+        transcribed: { robot: '/speech/transcribe', vocabulary: ['é'.repeat(100), 'Uppy'] },
+      },
+    },
+    valid: false,
+  },
+  {
+    name: 'speech-vocabulary-accepts-valid-hints',
+    value: {
+      steps: {
+        transcribed: { robot: '/speech/transcribe', vocabulary: ['Transloadit', 'Uppy'] },
+      },
+    },
+    valid: true,
+  },
+  {
+    name: 'speech-vocabulary-preserves-full-interpolation',
+    value: {
+      steps: {
+        transcribed: { robot: '/speech/transcribe', vocabulary: '${fields.vocabulary}' },
+      },
+    },
+    valid: true,
+  },
+  {
+    name: 'ocr-requires-provider',
+    value: { steps: { extract: { robot: '/document/extract', text_method: 'ocr' } } },
+    valid: false,
+  },
+  {
+    name: 'ocr-rejects-native-page-options',
+    value: {
+      steps: {
+        extract: {
+          robot: '/document/extract',
+          text_method: 'auto',
+          ocr_provider: 'aws',
+          text_granularity: 'page',
+        },
+      },
+    },
+    valid: false,
+  },
+  {
+    name: 'ocr-preserves-interpolation',
+    value: {
+      steps: {
+        extract: {
+          robot: '/document/extract',
+          text_method: 'ocr',
+          ocr_provider: 'gcp',
+          page_range: '${fields.pages}',
+        },
+      },
+    },
+    valid: true,
+  },
+  {
     name: 'http-request-defaults-and-transforms',
     value: {
       steps: {

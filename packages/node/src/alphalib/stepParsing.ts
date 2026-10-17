@@ -1283,10 +1283,22 @@ function getMostCommonExampleValue(
   return mostCommonValue
 }
 
-// Modify the extractFieldNamesFromTemplate function
+/** Finds field references even when Assembly overrides complete a stored Template. */
 export function extractFieldNamesFromTemplate(templateContent: string): ParsedTemplateField[] {
-  const [templateError, template] = parseSafeTemplate(templateContent)
-  if (templateError) {
+  let template: unknown
+  try {
+    template = JSON.parse(templateContent)
+  } catch {
+    return []
+  }
+  // Discovery needs only the Steps' structure. Complete-instruction validation would
+  // hide fields when, for example, an override supplies a required OCR provider.
+  if (
+    !isRecord(template) ||
+    Array.isArray(template) ||
+    !isRecord(template.steps) ||
+    Array.isArray(template.steps)
+  ) {
     return []
   }
   const fieldsMap = new Map<string, ParsedTemplateField>()
@@ -1335,7 +1347,7 @@ export function extractFieldNamesFromTemplate(templateContent: string): ParsedTe
     }
   }
 
-  for (const [stepName, step] of entries(template.steps || {})) {
+  for (const [stepName, step] of entries(template.steps)) {
     if (typeof step !== 'object' || step === null) {
       continue
     }

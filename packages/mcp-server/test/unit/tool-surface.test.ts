@@ -4,7 +4,8 @@ import { createServer } from 'node:http'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { Transloadit } from '@transloadit/node'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { createTransloaditMcpHttpHandler } from '../../src/http.ts'
@@ -21,6 +22,12 @@ const isRecord = (value: unknown): value is JsonRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const resourceMetadataUrl = 'https://api2.transloadit.com/.well-known/oauth-protected-resource/mcp'
+
+// This suite checks the generic surface. Outcome discovery has its own catalog-backed tests.
+beforeEach(() => {
+  vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({ items: [], count: 0 })
+})
+afterEach(() => vi.restoreAllMocks())
 
 // Transloadit result buckets plus Cloudflare R2 public buckets, where API2 also stores results.
 const resultDomains = ['https://*.transloadit.com', 'https://*.transloadit.net', 'https://*.r2.dev']

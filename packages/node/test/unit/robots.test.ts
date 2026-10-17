@@ -10,6 +10,34 @@ import { stepSchema, stepSchemaWithHiddenFields } from '../../src/alphalib/types
 import { getRobotHelp, listRobots } from '../../src/Transloadit.ts'
 
 describe('robot catalog helpers', () => {
+  it.each([
+    { text_method: 'ocr' },
+    { text_method: 'auto' },
+    { text_method: 'ocr', ocr_provider: 'aws', password: 'secret' },
+    { text_method: 'ocr', ocr_provider: 'aws', page_range: '1-2' },
+    { text_method: 'auto', ocr_provider: 'gcp', text_granularity: 'page' },
+  ])('rejects invalid OCR dependencies at the Assembly Step boundary: %j', (parameters) => {
+    const step = { robot: '/document/extract', ...parameters }
+    expect(stepSchema.safeParse(step).success).toBe(false)
+    expect(stepSchemaWithHiddenFields.safeParse(step).success).toBe(false)
+  })
+
+  it.each([
+    { text_method: 'native', password: 'secret', page_range: '1-2', text_granularity: 'page' },
+    { text_method: 'ocr', ocr_provider: 'aws' },
+    {
+      text_method: 'auto',
+      ocr_provider: 'gcp',
+      password: '${fields.password}',
+      page_range: '${fields.pages}',
+    },
+    { text_method: 'ocr', extract: 'images' },
+  ])('preserves native, image-only and interpolated extraction: %j', (parameters) => {
+    const step = { robot: '/document/extract', ...parameters }
+    expect(stepSchema.parse(step)).toMatchObject(step)
+    expect(stepSchemaWithHiddenFields.parse(step)).toMatchObject(step)
+  })
+
   it('documents PDF paper-format choices through preprocessing wrappers', () => {
     const help = getRobotHelp({ robotName: '/document/convert', detailLevel: 'full' })
     expect(

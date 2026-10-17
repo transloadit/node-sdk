@@ -362,16 +362,49 @@ Every tool carries `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint` 
 `openWorldHint` annotations. `transloadit_create_assembly` is the only destructive one: export
 Robots such as `/s3/store` can overwrite files at their destination, so hosts should confirm it.
 
+`transloadit_lint_assembly_instructions` validates complete, merged instructions locally. It does
+not fetch the Template named by `template_id`: resolve the Template and merge any Assembly or
+replay overrides before linting. For example, an OCR Step that inherits `ocr_provider` must
+include that provider in the instructions passed to this tool.
+
 `securitySchemes` depend on how the server runs: hosted (`TRANSLOADIT_MCP_RESOURCE_METADATA_URL`)
 declares `oauth2` with the scopes above for every tool; a server holding `TRANSLOADIT_KEY` and
 `TRANSLOADIT_SECRET` declares `noauth` everywhere; otherwise the account tools declare `oauth2` and
 the others `noauth`. `TRANSLOADIT_MCP_TOKEN` and `TRANSLOADIT_MCP_RESOURCE_METADATA_URL` cannot be
 combined.
 
+Authenticated `tools/list` is the reference for outcome shortcuts, descriptions and field schemas.
+The synced [alphalib Builtin manifest](../node/src/alphalib/types/builtinTemplates.ts) supplies
+reviewed version pins and temporary field exclusions. The MCP adapter derives tool names and
+titles from those IDs and consumes the catalog schema through `@transloadit/zod/v4/builtinTemplates`.
+An alphalib sync carries approved additions, renames, removals and gate changes without another
+MCP registry.
+
+Descriptions, standalone draft-07 `fields_schema` and `content.fields` defaults come from API2’s
+Template catalog. Defaults merge before validation, preserving JSON types; conservative schema
+annotations leave runtime cross-field validation authoritative. A null or absent contract makes
+that shortcut unavailable. Generic tools keep their existing behavior.
+
+The manifest’s temporary legacy VP8 `webm` gate remains until
+[api2#9960](https://github.com/transloadit/api2/issues/9960) is deployed and verified.
+Social captions are deferred. Transcription language hints do not translate speech.
+
+Catalog reads have a three-second overall deadline without retries. During an authenticated
+catalog outage the reviewed names remain discoverable with permissive fields; each call still
+fetches and validates the current contract. Malformed or default-sensitive composed schemas also
+use permissive discovery, followed by full validation after merging defaults at execution.
+Supply `fields` and the same files/attachments/upload/wait options as `transloadit_create_assembly`.
+For a sandbox file, set `expected_uploads`, run the returned upload command, then call
+`transloadit_wait_for_assembly`. The SDK already includes the
+[document extraction registry fix](https://github.com/transloadit/node-sdk/issues/559).
+
 `transloadit_list_templates` supports:
 
 - `include_builtin`: `all`, `latest`, `exclusively-all`, `exclusively-latest`
 - `include_content`: include parsed `steps` in each template item
+
+Builtin items also carry `fields_schema` unchanged, including conservative-fidelity metadata
+and null for older Builtins without a declared schema. Workspace Templates omit that property.
 
 `transloadit_get_profile` returns `{ id, name?, nickname? }` for the Workspace behind the current
 credentials, derived from the Workspace's own Assemblies or Templates.
@@ -508,8 +541,9 @@ but this does not enable private-network URL file downloads.
 - Disable via `metricsPath: false`.
 - Optional metrics basic auth via `TRANSLOADIT_MCP_METRICS_USER` +
   `TRANSLOADIT_MCP_METRICS_PASSWORD` or `metricsAuth`.
-- Public discovery endpoint at `/.well-known/mcp/server-card.json`, listing every tool with its
-  annotations and security schemes and, in hosted mode, the OAuth resource metadata URL.
+- Public discovery at `/.well-known/mcp/server-card.json` declares `tools: ["dynamic"]`;
+  authenticated `tools/list` supplies the complete inventory, schemas, annotations and security
+  schemes. Hosted cards also publish the OAuth resource metadata URL.
 
 ## MCP vs skills/CLI
 

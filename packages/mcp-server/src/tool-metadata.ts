@@ -1,5 +1,6 @@
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 
+import { builtinShortcuts, describeBuiltinShortcut } from './builtin-shortcuts.ts'
 import { assemblyResultWidgetUri } from './ui/assembly-result-widget.ts'
 
 /** Auth Key scopes the hosted tools need; mirrors API2's `safeMcpScopes` allowlist. */
@@ -23,7 +24,7 @@ export const toolNames = [
   'transloadit_get_profile',
 ] as const
 
-export type ToolName = (typeof toolNames)[number]
+export type ToolName = (typeof toolNames)[number] | (typeof builtinShortcuts)[number]['name']
 
 export type ToolMetadata = {
   title: string
@@ -83,17 +84,18 @@ const widgetMeta = {
 export const widgetToolNames: readonly ToolName[] = [
   'transloadit_create_assembly',
   'transloadit_wait_for_assembly',
+  ...builtinShortcuts.map(({ name }) => name),
 ]
 
 /**
  * Titles, descriptions, annotations, access and scopes for every tool, shared by the live
  * server and the static server card so the two never drift.
  */
-export const toolMetadata: Record<ToolName, ToolMetadata> = {
+const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
   transloadit_lint_assembly_instructions: {
     title: 'Lint Assembly Instructions',
     description:
-      'Lint Assembly Instructions without creating an Assembly. Returns structured issues.',
+      'Lint complete, merged Assembly Instructions without creating an Assembly. Resolve template_id and merge any Template or replay overrides before calling; this tool does not fetch Templates. Returns structured issues.',
     annotations: readOnly,
     access: 'public',
     scopes: [],
@@ -182,6 +184,25 @@ export const toolMetadata: Record<ToolName, ToolMetadata> = {
       'openai/profile': true,
     },
   },
+}
+
+/** Builtins share the Assembly tool's upload/auth/widget metadata and cannot override its Steps. */
+export const toolMetadata: Record<ToolName, ToolMetadata> = {
+  ...genericToolMetadata,
+  ...Object.fromEntries(
+    builtinShortcuts.map(({ name, title }) => [
+      name,
+      {
+        ...genericToolMetadata.transloadit_create_assembly,
+        title,
+        description: describeBuiltinShortcut(),
+        annotations: {
+          ...genericToolMetadata.transloadit_create_assembly.annotations,
+          destructiveHint: false,
+        },
+      },
+    ]),
+  ),
 }
 
 /** `_meta` for `tools/list`: carries `securitySchemes` for hosts that only read `_meta`. */

@@ -1,8 +1,11 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js'
+import type { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js'
 
 import { isRecord } from './json.ts'
 
-type RequestHandler = (request: unknown, extra: unknown) => Promise<unknown>
+type ToolListExtra = RequestHandlerExtra<ServerRequest, ServerNotification>
+type RequestHandler = (request: unknown, extra: ToolListExtra) => Promise<unknown>
 
 const isRequestHandler = (value: unknown): value is RequestHandler => typeof value === 'function'
 
@@ -42,13 +45,18 @@ const withTopLevelSecuritySchemes = (result: unknown): unknown => {
  * later, enable/disable, schema conversion) and copies each tool's `_meta.securitySchemes` up.
  * Call it after the first `registerTool()`, which installs the handler.
  */
-export const mirrorSecuritySchemes = (server: McpServer): void => {
+export const mirrorSecuritySchemes = (
+  server: McpServer,
+  transform?: (result: unknown, extra: ToolListExtra) => Promise<unknown>,
+): void => {
   const handlers = readRequestHandlers(server)
   const listTools = handlers.get('tools/list')
   if (!isRequestHandler(listTools)) {
     throw new Error('Register a tool before mirroring securitySchemes into tools/list.')
   }
-  const wrapped: RequestHandler = async (request, extra) =>
-    withTopLevelSecuritySchemes(await listTools(request, extra))
+  const wrapped: RequestHandler = async (request, extra) => {
+    const result = await listTools(request, extra)
+    return withTopLevelSecuritySchemes(transform ? await transform(result, extra) : result)
+  }
   handlers.set('tools/list', wrapped)
 }
