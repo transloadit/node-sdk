@@ -1,13 +1,13 @@
 {
   "packageDir": "packages/transloadit",
   "tarball": {
-    "filename": "transloadit-6.1.1.tgz",
-    "sizeBytes": 1406530,
-    "sha256": "ef663482bdedeec0d556dcd485ac547d0725e929139288a4f32d89964d5bab4b"
+    "filename": "transloadit-6.1.2.tgz",
+    "sizeBytes": 1406977,
+    "sha256": "f45d608797e6963f62066cc1a4e16babb1e04305674b3136f7b6dde2caf25313"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "6.1.1",
+    "version": "6.1.2",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -1034,7 +1034,7 @@
     {
       "path": "package.json",
       "sizeBytes": 2770,
-      "sha256": "465e0c3528f85fe43ef3eb993679477d7196e25f441e5f5ceb2415bcab891d6e"
+      "sha256": "1b7049ee8de43da6af0fcfe735a162dec54f907f995b703efb2680fe8145259c"
     },
     {
       "path": "dist/alphalib/types/robots/_ai-models.d.ts.map",
@@ -3053,8 +3053,8 @@
     },
     {
       "path": "README.md",
-      "sizeBytes": 112372,
-      "sha256": "aff8599d46547bdbfbcbe3f84233776f2f74522a14128a75b6bce742b2a7cf79"
+      "sizeBytes": 113193,
+      "sha256": "beef7dc51ec496758f54f740a88deb4a1b0260ac16a227c4283018ff79cf620e"
     },
     {
       "path": "dist/alphalib/types/robots/_ai-models.d.ts",

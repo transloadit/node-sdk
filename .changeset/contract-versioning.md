@@ -1,6 +1,9 @@
 ---
+'@transloadit/node': patch
+'transloadit': patch
 '@transloadit/types': patch
 '@transloadit/zod': patch
+'@transloadit/mcp-server': patch
 ---
 
 Document how SDK exports follow strict SemVer while API contract types and schemas follow API2

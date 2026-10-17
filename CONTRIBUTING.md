@@ -155,8 +155,8 @@ classes, `.shape` and parse-time defaults, follow the API rather than SemVer.
 | Breaking change to the SDK surface | major |
 | Contract sync that changes SDK runtime behavior for unchanged code, for example the CLI rejecting instructions the API still accepts | major, or a warning in a minor first |
 
-- Patch releases never contain contract type or validation changes, or type-breaking changes, so
-  a `~` range only brings fixes. We do not backport fixes to older minors.
+- Stable-package patch releases never contain contract type or validation changes, or type-breaking
+  changes, so a `~` range only brings fixes. We do not backport fixes to older minors.
 - A contract sync may still justify a major if it also breaks the SDK surface and the README quick
   start or `examples/` need edits to compile. Name that SDK break in the changeset; a contract-only
   type break still ships in a minor.
@@ -202,8 +202,8 @@ Repeat this in the package READMEs:
 
 - Commit your lockfile and type-check dependency update PRs. Type-breaking contract changes show
   up there, not in production.
-- For stable types, use `~` ranges: patch releases never change contract types. Use `^` to follow
-  the API as it evolves.
+- For the stable SDK packages, use `~` ranges for stable types: patch releases never change contract
+  types. Use `^` to follow the API as it evolves. Pre-1.0 packages follow the exceptions above.
 - Type the instructions you write with the input types, for example
   `const params = { steps } satisfies CreateAssemblyParams`. API changes usually widen these.
 - Narrow fields from responses and parsed output before using them (`null`, `undefined`, unknown
