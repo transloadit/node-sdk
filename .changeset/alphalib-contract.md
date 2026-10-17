@@ -20,8 +20,9 @@ Explicit schema validation now requires `ocr_provider` for OCR text extraction a
 native-only `password`, `page_range`, and page granularity with OCR. Thumbnail numeric offsets
 must be finite. Validate complete, merged instructions; use `assemblies lint --template` when
 linting Template overrides. The CLI warns about the new OCR constraints while reading Steps
-files or signing parameters, allowing overrides whose remaining parameters come from the
-original Assembly or Template to reach API2 for validation.
+files, syncing Templates, or signing parameters, allowing overrides whose remaining parameters
+come from the original Assembly or Template to reach API2 for validation. Field discovery also
+continues to work on partial Templates before Assembly overrides complete their instructions.
 
 Zod v4 preserves the synced speech-vocabulary checks for case-insensitive uniqueness and the
 200-byte joined UTF-8 budget, matching Zod v3 and API2.

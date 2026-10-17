@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-6.1.1.tgz",
-    "sizeBytes": 1406137,
-    "sha256": "5e2ac8dfdd0a4b5230cedb9fa006d4c5f8d16ef91ccdfc7853dbb22e4919f742"
+    "sizeBytes": 1406530,
+    "sha256": "ef663482bdedeec0d556dcd485ac547d0725e929139288a4f32d89964d5bab4b"
   },
   "packageJson": {
     "name": "transloadit",
@@ -763,8 +763,8 @@
     },
     {
       "path": "dist/alphalib/stepParsing.js",
-      "sizeBytes": 44304,
-      "sha256": "2c18552a7ee5355bf04ab1120094978fb7404787f460c4da6367b8c442624040"
+      "sizeBytes": 44668,
+      "sha256": "1815210ae5e3927434d06359f4453390f116352839988faf2336dbcd190b31f9"
     },
     {
       "path": "dist/cli/stepsInput.js",
@@ -2508,13 +2508,13 @@
     },
     {
       "path": "dist/alphalib/stepParsing.d.ts.map",
-      "sizeBytes": 4312,
-      "sha256": "4b7477c14bf4e10ed42a4c8006d28a9aa5767fd835b82e09928ac9740d43de39"
+      "sizeBytes": 4325,
+      "sha256": "c5214d964faba9ce7557f2f72333a6bfbe17ee32bc60153c8af79605e082751b"
     },
     {
       "path": "dist/alphalib/stepParsing.js.map",
-      "sizeBytes": 41449,
-      "sha256": "a052f5f640f40e2828d370c3406379343373d88f18c115cc01de36c22ac91eba"
+      "sizeBytes": 41683,
+      "sha256": "5c7f4f2d26dd898ab2b3975536fd0fb3dd0b9b3b0e3957a5ac69c2e68c3c33e2"
     },
     {
       "path": "dist/cli/stepsInput.d.ts.map",
@@ -4538,13 +4538,13 @@
     },
     {
       "path": "dist/alphalib/stepParsing.d.ts",
-      "sizeBytes": 5093,
-      "sha256": "6ac8d4b8b911066747e52a28343e39e33c5acf916abd8d24db4b82e82fde1e7f"
+      "sizeBytes": 5180,
+      "sha256": "af24ca780ee38fff7f64c2e8049f5cd418ba62b10ff7da1cb9695262c2ae5ef9"
     },
     {
       "path": "src/alphalib/stepParsing.ts",
-      "sizeBytes": 44288,
-      "sha256": "124c897500f3d78951a675476958b4531f82eeacce777ae89f8fed577ed74550"
+      "sizeBytes": 44633,
+      "sha256": "6328db06b77d5f9898e1b2dd69bf40ce18ff172051fb8e0b100ad82bded270c1"
     },
     {
       "path": "dist/cli/stepsInput.d.ts",
