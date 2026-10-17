@@ -369,18 +369,20 @@ the others `noauth`. `TRANSLOADIT_MCP_TOKEN` and `TRANSLOADIT_MCP_RESOURCE_METAD
 combined.
 
 Authenticated `tools/list` is the reference for outcome shortcuts, descriptions and field schemas.
-The single [shortcut registry](src/builtin-shortcuts.ts) derives tool names/titles from reviewed
-Builtin IDs. Descriptions, standalone draft-07 `fields_schema` and `content.fields` defaults come
-from the production Template catalog. Defaults merge before validation, preserving JSON types;
-conservative schema annotations leave runtime cross-field validation authoritative. A null or
-absent contract makes that shortcut unavailable. Generic tools keep their existing behavior.
+The synced [alphalib Builtin manifest](../node/src/alphalib/types/builtinTemplates.ts) supplies
+reviewed version pins and temporary field exclusions. The MCP adapter derives tool names and
+titles from those IDs and consumes the catalog schema through `@transloadit/zod/v4/builtinTemplates`.
+An alphalib sync carries approved additions, renames, removals and gate changes without another
+MCP registry.
 
-Alphalib currently syncs the Builtin documentation **type**, without catalog entries or MCP
-approvals. [api2#10024](https://github.com/transloadit/api2/issues/10024) tracks the shared manifest
-needed for sync-driven additions, renames and removals. Until then the registry holds the approved
-version pins and the temporary legacy VP8 `webm` gate; it copies no pipelines or field constraints.
-The gate remains until [api2#9960](https://github.com/transloadit/api2/issues/9960) is deployed and
-verified. Social captions are deferred. Transcription language hints do not translate speech.
+Descriptions, standalone draft-07 `fields_schema` and `content.fields` defaults come from API2’s
+Template catalog. Defaults merge before validation, preserving JSON types; conservative schema
+annotations leave runtime cross-field validation authoritative. A null or absent contract makes
+that shortcut unavailable. Generic tools keep their existing behavior.
+
+The manifest’s temporary legacy VP8 `webm` gate remains until
+[api2#9960](https://github.com/transloadit/api2/issues/9960) is deployed and verified.
+Social captions are deferred. Transcription language hints do not translate speech.
 
 Catalog reads have a three-second overall deadline without retries. During an authenticated
 catalog outage the reviewed names remain discoverable with permissive fields; each call still

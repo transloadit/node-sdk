@@ -1621,6 +1621,7 @@ __metadata:
     "@playwright/test": "npm:1.64.0"
     "@transloadit/node": "npm:^6.1.0"
     "@transloadit/sev-logger": "npm:^0.1.9"
+    "@transloadit/zod": "npm:^7.0.0"
     "@types/express": "npm:^5.0.6"
     "@types/node": "npm:^25.8.0"
     ajv: "npm:^8.17.1"

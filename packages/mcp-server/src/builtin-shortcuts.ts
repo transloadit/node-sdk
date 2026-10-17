@@ -1,29 +1,19 @@
 import type { Transloadit } from '@transloadit/node'
+import type { BuiltinTemplateCatalogItem } from '@transloadit/zod/v4/builtinTemplates'
 import type { ValidateFunction } from 'ajv'
 
+import {
+  builtinTemplateCatalogItemSchema,
+  mcpBuiltinTemplateManifest,
+} from '@transloadit/zod/v4/builtinTemplates'
 import { Ajv } from 'ajv'
 import formatsPlugin from 'ajv-formats'
 import { z } from 'zod'
 
 import { isRecord } from './json.ts'
 
-// Channel approvals are not published by alphalib yet (api2#10024). Keep only reviewed
-// IDs and deployment gates here; names/titles derive below, descriptions/contracts from API2.
-const builtinOverrides: Record<string, Record<string, string[]>> = {
-  'builtin/caption-video@0.0.1': {},
-  'builtin/capture-webpage@0.0.1': {},
-  'builtin/convert-to-pdf@0.0.1': {},
-  // Remove after api2#9960 is deployed and its VP8/turbo output is verified.
-  'builtin/encode-video@0.0.1': { preset: ['webm'] },
-  'builtin/extract-text@0.0.1': {},
-  'builtin/prepare-image@0.0.1': {},
-  'builtin/remove-background@0.0.1': {},
-  'builtin/transcribe@0.0.1': {},
-  'builtin/video-covers@0.0.1': {},
-}
-
-/** Single shortcut registry; replace the reviewed IDs with the shared manifest once published. */
-export const builtinShortcuts = Object.keys(builtinOverrides).map((id) => {
+/** Shortcut names and titles follow the reviewed manifest delivered by alphalib sync. */
+export const builtinShortcuts = Object.keys(mcpBuiltinTemplateManifest).map((id) => {
   const slug = id.slice('builtin/'.length).split('@')[0] ?? ''
   const name: `transloadit_${string}` = `transloadit_${slug.replaceAll('-', '_')}`
   return { id, name, title: slug.charAt(0).toUpperCase() + slug.slice(1).replaceAll('-', ' ') }
@@ -33,24 +23,13 @@ export const builtinShortcuts = Object.keys(builtinOverrides).map((id) => {
 export const describeBuiltinShortcut = (description = 'Run a reviewed Builtin Template.'): string =>
   `${description} Supply parameters under fields. Accepts the same files, attachments, expected_uploads and wait options as transloadit_create_assembly.`
 
-/** Standalone catalog JSON Schema, or null for a legacy Builtin without a declared contract. */
-export const catalogFieldsSchema = z.record(z.string(), z.unknown()).nullable()
-
-/** Catalog contract; null and absent schemas both mean no declared validation schema. */
-export const builtinTemplateSchema = z.object({
-  id: z.string(),
-  description: z.string().optional(),
-  fields_schema: catalogFieldsSchema.optional(),
-  content: z.object({ fields: z.record(z.string(), z.unknown()).default({}) }),
-})
-
 type BuiltinFieldsContract = Pick<
-  z.input<typeof builtinTemplateSchema>,
+  z.input<typeof builtinTemplateCatalogItemSchema>,
   'content' | 'fields_schema'
 > & { id?: string }
 
 /** Credential-scoped contracts for the approved workflow IDs. */
-export type BuiltinCatalog = Map<string, z.infer<typeof builtinTemplateSchema>>
+export type BuiltinCatalog = Map<string, BuiltinTemplateCatalogItem>
 
 /** A caller-field validation failure whose message is safe to return through MCP. */
 export class BuiltinFieldValidationError extends Error {}
@@ -71,7 +50,9 @@ const gatedFieldsSchema = (
 ): Record<string, unknown> | undefined => {
   if (!template.fields_schema) return undefined
   const schema = structuredClone(template.fields_schema)
-  for (const [name, excluded] of Object.entries(builtinOverrides[template.id ?? ''] ?? {})) {
+  for (const [name, excluded] of Object.entries(
+    mcpBuiltinTemplateManifest[template.id ?? ''] ?? {},
+  )) {
     const properties = isRecord(schema.properties) ? schema.properties : {}
     const field = isRecord(properties[name]) ? properties[name] : {}
     schema.properties = {
@@ -146,7 +127,7 @@ export const validateBuiltinFields = (
 ): Record<string, unknown> => {
   const merged = { ...template.content.fields, ...fields }
   if (
-    Object.entries(builtinOverrides[template.id ?? ''] ?? {}).some(([name, excluded]) =>
+    Object.entries(mcpBuiltinTemplateManifest[template.id ?? ''] ?? {}).some(([name, excluded]) =>
       excluded.some((value) => value === merged[name]),
     )
   ) {
@@ -210,7 +191,7 @@ export const loadBuiltinShortcuts = async (
       .object({ items: z.array(z.unknown()), count: z.number().optional() })
       .parse(response)
     for (const item of items.items) {
-      const parsed = builtinTemplateSchema.safeParse(item)
+      const parsed = builtinTemplateCatalogItemSchema.safeParse(item)
       if (!parsed.success || !approved.has(parsed.data.id) || !parsed.data.fields_schema) continue
       templates.set(parsed.data.id, parsed.data)
     }

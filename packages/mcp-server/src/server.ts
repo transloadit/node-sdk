@@ -24,6 +24,7 @@ import {
   prepareInputFiles,
   Transloadit,
 } from '@transloadit/node'
+import { builtinTemplateFieldsSchema } from '@transloadit/zod/v4/builtinTemplates'
 import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
@@ -31,7 +32,6 @@ import {
   applyBuiltinCatalog,
   BuiltinFieldValidationError,
   builtinShortcuts,
-  catalogFieldsSchema,
   loadBuiltinShortcuts,
   validateBuiltinFields,
 } from './builtin-shortcuts.ts'
@@ -321,7 +321,7 @@ const listTemplatesOutputSchema = z.object({
       name: z.string().optional(),
       description: z.string().optional(),
       builtin_version: z.string().optional(),
-      fields_schema: catalogFieldsSchema.optional(),
+      fields_schema: builtinTemplateFieldsSchema.optional(),
       steps: z.record(z.string(), z.unknown()).optional(),
     }),
   ),
@@ -940,7 +940,7 @@ const apiTemplateSchema = z
     name: z.string().optional(),
     description: z.string().optional(),
     builtin_version: z.string().optional(),
-    fields_schema: catalogFieldsSchema.optional(),
+    fields_schema: builtinTemplateFieldsSchema.optional(),
     content: z.unknown().optional(),
     account_id: z.string().nullable().optional(),
   })
