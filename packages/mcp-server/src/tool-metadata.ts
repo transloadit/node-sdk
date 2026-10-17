@@ -93,7 +93,7 @@ export const toolMetadata: Record<ToolName, ToolMetadata> = {
   transloadit_lint_assembly_instructions: {
     title: 'Lint Assembly Instructions',
     description:
-      'Lint Assembly Instructions without creating an Assembly. Returns structured issues.',
+      'Lint complete, merged Assembly Instructions without creating an Assembly. Resolve template_id and merge any Template or replay overrides before calling; this tool does not fetch Templates. Returns structured issues.',
     annotations: readOnly,
     access: 'public',
     scopes: [],
