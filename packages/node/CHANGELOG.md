@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 6.1.2
+
+### Patch Changes
+
+- 6d49076: Create missing CLI output directories recursively when `-o` ends in `/` or `\`, so Templates with multiple results work on the first run. Preserve single-file outputs without a trailing separator and suggest `-o <dir>/` when multiple results need a directory.
+
 ## 6.1.1
 
 ### Patch Changes
