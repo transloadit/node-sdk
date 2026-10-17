@@ -94,7 +94,8 @@ The thumbnails are taken at regular intervals, determined by dividing the video 
 To extract thumbnails for specific timestamps, use the \`offsets\` parameter.
 `),
     offsets: z
-      .union([z.array(z.number()), z.array(percentageSchema)])
+      .union([z.array(z.number().finite()), z.array(percentageSchema)])
+      .nullable()
       .default([])
       .describe(`
 An array of offsets representing seconds of the file duration, such as \`[ 2, 45, 120 ]\`. Millisecond durations of a file can also be used by using decimal place values. For example, an offset from 1250 milliseconds would be represented with \`1.25\`. Offsets can also be percentage values such as \`[ "2%", "50%", "75%" ]\`.
@@ -102,6 +103,8 @@ An array of offsets representing seconds of the file duration, such as \`[ 2, 45
 This option cannot be used with the \`count\` parameter, and takes precedence if both are specified. Out-of-range offsets are silently ignored.
 
 When \`smart\` is \`true\`, smart selection ignores \`offsets\` and uses \`count\` to select from its own candidate timestamps. If no smart candidates can be extracted, the Robot falls back to standard extraction, where \`offsets\` takes precedence. Use \`smart: false\` to consistently extract the specified timestamps.
+
+Use \`null\` to leave timestamp selection to \`count\` and \`smart\`.
 `),
     format: z
       .enum(['jpeg', 'jpg', 'png'])
@@ -114,18 +117,20 @@ The format of the extracted thumbnail. Supported values are \`"jpg"\`, \`"jpeg"\
       .int()
       .min(1)
       .max(1920)
+      .nullable()
       .optional()
       .describe(`
-The width of the thumbnail, in pixels. Defaults to the original width of the video.
+The width of the thumbnail, in pixels. Omit or use \`null\` for the original width of the video.
 `),
     height: z
       .number()
       .int()
       .min(1)
       .max(1080)
+      .nullable()
       .optional()
       .describe(`
-The height of the thumbnail, in pixels. Defaults to the original height of the video.
+The height of the thumbnail, in pixels. Omit or use \`null\` for the original height of the video.
 `),
     resize_strategy: resize_strategy.describe(`
 One of the [available resize strategies](/docs/topics/resize-strategies/).

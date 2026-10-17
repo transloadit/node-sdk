@@ -126,6 +126,39 @@ const importServeTemplate: AssemblyInstructionsInput = {
 
 export const assemblyInstructionFixtures: AssemblyInstructionFixture[] = [
   {
+    name: 'ocr-requires-provider',
+    value: { steps: { extract: { robot: '/document/extract', text_method: 'ocr' } } },
+    valid: false,
+  },
+  {
+    name: 'ocr-rejects-native-page-options',
+    value: {
+      steps: {
+        extract: {
+          robot: '/document/extract',
+          text_method: 'auto',
+          ocr_provider: 'aws',
+          text_granularity: 'page',
+        },
+      },
+    },
+    valid: false,
+  },
+  {
+    name: 'ocr-preserves-interpolation',
+    value: {
+      steps: {
+        extract: {
+          robot: '/document/extract',
+          text_method: 'ocr',
+          ocr_provider: 'gcp',
+          page_range: '${fields.pages}',
+        },
+      },
+    },
+    valid: true,
+  },
+  {
     name: 'http-request-defaults-and-transforms',
     value: {
       steps: {

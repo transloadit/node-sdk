@@ -6,6 +6,7 @@ import type {
 
 import { z } from 'zod'
 
+import { zodWithConservativeJsonInputSchema } from '../../lib/zodInputSemantics.ts'
 import {
   autoProviderDescription,
   createProcessingExample,
@@ -20,6 +21,29 @@ const speechTranscribeProviderSchema = z.enum(['auto', 'aws', 'gcp', 'replicate'
 const speechTranscribeProviderWithHiddenFieldsSchema = z
   .enum(['auto', 'aws', 'gcp', 'replicate', 'transloadit'])
   .default('auto')
+
+/** Shared vocabulary limits keep inline hints within GCP and Whisper prompt budgets. */
+export const speechTranscribeVocabularySchema = zodWithConservativeJsonInputSchema(
+  z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(100)
+        .regex(/^[^\p{Cc}]+$/u),
+    )
+    .max(50)
+    .refine((terms) => new Set(terms.map((term) => term.toLowerCase())).size === terms.length, {
+      message: 'Vocabulary terms must be unique, ignoring case.',
+    })
+    // Byte-level tokenization uses at most one token per byte. Reserve room for sentence styling.
+    .refine((terms) => new TextEncoder().encode(terms.join(', ')).byteLength <= 200, {
+      message: 'Vocabulary terms joined with comma-space must not exceed 200 UTF-8 bytes.',
+    }),
+  // Trimming, Unicode case uniqueness and a joined UTF-8 budget have no portable JSON Schema form.
+  z.array(z.string().min(1)).max(50),
+)
 
 export const meta: RobotMetaInput = {
   ...robotArtificialIntelligenceMeta,
@@ -77,7 +101,8 @@ recurring speakers:
 \`\`\`
 
 Speaker labels are currently supported by the \`aws\` and \`gcp\` providers. If you enable
-\`speaker_labels\` without setting \`provider\`, Transloadit uses \`aws\` for that <dfn>Step</dfn>. Labels
+\`speaker_labels\` without setting \`provider\`, Transloadit uses \`aws\` for that <dfn>Step</dfn>, or
+\`gcp\` when \`vocabulary\` is also supplied. Labels
 are normalized as \`speaker_1\`, \`speaker_2\`, and so on:
 
 \`\`\`json
@@ -100,7 +125,27 @@ ${autoProviderDescription}
 
 Set this to \`"aws"\`, \`"gcp"\`, or \`"replicate"\` to force a specific provider.
 When set to \`"auto"\`, Transloadit uses \`"replicate"\` by default and uses \`"aws"\` when
-\`speaker_labels\` is enabled.
+\`speaker_labels\` is enabled. If both \`speaker_labels\` and a nonempty \`vocabulary\` are set,
+\`"auto"\` uses \`"gcp"\`.
+`),
+    vocabulary: speechTranscribeVocabularySchema.optional().describe(`
+Words or phrases to favor during speech recognition, using the spelling you want in the output.
+For example, \`["Transloadit", "Uppy", "tus"]\` helps the provider recognize brand and product names.
+
+Supply up to 50 distinct terms, each between 1 and 100 characters after trimming surrounding
+whitespace. Terms must not contain control characters or case-insensitive duplicates. The terms
+joined with \`", "\` must fit within 200 UTF-8 bytes, keeping all terms within Whisper’s prompt
+budget. Omitting this parameter or supplying an empty array leaves recognition unchanged.
+
+Supported by \`"replicate"\` and \`"gcp"\`. Replicate uses a prompt-capable WhisperX large-v3 model
+with aligned word timestamps when vocabulary is supplied. GCP uses inline boosted phrase hints.
+Explicit \`"aws"\` requests with vocabulary return a validation error because AWS requires a
+pre-created Custom Vocabulary. Use \`"auto"\`, \`"replicate"\`, or \`"gcp"\` instead.
+
+Hints improve recognition but do not guarantee that a term is recognized. Afterwards, complete
+case-insensitive matches use your supplied spelling in every output format, including JSON words
+and speaker segments, without changing timestamps. Similar-sounding words are never replaced:
+\`"transloadit"\` becomes \`"Transloadit"\`, but \`"Transloaded"\` stays unchanged.
 `),
     granularity: granularitySchema.describe(`
 Both \`"full"\` and \`"list"\` currently return the same complete transcription response. \`"list"\` remains accepted for backward compatibility.

@@ -15,6 +15,13 @@ import {
   robotUse,
 } from './_instructions-primitives.ts'
 
+const transcriptSrtDocumentation =
+  'Timestamped JSON from `/speech/transcribe` with `"format": "json"` can be converted to SRT. ' +
+  'Set `"format": "srt"` here. JSON words are grouped into cues of up to three words, breaking ' +
+  'at sentence endings and pauses longer than 0.4 seconds. Casing and punctuation are preserved. ' +
+  'JSON input is limited to 32 MiB and is only supported for SRT output. ' +
+  'SRT-to-SRT copies the original cues unchanged.'
+
 /** Accepts Playwright's paper-format case variants while publishing canonical spellings. */
 export const documentConvertPdfFormatSchema = zodCaseInsensitiveEnum(
   z.enum(['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'Ledger', 'Legal', 'Letter', 'Tabloid']),
@@ -36,6 +43,8 @@ Using this <dfn>Robot</dfn>, you can bypass the issues that certain file types m
 
 > ![Warning]
 > A general rule of this <dfn>Robot</dfn> is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format, but not to an image.
+
+${transcriptSrtDocumentation}
 
 The following file formats can be converted from:
 
@@ -107,6 +116,8 @@ Using this Robot, you can bypass the issues that certain file types may bring, b
 
 > [!Warning]
 > A general rule of this Robot is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format (and vice versa), but not to an image.
+
+${transcriptSrtDocumentation}
 
 The following file formats can be converted from:
 
