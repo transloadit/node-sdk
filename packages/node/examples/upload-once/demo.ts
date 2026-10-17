@@ -33,6 +33,28 @@ function escapeHtml(text: string): string {
     .replaceAll('>', '&gt;')
 }
 
+async function checkDelivery(url: string): Promise<void> {
+  stage = 'checking Smart CDN delivery; check your connection and rerun npm run demo'
+  // One bounded GET checks delivery, not just signing. The browser loads the other variants.
+  const response = await fetch(url, { signal: AbortSignal.timeout(30_000), redirect: 'error' })
+  if (!response.ok) {
+    stage = `checking Smart CDN delivery (HTTP ${response.status}); rerun npm run demo and check your credential source and Storage access`
+    // Only a known code is safe to print. Never relay upstream reasons, URLs or other body fields.
+    const failure = z
+      .object({ error: z.literal('GET_ACCOUNT_UNKNOWN_AUTH_KEY') })
+      .safeParse(await response.json().catch(() => null))
+    if (failure.success) {
+      stage = `checking Smart CDN delivery (HTTP ${response.status}, ${failure.data.error}); check the credential source shown above: this key is not enabled for Smart CDN. Normal CLI device login creates a Smart-CDN-enabled combined key; run npm exec -- transloadit auth login if needed, then rerun npm run demo`
+    }
+    throw new Error('Smart CDN rejected delivery')
+  }
+  await response.body?.cancel()
+  if (!response.headers.get('content-type')?.startsWith('image/')) {
+    stage = `checking Smart CDN delivery (HTTP ${response.status}, expected an image); rerun npm run demo and check Storage access`
+    throw new Error('Smart CDN did not return an image')
+  }
+}
+
 async function main(): Promise<void> {
   // The CLI owns login, credential precedence and workspace verification. Never copy its key
   // into an application or expose it in generated HTML. Logout revokes browser-login keys.
@@ -87,8 +109,12 @@ async function main(): Promise<void> {
         url_params: { v: image.version_id, w, h, f, r, q: 75 },
       }),
     )
+    if (figures.length === 0) {
+      console.log('Checking Smart CDN delivery…')
+      await checkDelivery(url)
+    }
     figures.push(
-      `<figure><img src="${escapeHtml(url)}" width="${w}" height="${h}" alt="${escapeHtml(label)}"><figcaption>${escapeHtml(label)}</figcaption></figure>`,
+      `<figure><img src="${escapeHtml(url)}" width="${w}" height="${h}" alt="${escapeHtml(label)}" onerror="this.hidden = true; this.nextElementSibling.hidden = false"><p role="status" hidden>This variant could not load. Its temporary access may have expired. Rerun npm run demo, reopen gallery.html, and check the terminal for Smart CDN delivery errors if it still fails.</p><figcaption>${escapeHtml(label)}</figcaption></figure>`,
     )
   }
   stage = 'writing gallery.html; check that the current directory is writable'
@@ -107,6 +133,7 @@ body { font: 1rem system-ui; max-width: 80rem; margin: 2rem auto; padding: 0 1re
 main { display: flex; flex-wrap: wrap; align-items: start; gap: 1rem; }
 figure { margin: 0; max-width: 30rem; }
 img { display: block; max-width: 100%; height: auto; }
+img[hidden] { display: none; }
 </style>
 </head>
 <body><h1>One original, three variants</h1><main>${figures.join('\n')}</main></body>

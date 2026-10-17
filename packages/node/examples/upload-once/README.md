@@ -16,6 +16,8 @@ upload, publish a directory or change existing project files. Use `--no-install`
 The demo uses configured CLI credentials or opens browser login when none are configured, checks Storage policy access,
 and uploads the bundled photo through `storage store --hashed`. Open `gallery.html` to see the
 three variants. The policy check is not a guarantee that an upload will succeed.
+Normal device login creates a combined upload/Smart CDN CLI key; finish the printed approval
+code in your browser, or use `npm exec -- transloadit auth login --no-browser` over SSH/headless.
 
 Change `variants` near the top of `demo.ts` and rerun `npm run demo`: the CLI's catalog and checksum
 checks reuse the matching original. To try your own photo:
@@ -27,11 +29,19 @@ npm run demo -- ./your-photo.jpg
 If browser authorization did not finish, run `npm exec -- transloadit auth login` in the example
 directory. For other failures, the demo names the failed step without exposing transport errors
 that could contain signed URLs; check your photo, Storage access and saved catalog before retrying.
+Before writing the gallery, one bounded GET checks the first variant’s HTTP status and image
+content type. A rejected request stops the demo with a safe status and, when recognized, error
+code. `GET_ACCOUNT_UNKNOWN_AUTH_KEY` means the selected key is not enabled for Smart CDN;
+check the credential source printed by the demo (shell/project credentials take precedence over
+saved login). The other variants load in your browser and show recovery text if they fail.
 
 The CLI saves the full asset/version receipt in `transloadit.images.json`. Keep this local-only,
 gitignored catalog: deleting it or cloning the project elsewhere loses the local proof used to skip
 uploads. It is intentionally not a shared app database. An occupied remote path is never silently
 overwritten; recover its catalog before retrying after an uncertain upload result.
+The CLI also generates `transloadit-images.d.ts` for optional Viewer integration. This demo does
+not import it or require Viewer: keep it gitignored alongside the catalog, and include those types
+only in a project using `@transloadit/viewer/next`.
 
 `auth smart-cdn` uses the SDK's signer and `builtin/storage-preview@0.0.3`; the example contains no
 custom signer or processing pipeline. `v` is the returned Storage version ID, not a cachebuster.
