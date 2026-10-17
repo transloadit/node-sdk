@@ -17,12 +17,18 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
       2. Run `corepack yarn verify:full` locally once before pushing.
          - This catches wrapper sync drift early and still runs the deeper repo checks.
       3. If `verify` / `verify:full` fails with transloadit wrapper drift, run `node scripts/prepare-transloadit.ts`, commit the tracked `packages/transloadit` updates, and re-run `corepack yarn verify:full`.
-   4. If you add a changeset for `@transloadit/node`, also add a similar changeset for `@transloadit/mcp-server` if it could affect its workings. The chances are, they are, since the latter is mostly a thin wrapper around the former.
+   4. Classify changes using [the versioning policy](../../../CONTRIBUTING.md#versioning-policy).
+      - API2 contract type/schema changes ship in minors, with a `Contract:` summary and a
+        `Type-breaking:` line per type break. Description-only syncs are patches; pre-1.0 package
+        exceptions follow the policy.
+      - Every major changeset must contain a nonempty `SDK-breaking:` line naming the SDK surface
+        it breaks. `yarn lint:changesets` enforces this for each file.
+   5. If you add a changeset for `@transloadit/node`, also add a similar changeset for `@transloadit/mcp-server` if it could affect its workings. The chances are, they are, since the latter is mostly a thin wrapper around the former.
       - This repo enforces a one-way coupling: node releases should also publish a new mcp-server version (but mcp-server releases do not require node releases).
       - `yarn check`/`yarn verify` will fail fast if you forget.
-   5. Commit + push branch
-   6. Open PR, wait for CI green
-   7. Squash-merge the PR
+   6. Commit + push branch
+   7. Open PR, wait for CI green
+   8. Squash-merge the PR
 
    Notes:
    1. When creating PRs with `gh pr create` from a shell, avoid unescaped backticks in the `--body` string.

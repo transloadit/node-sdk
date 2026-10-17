@@ -30,7 +30,7 @@
     "test:img:fixture": "node scripts/test-img-next-fixture.ts",
     "test:init:fixture": "node scripts/test-init-example.ts",
     "test:sdk:edge": "node scripts/test-sdk-edge.ts",
-    "test:unit": "vitest run ./scripts/fingerprint-pack.test.ts ./scripts/withProcess.test.ts ./scripts/img-next-fixture.test.ts ./scripts/knip.test.ts ./scripts/publish-release.test.ts ./scripts/release-run.test.ts ./scripts/sdk-edge.test.ts ./scripts/sync-robot-index.test.ts && yarn workspace @transloadit/utils test:unit && yarn workspace @transloadit/viewer test:unit && yarn workspace @transloadit/node test:unit && yarn workspace @transloadit/mcp-server test:unit && yarn workspace @transloadit/types test:unit && yarn workspace @transloadit/zod test:unit && yarn workspace @transloadit/notify-url-relay test:unit",
+    "test:unit": "vitest run ./scripts/fingerprint-pack.test.ts ./scripts/guard-changesets.test.ts ./scripts/withProcess.test.ts ./scripts/img-next-fixture.test.ts ./scripts/knip.test.ts ./scripts/publish-release.test.ts ./scripts/release-run.test.ts ./scripts/sdk-edge.test.ts ./scripts/sync-robot-index.test.ts && yarn workspace @transloadit/utils test:unit && yarn workspace @transloadit/viewer test:unit && yarn workspace @transloadit/node test:unit && yarn workspace @transloadit/mcp-server test:unit && yarn workspace @transloadit/types test:unit && yarn workspace @transloadit/zod test:unit && yarn workspace @transloadit/notify-url-relay test:unit",
     "test:types": "yarn workspace @transloadit/zod test:types",
     "test:widget-visual": "node scripts/test-mcp-widget-visual.ts",
     "test:widget-visual:update": "node scripts/test-mcp-widget-visual.ts --update --states-dir /tmp/widget-states",
@@ -45,6 +45,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
     "@changesets/cli": "^2.31.0",
+    "@changesets/parse": "^0.4.3",
     "@types/node": "^25.8.0",
     "@vitest/coverage-v8": "^4.1.6",
     "execa": "^9.6.1",

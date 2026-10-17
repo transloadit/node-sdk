@@ -110,6 +110,106 @@ The `packages/transloadit` folder is a generated legacy wrapper. Tracked files u
 yarn pack
 ```
 
+## Versioning policy
+
+These packages mirror a live API. When API2 changes a Robot parameter, every customer gets that
+change at once, whatever SDK version they installed. A major for each such change would give us
+dozens of majors a year and teach users to ignore them. So we version two surfaces differently:
+the **SDK surface** follows strict SemVer, and the **API contract** follows the API.
+
+### SDK surface: strict SemVer
+
+A breaking change to any of these requires a major:
+
+- Package names, `exports` entry points and subpaths, module format and the supported Node.js
+  range. We support TypeScript releases from the last two years, like DefinitelyTyped; dropping an
+  older one is not breaking.
+- Names of exported symbols, generated ones included. When API2 renames something, add the new
+  name, keep the old one as a `@deprecated` alias, and remove it in the next major.
+- The `Transloadit` client: constructor options, method names and parameters, return wrappers,
+  error classes and their documented fields, and retry, polling and upload behavior.
+- Hand-written helpers and types, such as `prepareInputFiles`, the signing helpers and
+  `StoredImageReceipt`, and everything in `@transloadit/utils`.
+- CLI command names, hand-written flags, exit codes, credential resolution order and `--json`
+  output.
+- The helper functions and supported Zod versions of `@transloadit/zod`.
+- What the SDK, CLI and MCP server send, accept or reject at runtime for unchanged caller code,
+  apart from explicit API-contract schema parsing and lint validation described below.
+
+### API contract: follows API2
+
+Types and schemas synced from alphalib describe what the Transloadit API accepts and returns today:
+Robot parameters (names, optionality, nullability, defaults, enums, limits and refinements),
+Assembly Instructions, Assembly status and other response types, error-code lists, Robot
+metadata, model lists, descriptions and examples, lint rules that mirror API validation, and CLI
+intent flags generated from Robot parameters. Their shapes, and Zod internals such as wrapper
+classes, `.shape` and parse-time defaults, follow the API rather than SemVer.
+
+### Bump rules
+
+| Change | Bump |
+| --- | --- |
+| SDK bug fix, documentation, or a contract sync that only changes descriptions or examples | patch |
+| New SDK feature or export, or an additive contract sync: new Robot, optional parameter, enum value or response field | minor |
+| Type-breaking contract sync: an input type accepts less, or an output type returns more (`null`, `undefined`, a wider union, a removed parse-time default) | minor, with a `Type-breaking:` line |
+| Breaking change to the SDK surface | major |
+| Contract sync that changes SDK runtime behavior for unchanged code, for example the CLI rejecting instructions the API still accepts | major, or a warning in a minor first |
+
+- Stable-package patch releases never contain contract type or validation changes, or type-breaking
+  changes, so a `~` range only brings fixes. We do not backport fixes to older minors.
+- A contract sync may still justify a major if it also breaks the SDK surface and the README quick
+  start or `examples/` need edits to compile. Name that SDK break in the changeset; a contract-only
+  type break still ships in a minor.
+- SDK majors are batched: deprecate in a minor, collect removals in one tracking issue, and remove
+  them together in the next major.
+- Pre-1.0 packages (`@transloadit/mcp-server`, `@transloadit/notify-url-relay` and the alpha
+  `@transloadit/viewer`) use a minor for breaking changes and a patch for everything else. Contract
+  syncs are patches there unless their tools, CLI or exports change.
+
+### Writing contract changesets
+
+- Bump `@transloadit/node`, `transloadit`, `@transloadit/types` and `@transloadit/zod` by `minor`,
+  or by `patch` for description-only syncs. Add `@transloadit/mcp-server` as described under
+  Releasing.
+- Start the summary with `Contract:` and link the API2 pull requests being synced.
+- Add one `Type-breaking:` bullet per type-breaking change: what changed, who is affected (authors
+  of Assembly Instructions, or readers of parsed output and API responses) and how to adapt.
+- A contract-only sync is never `major`. Every `major` changeset contains an `SDK-breaking:` line
+  that names the SDK surface it breaks.
+
+```md
+---
+'@transloadit/node': minor
+'transloadit': minor
+'@transloadit/types': minor
+'@transloadit/zod': minor
+'@transloadit/mcp-server': patch
+---
+
+Contract: sync Robot schemas from API2 (transloadit/api2#9897, transloadit/api2#9938).
+
+- Type-breaking: `/video/subtitle` no longer fills in `font`, `font_size` and `bold` while
+  parsing. Parsed values (`RobotVideoSubtitleInstructions`, `AssemblyInstructions`,
+  `schema.parse()`) can be `undefined`; the API still applies Arial, 16 and `false`, or the
+  `social` style’s defaults. Instruction input types are unchanged.
+- Type-breaking: `/video/thumbs` accepts `null` for `offsets`, `width` and `height`, so parsed
+  values can be `null`. Treat `null` like an omitted value.
+```
+
+### What we tell consumers
+
+Repeat this in the package READMEs:
+
+- Commit your lockfile and type-check dependency update PRs. Type-breaking contract changes show
+  up there, not in production.
+- For the stable SDK packages, use `~` ranges for stable types: patch releases never change contract
+  types. Use `^` to follow the API as it evolves. Pre-1.0 packages follow the exceptions above.
+- Type the instructions you write with the input types, for example
+  `const params = { steps } satisfies CreateAssemblyParams`. API changes usually widen these.
+- Narrow fields from responses and parsed output before using them (`null`, `undefined`, unknown
+  strings).
+- Do not depend on Zod internals such as wrapper classes, `.shape` or parse-time defaults.
+
 ## Releasing
 
 Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub Actions and Changesets (including the legacy `transloadit` package).

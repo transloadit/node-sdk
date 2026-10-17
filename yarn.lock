@@ -6515,6 +6515,7 @@ __metadata:
   dependencies:
     "@biomejs/biome": "npm:2.4.16"
     "@changesets/cli": "npm:^2.31.0"
+    "@changesets/parse": "npm:^0.4.3"
     "@types/node": "npm:^25.8.0"
     "@vitest/coverage-v8": "npm:^4.1.6"
     execa: "npm:^9.6.1"

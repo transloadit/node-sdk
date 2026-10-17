@@ -45,6 +45,20 @@ npm install --save @transloadit/node
 The legacy npm package name `transloadit` is kept as an alias for backward compatibility, but
 `@transloadit/node` is the canonical package name.
 
+## Versioning and dependency updates
+
+The SDK surface follows strict SemVer. API contract types and schemas follow API2 and can change
+in minor releases, including type-breaking updates. See the
+[versioning policy](https://github.com/transloadit/node-sdk/blob/main/CONTRIBUTING.md#versioning-policy).
+
+- Commit your lockfile and type-check dependency update PRs.
+- Use `~` ranges for stable contract types within a minor; patch releases do not change contract
+  types. Use `^` to follow the API as it evolves.
+- Use input types for instructions you write, for example
+  `const params = { steps } satisfies CreateAssemblyParams`.
+- Narrow fields from responses and parsed output before use (`null`, `undefined`, unknown strings).
+- Do not depend on Zod internals such as wrapper classes, `.shape` or parse-time defaults.
+
 ## Command Line Interface (CLI)
 
 This package includes a full-featured CLI for interacting with Transloadit from your terminal.
