@@ -90,7 +90,9 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "examples/upload-once",
+    "examples/fixtures/berkley.jpg"
   ],
   "bin": "./dist/cli.js"
 }

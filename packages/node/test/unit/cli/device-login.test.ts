@@ -7,12 +7,19 @@ import { execa } from 'execa'
 import nock from 'nock'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { resolveCliConfig } from '../../../src/cli/helpers.ts'
+import { requireCliCredentials, resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
 
-const { waits } = vi.hoisted((): { waits: number[] } => ({ waits: [] }))
+const { waits, userHome } = vi.hoisted(() => {
+  const waits: number[] = []
+  return { waits, userHome: vi.fn<() => string>() }
+})
+vi.mock('node:os', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:os')>()),
+  homedir: userHome,
+}))
 vi.mock('execa', () => ({
   execa: vi.fn(() => Object.assign(Promise.resolve(undefined), { unref: vi.fn() })),
 }))
@@ -52,6 +59,7 @@ let directory: string
 
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'device-login-'))
+  userHome.mockReturnValue(directory)
   process.chdir(directory)
   vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', join(directory, 'credentials'))
   for (const name of [
@@ -96,6 +104,70 @@ afterEach(async () => {
 function login(args: string[] = []): Promise<void> {
   return main(['auth', 'login', '--endpoint', origin, ...args])
 }
+
+test('effective status recognizes shell credentials without creating a saved login', async () => {
+  await writeFile('credentials', '')
+  vi.stubEnv('TRANSLOADIT_KEY', 'shell-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'never-print-this-secret')
+  await main(['auth', 'status', '--effective', '--json'])
+  expect(process.exitCode).toBeUndefined()
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(expect.any(String), {
+    configured: true,
+    source: 'shell environment',
+  })
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain('shell-key')
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
+    'never-print',
+  )
+  expect(await readFile('credentials', 'utf8')).toBe('')
+  expect(execa).not.toHaveBeenCalled()
+})
+
+test('effective status reports missing default credentials without making a request', async () => {
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', '')
+  await main(['auth', 'status', '--effective', '--json'])
+  expect(process.exitCode).toBeUndefined()
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(expect.any(String), {
+    configured: false,
+    source: null,
+  })
+  expect(execa).not.toHaveBeenCalled()
+})
+
+test('effective status accepts a shell key pair even when the fallback file is missing', async () => {
+  vi.stubEnv('TRANSLOADIT_KEY', 'shell-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'never-print-this-secret')
+  expect(requireCliCredentials()).toMatchObject({ ok: true })
+  await main(['auth', 'status', '--effective', '--json'])
+  expect(process.exitCode).toBeUndefined()
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(expect.any(String), {
+    configured: true,
+    source: 'shell environment',
+  })
+  expect(execa).not.toHaveBeenCalled()
+  expect(await readdir(directory)).toEqual([])
+})
+
+test.each([
+  '',
+  'TRANSLOADIT_KEY=incomplete\n',
+])('effective status preserves and rejects an unusable saved file %j', async (contents) => {
+  await writeFile('credentials', contents)
+  await main(['auth', 'status', '--effective', '--json'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('saved'))
+  expect(await readFile('credentials', 'utf8')).toBe(contents)
+  expect(execa).not.toHaveBeenCalled()
+})
+
+test('effective status rejects token-only configuration instead of requesting another key', async () => {
+  await writeFile('credentials', '')
+  vi.stubEnv('TRANSLOADIT_AUTH_TOKEN', 'example-token')
+  await main(['auth', 'status', '--effective', '--json'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('incomplete'))
+  expect(execa).not.toHaveBeenCalled()
+})
 
 test('a browser denial stops polling immediately and saves no credentials', async () => {
   const api = createDevice()

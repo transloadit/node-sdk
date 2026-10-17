@@ -97,7 +97,9 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "examples/upload-once",
+    "examples/fixtures/berkley.jpg"
   ],
   "bin": {
     "transloadit": "./dist/cli.js"
