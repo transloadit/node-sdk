@@ -9,6 +9,7 @@ import type {
 } from '@transloadit/node'
 import type { ZodObject } from 'zod'
 
+import type { BuiltinCatalog } from './builtin-shortcuts.ts'
 import type { ToolName } from './tool-metadata.ts'
 import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
@@ -26,6 +27,14 @@ import {
 import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
+import {
+  applyBuiltinCatalog,
+  BuiltinFieldValidationError,
+  builtinShortcuts,
+  catalogFieldsSchema,
+  loadBuiltinShortcuts,
+  validateBuiltinFields,
+} from './builtin-shortcuts.ts'
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
 import { assertServerOptions } from './options.ts'
 import { mirrorSecuritySchemes } from './tool-list.ts'
@@ -309,6 +318,7 @@ const listTemplatesOutputSchema = z.object({
       name: z.string().optional(),
       description: z.string().optional(),
       builtin_version: z.string().optional(),
+      fields_schema: catalogFieldsSchema.optional(),
       steps: z.record(z.string(), z.unknown()).optional(),
     }),
   ),
@@ -461,6 +471,11 @@ const buildToolError = (
     ],
   })
 
+const buildShortcutError = (...args: Parameters<typeof buildToolError>): CallToolResult => ({
+  ...buildToolError(...args),
+  isError: true,
+})
+
 const getClientName = (options: TransloaditMcpServerOptions): string => {
   const base = options.clientName ?? `mcp-server:${packageJson.version}`
   const suffix = options.clientSuffix
@@ -502,6 +517,7 @@ type LiveClientResult =
 const createLiveClient = (
   options: TransloaditMcpServerOptions,
   extra: ToolExtra,
+  maxRetries?: number,
 ): LiveClientResult => {
   const token = getBearerToken(extra.requestInfo?.headers)
   const authToken = token && token !== options.mcpToken ? token : undefined
@@ -517,6 +533,7 @@ const createLiveClient = (
         clientName: getClientName(options),
         signatureAlgorithm: options.signatureAlgorithm,
         followRedirects: false,
+        maxRetries,
         extraHeaders: options.upstreamSecret
           ? { [upstreamSecretHeader]: options.upstreamSecret }
           : undefined,
@@ -537,6 +554,7 @@ const createLiveClient = (
       clientName: getClientName(options),
       signatureAlgorithm: options.signatureAlgorithm,
       followRedirects: false,
+      maxRetries,
     }),
   }
 }
@@ -919,6 +937,7 @@ const apiTemplateSchema = z
     name: z.string().optional(),
     description: z.string().optional(),
     builtin_version: z.string().optional(),
+    fields_schema: catalogFieldsSchema.optional(),
     content: z.unknown().optional(),
     account_id: z.string().nullable().optional(),
   })
@@ -950,6 +969,7 @@ const mapTemplateListItem = (template: ApiTemplateRecord) => ({
   name: template.name,
   description: template.description,
   builtin_version: template.builtin_version,
+  ...(template.fields_schema !== undefined ? { fields_schema: template.fields_schema } : {}),
 })
 
 const loadTemplateSteps = async (
@@ -1052,12 +1072,16 @@ export const createTransloaditMcpServer = (
   })
 
   const authMode = resolveToolAuthMode(options)
-  const register = <Input extends ZodObject, Output extends ZodObject>(
+  const register = <
+    Input extends ZodObject,
+    Output extends ZodObject,
+    Callback extends ToolCallback<Input>,
+  >(
     name: ToolName,
     inputSchema: Input,
     outputSchema: Output,
-    callback: ToolCallback<Input>,
-  ): void => {
+    callback: Callback,
+  ): Callback => {
     const metadata = toolMetadata[name]
     server.registerTool(
       name,
@@ -1071,6 +1095,7 @@ export const createTransloaditMcpServer = (
       },
       callback,
     )
+    return callback
   }
 
   // Builtin templates supersede the old golden template tool; no legacy alias by design.
@@ -1101,7 +1126,7 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  register(
+  const createAssembly = register(
     'transloadit_create_assembly',
     createAssemblyInputSchema,
     createAssemblyOutputSchema,
@@ -1120,6 +1145,7 @@ export const createTransloaditMcpServer = (
         assembly_url,
       },
       extra,
+      fieldContractValidated = false,
     ) => {
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
@@ -1227,7 +1253,10 @@ export const createTransloaditMcpServer = (
           }
         }
 
-        if (mergedInstructions) {
+        // Placeholder discovery is a compatibility heuristic for generic Templates. Approved
+        // shortcuts already validated their complete fields against the catalog contract,
+        // which knows that placeholders such as encode-video's width/height are optional.
+        if (mergedInstructions && !fieldContractValidated) {
           const fieldTemplateContent = JSON.stringify(mergedInstructions)
           const requiredFields = collectFieldNames(fieldTemplateContent)
           const providedFields = mergeFieldValues(
@@ -1427,6 +1456,61 @@ export const createTransloaditMcpServer = (
       }
     },
   )
+
+  // Keep the generic execution path responsible for auth, uploads, waiting and widget results.
+  // Shortcuts can supply fields and files, but cannot replace the Builtin's reviewed workflow.
+  const shortcutInputSchema = createAssemblyInputSchema
+    .omit({ instructions: true, assembly_url: true })
+    .strict()
+  for (const { id, name } of builtinShortcuts) {
+    register(name, shortcutInputSchema, createAssemblyOutputSchema, async (args, extra) => {
+      const live = createLiveClient(options, extra, 0)
+      if ('error' in live) return live.error
+      let catalog: BuiltinCatalog
+      try {
+        catalog = await loadBuiltinShortcuts(live.client, id)
+      } catch (error) {
+        const rejection = toAuthRejection(
+          options,
+          error,
+          live.credentials,
+          toolMetadata[name].scopes,
+        )
+        if (rejection) return rejection
+        return buildShortcutError(
+          'mcp_builtin_unavailable',
+          'Could not load the Builtin catalog. Retry discovery with transloadit_list_templates.',
+        )
+      }
+      const template = catalog.get(id)
+      if (!template) {
+        return buildShortcutError(
+          'mcp_builtin_unavailable',
+          'This shortcut’s reviewed Builtin field contract is unavailable. Call transloadit_list_templates to discover available templates.',
+        )
+      }
+      let fields: Record<string, unknown>
+      try {
+        fields = validateBuiltinFields(template, args.fields)
+      } catch (error) {
+        if (!(error instanceof BuiltinFieldValidationError)) {
+          return buildShortcutError(
+            'mcp_builtin_unavailable',
+            'This shortcut’s catalog field contract could not be validated. Retry discovery.',
+          )
+        }
+        return buildShortcutError('mcp_invalid_builtin_fields', error.message, { path: 'fields' })
+      }
+      const result = await createAssembly(
+        { ...args, fields, instructions: { template_id: template.id } },
+        extra,
+        true,
+      )
+      // Keep the generic tool's historical error shape while making new shortcut failures
+      // recognizable to MCP clients that rely on isError instead of structuredContent.status.
+      return result.structuredContent?.status === 'error' ? { ...result, isError: true } : result
+    })
+  }
 
   register(
     'transloadit_get_assembly_status',
@@ -1693,7 +1777,15 @@ export const createTransloaditMcpServer = (
     widgetDomain: options.widgetDomain,
     consoleUrl: parseConsoleUrl(options.consoleUrl || defaultConsoleUrl),
   })
-  mirrorSecuritySchemes(server)
+  mirrorSecuritySchemes(server, async (result, extra) => {
+    if (!isRecord(result) || !Array.isArray(result.tools)) return result
+    const live = createLiveClient(options, extra, 0)
+    // A failed catalog read must not prevent discovery of the existing generic tools. The
+    // authenticated list/call tools still return actionable auth errors through their own paths.
+    const catalog: BuiltinCatalog | undefined =
+      'error' in live ? new Map() : await loadBuiltinShortcuts(live.client).catch(() => undefined)
+    return applyBuiltinCatalog(result, catalog)
+  })
 
   return server
 }

@@ -165,19 +165,16 @@ describe('hosted MCP endpoint auth', () => {
     expect(body).toMatchObject({
       authentication: { required: true, schemes: ['oauth2', 'bearer'], resourceMetadataUrl },
     })
-    expect(
-      body.tools.find((tool: { name: string }) => tool.name === 'transloadit_list_robots'),
-    ).toMatchObject({ securitySchemes: [{ type: 'oauth2', scopes: [] }] })
+    expect(body.tools).toEqual(['dynamic'])
   })
 
-  it('advertises the documentation tools as noauth in a self-hosted server card', async () => {
+  it('uses live discovery in a self-hosted server card', async () => {
     running = await start()
 
     const card = await fetch(new URL('/.well-known/mcp/server-card.json', running.url))
     const body = await card.json()
-    expect(
-      body.tools.find((tool: { name: string }) => tool.name === 'transloadit_list_robots'),
-    ).toMatchObject({ securitySchemes: [{ type: 'noauth' }] })
+    expect(body.tools).toEqual(['dynamic'])
+    expect(body.authentication).toMatchObject({ required: true, schemes: ['bearer'] })
   })
 
   it('refuses hosted mode without the upstream secret API2 requires', () => {

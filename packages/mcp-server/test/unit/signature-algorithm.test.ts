@@ -62,7 +62,7 @@ describe('key/secret signature algorithm', () => {
   })
 
   it('tells the caller which algorithm the Auth Key requires', async () => {
-    nock(endpoint).get('/templates').query(true).reply(400, {
+    nock(endpoint).get('/templates').query(true).twice().reply(400, {
       error: 'INVALID_SIGNATURE',
       message: 'The given signature does not match ours. This Auth Key requires sha256.',
     })
