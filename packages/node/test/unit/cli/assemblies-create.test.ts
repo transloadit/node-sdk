@@ -8,7 +8,7 @@ import tty from 'node:tty'
 import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { create } from '../../../src/cli/commands/assemblies.ts'
+import { create, replay } from '../../../src/cli/commands/assemblies.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { parseStepsInputJson } from '../../../src/cli/stepsInput.ts'
 import PollingTimeoutError from '../../../src/PollingTimeoutError.ts'
@@ -498,6 +498,56 @@ describe('assemblies create', () => {
         }),
       ),
     ).toEqual({ waveform: { robot: '/audio/waveform', use: ':original', style: 'v1' } })
+  })
+
+  it('warns about OCR dependencies without blocking replay overrides', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const tempDir = await createTempDir('transloadit-ocr-template-')
+    const stepsPath = path.join(tempDir, 'steps.json')
+    const steps = {
+      extracted: { robot: '/document/extract', use: ':original', text_method: 'ocr' },
+    }
+    await writeFile(stepsPath, JSON.stringify({ steps }))
+    const output = new OutputCtl({ jsonMode: true })
+    const warning = vi.spyOn(output, 'warn')
+    const client = { replayAssembly: vi.fn().mockResolvedValue({}) }
+
+    // API2 merges these overrides with the original Assembly's ocr_provider before validation.
+    await replay(output, client as never, {
+      assemblies: ['assembly-with-ocr-provider'],
+      steps: stepsPath,
+    })
+
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('extracted.ocr_provider'))
+    expect(client.replayAssembly).toHaveBeenCalledWith(
+      'assembly-with-ocr-provider',
+      expect.objectContaining({ steps }),
+    )
+  })
+
+  it.each([
+    { text_method: 'auto' },
+    { text_method: 'ocr', ocr_provider: 'aws', password: 'secret' },
+    { text_method: 'ocr', ocr_provider: 'aws', page_range: '1-2' },
+    { text_method: 'auto', ocr_provider: 'gcp', text_granularity: 'page' },
+  ])('keeps new OCR constraints advisory for CLI steps: %j', (parameters) => {
+    const steps = { extracted: { robot: '/document/extract', ...parameters } }
+    const output = { warn: vi.fn() }
+
+    expect(parseStepsInputJson(JSON.stringify(steps), output)).toEqual(steps)
+    expect(output.warn).toHaveBeenCalledOnce()
+  })
+
+  it('still rejects an invalid Storage selector when OCR warnings are present', () => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          extracted: { robot: '/document/extract', text_method: 'ocr' },
+          imported: { robot: '/transloadit/import' },
+        }),
+        { warn: vi.fn() },
+      ),
+    ).toThrow('Invalid steps format')
   })
 
   it('accepts a steps-only file with a step named steps', () => {

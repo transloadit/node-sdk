@@ -227,7 +227,7 @@ export async function replay(
 ): Promise<void> {
   if (steps) {
     try {
-      await apiCall(await readStepsInputFile(steps))
+      await apiCall(await readStepsInputFile(steps, output))
     } catch (err) {
       const error = ensureError(err)
       output.error(error.message)
@@ -1351,7 +1351,7 @@ export async function create(
   // to avoid zod adding default values that the API may reject
   let effectiveStepsData = stepsData
   if (steps) {
-    effectiveStepsData = await readStepsInputFile(steps)
+    effectiveStepsData = await readStepsInputFile(steps, outputctl)
   }
 
   // Determine output stat async before entering the Promise constructor
@@ -2012,7 +2012,7 @@ export class RunCommand extends AuthenticatedCommand {
     }
 
     const { hasFailures, resultUrls } = await create(this.output, this.client, {
-      stepsData: parseStepsInputJson(JSON.stringify(compiled.instructions.steps)),
+      stepsData: parseStepsInputJson(JSON.stringify(compiled.instructions.steps), this.output),
       fields: fieldsMap ?? {},
       watch: this.watch,
       recursive: this.recursive,

@@ -62,7 +62,7 @@ export async function create(
   try {
     const buf = await streamToBuffer(createReadStream(file))
 
-    const steps = parseStepsInputJson(buf.toString())
+    const steps = parseStepsInputJson(buf.toString(), output)
 
     const result = await client.createTemplate({
       name,
@@ -107,7 +107,7 @@ export async function modify(
     let newName = name
 
     if (buf.length > 0) {
-      steps = parseStepsInputJson(buf.toString()) as TemplateContent['steps']
+      steps = parseStepsInputJson(buf.toString(), output) as TemplateContent['steps']
     }
 
     if (!name || buf.length === 0) {
