@@ -261,7 +261,12 @@ describe('storage store', () => {
     )
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining(`<Image storage src="${path}" alt="local photo"`),
-      { ...stored, source: 'local-photo.jpg', apiOrigin: 'https://api2.transloadit.com' },
+      {
+        ...stored,
+        source: 'local-photo.jpg',
+        apiOrigin: 'https://api2.transloadit.com',
+        uploaded: true,
+      },
     )
   })
 
@@ -292,6 +297,10 @@ describe('storage store', () => {
     const args = ['storage', 'store', './hero.jpg', 'website/', '--hashed']
     await main(args)
     expect(process.exitCode).toBeUndefined()
+    expect(OutputCtl.prototype.print).toHaveBeenLastCalledWith(expect.any(String), {
+      ...first,
+      uploaded: true,
+    })
     const saved = await readFile('transloadit.images.json', 'utf8')
     await main(args)
     expect(process.exitCode).toBeUndefined()
@@ -299,12 +308,16 @@ describe('storage store', () => {
     expect(await readFile('transloadit.images.json', 'utf8')).toBe(saved)
     expect(OutputCtl.prototype.print).toHaveBeenLastCalledWith(
       expect.stringContaining(`Unchanged ${first.path}; no upload needed.`),
-      first,
+      { ...first, uploaded: false },
     )
     await writeFile('hero.jpg', changed)
     await main(args)
     expect(process.exitCode).toBeUndefined()
     expect(store).toHaveBeenCalledTimes(2)
+    expect(OutputCtl.prototype.print).toHaveBeenLastCalledWith(expect.any(String), {
+      ...second,
+      uploaded: true,
+    })
     expect(store.mock.calls[1]?.[1]).toMatchObject({ path: second.path })
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).images).toEqual({
       [first.path]: first,
@@ -344,7 +357,7 @@ describe('storage store', () => {
     expect(store).not.toHaveBeenCalled()
     expect(OutputCtl.prototype.print).toHaveBeenLastCalledWith(
       expect.stringContaining('no upload needed'),
-      { ...current, apiOrigin: 'https://api2.transloadit.com' },
+      { ...current, apiOrigin: 'https://api2.transloadit.com', uploaded: false },
     )
   })
 
@@ -445,7 +458,7 @@ describe('storage store', () => {
     expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
     expect(OutputCtl.prototype.print).toHaveBeenLastCalledWith(
       expect.stringContaining(`Unchanged ${path}; no upload needed.`),
-      expect.objectContaining({ path }),
+      expect.objectContaining({ path, uploaded: false }),
     )
   })
 
@@ -541,11 +554,11 @@ describe('storage store', () => {
     expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain('hasAlpha?: boolean')
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.not.stringContaining('placeholder="blur"'),
-      blurred,
+      { ...blurred, uploaded: true },
     )
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining('This directory is private.'),
-      blurred,
+      { ...blurred, uploaded: true },
     )
   })
 
@@ -731,11 +744,11 @@ describe('storage store', () => {
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining('transloadit-images.d.ts'),
-      receipt,
+      { ...receipt, uploaded: true },
     )
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining('Replace alt with a description'),
-      receipt,
+      { ...receipt, uploaded: true },
     )
   })
 
@@ -1159,7 +1172,7 @@ describe('storage store', () => {
       expect.stringContaining(
         `<Image storage src="website/hero.jpg" alt="hero" width={${maxWidth}} />`,
       ),
-      { ...receipt, width },
+      { ...receipt, width, uploaded: true },
     )
   })
 
@@ -1170,7 +1183,7 @@ describe('storage store', () => {
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining('src="website/a&amp;&quot;b.jpg"'),
-      { ...receipt, path },
+      { ...receipt, path, uploaded: true },
     )
   })
 
@@ -1419,7 +1432,7 @@ describe('storage store', () => {
     expect(await readFile('images.json', 'utf8')).toMatch(/\n$/)
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining('<Image storage src="website/hero.jpg"'),
-      receipt,
+      { ...receipt, uploaded: true },
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toContain(

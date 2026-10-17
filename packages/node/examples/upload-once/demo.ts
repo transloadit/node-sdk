@@ -7,8 +7,8 @@ import { z } from 'zod'
 // Edit these, then rerun npm run demo. Matching originals are not uploaded again.
 const variants = [
   { label: 'WebP card', w: 640, h: 480, f: 'webp', r: 'pad' },
-  { label: 'AVIF image', w: 1280, h: 960, f: 'avif', r: 'pad' },
-  { label: 'Square JPEG thumbnail', w: 240, h: 240, f: 'jpg', r: 'fillcrop' },
+  { label: 'Square AVIF image', w: 480, h: 480, f: 'avif', r: 'pad' },
+  { label: 'Wide JPEG crop', w: 320, h: 180, f: 'jpg', r: 'fillcrop' },
 ]
 
 const cliPath = fileURLToPath(
@@ -93,8 +93,15 @@ async function main(): Promise<void> {
       workspace: z.string().min(1),
       asset_id: z.string().min(1),
       version_id: z.string().min(1),
+      path: z.string().min(1),
+      uploaded: z.boolean(),
     })
     .parse(JSON.parse(output))
+  console.log(
+    image.uploaded
+      ? `Uploaded ${JSON.stringify(image.path)}.`
+      : `Reused ${JSON.stringify(image.path)}; no upload needed.`,
+  )
   const HOUR = 60 * 60 * 1000
   const expiresAt = (Math.floor(Date.now() / HOUR) + 2) * HOUR
   const figures = []

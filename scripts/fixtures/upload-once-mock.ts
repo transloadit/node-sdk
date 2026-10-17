@@ -56,7 +56,7 @@ Transloadit.prototype.storeImage = async (file: string, options: { path: string 
     size: bytes.length,
     md5hash: createHash('md5').update(bytes).digest('hex'),
     mime: 'image/jpeg',
-    width: 800,
-    height: 600,
+    width: 640,
+    height: 640,
   }
 }

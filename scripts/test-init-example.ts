@@ -141,6 +141,11 @@ async function main(): Promise<void> {
     assert(!`${failed.stdout}${failed.stderr}`.includes('fixture-signed-secret'))
     const first = await command('npm', ['run', 'demo'], { cwd: project, env })
     const repeated = await command('npm', ['run', 'demo'], { cwd: project, env })
+    assert.match(first.stdout, /Uploaded "upload-once\/photo\.[a-f0-9]{8}\.jpg"\./)
+    assert.match(
+      repeated.stdout,
+      /Reused "upload-once\/photo\.[a-f0-9]{8}\.jpg"; no upload needed\./,
+    )
     const rejectedDelivery = await command('npm', ['run', 'demo'], {
       cwd: project,
       env: { ...env, TRANSLOADIT_INIT_FIXTURE_FAIL_DELIVERY: 'true' },

@@ -18,9 +18,16 @@ and uploads the bundled photo through `storage store --hashed`. Open `gallery.ht
 three variants. The policy check is not a guarantee that an upload will succeed.
 Normal device login creates a combined upload/Smart CDN CLI key; finish the printed approval
 code in your browser, or use `npm exec -- transloadit auth login --no-browser` over SSH/headless.
+Before approving, confirm the intended Workspace; if another account is logged in, switch
+accounts or open the approval link in a private browser window.
+
+The bundled 640×640 photo becomes a 640×480 WebP card, a 480×480 square AVIF image and a
+320×180 wide JPEG crop. These outputs stay within the source dimensions and show padding
+versus cropping without a larger sample image.
 
 Change `variants` near the top of `demo.ts` and rerun `npm run demo`: the CLI's catalog and checksum
-checks reuse the matching original. To try your own photo:
+checks reuse the matching original. The demo reports `Uploaded …` or `Reused …; no upload
+needed.` using the CLI’s `uploaded` result, so no receipt comparison is needed. To try your own photo:
 
 ```bash
 npm run demo -- ./your-photo.jpg

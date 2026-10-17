@@ -4,4 +4,4 @@
 "@transloadit/mcp-server": patch
 ---
 
-Detect rejected Smart CDN delivery in the upload-once example before reporting success, show safe recovery guidance for failed images, and clarify the optional generated Viewer types’ catalog commit policy. Release the legacy CLI and MCP server alongside the SDK.
+Clarify the upload-once example’s device approval and local catalog guidance, report uploaded versus reused originals through an additive CLI JSON `uploaded` boolean, and use sample-sized variants with a visible crop. Detect rejected Smart CDN delivery before reporting success and show safe recovery guidance for failed images. Release the legacy CLI and MCP server alongside the SDK.

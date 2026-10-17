@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { runInNewContext } from 'node:vm'
 
 import { getSignedSmartCdnUrl } from '@transloadit/utils/node'
+import { imageSize } from 'image-size'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 const calls = vi.hoisted(() => vi.fn())
@@ -39,16 +40,18 @@ const receipt = {
   workspace: 'example',
   asset_id: 'A'.repeat(22),
   version_id: `${'B'.repeat(21)}A`,
+  path: 'upload-once/photo.12345678.jpg',
 }
 
-function mockCommands(loggedIn = true): void {
+function mockCommands(loggedIn = true, uploaded = true): void {
   calls.mockImplementation((_node: string, args: string[], options?: { input?: string }) => {
     const command = args.slice(1, 3).join(' ')
     if (command === 'auth status')
       return { failed: false, stdout: JSON.stringify({ configured: loggedIn }) }
     if (command === 'auth login') return { failed: false, stdout: '' }
     if (command === 'storage publications') return { failed: false, stdout: '{}' }
-    if (command === 'storage store') return { failed: false, stdout: JSON.stringify(receipt) }
+    if (command === 'storage store')
+      return { failed: false, stdout: JSON.stringify({ ...receipt, uploaded }) }
     if (command === 'auth smart-cdn') {
       const params = JSON.parse(options?.input ?? '')
       return {
@@ -121,13 +124,21 @@ test.each([
       url.searchParams.get('w'),
       url.searchParams.get('h'),
       url.searchParams.get('f'),
+      url.searchParams.get('r'),
     ]),
   ).toEqual([
-    ['640', '480', 'webp'],
-    ['1280', '960', 'avif'],
-    ['240', '240', 'jpg'],
+    ['640', '480', 'webp', 'pad'],
+    ['480', '480', 'avif', 'pad'],
+    ['320', '180', 'jpg', 'fillcrop'],
   ])
+  expect(html).toContain('Square AVIF image')
+  expect(html).toContain('Wide JPEG crop')
+  const source = imageSize(
+    await readFile(new URL('../../../examples/fixtures/berkley.jpg', import.meta.url)),
+  )
   for (const url of urls) {
+    expect(Number(url.searchParams.get('w'))).toBeLessThanOrEqual(source.width)
+    expect(Number(url.searchParams.get('h'))).toBeLessThanOrEqual(source.height)
     expect(url.searchParams.get('v')).toBe(receipt.version_id)
     expect(url.pathname).toContain(receipt.asset_id)
     const signature = url.searchParams.get('sig')
@@ -136,6 +147,19 @@ test.each([
       `sha256:${createHmac('sha256', 'do-not-print-secret').update(`example${url.pathname}?${url.searchParams}`).digest('hex')}`,
     )
   }
+})
+
+test.each([
+  { uploaded: true, message: 'Uploaded "upload-once/photo.12345678.jpg".' },
+  { uploaded: false, message: 'Reused "upload-once/photo.12345678.jpg"; no upload needed.' },
+])('reports the store result with uploaded=$uploaded', async ({ uploaded, message }) => {
+  mockCommands(true, uploaded)
+  await import('../../../examples/upload-once/demo.ts')
+  expect(process.exitCode).toBeUndefined()
+  expect(console.log).toHaveBeenCalledWith(message)
+  expect(
+    calls.mock.calls.filter(([, args]) => args[1] === 'storage' && args[2] === 'store'),
+  ).toHaveLength(1)
 })
 
 test('does not upload after an access failure or print a credential-bearing subprocess error', async () => {
