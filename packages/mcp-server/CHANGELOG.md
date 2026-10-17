@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.6.7
+
+### Patch Changes
+
+- 0c43825: Give every tool an `annotations.title` and type the `instructions` parameter (an object or a JSON string), so MCP directories such as Claude's can list and validate the tools.
+
 ## 0.6.6
 
 ### Patch Changes
