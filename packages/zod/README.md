@@ -1,10 +1,20 @@
 # @transloadit/zod
 
-**Stability:** This package is still relatively new and may evolve quickly.
+**Stability:** Exported names, helper functions and supported Zod versions follow strict SemVer.
+API contract types and schemas follow API2 and can change in minor releases, including
+type-breaking updates. See the
+[versioning policy](https://github.com/transloadit/node-sdk/blob/main/CONTRIBUTING.md#versioning-policy).
+
+- Commit your lockfile and type-check dependency update PRs.
+- Use `~` ranges for stable contract types within a minor; patch releases do not change contract
+  types. Use `^` to follow the API as it evolves.
+- Use input types for instructions you write, such as `AssemblyInstructionsInput`; narrow fields
+  from responses and parsed output before use (`null`, `undefined`, unknown strings).
+- Do not depend on Zod internals such as wrapper classes, `.shape` or parse-time defaults.
 
 Exports Zod schemas derived from Transloadit types.
 
-For the stable SDK, use the unscoped `transloadit` package.
+For the SDK client, use `@transloadit/node` or the unscoped `transloadit` package.
 
 ## Migrating schema consumers
 
