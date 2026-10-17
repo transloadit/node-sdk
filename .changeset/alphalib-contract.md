@@ -16,5 +16,12 @@ and share the approved MCP Builtin manifest.
 - Type-breaking: `/video/thumbs` accepts `null` for `offsets`, `width` and `height`, so parsed
   values can be `null`. Treat `null` like an omitted value.
 
-The CLI warns about new OCR dependency constraints without blocking Steps overrides whose
-remaining parameters come from a Template. Explicit schema validation remains strict.
+Explicit schema validation now requires `ocr_provider` for OCR text extraction and rejects
+native-only `password`, `page_range`, and page granularity with OCR. Thumbnail numeric offsets
+must be finite. Validate complete, merged instructions; use `assemblies lint --template` when
+linting Template overrides. The CLI warns about the new OCR constraints while reading Steps
+files or signing parameters, allowing overrides whose remaining parameters come from the
+original Assembly or Template to reach API2 for validation.
+
+Zod v4 preserves the synced speech-vocabulary checks for case-insensitive uniqueness and the
+200-byte joined UTF-8 budget, matching Zod v3 and API2.

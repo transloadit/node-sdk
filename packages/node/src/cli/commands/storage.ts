@@ -236,6 +236,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
       Storage writes must be enabled. Existing Storage paths conflict unless --overwrite is explicit.
       --hashed inserts eight MD5 hex digits before the extension. Matching catalog receipts skip
       repeat uploads; changed bytes get a fresh name. --hashed cannot be combined with --overwrite.
+      --json includes uploaded for each receipt: false means this file reused a verified receipt.
       --placeholder blur requests server metadata on new uploads. Successful extraction adds
       metadata usage of 20% of the file bytes. Missing placeholders never retry a completed upload.
       The project catalog binds workspace, published prefixes and image receipts. Each successful
@@ -474,8 +475,9 @@ export class StorageStoreCommand extends StorageProjectCommand {
           ? `Render it with <Image storage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}}${blur ? ' placeholder="blur"' : ''} />\nReplace alt with a description (or an empty string for a decorative image).${setupAdvice}`
           : 'Use --receipts for a separate catalog before rendering images from this workspace.'
         this.output.print(
-          `${unchanged ? `Unchanged ${receipt.path}; no upload needed.\n` : ''}${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\n${renderAdvice}`,
-          receipt,
+          `${unchanged ? `Unchanged ${receipt.path}; no upload needed.\n` : ''}${saved ? `Saved ${receipt.path} in ${this.receipts}. If you commit this catalog, commit ${storageTypesPath(this.receipts)} with it.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\n${renderAdvice}`,
+          // This describes this invocation, so keep it out of the persisted asset receipt.
+          { ...receipt, uploaded: !unchanged },
         )
       }
       return undefined

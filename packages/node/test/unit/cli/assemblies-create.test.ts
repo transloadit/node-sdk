@@ -230,6 +230,7 @@ describe('assemblies create', () => {
     const outputPath = path.join(tempDir, 'result.txt')
 
     const output = new OutputCtl()
+    const outputError = vi.spyOn(output, 'error')
     const client = {
       createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-file-multi' }),
       awaitAssemblyCompletion: vi.fn().mockResolvedValue({
@@ -266,6 +267,82 @@ describe('assemblies create', () => {
     )
 
     await expect(stat(outputPath)).rejects.toThrow()
+    expect(outputError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('use -o <dir>/'),
+      }),
+    )
+  })
+
+  it.each([
+    { name: 'missing directory with a POSIX separator', separator: '/', existing: false },
+    { name: 'missing directory with a Windows separator', separator: '\\', existing: false },
+    { name: 'existing directory without a trailing separator', separator: '', existing: true },
+  ])('writes all Template results to a $name', async ({ separator, existing }) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-template-outdir-')
+    const inputPath = path.join(tempDir, 'video.mp4')
+    const outputDir = `${path.join(tempDir, 'nested', 'out')}${separator}`
+    await writeFile(inputPath, 'small video fixture')
+    if (existing) {
+      await mkdir(outputDir, { recursive: true })
+    }
+
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-social-captions' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          captioned: [{ url: 'http://downloads.test/video.mp4', name: 'video.mp4' }],
+          transcript: [{ url: 'http://downloads.test/video.srt', name: 'video.srt' }],
+          transcription: [{ url: 'http://downloads.test/video.json', name: 'video.json' }],
+        },
+      }),
+    }
+
+    const downloads = nock('http://downloads.test')
+      .get('/video.mp4')
+      .reply(200, 'captioned video')
+      .get('/video.srt')
+      .reply(200, 'subtitle text')
+      .get('/video.json')
+      .reply(200, '{"words":[]}')
+
+    await expect(
+      create(new OutputCtl(), client as never, {
+        inputs: [inputPath],
+        output: outputDir,
+        template: 'builtin/caption-video@0.0.2',
+        fields: { style: 'social', vocabulary: 'Transloadit' },
+      }),
+    ).resolves.toEqual(expect.objectContaining({ hasFailures: false }))
+
+    expect(client.createAssembly).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: {
+          template_id: 'builtin/caption-video@0.0.2',
+          fields: { style: 'social', vocabulary: 'Transloadit' },
+        },
+      }),
+    )
+    const legacyRelative = getLegacyRelativeInputPath(inputPath)
+    const baseDir = path.join(path.dirname(legacyRelative), path.parse(legacyRelative).name)
+    expect(await collectRelativeFiles(outputDir)).toEqual([
+      path.join(baseDir, 'captioned', 'video.mp4'),
+      path.join(baseDir, 'transcript', 'video.srt'),
+      path.join(baseDir, 'transcription', 'video.json'),
+    ])
+    expect(await readFile(path.join(outputDir, baseDir, 'captioned', 'video.mp4'), 'utf8')).toBe(
+      'captioned video',
+    )
+    expect(await readFile(path.join(outputDir, baseDir, 'transcript', 'video.srt'), 'utf8')).toBe(
+      'subtitle text',
+    )
+    expect(
+      await readFile(path.join(outputDir, baseDir, 'transcription', 'video.json'), 'utf8'),
+    ).toBe('{"words":[]}')
+    expect(downloads.isDone()).toBe(true)
   })
 
   it('supports bundled single-assembly outputs written to a file path', async () => {
