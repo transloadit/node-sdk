@@ -1,27 +1,8 @@
-import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
-
-import type { ToolAuthMode, ToolName, ToolSecurityScheme } from './tool-metadata.ts'
-
 import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js'
 
 import packageJson from '../package.json' with { type: 'json' }
-import { resolveSecuritySchemes, resolveToolAuthMode, toolMetadata } from './tool-metadata.ts'
 
 export const serverCardPath = '/.well-known/mcp/server-card.json'
-
-type JsonSchemaObject = Record<string, unknown>
-
-type ServerCardToolInput = {
-  name: ToolName
-  inputSchema: JsonSchemaObject
-}
-
-type ServerCardToolDefinition = ServerCardToolInput & {
-  title: string
-  description: string
-  annotations: ToolAnnotations
-  securitySchemes: ToolSecurityScheme[]
-}
 
 type ServerCardAuthentication = {
   required: boolean
@@ -41,155 +22,14 @@ type ServerCard = {
   transport: { type: string; endpoint: string }
   authentication?: ServerCardAuthentication
   capabilities: { tools: { listChanged: boolean }; resources: { listChanged: boolean } }
-  tools: ['dynamic'] | ServerCardToolDefinition[]
+  tools: ['dynamic']
 }
-
-const toolInputs: ServerCardToolInput[] = [
-  {
-    name: 'transloadit_lint_assembly_instructions',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['instructions'],
-      properties: {
-        instructions: { type: ['object', 'array', 'string', 'number', 'boolean', 'null'] },
-        strict: { type: 'boolean', description: 'Treat warnings as errors.' },
-        return_fixed: { type: 'boolean', description: 'Return normalized instructions when true.' },
-      },
-    },
-  },
-  {
-    name: 'transloadit_create_assembly',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        instructions: { type: ['object', 'array', 'string', 'number', 'boolean', 'null'] },
-        files: {
-          type: 'array',
-          items: { type: 'object' },
-        },
-        attachments: {
-          type: 'array',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['download_url', 'file_id'],
-            properties: {
-              download_url: { type: 'string' },
-              file_id: { type: 'string' },
-              mime_type: { type: 'string' },
-              file_name: { type: 'string' },
-            },
-          },
-        },
-        fields: { type: 'object' },
-        wait_for_completion: { type: 'boolean' },
-        wait_timeout_ms: { type: 'number' },
-        upload_concurrency: { type: 'number' },
-        upload_chunk_size: { type: 'number' },
-        upload_behavior: { type: 'string', enum: ['await', 'background', 'none'] },
-        expected_uploads: { type: 'number' },
-        assembly_url: { type: 'string' },
-      },
-    },
-  },
-  {
-    name: 'transloadit_get_assembly_status',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        assembly_url: { type: 'string' },
-        assembly_id: { type: 'string' },
-      },
-    },
-  },
-  {
-    name: 'transloadit_wait_for_assembly',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        assembly_url: { type: 'string' },
-        assembly_id: { type: 'string' },
-        timeout_ms: { type: 'number' },
-        poll_interval_ms: { type: 'number' },
-      },
-    },
-  },
-  {
-    name: 'transloadit_list_robots',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        category: { type: 'string' },
-        search: { type: 'string' },
-        limit: { type: 'number' },
-        cursor: { type: 'string' },
-      },
-    },
-  },
-  {
-    name: 'transloadit_get_robot_help',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        robot_name: { type: 'string' },
-        robot_names: { type: 'array', items: { type: 'string' } },
-      },
-    },
-  },
-  {
-    name: 'transloadit_list_templates',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        page: { type: 'number' },
-        page_size: { type: 'number' },
-        sort: { type: 'string', enum: ['id', 'name', 'created', 'modified'] },
-        order: { type: 'string', enum: ['asc', 'desc'] },
-        keywords: { type: 'array', items: { type: 'string' } },
-        include_builtin: {
-          type: 'string',
-          enum: ['all', 'latest', 'exclusively-all', 'exclusively-latest'],
-        },
-        include_content: { type: 'boolean' },
-      },
-    },
-  },
-  {
-    name: 'transloadit_get_profile',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {},
-    },
-  },
-]
-
-/** Tool definitions with the security schemes this deployment mode can honor. */
-const buildTools = (mode: ToolAuthMode): ServerCardToolDefinition[] =>
-  toolInputs.map((tool) => {
-    const metadata = toolMetadata[tool.name]
-    return {
-      ...tool,
-      title: metadata.title,
-      description: metadata.description,
-      annotations: { title: metadata.title, ...metadata.annotations },
-      securitySchemes: resolveSecuritySchemes(metadata, mode),
-    }
-  })
 
 export const buildServerCard = (
   endpoint: string,
   options: { authKey?: string; authSecret?: string; resourceMetadataUrl?: string } = {},
 ): ServerCard => {
   const hasCredentials = Boolean(options.authKey && options.authSecret)
-  const tools = buildTools(resolveToolAuthMode(options))
   // Hosted deployments hand out tokens through OAuth; self-hosted ones accept a static bearer.
   const schemes = options.resourceMetadataUrl ? ['oauth2', 'bearer'] : ['bearer']
 
@@ -219,6 +59,7 @@ export const buildServerCard = (
       tools: { listChanged: false },
       resources: { listChanged: false },
     },
-    tools,
+    // Credential-scoped catalog schemas are authoritative only through authenticated tools/list.
+    tools: ['dynamic'],
   }
 }
