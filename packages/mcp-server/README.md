@@ -362,6 +362,11 @@ Every tool carries `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint` 
 `openWorldHint` annotations. `transloadit_create_assembly` is the only destructive one: export
 Robots such as `/s3/store` can overwrite files at their destination, so hosts should confirm it.
 
+`transloadit_lint_assembly_instructions` validates complete, merged instructions locally. It does
+not fetch the Template named by `template_id`: resolve the Template and merge any Assembly or
+replay overrides before linting. For example, an OCR Step that inherits `ocr_provider` must
+include that provider in the instructions passed to this tool.
+
 `securitySchemes` depend on how the server runs: hosted (`TRANSLOADIT_MCP_RESOURCE_METADATA_URL`)
 declares `oauth2` with the scopes above for every tool; a server holding `TRANSLOADIT_KEY` and
 `TRANSLOADIT_SECRET` declares `noauth` everywhere; otherwise the account tools declare `oauth2` and
