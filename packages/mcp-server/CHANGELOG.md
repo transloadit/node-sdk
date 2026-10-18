@@ -1,5 +1,16 @@
 # @transloadit/mcp-server
 
+## 0.7.1
+
+### Patch Changes
+
+- c755cd1: Document how SDK exports follow strict SemVer while API contract types and schemas follow API2
+  in minor releases, with guidance on dependency ranges and narrowing parsed output.
+- fc32f2e: List every registered tool in the server card again, including the Builtin shortcuts, instead of `['dynamic']`, so directories and monitoring that read the card see the tool surface.
+- Updated dependencies [c755cd1]
+  - @transloadit/node@6.2.1
+  - @transloadit/zod@7.1.1
+
 ## 0.7.0
 
 ### Minor Changes
