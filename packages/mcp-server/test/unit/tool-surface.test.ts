@@ -8,8 +8,10 @@ import { Transloadit } from '@transloadit/node'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+import { builtinShortcuts } from '../../src/builtin-shortcuts.ts'
 import { createTransloaditMcpHttpHandler } from '../../src/http.ts'
 import { createTransloaditMcpServer } from '../../src/server.ts'
+import { buildServerCard } from '../../src/server-card.ts'
 import { toolNames } from '../../src/tool-metadata.ts'
 import {
   assemblyResultWidgetMimeType,
@@ -317,6 +319,9 @@ const listRawTools = async (
   return tools
 }
 
+const findListed = (tools: JsonRecord[], name: string): JsonRecord | undefined =>
+  tools.find((tool) => tool.name === name)
+
 const schemesByName = (tools: JsonRecord[]): Record<string, unknown> =>
   Object.fromEntries(tools.map((tool) => [tool.name, tool.securitySchemes]))
 
@@ -341,6 +346,29 @@ describe('security schemes outside hosted mode', () => {
     expect(new Set(tools.map((tool) => JSON.stringify(tool.securitySchemes)))).toEqual(
       new Set([JSON.stringify([{ type: 'noauth' }])]),
     )
+  })
+})
+
+describe('server card', () => {
+  it('lists every tool the server registers, as tools/list serves it', async () => {
+    const options = { authKey: 'key', authSecret: 'secret' }
+    // An unreadable catalog leaves every registered tool, Builtin shortcuts included, listed.
+    vi.mocked(Transloadit.prototype.listTemplates).mockRejectedValue(new Error('offline'))
+    const listed = await listRawTools(options)
+    const { tools } = buildServerCard('/mcp', options)
+
+    expect(tools).not.toEqual(['dynamic'])
+    expect(tools.map((tool) => tool.name)).toEqual(listed.map((tool) => tool.name))
+    expect(tools).toHaveLength(toolNames.length + builtinShortcuts.length)
+    for (const tool of tools) {
+      expect(findListed(listed, tool.name)).toMatchObject({
+        title: tool.title,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        annotations: tool.annotations,
+        securitySchemes: tool.securitySchemes,
+      })
+    }
   })
 })
 

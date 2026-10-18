@@ -1,4 +1,4 @@
-import type { ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { RegisteredTool, ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
 import type {
   AssemblyInstructionsInput,
@@ -1065,6 +1065,18 @@ const toAssemblyInstructionsInput = (params: CreateAssemblyParams): AssemblyInst
   return rest as AssemblyInstructionsInput
 }
 
+const ownToolsByServer = new WeakMap<McpServer, Map<ToolName, RegisteredTool>>()
+
+/**
+ * The tools `createTransloaditMcpServer()` registered on `server`, in registration order. The
+ * server card reads them so it cannot drift from what `tools/list` serves.
+ */
+export const listOwnTools = (server: McpServer): ReadonlyMap<ToolName, RegisteredTool> => {
+  const tools = ownToolsByServer.get(server)
+  if (!tools) throw new Error('The server was not created by createTransloaditMcpServer().')
+  return tools
+}
+
 export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
@@ -1075,6 +1087,8 @@ export const createTransloaditMcpServer = (
   })
 
   const authMode = resolveToolAuthMode(options)
+  const ownTools = new Map<ToolName, RegisteredTool>()
+  ownToolsByServer.set(server, ownTools)
   const register = <
     Input extends ZodObject,
     Output extends ZodObject,
@@ -1086,7 +1100,7 @@ export const createTransloaditMcpServer = (
     callback: Callback,
   ): Callback => {
     const metadata = toolMetadata[name]
-    server.registerTool(
+    const registered = server.registerTool(
       name,
       {
         title: metadata.title,
@@ -1099,6 +1113,7 @@ export const createTransloaditMcpServer = (
       },
       callback,
     )
+    ownTools.set(name, registered)
     return callback
   }
 
