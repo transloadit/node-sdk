@@ -1,5 +1,12 @@
 # @transloadit/zod
 
+## 7.1.1
+
+### Patch Changes
+
+- c755cd1: Document how SDK exports follow strict SemVer while API contract types and schemas follow API2
+  in minor releases, with guidance on dependency ranges and narrowing parsed output.
+
 ## 7.1.0
 
 ### Minor Changes
