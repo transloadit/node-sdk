@@ -52,6 +52,14 @@ vi.mock('../../src/server.ts', () => {
   }
 })
 
+// The card builds a throwaway server to read its registry; keep it out of the counted instances.
+vi.mock('../../src/server-card.ts', () => {
+  return {
+    buildServerCard: () => ({}),
+    serverCardPath: '/.well-known/mcp/server-card.json',
+  }
+})
+
 describe('createTransloaditMcpHttpHandler', () => {
   beforeEach(() => {
     transportInstances.length = 0

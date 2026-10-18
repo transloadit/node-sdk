@@ -31,7 +31,12 @@ describe('server card', () => {
         },
       })
 
-      expect(body.tools).toEqual(['dynamic'])
+      expect(body.tools).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'transloadit_create_assembly' }),
+          expect.objectContaining({ name: 'transloadit_list_robots' }),
+        ]),
+      )
     } finally {
       await close()
     }
