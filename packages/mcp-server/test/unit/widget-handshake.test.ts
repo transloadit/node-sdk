@@ -414,6 +414,73 @@ describe('assembly result widget previews', () => {
   })
 })
 
+describe('assembly result widget file names', () => {
+  const renderNames = async (
+    names: string[],
+  ): Promise<{ widget: ReturnType<typeof mountWidget>; labels: string[] }> => {
+    const widget = mountWidget()
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { protocolVersion: '2026-01-26', hostInfo, hostCapabilities: {}, hostContext: {} },
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          assembly: {
+            ok: 'ASSEMBLY_COMPLETED',
+            assembly_id: 'abc123',
+            results: {
+              imported: names.map((name, index) => ({
+                id: `file${index}`,
+                name,
+                mime: 'application/pdf',
+                ssl_url: `https://pub-123.r2.dev/${encodeURIComponent(name)}`,
+              })),
+            },
+          },
+        },
+      },
+    })
+    const labels = [...widget.window.document.querySelectorAll('.caption-text .name')].map(
+      (label) => label.getAttribute('title') ?? '',
+    )
+    return { widget, labels }
+  }
+
+  it('shows imported names decoded, while links keep the file URL', async () => {
+    const { widget, labels } = await renderNames([
+      'President_Kennedy%27s_Speech_at_Rice_University.mp4',
+      'caf%C3%A9%20menu.pdf',
+    ])
+
+    expect(labels).toEqual(["President_Kennedy's_Speech_at_Rice_University.mp4", 'café menu.pdf'])
+    expect(widget.appText()).toContain("Download President_Kennedy's_Speech_at_Rice_University.mp4")
+    expect(widget.window.document.querySelector('a[download]')?.getAttribute('href')).toBe(
+      'https://pub-123.r2.dev/President_Kennedy%2527s_Speech_at_Rice_University.mp4',
+    )
+    await widget.window.happyDOM.close()
+  })
+
+  it('keeps names that are malformed or would decode into unsafe characters', async () => {
+    const names = [
+      '100%.pdf',
+      'bad%E0%A4%A.pdf',
+      'a%2Fb.pdf',
+      'a%5Cb.pdf',
+      'line%0Abreak.pdf',
+      'x%E2%80%AEfdp.exe',
+    ]
+    const { widget, labels } = await renderNames(names)
+
+    expect(labels).toEqual(names)
+    await widget.window.happyDOM.close()
+  })
+})
+
 describe('assembly result widget status refresh', () => {
   const assemblyUrl = 'https://api2-sjc.transloadit.com/assemblies/abc123'
   const running = {
