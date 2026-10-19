@@ -1,5 +1,12 @@
 # @transloadit/mcp-server
 
+## 0.7.2
+
+### Patch Changes
+
+- 7469bbb: Show result file names decoded in the Assembly result widget. Files imported from a URL keep its percent-encoding in their name, so `Kennedy%27s_Speech.mp4` now reads as `Kennedy's_Speech.mp4`. Malformed sequences, and ones that would decode into control, bidi or path separator characters, keep the name as reported. Download links still use the file's own URL.
+- e975d79: The Assembly result widget now follows a running Assembly until it finishes, then shows its result files in place. It checks `transloadit_get_assembly_status` through the host's tool bridge (MCP Apps `tools/call` or ChatGPT's `callTool`), backing off from 2 to 10 seconds for up to 15 minutes, pausing while hidden, and offers "Check again" when automatic checks stop. Previously a widget rendered for a running Assembly showed "Processing" until the model happened to call `transloadit_wait_for_assembly`.
+
 ## 0.7.1
 
 ### Patch Changes
