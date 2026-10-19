@@ -148,6 +148,7 @@ const stepRobots: Record<string, string> = {
   encoded: '/video/encode',
   image_640: '/image/resize',
   image_square_200: '/image/resize',
+  imported: '/http/import',
   resized: '/image/resize',
   thumbnailed: '/image/resize',
   video_720p: '/video/encode',
@@ -504,6 +505,26 @@ export const widgetStateFixtures: WidgetStateFixture[] = [
     openai: true,
     waitForText: longName,
     result: toolResponse(completed({ results: { resized: [image(longName)] } })),
+  },
+  {
+    // Imported files keep the source URL's percent-encoding in their name; the widget shows it
+    // decoded.
+    name: 'encoded-filename',
+    initialize: 'accept',
+    toolInput: true,
+    cancelled: false,
+    openai: false,
+    waitForText: "President_Kennedy's_Speech_at_Rice_University",
+    result: toolResponse(
+      completed({
+        results: {
+          imported: [
+            video('President_Kennedy%27s_Speech_at_Rice_University.webm'),
+            document('caf%C3%A9%20menu%20(2026).pdf'),
+          ],
+        },
+      }),
+    ),
   },
   {
     name: 'preview-never-loads',

@@ -538,7 +538,21 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   }
   const unavailable = (iconName) => () => [icon(iconName), el('span', { className: 'note', role: 'status', text: 'Preview unavailable' })]
 
-  const fileName = (file) => text(file.name) || text(file.basename) || 'file'
+  // Names of imported files keep the source URL's percent-encoding (Kennedy%27s.mp4), which only
+  // reads as noise. Decode them for display; a malformed sequence, or one that would produce
+  // control, bidi or path separator characters, keeps the name exactly as Transloadit reported it.
+  // Links always use the file's own URL, never this name.
+  const unsafeNameChars = /[\\u0000-\\u001f\\u007f-\\u009f\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069\\/\\\\]/
+  const displayName = (name) => {
+    if (!name.includes('%')) return name
+    try {
+      const decoded = decodeURIComponent(name)
+      return unsafeNameChars.test(decoded) ? name : decoded
+    } catch {
+      return name
+    }
+  }
+  const fileName = (file) => displayName(text(file.name) || text(file.basename)) || 'file'
   const fileUrl = (file) => safeUrl(file.ssl_url) || safeUrl(file.url)
   const isAudio = (file) => Boolean(fileUrl(file)) && text(file.mime).startsWith('audio/')
 
