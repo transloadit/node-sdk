@@ -161,6 +161,22 @@ const sparseStepFiles = 2
 /** Card height when the host sets no maxHeight, so a long result never takes over the chat. */
 const defaultMaxHeight = 720
 
+/**
+ * How the widget keeps a running Assembly's status current through the host's tool bridge:
+ * checks start after 2 s and back off to every 10 s, for at most 15 minutes of waiting, then a
+ * "Check again" button takes over. Hosts render a create result whenever the model moves on, so
+ * without this the card would show "Processing" forever unless the model also waits.
+ */
+const statusRefresh = {
+  tool: 'transloadit_get_assembly_status',
+  initialDelayMs: 2000,
+  growth: 1.5,
+  maxDelayMs: 10_000,
+  maxWaitMs: 15 * 60_000,
+  requestTimeoutMs: 30_000,
+  maxFailures: 3,
+}
+
 // The usual native UI stack, without a bare system-ui first: Linux resolves that through
 // fontconfig to whatever font matched, which can be a CJK face with a mid-line "…".
 const fontStack =
@@ -279,6 +295,9 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   .callout.err > .icon { color: var(--err); }
   .callout.warn > .icon { color: var(--warn); }
   p.note { font-size: 13px; }
+  .text-button { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-weight: 500; cursor: pointer; }
+  .text-button:hover { text-decoration: underline; }
+  .text-button:disabled { color: var(--muted); cursor: default; text-decoration: none; }
 
   .more-below { position: sticky; bottom: 0; flex: none; display: flex; align-items: flex-end; justify-content: center; gap: 4px; height: 48px; margin-top: -64px; padding-bottom: 4px; background: linear-gradient(to bottom, transparent, var(--bg) 75%); color: var(--muted); font-size: 12px; pointer-events: none; opacity: 0; transition: opacity 0.15s ease; }
   .more-below.show { opacity: 1; }
@@ -318,8 +337,9 @@ export const assemblyResultWidgetHtml = `<!doctype html>
   const visibleFilesPerStep = ${visibleFilesPerStep}
   const visibleFilesTotal = ${visibleFilesTotal}
   const sparseStepFiles = ${sparseStepFiles}
+  const statusRefresh = ${JSON.stringify(statusRefresh)}
   const backtick = String.fromCharCode(96)
-  const hostCapabilities = { openLinks: false }
+  const hostCapabilities = { openLinks: false, serverTools: false }
   let hasResult = false
   let lastSignature = null
   // Rendered nodes by step and by file, reused while their data is unchanged so previews are
@@ -422,11 +442,17 @@ export const assemblyResultWidgetHtml = `<!doctype html>
 
   const pendingRequests = new Map()
   let nextId = 1
-  const request = (method, params) =>
+  // A timeout gives up on hosts that never answer, so a check can not hang forever.
+  const request = (method, params, timeoutMs) =>
     new Promise((resolve, reject) => {
       const id = nextId++
       pendingRequests.set(id, { resolve, reject })
       post({ jsonrpc: '2.0', id, method, params })
+      if (!timeoutMs) return
+      setTimeout(() => {
+        if (!pendingRequests.delete(id)) return
+        reject(new Error(method + ' timed out'))
+      }, timeoutMs)
     })
   const notify = (method, params) =>
     post(params === undefined ? { jsonrpc: '2.0', method } : { jsonrpc: '2.0', method, params })
@@ -779,35 +805,214 @@ export const assemblyResultWidgetHtml = `<!doctype html>
       if (originals.length > 0) nodes.push(originalsFold(originals))
     }
 
-    // The busy note and any warnings read as one message.
+    // The busy note and any warnings read as one message. "Check again" joins the busy note when
+    // automatic checks stop, so offering it moves nothing else.
     const notes = []
-    if (status.tone === 'busy') notes.push('Result files appear when the Assembly completes.')
-    else if (steps.length === 0 && toolErrors.length === 0 && status.tone !== 'err') notes.push('No result files.')
+    if (status.tone === 'busy') notes.push(['Result files appear when the Assembly completes.', refreshSlot])
+    else if (steps.length === 0 && toolErrors.length === 0 && status.tone !== 'err') notes.push(['No result files.'])
     const warnings = (Array.isArray(payload.warnings) ? payload.warnings : []).filter((warning) => isRecord(warning) && text(warning.message))
     if (warnings.length > 0) {
-      nodes.push(callout('warn', [...notes.map((note) => el('p', { text: note })), ...warnings.map((warning) => el('p', {}, richText(text(warning.message))))]))
+      nodes.push(callout('warn', [...notes.map((note) => el('p', {}, note)), ...warnings.map((warning) => el('p', {}, richText(text(warning.message))))]))
     } else {
-      for (const note of notes) nodes.push(el('p', { className: 'note', text: note }))
+      for (const note of notes) nodes.push(el('p', { className: 'note' }, note))
     }
     nodes.push(moreBelow)
     return nodes
   }
 
+  const payloadOf = (result) => (isRecord(result.structuredContent) ? result.structuredContent : {})
+  const metaOf = (result) => (isRecord(result._meta) && isRecord(result._meta[contextKey]) ? result._meta[contextKey] : {})
+  const resultSignature = (result) => {
+    const payload = payloadOf(result)
+    return JSON.stringify([payload, metaOf(result), Object.keys(payload).length === 0 ? contentText(result) : ''])
+  }
+
   const render = (result) => {
-    if (!isRecord(result)) return
-    const payload = isRecord(result.structuredContent) ? result.structuredContent : {}
-    const meta = isRecord(result._meta) && isRecord(result._meta[contextKey]) ? result._meta[contextKey] : {}
     // Hosts repeat results (re-mounts, reconnects, ChatGPT's toolOutput next to the MCP Apps
     // notification); an identical one must not touch the DOM.
-    const signature = JSON.stringify([payload, meta, Object.keys(payload).length === 0 ? contentText(result) : ''])
+    const signature = resultSignature(result)
     if (signature === lastSignature) return
     lastSignature = signature
     hasResult = true
-    app.replaceChildren(...buildResult(result, payload, meta))
+    app.replaceChildren(...buildResult(result, payloadOf(result), metaOf(result)))
     updateMoreBelow()
   }
 
+  // Keeping a running Assembly current. Only the host's tool bridge is used (MCP Apps tools/call
+  // or ChatGPT's callTool): it reuses the caller's credentials, and the widget's CSP only allows
+  // result file origins anyway.
+  const refresh = { hostResult: null, hostSignature: null, timer: null, attempt: 0, waitedMs: 0, failures: 0, active: false, paused: false, inFlight: false }
+
+  const assemblyOf = (result) => {
+    const payload = isRecord(result) ? payloadOf(result) : {}
+    return isRecord(payload.assembly) ? payload.assembly : null
+  }
+  // The same states the SDK's awaitAssemblyCompletion keeps polling on.
+  const isRunning = (assembly) => !text(assembly.error) && statusOf(assembly).tone === 'busy'
+  const statusArguments = (assembly) => {
+    const url = safeUrl(assembly.assembly_ssl_url)
+    if (url) return { assembly_url: url }
+    const id = text(assembly.assembly_id)
+    return id ? { assembly_id: id } : null
+  }
+
+  // Decided per check, because the MCP Apps handshake may complete after the first result.
+  const statusCaller = () => {
+    if (hostCapabilities.serverTools) {
+      return (args) => request('tools/call', { name: statusRefresh.tool, arguments: args }, statusRefresh.requestTimeoutMs)
+    }
+    const openai = window.openai
+    if (openai && typeof openai.callTool === 'function') {
+      return (args) =>
+        Promise.race([
+          Promise.resolve(openai.callTool(statusRefresh.tool, args)),
+          new Promise((resolve, reject) => setTimeout(() => reject(new Error('callTool timed out')), statusRefresh.requestTimeoutMs)),
+        ])
+    }
+    return null
+  }
+
+  const refreshButton = el('button', { className: 'text-button', type: 'button', text: 'Check again' })
+  // Empty while automatic checks run, so its text never reads as part of the result.
+  const refreshSlot = el('span')
+  const showRefreshButton = (show) => {
+    if (show) refreshSlot.replaceChildren(' ', refreshButton)
+    else refreshSlot.replaceChildren()
+  }
+
+  const clearRefreshTimer = () => {
+    if (refresh.timer === null) return
+    clearTimeout(refresh.timer)
+    refresh.timer = null
+  }
+
+  // Automatic checks gave up; a person can still ask again when the host can call tools.
+  const stopRefreshing = (offerButton) => {
+    clearRefreshTimer()
+    refresh.active = false
+    showRefreshButton(Boolean(offerButton && statusCaller()))
+    updateMoreBelow()
+  }
+
+  const scheduleRefresh = () => {
+    clearRefreshTimer()
+    if (!refresh.active) return
+    if (document.visibilityState === 'hidden') {
+      refresh.paused = true
+      return
+    }
+    if (refresh.waitedMs >= statusRefresh.maxWaitMs) {
+      stopRefreshing(true)
+      return
+    }
+    const delay = Math.min(statusRefresh.initialDelayMs * statusRefresh.growth ** refresh.attempt, statusRefresh.maxDelayMs)
+    refresh.attempt += 1
+    refresh.waitedMs += delay
+    refresh.timer = setTimeout(checkStatus, delay)
+  }
+
+  const refreshFailed = () => {
+    refresh.failures += 1
+    if (refresh.failures >= statusRefresh.maxFailures) stopRefreshing(true)
+    else scheduleRefresh()
+  }
+
+  // The status replaces the Assembly; Steps, links and warnings still come from the host's result,
+  // except the create call's errors and warnings, which no longer apply once it has finished.
+  const showRefreshedAssembly = (assembly) => {
+    const base = refresh.hostResult
+    const payload = { ...payloadOf(base), assembly }
+    if (!isRunning(assembly)) {
+      delete payload.errors
+      delete payload.warnings
+    }
+    render({ ...base, structuredContent: payload })
+  }
+
+  async function checkStatus() {
+    refresh.timer = null
+    const assembly = assemblyOf(refresh.hostResult)
+    const args = assembly ? statusArguments(assembly) : null
+    const call = statusCaller()
+    if (!args || !refresh.active) return
+    // Without a bridge (yet), keep the schedule: the handshake may still enable one.
+    if (!call) {
+      scheduleRefresh()
+      return
+    }
+    refresh.inFlight = true
+    refreshButton.disabled = true
+    let result
+    try {
+      result = await call(args)
+    } catch {
+      result = null
+    }
+    refresh.inFlight = false
+    refreshButton.disabled = false
+    if (!refresh.active) return
+    const refreshed = isRecord(result) && result.isError !== true ? assemblyOf(result) : null
+    if (!refreshed) {
+      refreshFailed()
+      return
+    }
+    refresh.failures = 0
+    showRefreshedAssembly(refreshed)
+    if (isRunning(refreshed)) scheduleRefresh()
+    else stopRefreshing(false)
+  }
+
+  const startRefreshing = () => {
+    refresh.active = true
+    refresh.paused = false
+    refresh.attempt = 0
+    refresh.waitedMs = 0
+    refresh.failures = 0
+    showRefreshButton(false)
+  }
+
+  refreshButton.addEventListener('click', () => {
+    if (refresh.inFlight) return
+    startRefreshing()
+    clearRefreshTimer()
+    checkStatus()
+  })
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      if (refresh.timer === null) return
+      clearRefreshTimer()
+      refresh.paused = true
+      return
+    }
+    if (!refresh.paused || !refresh.active) return
+    // Back in view: check soon instead of finishing a long backoff.
+    refresh.paused = false
+    refresh.attempt = 0
+    if (!refresh.inFlight) scheduleRefresh()
+  })
+
+  // A result from the host. Polled updates are newer than any repeat of it, so an identical
+  // repeat (theme changes re-send ChatGPT's toolOutput) must not bring the old status back.
+  const showHostResult = (result) => {
+    if (!isRecord(result)) return
+    const signature = resultSignature(result)
+    if (signature === refresh.hostSignature) return
+    refresh.hostSignature = signature
+    refresh.hostResult = result
+    render(result)
+    const assembly = assemblyOf(result)
+    if (assembly && isRunning(assembly) && statusArguments(assembly)) {
+      if (refresh.active) return
+      startRefreshing()
+      scheduleRefresh()
+      return
+    }
+    stopRefreshing(false)
+  }
+
   const handleHostRequest = (message) => {
+    if (message.method === 'ui/resource-teardown') stopRefreshing(false)
     if (message.method === 'ping' || message.method === 'ui/resource-teardown') {
       respond(message.id, {})
       return
@@ -819,7 +1024,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     if (message.method === 'ui/notifications/tool-input') {
       if (!hasResult) pending('running', 'Running the Assembly…')
     } else if (message.method === 'ui/notifications/tool-result') {
-      render(message.params)
+      showHostResult(message.params)
     } else if (message.method === 'ui/notifications/tool-cancelled') {
       if (!hasResult) showStatus('The tool call was cancelled.')
     } else if (message.method === 'ui/notifications/host-context-changed') {
@@ -852,7 +1057,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     if (!openai) return
     applyHostContext({ theme: openai.theme, maxHeight: openai.maxHeight })
     if (isRecord(openai.toolOutput)) {
-      render({ structuredContent: openai.toolOutput, _meta: openai.toolResponseMetadata })
+      showHostResult({ structuredContent: openai.toolOutput, _meta: openai.toolResponseMetadata })
     }
   }
   window.addEventListener('openai:set_globals', renderFromOpenAi)
@@ -871,6 +1076,7 @@ export const assemblyResultWidgetHtml = `<!doctype html>
       .then((result) => {
         if (isRecord(result) && isRecord(result.hostCapabilities)) {
           hostCapabilities.openLinks = Boolean(result.hostCapabilities.openLinks)
+          hostCapabilities.serverTools = Boolean(result.hostCapabilities.serverTools)
         }
         if (isRecord(result)) applyHostContext(result.hostContext)
         notify('ui/notifications/initialized')

@@ -35,6 +35,11 @@ interface HostConfig {
   initialize: 'accept' | 'reject' | 'ignore'
   /** Height the frame has before the widget reports one; real hosts start with a placeholder. */
   initialHeight: number
+  /**
+   * Results the host returns, in order, for the widget's `tools/call` requests; the last one
+   * repeats. With any, the host declares `serverTools` as a host that proxies tool calls does.
+   */
+  toolResults: unknown[]
 }
 
 declare global {
@@ -84,6 +89,11 @@ const hostPageHtml = `<!doctype html>
         frame.style.height = message.params.height + 'px'
         return
       }
+      if (message.method === 'tools/call') {
+        const result = config.toolResults.length > 1 ? config.toolResults.shift() : config.toolResults[0]
+        if (result) send({ jsonrpc: '2.0', id: message.id, result })
+        return
+      }
       if (message.method !== 'ui/initialize' || config.initialize === 'ignore') return
       if (config.initialize === 'reject') {
         send({ jsonrpc: '2.0', id: message.id, error: { code: -32602, message: 'Invalid params for ui/initialize' } })
@@ -95,7 +105,7 @@ const hostPageHtml = `<!doctype html>
         result: {
           protocolVersion: '2026-01-26',
           hostInfo: { name: 'FakeHost', version: '1.0.0' },
-          hostCapabilities: { openLinks: {} },
+          hostCapabilities: config.toolResults.length > 0 ? { openLinks: {}, serverTools: {} } : { openLinks: {} },
           hostContext: { theme: config.theme, displayMode: 'inline' },
         },
       })
@@ -188,6 +198,7 @@ export const mountWidget = async (
   },
 ): Promise<MountedWidget> => {
   const { fixture, host, theme, width, initialHeight = 0 } = options
+  const toolResults = fixture.toolResults ?? []
   // The rejected-handshake state never learns the host theme, so it follows the system one.
   await page.emulateMedia({ colorScheme: theme })
   await page.goto('/')
@@ -197,6 +208,7 @@ export const mountWidget = async (
     theme,
     initialize: host === 'openai' ? 'ignore' : fixture.initialize,
     initialHeight,
+    toolResults,
   } satisfies HostConfig)
 
   const frame = page.frameLocator('iframe[title="Assembly result"]')

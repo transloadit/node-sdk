@@ -171,6 +171,51 @@ test.describe('assembly result widget stability', () => {
     expect(mediaRequests.slice(requestsBefore)).not.toContain(mediaRequests[0])
   })
 
+  test('follows a running Assembly to its results through the host bridge', async ({ page }) => {
+    const mediaRequests = await routeHostAndMedia(page)
+    const refreshed = widgetStateFixture('refreshed-to-completed')
+    // Mount on the executing state first: the fixture's own waitForText is the end state.
+    const widget = await mountWidget(page, {
+      fixture: { ...refreshed, waitForText: 'Processing' },
+      host: 'mcp',
+      theme: 'light',
+      width: 760,
+    })
+    await settleWidget(page, widget.frame)
+    const media = await rememberMedia(widget.frame)
+    const requestsBefore = mediaRequests.length
+    const resizesBefore = await sizeChanges(page)
+
+    // No new tool result from the host: only the widget's own status checks move it on.
+    await widget.frame.getByText('Completed').first().waitFor({ timeout: 20_000 })
+    await widget.frame.getByRole('img', { name: 'portrait-800w.png' }).waitFor()
+    await widget.frame.getByText('Uploaded files').click()
+    await settleWidget(page, widget.frame)
+
+    const statusChecks = (await widget.hostLog()).filter(
+      (message) => message.method === 'tools/call',
+    )
+    expect(statusChecks.map((message) => message.params)).toEqual([
+      {
+        name: 'transloadit_get_assembly_status',
+        arguments: {
+          assembly_url: expect.stringMatching(/^https:\/\/api2-sjc\.transloadit\.com\//),
+        },
+      },
+      {
+        name: 'transloadit_get_assembly_status',
+        arguments: {
+          assembly_url: expect.stringMatching(/^https:\/\/api2-sjc\.transloadit\.com\//),
+        },
+      },
+    ])
+    // The repeated executing status changed nothing; the upload preview is the same node.
+    expect(await keptMedia(widget.frame)).toBe(media)
+    expect(mediaRequests.slice(requestsBefore)).not.toContain(mediaRequests[0])
+    // Results replace the progress note in one step (plus opening the uploads fold).
+    expect(await sizeChanges(page)).toBeLessThanOrEqual(resizesBefore + 2)
+  })
+
   test('reserves preview space, so loading previews do not resize the card', async ({ page }) => {
     // Result files arrive over the network after the result itself, as they do in a real chat.
     await routeHostAndMedia(page, { latencyMs: 250 })

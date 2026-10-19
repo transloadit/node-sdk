@@ -39,6 +39,8 @@ export interface WidgetStateFixture {
   cancelled: boolean
   /** The `CallToolResult` delivered as `ui/notifications/tool-result` or `window.openai`. */
   result?: CallToolResult
+  /** What the MCP Apps host answers to the widget's status checks (`tools/call`), in order. */
+  toolResults?: CallToolResult[]
   /**
    * Whether ChatGPT can show this state through `window.openai`: it has no tool-input,
    * cancellation or handshake failure, and only hands over `structuredContent`.
@@ -208,6 +210,18 @@ const completed = (input: Omit<AssemblyInput, 'ok'>, extra: Record<string, unkno
   upload: { status: 'complete', total_files: input.uploads?.length ?? 0 },
   next_steps: [],
   ...extra,
+})
+
+/** What `transloadit_get_assembly_status` returns: the Assembly, without widget context. */
+const statusResponse = (status: ReturnType<typeof assembly>): CallToolResult =>
+  toolResponse({ status: 'ok', assembly: status }, {})
+
+const executingUpload = upload('portrait.png')
+const executingResult = toolResponse({
+  status: 'ok',
+  assembly: assembly({ ok: 'ASSEMBLY_EXECUTING', uploads: [executingUpload] }),
+  upload: { status: 'complete', total_files: 1 },
+  next_steps: ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status'],
 })
 
 const longName = 'quarterly-campaign-hero-banner-final-final-v3-approved-by-legal-team-2026-q4.png'
@@ -393,12 +407,46 @@ export const widgetStateFixtures: WidgetStateFixture[] = [
     cancelled: false,
     openai: true,
     waitForText: 'Processing',
-    result: toolResponse({
-      status: 'ok',
-      assembly: assembly({ ok: 'ASSEMBLY_EXECUTING', uploads: [upload('portrait.png')] }),
-      upload: { status: 'complete', total_files: 1 },
-      next_steps: ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status'],
-    }),
+    result: executingResult,
+  },
+  {
+    // The widget follows the executing Assembly through the host's tools/call until it completes.
+    name: 'refreshed-to-completed',
+    initialize: 'accept',
+    toolInput: true,
+    cancelled: false,
+    openai: false,
+    waitForText: 'Completed',
+    result: executingResult,
+    toolResults: [
+      statusResponse(assembly({ ok: 'ASSEMBLY_EXECUTING', uploads: [executingUpload] })),
+      statusResponse(
+        assembly({
+          ok: 'ASSEMBLY_COMPLETED',
+          uploads: [executingUpload],
+          results: { resized: [image('portrait-800w.png')] },
+        }),
+      ),
+    ],
+  },
+  {
+    // Status checks keep failing, so the widget stops and offers to check again.
+    name: 'check-again',
+    initialize: 'accept',
+    toolInput: true,
+    cancelled: false,
+    openai: false,
+    waitForText: 'Check again',
+    result: executingResult,
+    toolResults: [
+      toolResponse(
+        {
+          status: 'error',
+          errors: [{ code: 'mcp_auth_rejected', message: 'Transloadit rejected the credentials.' }],
+        },
+        { isError: true },
+      ),
+    ],
   },
   {
     name: 'completed-image',
