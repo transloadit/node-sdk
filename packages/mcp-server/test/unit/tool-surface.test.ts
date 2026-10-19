@@ -213,6 +213,15 @@ describe('tool surface', () => {
     }
   })
 
+  it('lets the result widget call the read-only status tool through the host', async () => {
+    const tool = findTool(await listTools(), 'transloadit_get_assembly_status')
+    expect(tool._meta).toMatchObject({
+      ui: { visibility: ['model', 'app'] },
+      'openai/widgetAccessible': true,
+    })
+    expect(tool.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false })
+  })
+
   it('marks the profile tool for multi-account hosts', async () => {
     const tool = findTool(await listTools(), 'transloadit_get_profile')
     expect(isRecord(tool._meta) ? tool._meta['openai/profile'] : undefined).toBe(true)

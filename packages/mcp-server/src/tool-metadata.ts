@@ -130,6 +130,10 @@ const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
     access: 'account',
     scopes: [mcpScopes.assembliesRead],
     meta: {
+      // The result widget calls this through the host to follow a running Assembly. MCP Apps
+      // tools are visible to the model and apps by default; ChatGPT needs the explicit opt-in.
+      ui: { visibility: ['model', 'app'] },
+      'openai/widgetAccessible': true,
       'openai/toolInvocation/invoking': 'Checking the Assembly status…',
       'openai/toolInvocation/invoked': 'Fetched the Assembly status',
     },
