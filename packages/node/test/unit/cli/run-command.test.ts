@@ -1,4 +1,5 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import fs from 'node:fs'
+import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -35,6 +36,43 @@ afterEach(async () => {
 })
 
 describe('run command', () => {
+  it('runs inputless instructions without treating non-TTY stdin as an upload', async () => {
+    stubCredentials()
+    vi.spyOn(fs, 'fstatSync').mockReturnValue(await stat('/dev/null'))
+    vi.spyOn(fs, 'createReadStream').mockImplementation(() => {
+      throw new Error('stdin must not be reopened by path')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const instructions = {
+      steps: {
+        imported: { robot: '/http/import', url: 'https://example.com/image.jpg', result: true },
+      },
+    }
+    vi.spyOn(Transloadit.prototype, 'compileAssemblyInstructionsFromPrompt').mockResolvedValue({
+      instructions,
+      instructionsJson: JSON.stringify(instructions),
+      message: 'Generated import instructions.',
+      validationAttempts: [],
+    })
+    const createAssembly = vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
+      ok: 'ASSEMBLY_UPLOADING',
+      assembly_id: 'assembly-run-inputless',
+    })
+    vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      results: {},
+    })
+
+    await main(['run', 'import https://example.com/image.jpg'])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createAssembly).toHaveBeenCalledExactlyOnceWith({
+      params: { steps: instructions.steps, fields: {} },
+      signal: expect.any(AbortSignal),
+    })
+    expect(fs.createReadStream).not.toHaveBeenCalled()
+  })
+
   it('compiles a prompt and submits the generated steps directly', async () => {
     stubCredentials()
     const tempDir = await createTempDir('transloadit-run-command-')
