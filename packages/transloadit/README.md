@@ -1305,6 +1305,9 @@ For full control, create Assemblies directly using Assembly Instructions (steps)
 # Process a file using a steps file
 npx transloadit assemblies create --steps steps.json --input image.jpg --output result.jpg
 
+# Download results from import-only or prompt-only Steps (no local upload)
+npx transloadit assemblies create --steps steps.json --output out/
+
 # Process using a Template
 npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input image.jpg --output result.jpg
 
@@ -1496,6 +1499,13 @@ The `assemblies create` command additionally supports:
   marks a directory and creates it recursively when needed. Existing directories accept all results.
   A missing path without a trailing separator stays a single-file output; if the Template returns
   multiple results, use `-o <dir>/`. Stdout accepts a single result.
+  Without uploads (for example, `/vimeo/import`, `/http/import`, or prompt-only `/image/generate`
+  Steps), results are saved as `<dir>/<step>/<result name>`, with no input folder, including with
+  `--single-assembly`.
+- `--input, -i` - Provide a local upload, or use `-i -` to read stdin explicitly. When `--steps`
+  is used without `-i`, stdin is read only when it is a pipe or a redirected file. Other non-TTY
+  stdin (such as an agent shell or `/dev/null`) runs the Assembly without uploads. With `--template`,
+  stdin always requires `-i -`.
 - `--single-assembly` - Pass all input files to a single assembly instead of one assembly per file
 
 #### Log Levels
