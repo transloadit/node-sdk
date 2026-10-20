@@ -1,5 +1,17 @@
 # @transloadit/mcp-server
 
+## 0.7.4
+
+### Patch Changes
+
+- f5f1a91: Contract: sync Robot schemas from API2 (transloadit/api2#10052, transloadit/api2#10100, transloadit/api2#10103, transloadit/api2#10115, transloadit/api2#10159).
+
+  Add the optional Cloudflare R2 `session_token` parameter. Carry the reviewed temporary-credential guidance, bounded HTML-to-PDF readiness description, HDR overlay behavior, provider-catalog cleanup, and video-generation compatibility-window guidance. Existing instruction field types and parse-time defaults are preserved.
+
+- Updated dependencies [f5f1a91]
+  - @transloadit/node@6.3.0
+  - @transloadit/zod@7.2.0
+
 ## 0.7.3
 
 ### Patch Changes
