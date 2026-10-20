@@ -1,3 +1,4 @@
+import type { MessageExtraInfo } from '@modelcontextprotocol/sdk/types.js'
 import type { AssemblyStatus } from '@transloadit/node'
 
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
@@ -46,11 +47,13 @@ describe('waiting within the host tool-call budget', () => {
     if (bearer) {
       // The in-memory transport carries no HTTP headers; add the one a hosted request would have.
       const receive = serverTransport.onmessage
-      serverTransport.onmessage = (message, extra) =>
-        receive?.(message, {
+      serverTransport.onmessage = (message, extra) => {
+        const withHeaders: MessageExtraInfo = {
           ...extra,
           requestInfo: { headers: { authorization: `Bearer ${bearer}` } },
-        })
+        }
+        receive?.(message, withHeaders)
+      }
     }
     return client.callTool({ name, arguments: args })
   }
@@ -451,6 +454,67 @@ describe('waiting within the host tool-call budget', () => {
 
     expect(result.structuredContent).toMatchObject({
       upload_instructions: [{ fieldname: 'file_2' }],
+    })
+  })
+
+  it('creates nothing when looking up the Template uses up the budget', async () => {
+    vi.spyOn(Transloadit.prototype, 'getTemplate').mockImplementation(
+      () => new Promise(() => undefined),
+    )
+    vi.spyOn(Transloadit.prototype, 'createAssembly')
+
+    const result = await call('transloadit_create_assembly', {
+      instructions: { template_id: 'slow-template' },
+    })
+
+    expect(result.structuredContent).toMatchObject({
+      status: 'error',
+      errors: [{ code: 'mcp_preparation_timeout' }],
+    })
+    expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+  })
+
+  it('does not report a finished URL download as still downloading', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    nock('http://198.51.100.10').get('/large.mp4').reply(200, 'Downloaded bytes')
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(resolve, 12_000, { items: [], count: 0 })
+        }),
+    )
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
+      options?.onAssemblyCreated?.(uploading)
+      return Object.assign(Promise.resolve(uploading), { assemblyId })
+    })
+    // The file is downloaded, but uploading it outlasts the budget.
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockImplementation(() => pending())
+
+    const pendingResult = call(
+      'transloadit_create_assembly',
+      {
+        instructions: uploadTemplate,
+        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
+      },
+      { budgetMs: 20_000, bearer: 'forwarded-token' },
+    )
+    await vi.waitFor(() => expect(Transloadit.prototype.listTemplates).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(10_001)
+    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.waitFor(() => expect(Transloadit.prototype.resumeAssemblyUploads).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(8_000)
+    const result = await pendingResult
+
+    expect(result.structuredContent).toMatchObject({
+      running: true,
+      warnings: [
+        {
+          code: 'mcp_assembly_still_running',
+          message:
+            'Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running.',
+        },
+      ],
     })
   })
 })

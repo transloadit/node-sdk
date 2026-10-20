@@ -796,12 +796,15 @@ const buildCreatedAssemblyUnavailable = (
 const buildCreationPending = (
   options: TransloaditMcpServerOptions,
   assemblyId: string,
+  hasUploads: boolean,
 ): CallToolResult =>
   buildCreatedAssemblyUnavailable(options, assemblyId, (assemblyUrl) => ({
     code: 'mcp_assembly_creation_pending',
     message:
       'Transloadit did not confirm the Assembly in time, so this server stopped sending the creation request. Transloadit may still have received it.',
-    hint: `Wait a few seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist.`,
+    // An Assembly that API2 accepted only after the request was stopped never receives this
+    // call's files; it fails once it times out waiting for them, so creating it again is safe.
+    hint: `Wait a few seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist${hasUploads ? ', or that it is still waiting for uploads (ASSEMBLY_UPLOADING): this server did not send its files' : ''}.`,
   }))
 
 /** A URL input failed after its Assembly was created; names the Assembly and its cancellation. */
@@ -1373,6 +1376,17 @@ export const createTransloaditMcpServer = (
       let downloadsSettled: Promise<void> | undefined
       const warnings: Array<{ code: string; message: string; hint?: string; path?: string }> = []
       let templatePathHint: string | undefined
+      const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
+      // Preparation (Template lookup, file inputs) runs before any Assembly exists, so failing
+      // once it used up the budget is safe to retry, unlike a host timeout after creation.
+      const preparationRemainingMs = (): number =>
+        Math.max(startedAt + maxWaitMs - performance.now(), 0)
+      const preparationTimeout = (): CallToolResult =>
+        buildToolError(
+          'mcp_preparation_timeout',
+          'Preparing the Assembly took too long, so none was created.',
+          { hint: 'Retrying this call is safe.' },
+        )
 
       try {
         const fileInputs: InputFile[] = [...(files ?? []), ...toAttachmentInputs(attachments ?? [])]
@@ -1391,7 +1405,12 @@ export const createTransloaditMcpServer = (
           templatePathHint = templatePathHint ?? 'instructions.template_id'
           let template: Awaited<ReturnType<typeof client.getTemplate>>
           try {
-            template = await client.getTemplate(params.template_id)
+            const lookup = await settleWithin(
+              client.getTemplate(params.template_id),
+              preparationRemainingMs(),
+            )
+            if (lookup === deadlineReached) return preparationTimeout()
+            template = lookup
           } catch (error) {
             const isTemplateNotFound =
               (error instanceof ApiError && error.code === 'TEMPLATE_NOT_FOUND') ||
@@ -1530,6 +1549,8 @@ export const createTransloaditMcpServer = (
         const uploadsMap = prep.uploads
         tempCleanups.push(...prep.cleanup)
 
+        if (preparationRemainingMs() === 0) return preparationTimeout()
+
         const downloadInputs = inputFilesForPrep.filter(isDownloaded)
         // The hosted gate only checks that a bearer is present. Before a URL input is downloaded
         // to this server's disk (not for /http/import), API2 vouches for the token once
@@ -1574,19 +1595,21 @@ export const createTransloaditMcpServer = (
         const uploadConcurrency = upload_concurrency
         const chunkSize = upload_chunk_size
 
-        const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
         const deadline =
           startedAt +
           (waitForCompletion ? Math.min(wait_timeout_ms ?? maxWaitMs, maxWaitMs) : maxWaitMs)
         const remainingMs = (): number => Math.max(deadline - performance.now(), 0)
         // The SDK also applies this timeout to the creation request. It outlasts the deadline and
         // the creation grace period after it, so a request timeout never fails a creation that
-        // API2 may have accepted; the deadline below bounds the call itself.
+        // API2 may have accepted; the deadline below bounds the call itself. Polling after an
+        // early return is not stopped separately: it ends with this timeout, a few seconds later,
+        // and the signal that could stop it would also stop uploads the Assembly still needs.
         const sdkTimeout = (): number =>
           Math.max(remainingMs() + statusReadTimeoutMs + 1_000, minimumSdkTimeoutMs)
 
         let downloadedFiles: Record<string, string> = {}
         let pendingDownloads: typeof downloads
+        let downloadsFinished = false
         if (downloads) {
           // Downloads that finish or fail quickly keep the historical order: no Assembly is
           // created for an input that cannot be fetched. A slow download must not hold back the
@@ -1606,6 +1629,9 @@ export const createTransloaditMcpServer = (
               },
               () => undefined,
             )
+            void downloadsSettled.then(() => {
+              downloadsFinished = true
+            })
           } else if ('content' in early) {
             return early
           } else {
@@ -1751,7 +1777,7 @@ export const createTransloaditMcpServer = (
                 // that finds no Assembly makes creating it again safe.
                 creationAbort.abort()
                 return creationAssemblyId
-                  ? buildCreationPending(options, creationAssemblyId)
+                  ? buildCreationPending(options, creationAssemblyId, totalFiles > 0)
                   : buildToolError(
                       'mcp_assembly_creation_pending',
                       'Creating the Assembly is taking too long.',
@@ -1842,7 +1868,7 @@ export const createTransloaditMcpServer = (
               assembly,
               reference?.assemblyUrl,
               // All URL inputs download together, so either none or all of them are pending.
-              workSettled || !pendingDownloads ? 0 : downloadInputs.length,
+              workSettled || !pendingDownloads || downloadsFinished ? 0 : downloadInputs.length,
             ),
           )
         }
