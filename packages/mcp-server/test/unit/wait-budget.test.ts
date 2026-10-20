@@ -589,4 +589,26 @@ describe('waiting within the host tool-call budget', () => {
       ],
     })
   })
+
+  it('checks a forwarded token before any URL input is downloaded, whatever the Steps are named', async () => {
+    nock('http://198.51.100.10').get('/file.jpg').reply(200, 'Downloaded bytes')
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({ items: [], count: 0 })
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation(() =>
+      Object.assign(Promise.resolve<AssemblyStatus>({ ...executing, ok: 'ASSEMBLY_COMPLETED' }), {
+        assemblyId,
+      }),
+    )
+
+    await call(
+      'transloadit_create_assembly',
+      {
+        // The SDK does not import into a Step with an empty name, so it downloads the URL.
+        instructions: { steps: { '': { robot: '/http/import' } } },
+        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/file.jpg' }],
+      },
+      { bearer: 'forwarded-token' },
+    )
+
+    expect(Transloadit.prototype.listTemplates).toHaveBeenCalled()
+  })
 })

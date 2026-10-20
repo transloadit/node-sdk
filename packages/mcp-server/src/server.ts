@@ -7,6 +7,7 @@ import type {
   InputFile,
   LintAssemblyInstructionsResult,
 } from '@transloadit/node'
+import type { SevLogger } from '@transloadit/sev-logger'
 import type { ZodObject } from 'zod'
 
 import type { BuiltinCatalog } from './builtin-shortcuts.ts'
@@ -94,6 +95,8 @@ export type TransloaditMcpServerOptions = {
    * Assembly's current state; defaults to 45 seconds, below the tool-call limits of MCP hosts.
    */
   maxWaitMs?: number
+  /** Receives diagnostics from tool calls; defaults to a logger that writes to stderr. */
+  logger?: SevLogger
   /** Console origin used for widget deep links; defaults to the public website. */
   consoleUrl?: string
   endpoint?: string
@@ -810,7 +813,7 @@ const buildCreationPending = (
     // API2 could in theory still be handling a request it received before the abort, so the
     // hint asks for a pause first. Strict idempotency would need an API2 creation key, which
     // does not exist; this path only runs after a request already took longer than the budget.
-    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist${hasUploads ? ', or that it is still waiting for uploads (ASSEMBLY_UPLOADING): this server did not send its files' : ''}.`,
+    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist${hasUploads ? ', or that it is still waiting for uploads (ASSEMBLY_UPLOADING): its files were never sent' : ''}.`,
   }))
 
 /** A URL input failed after its Assembly was created; names the Assembly and its cancellation. */
@@ -1280,7 +1283,7 @@ export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
   assertServerOptions(options)
-  const logger = getDiagnosticsLogger().nest('assemblies')
+  const logger = (options.logger ?? getDiagnosticsLogger()).nest('assemblies')
   const redactError = buildRedactor([options.authSecret, options.upstreamSecret, options.mcpToken])
   const server = new McpServer({
     name: options.serverName ?? 'Transloadit MCP',
@@ -1529,6 +1532,21 @@ export const createTransloaditMcpServer = (
           file.kind === 'url' &&
           (reference !== undefined ||
             !(importStepNames.includes(file.field) || importStepNames.length === 1))
+        // The hosted gate only checks that a bearer is present. Before a URL input is downloaded
+        // to this server's disk (not for /http/import), API2 vouches for the token once
+        // (templates:read is declared for this tool).
+        let tokenCheck: Promise<unknown> | undefined
+        const verifyTokenBeforeDownload = async (): Promise<void> => {
+          tokenCheck ??= client.listTemplates({ pagesize: 1 })
+          await tokenCheck
+        }
+        // Both preparation calls may download: the SDK can still download a URL this server
+        // expected an /http/import Step to fetch (such as one with an empty name).
+        const downloadSafeguards = {
+          maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
+          urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
+          beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
+        }
         const usedFields = new Set<string>()
         for (const file of inputFilesForPrep) {
           if (usedFields.has(file.field)) {
@@ -1546,6 +1564,7 @@ export const createTransloaditMcpServer = (
           urlStrategy: 'import-if-present',
           allowPrivateUrls: false,
           maxBase64Bytes,
+          ...downloadSafeguards,
         }).catch(buildInputError)
         if ('content' in prep) {
           return prep
@@ -1558,14 +1577,6 @@ export const createTransloaditMcpServer = (
         if (preparationRemainingMs() === 0) return preparationTimeout()
 
         const downloadInputs = inputFilesForPrep.filter(isDownloaded)
-        // The hosted gate only checks that a bearer is present. Before a URL input is downloaded
-        // to this server's disk (not for /http/import), API2 vouches for the token once
-        // (templates:read is declared for this tool).
-        let tokenCheck: Promise<unknown> | undefined
-        const verifyTokenBeforeDownload = async (): Promise<void> => {
-          tokenCheck ??= client.listTemplates({ pagesize: 1 })
-          await tokenCheck
-        }
         const downloads =
           downloadInputs.length === 0
             ? undefined
@@ -1573,9 +1584,7 @@ export const createTransloaditMcpServer = (
                 inputFiles: downloadInputs,
                 urlStrategy: 'download',
                 allowPrivateUrls: false,
-                maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
-                urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
-                beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
+                ...downloadSafeguards,
               })
 
         // Each URL input still being downloaded becomes exactly one uploaded file.
@@ -1710,6 +1719,10 @@ export const createTransloaditMcpServer = (
             chunkSize,
             uploadBehavior,
             // The SDK counts only the files it uploads itself; reserve the pending downloads too.
+            // API2 still aborts an Assembly whose tus uploads are not started within two minutes
+            // of creation, so a deferred download must finish well within that window. Starting
+            // the upload as a stream before the download ends would lift that limit, but the SDK
+            // names stream uploads after their field, which would lose the file's name.
             expectedUploads: pendingDownloads
               ? Math.max(expected_uploads ?? 0, totalFiles)
               : expected_uploads,
@@ -1793,7 +1806,11 @@ export const createTransloaditMcpServer = (
                 // that finds no Assembly makes creating it again safe.
                 creationAbort.abort()
                 return creationAssemblyId
-                  ? buildCreationPending(options, creationAssemblyId, totalFiles > 0)
+                  ? buildCreationPending(
+                      options,
+                      creationAssemblyId,
+                      totalFiles + outOfBandUploads > 0,
+                    )
                   : buildToolError(
                       'mcp_assembly_creation_pending',
                       'Creating the Assembly is taking too long.',
