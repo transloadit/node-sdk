@@ -45,6 +45,8 @@ Videos recorded with iPhone spatial audio can contain a stereo AAC track alongsi
 
 Files containing only unsupported audio still fail. Individual audio track selections and stream-copy requests keep the tracks you select; the output format must support copied tracks.
 
+When adding watermarks or drawing with simple FFmpeg video filters such as \`drawtext\` to HLG or PQ HDR video, the video is tone-mapped to SDR BT.709 before drawing, so overlay colors retain their intended RGB values. SDR inputs keep their existing processing. A custom \`ffmpeg.pre:filter:v\` that supplies tone mapping controls its own color conversion. Custom multi-input \`filter_complex\` graphs must handle each input’s color space explicitly.
+
 ## Adding text overlays with FFmpeg
 
 You can add text overlays to videos using FFmpeg's \`drawtext\` filter through this <dfn>Robot</dfn>'s \`ffmpeg\` parameter. Here are two examples — one with the default font and one with a custom font family name:

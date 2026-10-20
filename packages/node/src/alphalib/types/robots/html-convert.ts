@@ -6,6 +6,7 @@ import type {
 
 import { z } from 'zod'
 
+import { htmlPdfReadinessDescription } from './_html-pdf.ts'
 import {
   defineRobotWithHiddenFields,
   robotBase,
@@ -50,6 +51,8 @@ export const robotHtmlConvertInstructionsSchema = robotBase
 A URL can be provided instead of an input HTML file, to capture a screenshot from the website referenced by the URL.
 
 Use [🤖/image/resize](/docs/robots/image-resize/) to resize or crop the screenshot as needed.
+
+${htmlPdfReadinessDescription}
 `),
     url: z
       .string()

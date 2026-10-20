@@ -26,19 +26,6 @@ export const meta: RobotMetaInput = {
   extended_description: `
 > [!Warning]
 > This <dfn>Robot</dfn> uses third-party AI services. They may tweak their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
-
-## Supported languages
-
-{%- for provider in text_translate_languages %}
-
-### {{provider[0] | upcase }}
-
-<!-- prettier-ignore -->
-{%- for language in provider[1] %}
-  {{ language }}{% unless forloop.last %},{% endunless %}
-{%- endfor %}
-
-{%- endfor %}
 `,
   override_lvl1: 'Artificial Intelligence',
   purpose_sentence: 'translates text in documents',

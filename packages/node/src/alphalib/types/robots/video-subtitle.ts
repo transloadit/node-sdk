@@ -77,6 +77,8 @@ export const robotVideoSubtitleInstructionsSchema = robotBase
 This <dfn>Robot</dfn> supports SRT, VTT, ASS, and the timestamped JSON output of \`/speech/transcribe\` with \`"format": "json"\`. Pass the video as \`"video"\` and the transcript as \`"subtitles"\` in the \`use\` parameter. JSON words are grouped into captions and converted to ASS for burned word highlighting, or plain SRT cues for external subtitle streams. External JSON cues preserve casing and punctuation. Provider segments do not control caption breaks. SRT and VTT timing is preserved.
 
 Without a \`preset\` or custom \`ffmpeg\` options, the legacy \`"flash"\` preset produces FLV output. With this default, burned subtitles use MP3 audio; external subtitles copy the input audio. Set \`"preset": "empty"\` to keep the input container, such as MP4 for an MP4 input.
+
+When burning subtitles into HLG or PQ HDR video, the video is tone-mapped to SDR BT.709 before captions are drawn. Caption colors retain their intended RGB values, and the output is tagged as SDR. External subtitles preserve the source video’s HDR colors. SDR inputs keep their existing processing. If \`ffmpeg.pre:filter:v\` supplies its own tone mapping, that filter controls color conversion.
 `),
     subtitles_type: zodInputPreservingTransform(z.enum(['burned', 'external', 'burn']), (val) =>
       val === 'burn' ? 'burned' : val,

@@ -1,13 +1,13 @@
 {
   "packageDir": "packages/transloadit",
   "tarball": {
-    "filename": "transloadit-6.1.2.tgz",
-    "sizeBytes": 1406977,
-    "sha256": "f45d608797e6963f62066cc1a4e16babb1e04305674b3136f7b6dde2caf25313"
+    "filename": "transloadit-6.2.1.tgz",
+    "sizeBytes": 1412627,
+    "sha256": "7e6c716213ccf74a228f0c15227f2211114c94b94b87cfdf3826d993f0bcd495"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "6.1.2",
+    "version": "6.2.1",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -37,6 +37,11 @@
       "sha256": "8d0bfd045e5adc4018227601d65aba28207b58bc297354c4c9b6cf9157c85ed5"
     },
     {
+      "path": "dist/alphalib/types/robots/_html-pdf.js",
+      "sizeBytes": 572,
+      "sha256": "fa3e3cae7efbed405ceb3989754d0b0b08719febdd3a62364fff04855596dbd4"
+    },
+    {
       "path": "dist/alphalib/types/robots/_image-describe-output.js",
       "sizeBytes": 855,
       "sha256": "2a22bb079601d316799596eaa842c0cb5c432c427437833bbc74c68cf5df98d8"
@@ -60,6 +65,11 @@
       "path": "dist/alphalib/types/robots/_ocr-output.js",
       "sizeBytes": 896,
       "sha256": "72f99f724025aad2c66962cd05ed8910608cc9f241f521ecc649acccb86002a5"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_video-generate-description.js",
+      "sizeBytes": 201,
+      "sha256": "2c85c3d8803549cee70a54b9570a6ed222faa599e82a6a42b0f5c38aef6b62e1"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.js",
@@ -253,8 +263,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/cloudflare-store.js",
-      "sizeBytes": 2330,
-      "sha256": "f03565484a409ddddfb3188a7dfad03c033036f0db9573c220f250baf9c58450"
+      "sizeBytes": 5080,
+      "sha256": "bb7ad454abf40c2579d3da3ce4e3538d90a6f0b342e616dd0753f5996c24dcaf"
     },
     {
       "path": "dist/cli/deviceLogin.js",
@@ -283,8 +293,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/document-convert.js",
-      "sizeBytes": 10266,
-      "sha256": "d62b31b7a91d0661f3713adca929043c3bcaf24f16ae3cd4a65291f112825c03"
+      "sizeBytes": 10360,
+      "sha256": "8bc2d0fa39a8d0e41c73d41498216dd28fa41ed7e557450031e335bbe8da59b3"
     },
     {
       "path": "dist/alphalib/types/robots/document-extract.js",
@@ -458,8 +468,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.js",
-      "sizeBytes": 4916,
-      "sha256": "f62131c88f06f4f019a7af2480d4c443ed0651abba39764695506be6ebb09aa8"
+      "sizeBytes": 5010,
+      "sha256": "db3ed3980380002011f1a7d5258910bfcf6ab28a1ed6360a2e1edc834ef4739f"
     },
     {
       "path": "dist/alphalib/types/robots/http-import.js",
@@ -718,8 +728,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/s3-store.js",
-      "sizeBytes": 10923,
-      "sha256": "7511be38221ef778ea07f5d57dc4e2c88db23105c55ccfeb8d5d0432b3f89516"
+      "sizeBytes": 12917,
+      "sha256": "1b7c02c8cc8aca386caafab90f8a8d00df4cbf21fccf5b99cdd380ad8b847e0d"
     },
     {
       "path": "dist/alphalib/types/robots/script-run.js",
@@ -868,13 +878,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.js",
-      "sizeBytes": 3919,
-      "sha256": "5624c9d15787fb0a8078bd398971df2bbc1bc70fa8486c4f03ddcb0fac3d5927"
+      "sizeBytes": 3482,
+      "sha256": "38aa7e58bc60716be551d7ad081c68b39143cb137e100ef570847292fe701132"
     },
     {
       "path": "dist/alphalib/types/robots/text-translate.js",
-      "sizeBytes": 4486,
-      "sha256": "b9c774b8acfa03a1dfc34e33c356f50d0f22bf36efd39b5f1357c7f6625cb988"
+      "sizeBytes": 4234,
+      "sha256": "b0f9e38d65c960ccf728045f3f655fab7a495ee9afa5b462dc3eb517085a951f"
     },
     {
       "path": "dist/alphalib/types/robots/tigris-import.js",
@@ -958,13 +968,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.js",
-      "sizeBytes": 4465,
-      "sha256": "0248275fe64520d1cca169e1ef3d09e2dea8fe1ebf42856e1c25863f61c051e7"
+      "sizeBytes": 4919,
+      "sha256": "74aa3dae74cc011814738ecc2ca44ed2167764c16a7904eb39d3470c14e59803"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.js",
-      "sizeBytes": 3842,
-      "sha256": "0e0a5ed907a9cdd67eb14ca60b30da492c0ac594a30d1b87ce3080e7c66bb43d"
+      "sizeBytes": 3806,
+      "sha256": "7d1f683efa6520cd43919a0c52a11d7bb04a1dc395ae8db9c05e32f6dc122b5e"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.js",
@@ -983,13 +993,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.js",
-      "sizeBytes": 11026,
-      "sha256": "6823665bec92c667601f7753ac3f44ad40cd3063414b704b12fe2f4d1af5392c"
+      "sizeBytes": 11425,
+      "sha256": "f26b09bb91984e45b0906bf0f5407adb51efbc7b5ebba5e4f6d95a4246356b53"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.js",
-      "sizeBytes": 11346,
-      "sha256": "f27807b5137184d522d6f98f4ee4fd9c5491da747a9800ebccdcfee379e68960"
+      "sizeBytes": 11598,
+      "sha256": "a270362c80d4bf51320e2dd70d6d6089258db8fe6cabbe775f16b3aae958afa4"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.js",
@@ -1034,7 +1044,7 @@
     {
       "path": "package.json",
       "sizeBytes": 2770,
-      "sha256": "1b7049ee8de43da6af0fcfe735a162dec54f907f995b703efb2680fe8145259c"
+      "sha256": "45b33520847cea6e3389a2f5628c583db10add3efed86d3bbd4f395aee37da64"
     },
     {
       "path": "dist/alphalib/types/robots/_ai-models.d.ts.map",
@@ -1055,6 +1065,16 @@
       "path": "dist/alphalib/types/robots/_google-image-seed.js.map",
       "sizeBytes": 501,
       "sha256": "9b4313ebb722c9e2147ecaff3192d68f15ffff6e36de5bfb7149752dc165dc12"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_html-pdf.d.ts.map",
+      "sizeBytes": 189,
+      "sha256": "fa334aa3380c744c5f37efe73a084d9b53307efd102f7333e8ebf523b8b0dad2"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_html-pdf.js.map",
+      "sizeBytes": 198,
+      "sha256": "568a955eec1f19f729a6531231c0ec0f4c9789cb3bc5f612038345225f052963"
     },
     {
       "path": "dist/alphalib/types/robots/_image-describe-output.d.ts.map",
@@ -1105,6 +1125,16 @@
       "path": "dist/alphalib/types/robots/_ocr-output.js.map",
       "sizeBytes": 782,
       "sha256": "68d383b2fe7f68e5fee110a9cb77462f7535064a1cd79af5abf512735238d9f3"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_video-generate-description.d.ts.map",
+      "sizeBytes": 223,
+      "sha256": "e07c94e416eaba6014141e2f4e05c05c7de3dbd7ca14e47b84ffc4f5a938d064"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_video-generate-description.js.map",
+      "sizeBytes": 231,
+      "sha256": "588e03640e085f1363f699240adfe18ed5de2c1372190794296ebca7eee2fca6"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts.map",
@@ -1488,13 +1518,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/cloudflare-store.d.ts.map",
-      "sizeBytes": 1368,
-      "sha256": "da0d03571d81c5976fffac2907045aae12bdc1625e6172c6d246b0d690775948"
+      "sizeBytes": 1381,
+      "sha256": "da8a68df96db639890a828774509fc1a259750d31f67e6daafad759c7452979e"
     },
     {
       "path": "dist/alphalib/types/robots/cloudflare-store.js.map",
-      "sizeBytes": 1230,
-      "sha256": "c95b544a111393cc32fb929fe7919a847ffcc2b3d5f22c703c08b57e9c715b4a"
+      "sizeBytes": 1321,
+      "sha256": "febcef71574883ddb27ad2e6a0afd0aba63753ce5dde0af3ff6e2cce4312badd"
     },
     {
       "path": "dist/cli/deviceLogin.d.ts.map",
@@ -1549,12 +1579,12 @@
     {
       "path": "dist/alphalib/types/robots/document-convert.d.ts.map",
       "sizeBytes": 1416,
-      "sha256": "b178b7351649f75c9e7e66ca27b0f40875ce70554d760d5f5bae2ff309678249"
+      "sha256": "edb39cfa85d04842f6af08d7286796f3014c569c1a57fad55601669627812463"
     },
     {
       "path": "dist/alphalib/types/robots/document-convert.js.map",
-      "sizeBytes": 3056,
-      "sha256": "fe7701df6257c17ab0a0174489a1714c72ead62877074f58bde341f77e7355c4"
+      "sizeBytes": 3115,
+      "sha256": "a4458efc7d17b614b971f117808417f463cbf0e732dab74ac1afb71aa871302b"
     },
     {
       "path": "dist/alphalib/types/robots/document-extract.d.ts.map",
@@ -1899,12 +1929,12 @@
     {
       "path": "dist/alphalib/types/robots/html-convert.d.ts.map",
       "sizeBytes": 1433,
-      "sha256": "ba017879b66c1a36a73fba9a54b7b2ae82e453449a8437b265b90b21a0c26a8f"
+      "sha256": "0d7d29f093cc0838a1ba4b4b5b1dc9709223c3eaedc834448d0414744df713e9"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.js.map",
-      "sizeBytes": 2379,
-      "sha256": "33c7c159ec0983dcecd0fcf4c40d7b7f08703b093c63c212526badcfa4ed3e16"
+      "sizeBytes": 2438,
+      "sha256": "69c9f96233a1ab0b35aece0a0f18be8df15c9ff65fd8ddb4e924af7168c21a72"
     },
     {
       "path": "dist/alphalib/types/robots/http-import.d.ts.map",
@@ -2418,13 +2448,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/s3-store.d.ts.map",
-      "sizeBytes": 1537,
-      "sha256": "1b46301d4ff4a2a963789a2f06da9180dc1230419c96f0bccb5532a4af098f24"
+      "sizeBytes": 1538,
+      "sha256": "6b812fdd480983388dd46bf0993e591654bd2a5ae694c3487a013c0be831a612"
     },
     {
       "path": "dist/alphalib/types/robots/s3-store.js.map",
-      "sizeBytes": 2328,
-      "sha256": "bdb796e7b608c8ca1304cf6a46279a2ada8b052738173d1283eeee50d36f4d75"
+      "sizeBytes": 2376,
+      "sha256": "c9ec7dfb02d852fb5f05150b335d6d88255d4f832c5cd466d3f0395c1c09a9a8"
     },
     {
       "path": "dist/alphalib/types/robots/script-run.d.ts.map",
@@ -2719,22 +2749,22 @@
     {
       "path": "dist/alphalib/types/robots/text-speak.d.ts.map",
       "sizeBytes": 1307,
-      "sha256": "8a1e5e1b6430b5390541b1af09555cffd125d96e81a8e96fd19d4dc3ee5a8512"
+      "sha256": "259236b1201f62b7b7dd14e97a9df41321f8acc72df1f5a6747f4d67ae0283fc"
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.js.map",
-      "sizeBytes": 1642,
-      "sha256": "4c189826d98bc61228d77dbe3090d0a89e0d5d97b5e55084d2ed513dd0301e30"
+      "sizeBytes": 1617,
+      "sha256": "bdd11db5f5cf9d7a9d8ea32fa9f7eee2ac6d74e18d436d7a2907ba44626f7b94"
     },
     {
       "path": "dist/alphalib/types/robots/text-translate.d.ts.map",
       "sizeBytes": 1292,
-      "sha256": "e8c73dc8e537f8797cbba786e40e5767728152af585448b8dd9353b4777455d0"
+      "sha256": "7faacf66d1e47aa217b06c013b4b33c1b6db6749be6609db6a960555de1b9557"
     },
     {
       "path": "dist/alphalib/types/robots/text-translate.js.map",
-      "sizeBytes": 2534,
-      "sha256": "b774145684a879d91815306617d487fcaded6f59491361fa2115816c5eb17457"
+      "sizeBytes": 2520,
+      "sha256": "af1a4ed6099f1634cbee653ef9bae9521b0daf7a5539c5151f44e8889fa6cf60"
     },
     {
       "path": "dist/alphalib/types/robots/tigris-import.d.ts.map",
@@ -2899,22 +2929,22 @@
     {
       "path": "dist/alphalib/types/robots/video-encode.d.ts.map",
       "sizeBytes": 4187,
-      "sha256": "cfb283c440a77e75de95ed8685f2cd0167535471c880801a45a509dc01c904a5"
+      "sha256": "68cb62e9b0b031dd8c8600f9854f5811d3db2478a40469fd605caf7b38f2fc9a"
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.js.map",
-      "sizeBytes": 1533,
-      "sha256": "06b317935c13749e9b0d89b69e8292930bd000fc0577ad9e5f9881a10ccff141"
+      "sizeBytes": 1535,
+      "sha256": "b7fb6af27c296ab3d1213cf620e43c86b623f8d3d2da8162957b48022839128d"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.d.ts.map",
       "sizeBytes": 1490,
-      "sha256": "bac89d567b3b6be230858506ff1fc3ea2b8e5487fe2a94e9b3baf79555d8009a"
+      "sha256": "aabae77a232ea5d5779569ace4b4acd4b738e7a0e4eb492ba328c3bb52ce703b"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.js.map",
-      "sizeBytes": 2770,
-      "sha256": "a7be32153ca6d8e338169d9a2c8f8323fa761d0444bdc6f86a0ad1c41e215f70"
+      "sizeBytes": 2787,
+      "sha256": "53e5285f771a6ba7991e9e7f329ae9a9e64832bf6a2f854245241081410a4f24"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.d.ts.map",
@@ -2949,22 +2979,22 @@
     {
       "path": "dist/alphalib/types/robots/video-subtitle.d.ts.map",
       "sizeBytes": 3960,
-      "sha256": "96651c1485d0e0565cd5bab0ab0d457ba3846da24af49eb013fd651053917111"
+      "sha256": "42652f2bc3ee004f81f1c94467da3f9786cfd4d7df5b6330f0f6bd38f87dd0fc"
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.js.map",
-      "sizeBytes": 3601,
-      "sha256": "cc48ea0f50429b6d63ca43e8a9620f8794c6a89ead251206c4ac531eaadce242"
+      "sizeBytes": 3603,
+      "sha256": "f9694d7cbce03a63c2fdaa540fe26200a79d7a2b30ce3f9f0d8ddfdae1420572"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.d.ts.map",
       "sizeBytes": 4084,
-      "sha256": "7ac197c330617013c5d2a2b4782f137ad0c6e481a0fcdec06fc911b4008345da"
+      "sha256": "9436c252bc6b4a302b20f66e24af9186fd240648e523b2e3a9d171cbe387259b"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.js.map",
-      "sizeBytes": 3621,
-      "sha256": "03d953d01bc4698ace8a613ed4fc7b803cbcb0ec707fc105f6beba5e6ddf7507"
+      "sizeBytes": 3623,
+      "sha256": "547fc07fcad45e7f64f88e9a937a145ac77a32c53a27b6f04d29c19f7834aaa4"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.d.ts.map",
@@ -3077,6 +3107,16 @@
       "sha256": "d6ec477cfd18108dbb65ffbaa508331032104b8b4a66e3553cb6089132f227fd"
     },
     {
+      "path": "dist/alphalib/types/robots/_html-pdf.d.ts",
+      "sizeBytes": 582,
+      "sha256": "c2a012d5ff7c64c3d336ace8dab57a6811cbc3362d7bd1edc1a9e2272b0122d0"
+    },
+    {
+      "path": "src/alphalib/types/robots/_html-pdf.ts",
+      "sizeBytes": 536,
+      "sha256": "1894194e4f6ed3a527b83f0dbbacbe9ce7a7d46a7035a74241b294d7ab790334"
+    },
+    {
       "path": "dist/alphalib/types/robots/_image-describe-output.d.ts",
       "sizeBytes": 1606,
       "sha256": "48370a0d1028deedfef2ca5d4dd33928b5b72e449989686bcfff580138e603df"
@@ -3125,6 +3165,16 @@
       "path": "src/alphalib/types/robots/_ocr-output.ts",
       "sizeBytes": 852,
       "sha256": "2644b81a4c28a846cfa925cc2010e1a0eb6f18da158c71f08429f1f8ac364e80"
+    },
+    {
+      "path": "dist/alphalib/types/robots/_video-generate-description.d.ts",
+      "sizeBytes": 211,
+      "sha256": "b9af126db622eedb5823ff30fca18d201ed1738ff9495b21f2c17bf799bc24b7"
+    },
+    {
+      "path": "src/alphalib/types/robots/_video-generate-description.ts",
+      "sizeBytes": 145,
+      "sha256": "2f2051f8e1ff99ff3b5b02dd49d6ff0429eee759e1dc616cd8724bcbba01e3d7"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts",
@@ -3508,13 +3558,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/cloudflare-store.d.ts",
-      "sizeBytes": 23518,
-      "sha256": "c645c2a79c0cb30a3853e146a2810a16c3aafd3897e1832b814cd17ace45c58d"
+      "sizeBytes": 24026,
+      "sha256": "873a869e7e8d93b6cc3f91366329007c784159275dfbbfbfed4f3be188a1075e"
     },
     {
       "path": "src/alphalib/types/robots/cloudflare-store.ts",
-      "sizeBytes": 3164,
-      "sha256": "4887cf32ee127bad45fb271f98450ba1ec5b77c768b82cf8638c7f076acc654a"
+      "sizeBytes": 5908,
+      "sha256": "e26c1329349e6facbb8c5cb750ab1a41a3a8135754c11f40ac35fe629e9aac2d"
     },
     {
       "path": "examples/upload-once/demo.ts",
@@ -3578,8 +3628,8 @@
     },
     {
       "path": "src/alphalib/types/robots/document-convert.ts",
-      "sizeBytes": 11035,
-      "sha256": "3f814698dc53a3ebcc737fd3c90755961fd0ebbee6b17f5e5edd81d91c26fce9"
+      "sizeBytes": 11128,
+      "sha256": "c2724fc085a50bfbd7934c25a9fcfff095e9d5196bb592b011576ae8544af32f"
     },
     {
       "path": "dist/alphalib/types/robots/document-extract.d.ts",
@@ -3928,8 +3978,8 @@
     },
     {
       "path": "src/alphalib/types/robots/html-convert.ts",
-      "sizeBytes": 5659,
-      "sha256": "430693a5a708b9c56e1caeda90e81bb58b3c1f62ff7306c5619ada7a9ef8f8ee"
+      "sizeBytes": 5752,
+      "sha256": "9855f4a21b604da571380deeb62d9c1c9d297ed99cd913966aa1af57e3b07bfe"
     },
     {
       "path": "dist/alphalib/types/robots/http-import.d.ts",
@@ -4449,12 +4499,12 @@
     {
       "path": "dist/alphalib/types/robots/s3-store.d.ts",
       "sizeBytes": 28117,
-      "sha256": "7e00595ac77a2c1529eaf133e3a98fcc23a17fdf52dd78b5cecb10a8b4e59f29"
+      "sha256": "78ddb0e2c483ef10556da715778aca5bfc959ba3df58c89149b5f5da40d9b5bb"
     },
     {
       "path": "src/alphalib/types/robots/s3-store.ts",
-      "sizeBytes": 11758,
-      "sha256": "40c22af405ec7774ab1b02189cd2c60f918738be74c935dce55fb6da49fbf020"
+      "sizeBytes": 13750,
+      "sha256": "e81c28f5903dbd3c5a0b8c9431b923d0b5768b6d0faf5ae877d93bc4b145f866"
     },
     {
       "path": "dist/alphalib/types/robots/script-run.d.ts",
@@ -4753,8 +4803,8 @@
     },
     {
       "path": "src/alphalib/types/robots/text-speak.ts",
-      "sizeBytes": 4677,
-      "sha256": "75dc69b04295137bbd7fb7a254c74707a3cae890611b8cf6c33bb1122e435d7f"
+      "sizeBytes": 4240,
+      "sha256": "1e0c547b398d32220b81de392ea604f6d49a955fa24f6b56ca739ee5104a02e1"
     },
     {
       "path": "dist/alphalib/types/robots/text-translate.d.ts",
@@ -4763,8 +4813,8 @@
     },
     {
       "path": "src/alphalib/types/robots/text-translate.ts",
-      "sizeBytes": 5294,
-      "sha256": "23664cff55accbc69c18e6418319f50aac0ed4148612c858fa70817a2f28583f"
+      "sizeBytes": 5042,
+      "sha256": "0b58f79ade662f5b3856a2223febae0d7633f47e2d75ec753c453cc9a2e48304"
     },
     {
       "path": "dist/alphalib/types/robots/tigris-import.d.ts",
@@ -4933,8 +4983,8 @@
     },
     {
       "path": "src/alphalib/types/robots/video-encode.ts",
-      "sizeBytes": 5321,
-      "sha256": "e142bb87e712f8b93450e6b5ac7fac977714f4ef96a68f529bb2e9f2fc07e9e0"
+      "sizeBytes": 5775,
+      "sha256": "47cc6f935b3c5f341aa854f9a94f0d35b6328928c5299a0e7dc81f5111ca5527"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.d.ts",
@@ -4943,8 +4993,8 @@
     },
     {
       "path": "src/alphalib/types/robots/video-generate.ts",
-      "sizeBytes": 4786,
-      "sha256": "fd3bdd20e897e0ea3597100400b49371cd2ddca5811868bfe699ecf75f3100c3"
+      "sizeBytes": 4766,
+      "sha256": "7ccbf3644d79e27e1bf13840a19057ca152945156efbf3c20438695ba0084062"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.d.ts",
@@ -4983,8 +5033,8 @@
     },
     {
       "path": "src/alphalib/types/robots/video-subtitle.ts",
-      "sizeBytes": 11591,
-      "sha256": "632894759b650f8f17df5b699d282eec80e9277ba367df006401011839fbffc3"
+      "sizeBytes": 11990,
+      "sha256": "2caeb714671934491cfeeef360af793efc2cd49f01c096783dc45b5a4c5c80d2"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.d.ts",
@@ -4993,8 +5043,8 @@
     },
     {
       "path": "src/alphalib/types/robots/video-thumbs.ts",
-      "sizeBytes": 12200,
-      "sha256": "ac838971519fa8cde295a6e7bf80e97a12f6519704184f8549c2ad0dc51b5e17"
+      "sizeBytes": 12452,
+      "sha256": "e449fd3347d6b584c2ba25d148f49b3668ee3dde75254587a6524f6cb7fd2116"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.d.ts",
