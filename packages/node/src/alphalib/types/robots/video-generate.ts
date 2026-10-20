@@ -11,6 +11,7 @@ import {
   robotParameterDocs,
   robotUse,
 } from './_instructions-primitives.ts'
+import { videoGenerationParameterEnforcementDate } from './_video-generate-description.ts'
 
 export const meta: RobotMetaInput = {
   ...robotArtificialIntelligenceMeta,
@@ -19,8 +20,6 @@ export const meta: RobotMetaInput = {
       generated_video: {
         robot: '/video/generate',
         prompt: 'A slow cinematic drone shot of ocean cliffs at sunrise, realistic lighting.',
-        duration: 5,
-        aspect_ratio: '16:9',
         format: 'mp4',
       },
     },
@@ -46,15 +45,18 @@ export const robotVideoGenerateInstructionsSchema = robotBase
       .string()
       .optional()
       .describe(
-        `The AI model to use for video generation. Defaults to ${videoGenerateDefaultModelIdentifier}.`,
+        `Video model; defaults to ${videoGenerateDefaultModelIdentifier}. Unsupported settings warn until ${videoGenerationParameterEnforcementDate}. MiniMax outputs are about six seconds.`,
       ),
     prompt: z.string().describe('The prompt describing the desired video content.'),
     format: z.enum(['mp4']).optional().describe('Format of the generated video.'),
     seed: z.number().optional().describe(robotParameterDocs.seed.description),
-    aspect_ratio: z.string().optional().describe('Aspect ratio of the generated video.'),
-    height: z.number().optional().describe('Height of the generated video.'),
-    width: z.number().optional().describe('Width of the generated video.'),
-    style: z.string().optional().describe('Style of the generated video.'),
+    aspect_ratio: z
+      .string()
+      .optional()
+      .describe('Aspect ratio for lightricks/ltx-video without an input image.'),
+    height: z.number().optional().describe('Pixel height for tencent/hunyuan-video.'),
+    width: z.number().optional().describe('Pixel width for tencent/hunyuan-video.'),
+    style: z.string().optional().describe('Unsupported by current models; omit it.'),
     num_outputs: z
       .number()
       .int()
@@ -62,26 +64,12 @@ export const robotVideoGenerateInstructionsSchema = robotBase
       .max(10)
       .optional()
       .describe('Number of video variants to generate.'),
-    duration: z.number().optional().describe('Duration of the generated video in seconds.'),
-    fps: z.number().optional().describe('Frames per second of the output video.'),
-    motion_amount: z
-      .number()
-      .optional()
-      .describe('Controls the intensity of motion in the generated video.'),
-    camera_motion: z
-      .string()
-      .optional()
-      .describe(
-        'Camera movement type (e.g., pan-left, pan-right, zoom-in, zoom-out, orbit, static, dolly, crane).',
-      ),
-    negative_prompt: z
-      .string()
-      .optional()
-      .describe('Describes what should be avoided in the generated video.'),
-    reference_strength: z
-      .number()
-      .optional()
-      .describe('How closely the output should follow the reference input (0.0 - 1.0).'),
+    duration: z.number().optional().describe('Unsupported by current models; omit it.'),
+    fps: z.number().optional().describe('Frames per second for tencent/hunyuan-video.'),
+    motion_amount: z.number().optional().describe('Unsupported by current models; omit it.'),
+    camera_motion: z.string().optional().describe('Unsupported by current models; omit it.'),
+    negative_prompt: z.string().optional().describe('Content to avoid (lightricks/ltx-video).'),
+    reference_strength: z.number().optional().describe('Unsupported by current models; omit it.'),
   })
   .strict()
 

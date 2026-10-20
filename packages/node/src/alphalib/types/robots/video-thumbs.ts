@@ -70,6 +70,8 @@ export const robotVideoThumbsInstructionsSchema = robotBase
     robot: z.literal('/video/thumbs').describe(`
 Set \`smart: true\` to select strong preview images with AI instead of taking frames only at regular intervals. The Robot scores candidate frames for clarity, brightness, composition, faces, expressions, action, and visual interest, then returns the best \`count\` frames in chronological order. Smart results include \`file.meta.smart_score\` and \`file.meta.smart_reasons\`. If AI scoring is unavailable, the Assembly continues with the candidate frames in fallback order and includes a warning. No AI credentials are required.
 
+HLG and PQ HDR video frames are tone-mapped to SDR sRGB before image encoding, including smart-thumbnail candidates. This preserves the intended appearance in browsers that display thumbnails as sRGB images. SDR inputs keep their existing processing.
+
 ## AI pricing
 
 Regular \`/video/thumbs\` processing charges still apply. AI frame analysis is billed separately at the underlying provider cost plus a ${smartThumbnailMarkupPercent}% Transloadit markup. Smart selection uses the dedicated \`${smartThumbnailModel}\` vision model with \`${smartThumbnailReasoningEffort}\` reasoning, independently of the \`/ai/chat\` default. The exact AI charge varies with the number of candidate frames and provider pricing.

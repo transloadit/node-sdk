@@ -36,6 +36,32 @@ export const meta: RobotMetaInput = {
   ...robotStoreMeta,
   example_code: createStorageStoreExample('/s3/store', 'YOUR_AWS_CREDENTIALS'),
   example_code_description: 'Export uploaded files to `my_target_folder` in an S3 bucket:',
+  extended_description: `
+## Export to R2 with temporary credentials
+
+To upload one output to an exact R2 object key, send the matching temporary credentials from your trusted backend:
+
+\`\`\`json
+{
+  "robot": "/s3/store",
+  "use": ":original",
+  "host": "https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com",
+  "bucket": "my-bucket",
+  "bucket_region": "auto",
+  "acl": "bucket-default",
+  "key": "TEMPORARY_ACCESS_KEY_ID",
+  "secret": "TEMPORARY_SECRET_ACCESS_KEY",
+  "session_token": "TEMPORARY_SESSION_TOKEN",
+  "path": "exports/result.jpg"
+}
+\`\`\`
+
+The HTTPS host enables TLS, \`bucket_region: "auto"\` avoids region discovery, and \`acl: "bucket-default"\` omits the generated ACL header. Do not add ACL or grant headers. Scope the [R2 temporary credentials](https://developers.cloudflare.com/r2/api/s3/temporary-credentials/) to the same bucket and exact object key, here \`exports/result.jpg\`. Do not end \`path\` with \`/\`: that appends a generated filename. Export one output per key to avoid overwrites.
+
+For locally signed R2 credentials, \`actions: ["PutObject"]\` permits small single-request uploads with this configuration. Uploads larger than the default 5 MiB part size also require \`CreateMultipartUpload\`, \`UploadPart\`, \`CompleteMultipartUpload\`, and \`AbortMultipartUpload\` for failed-upload cleanup. These are R2 action names, not AWS IAM policy actions. No listing, region discovery, HEAD, or GET is required by this upload configuration. Unlike [/cloudflare/store](/docs/robots/cloudflare-store/), this Robot does not perform HEAD verification after upload.
+
+Credentials must remain valid through queuing, processing, and upload retries; the Robot does not refresh them. A returned object URL does not grant read access. If you request signed download URLs with \`sign_urls_for\`, add \`GetObject\` permission; those URLs also expire when the temporary credentials expire. A presigned PUT URL cannot be used as \`host\`.
+`,
   has_small_icon: true,
   purpose_sentence: 'exports encoding results to Amazon S3',
   purpose_word: 'Amazon S3',
@@ -155,7 +181,7 @@ This parameter provides signed URLs in the result JSON (in the \`signed_url\` an
       .string()
       .optional()
       .describe(`
-The session token belonging to the temporary AWS access key ID and secret access key supplied for this upload. The Robot does not assume a role or refresh these credentials; they must remain valid for the upload.
+The session token belonging to the temporary access key ID and secret access key supplied for this upload to S3 or a compatible service such as R2. The Robot does not assume a role or refresh these credentials; they must remain valid for the upload.
 `),
   })
   .strict()

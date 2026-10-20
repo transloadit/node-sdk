@@ -28,30 +28,6 @@ export const meta: RobotMetaInput = {
   extended_description: `
 > [!Warning]
 > Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
-
-## Supported languages and voices
-
-{% for provider in text_speak_voices %}
-
-### {{provider[0] | upcase }}
-
-<table class="table">
-  <thead>
-    <tr>
-      <th>Language</th>
-      <th>Voices</th>
-    </tr>
-  </thead>
-  <tbody>
-    {%- for language in provider[1] %}
-      <tr>
-        <td><strong>{{language[0]}}</strong></td>
-        <td>{{ language[1] | join: ", " }}</td>
-      </tr>
-    {%- endfor %}
-  </tbody>
-</table>
-{% endfor %}
 `,
   override_lvl1: 'Artificial Intelligence',
   purpose_sentence: 'synthesizes speech in documents',

@@ -1,4 +1,4 @@
-<!-- alphalib-sync-agent-doc-sha256:e638ed568eba17b03f500455a4a1e969cca2ab0ab4b6cefc6a6fc145ea9ffdc1 -->
+<!-- alphalib-sync-agent-doc-sha256:9dc5eb4e06e12082ec883ab88ffd692b2017dc9ab4e18192cccc1109788ffb5c -->
 # Transloadit Repository Guide
 ## coding style
 
@@ -66,6 +66,9 @@ General:
 
 - Do not touch `.env` files!
 - Favor Yarn (4) over npm
+- Do not prove script, workflow, or config behavior with source-string assertions. Execute the
+  behavior; keep workflow YAML thin and test its scripts. Use standard validators or narrow, named
+  lint rules for intentional static contracts, with fixtures that demonstrate violations.
 - Before starting a dev server, first check whether a suitable one is already running and use that
   if possible. If none is available and local browser/e2e validation needs one, start the documented
   dev server, capture its log path/pid, and stop it when you are done unless the user asked to keep

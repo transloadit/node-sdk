@@ -11,6 +11,7 @@ import {
   documentConvertLoadInternalErrorReason,
   documentConvertLoadUserErrorReason,
 } from '../responseErrors/DocumentConvertRobot.ts'
+import { htmlPdfReadinessDescription } from './_html-pdf.ts'
 import {
   createProcessingExample,
   defineRobot,
@@ -119,6 +120,8 @@ export const robotDocumentConvertInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/document/convert').describe(`
+${htmlPdfReadinessDescription}
+
 > [!Note]
 > This Robot can convert files to PDF, but cannot convert PDFs to different formats. If you want to convert PDFs to say, JPEG or TIFF, use [🤖/image/resize](/docs/robots/image-resize/). If you want to turn them into text files or recognize (OCR) them to make them searchable, reach out, as we have a new Robot in the works for this.
 
