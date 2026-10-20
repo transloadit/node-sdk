@@ -28,6 +28,7 @@ Environment:
   TRANSLOADIT_MCP_RESULT_DOMAINS (comma-separated origins for result previews)
   TRANSLOADIT_MCP_WIDGET_DOMAIN (origin ChatGPT serves the result widget from)
   TRANSLOADIT_MCP_CONSOLE_URL
+  TRANSLOADIT_MCP_MAX_WAIT_MS (longest a call waits for an Assembly; defaults to 45000)
   TRANSLOADIT_ENDPOINT
   TRANSLOADIT_MCP_METRICS_PATH
   TRANSLOADIT_MCP_METRICS_USER
@@ -108,6 +109,12 @@ const parseResultDomains = (value: unknown): string[] | undefined => {
     .map((entry) => entry.trim())
     .filter(Boolean)
   return domains.length > 0 ? domains : undefined
+}
+
+/** Validated with the other server options, which refuse anything but positive integers. */
+const parseMaxWaitMs = (): number | undefined => {
+  const value = process.env.TRANSLOADIT_MCP_MAX_WAIT_MS
+  return value ? Number(value) : undefined
 }
 
 const isLocalHost = (host: string | undefined): boolean =>
@@ -194,6 +201,7 @@ const main = async (): Promise<void> => {
       maxRequestBodyBytes: fileConfig.maxRequestBodyBytes as number | undefined,
       maxUrlDownloadBytes: fileConfig.maxUrlDownloadBytes as number | undefined,
       urlDownloadTimeoutMs: fileConfig.urlDownloadTimeoutMs as number | undefined,
+      maxWaitMs: (fileConfig.maxWaitMs ?? parseMaxWaitMs()) as number | undefined,
       signatureAlgorithm,
       resultDomains,
       widgetDomain,
@@ -237,6 +245,7 @@ const main = async (): Promise<void> => {
     endpoint: process.env.TRANSLOADIT_ENDPOINT,
     consoleUrl: process.env.TRANSLOADIT_MCP_CONSOLE_URL,
     clientSuffix: process.env.TRANSLOADIT_CLIENT_SUFFIX,
+    maxWaitMs: parseMaxWaitMs(),
   })
   const transport = new StdioServerTransport()
   await server.connect(transport)

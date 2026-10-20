@@ -495,7 +495,19 @@ its limit there.
 URL inputs that the server downloads (for templates that expect uploads) are capped at 1 GiB in
 total per call and 10 minutes per download, redirects included; set `maxUrlDownloadBytes` and
 `urlDownloadTimeoutMs` to change that. On the hosted
-endpoint the caller's token is checked with API2 before anything is downloaded.
+endpoint the caller's token is checked with API2 before anything is downloaded. A download that
+takes longer than a few seconds no longer delays the Assembly: it is created first and receives the
+file once the download finishes (and is cancelled if the download fails).
+
+## Waiting for Assemblies
+
+MCP hosts abandon tool calls that run too long (ChatGPT after about a minute) and may retry them,
+which would create a second Assembly. `transloadit_create_assembly`, the Builtin shortcuts and
+`transloadit_wait_for_assembly` therefore wait at most 45 seconds, even with a larger
+`wait_timeout_ms`/`timeout_ms`. When that budget is spent, the call returns the Assembly with its
+current status, `running: true` and an `mcp_assembly_still_running` notice; uploads and processing
+continue, and `transloadit_wait_for_assembly` or `transloadit_get_assembly_status` follow it. Set
+`maxWaitMs` (option or JSON config key) or `TRANSLOADIT_MCP_MAX_WAIT_MS` to change the budget.
 
 ## URL inputs and template behavior
 

@@ -17,6 +17,7 @@ export const assertServerOptions = (options: {
   upstreamSecret?: string
   maxUrlDownloadBytes?: unknown
   urlDownloadTimeoutMs?: unknown
+  maxWaitMs?: unknown
   resultDomains?: string[]
   widgetDomain?: string
 }): void => {
@@ -29,6 +30,7 @@ export const assertServerOptions = (options: {
   }
   assertPositiveInteger(options.maxUrlDownloadBytes, 'maxUrlDownloadBytes', 'bytes')
   assertPositiveInteger(options.urlDownloadTimeoutMs, 'urlDownloadTimeoutMs', 'milliseconds')
+  assertPositiveInteger(options.maxWaitMs, 'maxWaitMs', 'milliseconds')
   // A malformed origin would only surface as blank previews in the host, so it fails startup.
   for (const domain of options.resultDomains ?? []) {
     parseWidgetOrigin(domain, 'resultDomains')
