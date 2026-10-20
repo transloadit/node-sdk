@@ -36,7 +36,7 @@ import {
   validateBuiltinFields,
 } from './builtin-shortcuts.ts'
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
-import { buildRedactor, getLogger } from './logger.ts'
+import { buildRedactor, getDiagnosticsLogger } from './logger.ts'
 import { assertServerOptions } from './options.ts'
 import { mirrorSecuritySchemes } from './tool-list.ts'
 import {
@@ -566,6 +566,9 @@ const buildStillRunningNotice = (
   assembly: { assembly_ssl_url?: unknown; assembly_url?: unknown },
   fallbackUrl?: string,
   pendingDownloadCount = 0,
+  // A resumed Assembly was created by an earlier call and may hold other files, so a failed
+  // download is not a reason to cancel it.
+  resumed = false,
 ): { code: string; message: string; hint: string } => {
   const assemblyUrl = isNonEmptyString(assembly.assembly_ssl_url)
     ? assembly.assembly_ssl_url
@@ -577,7 +580,7 @@ const buildStillRunningNotice = (
     code: 'mcp_assembly_still_running',
     message:
       pendingDownloadCount > 0
-        ? `Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running; ${pendingDownloadCount} URL input(s) are still downloading to this server and are uploaded into it when they arrive. If one cannot be downloaded, the Assembly is cancelled.`
+        ? `Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running; ${pendingDownloadCount} URL input(s) are still downloading to this server and are uploaded into it when they arrive. ${resumed ? 'If one cannot be downloaded, it is not added to the Assembly.' : 'If one cannot be downloaded, the Assembly is cancelled.'}`
         : 'Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running.',
     hint: assemblyUrl
       ? `${follow} using assembly_url ${assemblyUrl}; do not create it again.`
@@ -804,7 +807,10 @@ const buildCreationPending = (
       'Transloadit did not confirm the Assembly in time, so this server stopped sending the creation request. Transloadit may still have received it.',
     // An Assembly that API2 accepted only after the request was stopped never receives this
     // call's files; it fails once it times out waiting for them, so creating it again is safe.
-    hint: `Wait a few seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist${hasUploads ? ', or that it is still waiting for uploads (ASSEMBLY_UPLOADING): this server did not send its files' : ''}.`,
+    // API2 could in theory still be handling a request it received before the abort, so the
+    // hint asks for a pause first. Strict idempotency would need an API2 creation key, which
+    // does not exist; this path only runs after a request already took longer than the budget.
+    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist${hasUploads ? ', or that it is still waiting for uploads (ASSEMBLY_UPLOADING): this server did not send its files' : ''}.`,
   }))
 
 /** A URL input failed after its Assembly was created; names the Assembly and its cancellation. */
@@ -1274,7 +1280,7 @@ export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
   assertServerOptions(options)
-  const logger = getLogger().nest('assemblies')
+  const logger = getDiagnosticsLogger().nest('assemblies')
   const redactError = buildRedactor([options.authSecret, options.upstreamSecret, options.mcpToken])
   const server = new McpServer({
     name: options.serverName ?? 'Transloadit MCP',
@@ -1622,7 +1628,8 @@ export const createTransloaditMcpServer = (
             pendingDownloads = downloads
             // Whatever happens to the Assembly, the files are removed once the download ends.
             // prepareInputFiles takes no abort signal, so a download whose Assembly failed still
-            // runs until it finishes or hits urlDownloadTimeoutMs.
+            // runs until it finishes or hits urlDownloadTimeoutMs (and maxUrlDownloadBytes caps
+            // its disk use). Adding one would change @transloadit/node's public API.
             downloadsSettled = downloads.then(
               (late) => {
                 tempCleanups.push(...late.cleanup)
@@ -1732,7 +1739,16 @@ export const createTransloaditMcpServer = (
                 if (!assemblyUrl) {
                   throw new Error('The Assembly status has no URL to upload the downloads to.')
                 }
-                return resumeUploads(assemblyUrl, late, {})
+                const resumed = await resumeUploads(assemblyUrl, late, {})
+                // Files sent with the creation request have their upload URLs only in its status.
+                if (!isRecord(status.upload_urls)) return resumed
+                return {
+                  ...resumed,
+                  upload_urls: {
+                    ...status.upload_urls,
+                    ...(isRecord(resumed.upload_urls) ? resumed.upload_urls : {}),
+                  },
+                }
               })
             : creation
         }
@@ -1869,6 +1885,7 @@ export const createTransloaditMcpServer = (
               reference?.assemblyUrl,
               // All URL inputs download together, so either none or all of them are pending.
               workSettled || !pendingDownloads || downloadsFinished ? 0 : downloadInputs.length,
+              reference !== undefined,
             ),
           )
         }

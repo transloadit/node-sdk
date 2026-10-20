@@ -195,6 +195,8 @@ describe('waiting within the host tool-call budget', () => {
       return Object.assign(Promise.resolve(uploading), { assemblyId })
     })
     vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads')
+    const stdoutWrite = vi.spyOn(process.stdout, 'write')
+    const stderrWrite = vi.spyOn(process.stderr, 'write')
 
     const result = await call('transloadit_create_assembly', {
       instructions: uploadTemplate,
@@ -210,6 +212,11 @@ describe('waiting within the host tool-call budget', () => {
       { timeout: 5_000 },
     )
     expect(Transloadit.prototype.resumeAssemblyUploads).not.toHaveBeenCalled()
+    // The stdio transport owns stdout, so diagnostics must not be written there.
+    await vi.waitFor(() =>
+      expect(stderrWrite).toHaveBeenCalledWith(expect.stringContaining('early return failed')),
+    )
+    expect(stdoutWrite).not.toHaveBeenCalledWith(expect.stringContaining('early return failed'))
   })
 
   it('returns the latest status from transloadit_wait_for_assembly once the budget is spent', async () => {
@@ -513,6 +520,71 @@ describe('waiting within the host tool-call budget', () => {
           code: 'mcp_assembly_still_running',
           message:
             'Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running.',
+        },
+      ],
+    })
+  })
+
+  it('keeps the upload URLs of files sent at creation when late downloads follow', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    nock('http://198.51.100.10').get('/large.mp4').reply(200, 'Downloaded bytes')
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(resolve, 10_500, { items: [], count: 0 })
+        }),
+    )
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
+      const status = { ...uploading, upload_urls: { notes: 'https://tus.example/notes' } }
+      options?.onAssemblyCreated?.(status)
+      return Object.assign(Promise.resolve(status), { assemblyId })
+    })
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue({
+      ...uploading,
+      upload_urls: { file: 'https://tus.example/file' },
+    })
+
+    const pendingResult = call(
+      'transloadit_create_assembly',
+      {
+        instructions: uploadTemplate,
+        files: [
+          { kind: 'base64', field: 'notes', base64: 'aGVsbG8=', filename: 'notes.txt' },
+          { kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' },
+        ],
+        upload_behavior: 'none',
+      },
+      { budgetMs: 20_000, bearer: 'forwarded-token' },
+    )
+    await vi.waitFor(() => expect(Transloadit.prototype.listTemplates).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(10_001)
+    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(1_000)
+    const result = await pendingResult
+
+    expect(result.structuredContent).toMatchObject({
+      upload: {
+        upload_urls: { notes: 'https://tus.example/notes', file: 'https://tus.example/file' },
+      },
+    })
+  })
+
+  it('does not promise to cancel a resumed Assembly when a URL input is still downloading', async () => {
+    nock('http://198.51.100.10').get('/large.mp4').delay(1_000).reply(200, 'Downloaded bytes')
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue(uploading)
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue(executing)
+
+    const result = await call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
+    })
+
+    expect(result.structuredContent).toMatchObject({
+      running: true,
+      warnings: [
+        {
+          code: 'mcp_assembly_still_running',
+          message: expect.stringContaining('it is not added to the Assembly'),
         },
       ],
     })
