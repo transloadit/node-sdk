@@ -511,9 +511,51 @@ describe('assemblies create', () => {
     })
 
     expect(client.createAssembly).toHaveBeenCalledTimes(1)
-    expect(await readFile(path.join(outputDir, 'generated-dir.png'), 'utf8')).toBe(
+    expect(await readFile(path.join(outputDir, 'generated', 'generated-dir.png'), 'utf8')).toBe(
       'dir-image-bytes',
     )
+  })
+
+  it('groups prompt-only results by step without an input folder', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-prompt-only-outdir-')
+    const outputDir = path.join(tempDir, 'out')
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-prompt-only' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          generated: [{ url: 'http://downloads.test/generated.png', name: 'generated.png' }],
+        },
+      }),
+    }
+    const downloads = nock('http://downloads.test').get('/generated.png').reply(200, 'image-bytes')
+
+    await expect(
+      create(new OutputCtl(), client as never, {
+        inputs: [],
+        output: `${outputDir}/`,
+        stepsData: {
+          generated: {
+            robot: '/image/generate',
+            result: true,
+            prompt: 'A red bicycle',
+            model: 'google/nano-banana',
+          },
+        },
+      }),
+    ).resolves.toEqual(expect.objectContaining({ hasFailures: false }))
+
+    expect(client.createAssembly).toHaveBeenCalledExactlyOnceWith({
+      params: { steps: expect.any(Object) },
+      signal: expect.any(AbortSignal),
+    })
+    expect(await collectRelativeFiles(outputDir)).toEqual([path.join('generated', 'generated.png')])
+    expect(await readFile(path.join(outputDir, 'generated', 'generated.png'), 'utf8')).toBe(
+      'image-bytes',
+    )
+    expect(downloads.isDone()).toBe(true)
   })
 
   it('returns normalized step data from steps input parsing', () => {

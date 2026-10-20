@@ -484,12 +484,16 @@ function getJobInputPath(filepath: string): string {
   return normalizedFile
 }
 
-function createInputUploadStream(filepath: string): Readable {
-  const instream = fs.createReadStream(filepath)
-  // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-  // before being consumed (e.g., due to output collision detection)
-  instream.on('error', () => {})
-  return instream
+function hasPipedStdin(): boolean {
+  if (process.stdin.isTTY) return false
+
+  try {
+    const stats = fs.fstatSync(process.stdin.fd)
+    return stats.isFIFO() || stats.isFile()
+  } catch {
+    // A closed or unavailable descriptor is not an implicit upload.
+    return false
+  }
 }
 
 function createOutputPlan(pathname: string | undefined, mtime: Date): OutputPlan {
@@ -747,7 +751,7 @@ async function resolveResultDownloadTargets({
     return await buildDirectoryDownloadTargets({
       allFiles,
       baseDir: outputRoot,
-      groupByStep: false,
+      groupByStep: inputs.length === 0,
       reservedPaths,
     })
   }
@@ -756,7 +760,7 @@ async function resolveResultDownloadTargets({
     return await buildDirectoryDownloadTargets({
       allFiles,
       baseDir: resolveDirectoryBaseDir(),
-      groupByStep: entries.length > 1,
+      groupByStep: inPath == null || entries.length > 1,
       reservedPaths,
     })
   }
@@ -1592,7 +1596,7 @@ export async function create(
       const uploads =
         inPath === stdinWithPath.path
           ? {
-              in: createInputUploadStream(inPath),
+              in: process.stdin,
             }
           : undefined
 
@@ -1660,7 +1664,7 @@ export async function create(
             scope: collection,
           })
           if (inPath === stdinWithPath.path) {
-            uploads[key] = createInputUploadStream(inPath)
+            uploads[key] = process.stdin
           } else {
             files[key] = inPath
           }
@@ -1802,6 +1806,8 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     details: `
       Create assemblies to process media files using Transloadit.
       You must specify either --steps or --template.
+      Without uploads, directory outputs are saved as <output>/<step>/<result name>.
+      Stdin is read with --input -, or implicitly with --steps when piped or redirected from a file.
     `,
     examples: [
       [
@@ -1811,6 +1817,10 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       [
         'Process with a template',
         'transloadit assemblies create --template TEMPLATE_ID -i input.jpg -o output/',
+      ],
+      [
+        'Download results from import-only or prompt-only steps',
+        'transloadit assemblies create --steps steps.json -o output/',
       ],
       [
         'Watch for changes',
@@ -1864,9 +1874,8 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
 
     const inputList = this.inputs ?? []
 
-    // Default to stdin only for `--steps` mode (common "pipe a file into a one-off assembly" use case).
-    // For `--template` mode, templates may be inputless or use /http/import, so stdin should be explicit (`--input -`).
-    if (this.steps && inputList.length === 0 && !process.stdin.isTTY) {
+    // Templates keep requiring explicit stdin; steps also accept pipes and redirected files.
+    if (this.steps && inputList.length === 0 && hasPipedStdin()) {
       inputList.push('-')
     }
 
@@ -1975,7 +1984,7 @@ export class RunCommand extends AuthenticatedCommand {
   protected async run(): Promise<number | undefined> {
     const inputList = this.inputs ?? []
 
-    if (inputList.length === 0 && !process.stdin.isTTY) {
+    if (inputList.length === 0 && hasPipedStdin()) {
       inputList.push('-')
     }
 
