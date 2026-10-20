@@ -755,6 +755,14 @@ const toAuthRejection = (
 const buildCreatedAssemblyUnavailable = (
   options: TransloaditMcpServerOptions,
   assemblyId: string,
+  describe: (assemblyUrl: string) => { code: string; message: string; hint: string } = (
+    assemblyUrl,
+  ) => ({
+    code: 'mcp_assembly_status_unavailable',
+    message:
+      'The Assembly was created, but Transloadit rejected the credentials while reading its status.',
+    hint: `Reconnect if needed, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl} instead of creating it again.`,
+  }),
 ): CallToolResult => {
   // Matches resolveAssemblyReference: the SDK's default when the endpoint is empty.
   const assemblyUrl = `${options.endpoint || 'https://api2.transloadit.com'}/assemblies/${assemblyId}`
@@ -762,18 +770,23 @@ const buildCreatedAssemblyUnavailable = (
     {
       status: 'error',
       assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
-      errors: [
-        {
-          code: 'mcp_assembly_status_unavailable',
-          message:
-            'The Assembly was created, but Transloadit rejected the credentials while reading its status.',
-          hint: `Reconnect if needed, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl} instead of creating it again.`,
-        },
-      ],
+      errors: [describe(assemblyUrl)],
     },
     { isError: true },
   )
 }
+
+/** The creation request is still in flight after the budget; its ID is chosen by this server. */
+const buildCreationPending = (
+  options: TransloaditMcpServerOptions,
+  assemblyId: string,
+): CallToolResult =>
+  buildCreatedAssemblyUnavailable(options, assemblyId, (assemblyUrl) => ({
+    code: 'mcp_assembly_creation_pending',
+    message:
+      'Transloadit has not confirmed the Assembly yet; the creation request is still running.',
+    hint: `Call transloadit_get_assembly_status with assembly_url ${assemblyUrl} in a moment instead of creating it again. Create it again only if that reports the Assembly does not exist.`,
+  }))
 
 /** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
 const buildCredentialError = (error: {
@@ -1276,6 +1289,8 @@ export const createTransloaditMcpServer = (
       const tempCleanups: Array<() => Promise<void>> = []
       // Uploads or polling that continue after the call returned early.
       let backgroundWork: Promise<void> | undefined
+      // URL downloads that outlived the call's head start; their files are removed after them.
+      let downloadsSettled: Promise<void> | undefined
       const warnings: Array<{ code: string; message: string; hint?: string; path?: string }> = []
       let templatePathHint: string | undefined
 
@@ -1500,6 +1515,15 @@ export const createTransloaditMcpServer = (
           ).catch(buildInputError)
           if (early === deadlineReached) {
             pendingDownloads = downloads
+            // Whatever happens to the Assembly, the files are removed once the download ends.
+            // prepareInputFiles takes no abort signal, so a download whose Assembly failed still
+            // runs until it finishes or hits urlDownloadTimeoutMs.
+            downloadsSettled = downloads.then(
+              (late) => {
+                tempCleanups.push(...late.cleanup)
+              },
+              () => undefined,
+            )
           } else if ('content' in early) {
             return early
           } else {
@@ -1512,7 +1536,6 @@ export const createTransloaditMcpServer = (
           const late = await pendingDownloads.catch((error: unknown) => {
             throw new LateDownloadError('A URL input could not be downloaded.', { cause: error })
           })
-          tempCleanups.push(...late.cleanup)
           return late.files
         }
 
@@ -1547,6 +1570,8 @@ export const createTransloaditMcpServer = (
           resolveCreated = resolve
         })
         let work: Promise<AssemblyStatus>
+        // Chosen by the SDK before the creation request is sent.
+        let creationAssemblyId: string | undefined
         if (reference) {
           work = awaitPendingDownloads().then((late) =>
             resumeUploads(
@@ -1576,6 +1601,7 @@ export const createTransloaditMcpServer = (
             },
             onAssemblyProgress: trackProgress,
           })
+          creationAssemblyId = creation.assemblyId
           work = pendingDownloads
             ? creation.then(async (status) => {
                 const late = await awaitPendingDownloads().catch(async (error: unknown) => {
@@ -1614,11 +1640,23 @@ export const createTransloaditMcpServer = (
                 logger.warn('Assembly work after an early return failed: %s', redactError(cause))
               },
             )
-            assembly =
-              latest ??
-              (reference
-                ? await readAssemblyStatus(client, reference.assemblyId)
-                : await Promise.race([created, work]))
+            if (latest) {
+              assembly = latest
+            } else if (reference) {
+              assembly = await readAssemblyStatus(client, reference.assemblyId)
+            } else {
+              // The creation request itself is slow (or retried); give it as long as a status read.
+              const known = await settleWithin(Promise.race([created, work]), statusReadTimeoutMs)
+              if (known === deadlineReached) {
+                return creationAssemblyId
+                  ? buildCreationPending(options, creationAssemblyId)
+                  : buildToolError(
+                      'mcp_assembly_creation_pending',
+                      'Creating the Assembly is taking too long.',
+                    )
+              }
+              assembly = known
+            }
           }
         } catch (error) {
           if (isPollingTimeout(error) && latest) {
@@ -1626,13 +1664,15 @@ export const createTransloaditMcpServer = (
             assembly = latest
             returnedEarly = true
           } else {
-            if (error instanceof LateDownloadError) return buildInputError(error.cause)
+            const cause = error instanceof LateDownloadError ? error.cause : error
             // Once API2 accepted the creation request, an auth failure (a token expiring while
-            // uploads or polling run) must not reach the client as a challenge: it would refresh
-            // and replay the call, creating and billing a second Assembly.
-            if (createdAssemblyId && toAuthRejection(options, error, credentials, [])) {
+            // uploads or polling run, or a late token check before a download) must not reach the
+            // client as a challenge: it would refresh and replay the call, creating and billing a
+            // second Assembly.
+            if (createdAssemblyId && toAuthRejection(options, cause, credentials, [])) {
               return buildCreatedAssemblyUnavailable(options, createdAssemblyId)
             }
+            if (error instanceof LateDownloadError) return buildInputError(cause)
             if (isErrnoException(error) && error.code === 'ENOENT') {
               return buildToolError(
                 'mcp_file_not_found',
@@ -1670,7 +1710,11 @@ export const createTransloaditMcpServer = (
             ? buildUploadInstructions(
                 assembly,
                 outOfBandUploads,
-                new Set([...Object.keys(filesMap), ...Object.keys(uploadsMap)]),
+                new Set([
+                  ...Object.keys(filesMap),
+                  ...Object.keys(uploadsMap),
+                  ...downloadInputs.map((file) => file.field),
+                ]),
               )
             : undefined
         if (outOfBandUploads > 0 && !uploadInstructions) {
@@ -1714,11 +1758,15 @@ export const createTransloaditMcpServer = (
         const cleanup = async (): Promise<void> => {
           await Promise.all(tempCleanups.map((cleanupFile) => cleanupFile()))
         }
-        // Uploads that continue after an early return still read the prepared files.
-        if (backgroundWork) {
-          void backgroundWork.then(cleanup).catch((error: unknown) => {
-            logger.warn('Removing prepared files failed: %s', redactError(error))
-          })
+        // Uploads that continue after an early return still read the prepared files, and late
+        // downloads add theirs only once they finish. Neither promise rejects.
+        const deferred = [backgroundWork, downloadsSettled].filter((entry) => entry !== undefined)
+        if (deferred.length > 0) {
+          void Promise.all(deferred)
+            .then(cleanup)
+            .catch((error: unknown) => {
+              logger.warn('Removing prepared files failed: %s', redactError(error))
+            })
         } else {
           await cleanup()
         }
