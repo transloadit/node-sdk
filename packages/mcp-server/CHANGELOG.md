@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.7.3
+
+### Patch Changes
+
+- 2d8b688: Fix directory downloads for Assemblies without uploads, including import-only and prompt-only Steps, saving results as `<output>/<step>/<result name>`. Only infer stdin uploads from pipes or redirected files, and use the existing stdin stream for uploads so agent shells and CI do not reopen `/dev/stdin`.
+- Updated dependencies [2d8b688]
+  - @transloadit/node@6.2.2
+
 ## 0.7.2
 
 ### Patch Changes
