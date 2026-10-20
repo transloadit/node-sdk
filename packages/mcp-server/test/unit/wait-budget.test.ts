@@ -173,7 +173,9 @@ describe('waiting within the host tool-call budget', () => {
       running: true,
       assembly: { assembly_id: assemblyId },
       upload: { status: 'uploading', total_files: 1 },
-      warnings: [{ code: 'mcp_assembly_still_running' }],
+      warnings: [
+        { code: 'mcp_assembly_still_running', message: expect.stringContaining('URL input') },
+      ],
     })
     expect(Transloadit.prototype.createAssembly).toHaveBeenCalledWith(
       expect.objectContaining({ files: {}, expectedUploads: 1, waitForCompletion: false }),
@@ -306,9 +308,11 @@ describe('waiting within the host tool-call budget', () => {
 
   it('stays within the budget when the creation request itself outlasts it', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
-    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation(() =>
-      Object.assign(pending(), { assemblyId }),
-    )
+    let signal: AbortSignal | undefined
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
+      signal = options?.signal
+      return Object.assign(pending(), { assemblyId })
+    })
 
     const pendingResult = call('transloadit_create_assembly', {
       instructions: { steps: { resized: { robot: '/image/resize', width: 1 } } },
@@ -334,6 +338,96 @@ describe('waiting within the host tool-call budget', () => {
       errors: [
         { code: 'mcp_assembly_creation_pending', hint: expect.stringContaining(assemblyUrl) },
       ],
+    })
+    // Stopping the request (and any rate-limit retry) is what makes checking the status safe.
+    expect(signal?.aborted).toBe(true)
+  })
+
+  it('reports the pending Assembly when the creation request would time out with the budget', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) =>
+      // Like got: the request fails once the timeout the SDK was given has passed.
+      Object.assign(
+        new Promise<AssemblyStatus>((_resolve, reject) => {
+          setTimeout(
+            reject,
+            options?.timeout,
+            Object.assign(new Error('Timeout'), { name: 'TimeoutError' }),
+          )
+        }),
+        { assemblyId },
+      ),
+    )
+
+    const pendingResult = call(
+      'transloadit_create_assembly',
+      { instructions: { steps: { resized: { robot: '/image/resize', width: 1 } } } },
+      { budgetMs: 30_000 },
+    )
+    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(40_000)
+    const result = await pendingResult
+
+    expect(result.structuredContent).toMatchObject({
+      status: 'error',
+      assembly: { assembly_id: assemblyId },
+      errors: [{ code: 'mcp_assembly_creation_pending' }],
+    })
+  })
+
+  it('returns the known Assembly from transloadit_wait_for_assembly when no status arrives', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockImplementation(() => pending())
+    // Like a rate-limit backoff, which does not observe the abort signal.
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockImplementation(() => pending())
+
+    const pendingResult = call('transloadit_wait_for_assembly', { assembly_url: assemblyUrl })
+    await vi.waitFor(() => expect(Transloadit.prototype.awaitAssemblyCompletion).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(maxWaitMs)
+    await vi.advanceTimersByTimeAsync(10_000)
+    const result = await pendingResult
+
+    expect(result.structuredContent).toMatchObject({
+      status: 'ok',
+      running: true,
+      assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
+      warnings: [{ code: 'mcp_assembly_still_running' }],
+    })
+  })
+
+  it('names the cancelled Assembly when a URL input fails after it was created', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          setTimeout(reject, 15_000, new Error('Network unreachable'))
+        }),
+    )
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
+      options?.onAssemblyCreated?.(uploading)
+      return Object.assign(Promise.resolve(uploading), { assemblyId })
+    })
+
+    const pendingResult = call(
+      'transloadit_create_assembly',
+      {
+        instructions: uploadTemplate,
+        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
+      },
+      { budgetMs: 30_000, bearer: 'forwarded-token' },
+    )
+    await vi.waitFor(() => expect(Transloadit.prototype.listTemplates).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(10_001)
+    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(5_000)
+    const result = await pendingResult
+
+    expect(result.isError).toBe(true)
+    expect(result.structuredContent).toMatchObject({
+      status: 'error',
+      assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
+      errors: [{ code: 'mcp_invalid_args' }],
+      warnings: [{ code: 'mcp_assembly_cancelled' }],
     })
   })
 

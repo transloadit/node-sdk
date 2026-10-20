@@ -500,20 +500,30 @@ const buildShortcutError = (...args: Parameters<typeof buildToolError>): CallToo
   isError: true,
 })
 
+type ToolMessage = { code: string; message: string; hint?: string; path?: string }
+
+/** Describes an input preparation failure that is not an API rejection. */
+const describeInputError = (error: unknown): ToolMessage => {
+  const message = error instanceof Error ? error.message : 'Invalid file input.'
+  if (message.startsWith('Duplicate file field')) {
+    return { code: 'mcp_duplicate_field', message, path: 'files' }
+  }
+  if (message.startsWith('Base64 payload exceeds')) {
+    return {
+      code: 'mcp_base64_too_large',
+      message,
+      hint: 'Use a public URL import or upload from your own machine instead.',
+    }
+  }
+  return { code: 'mcp_invalid_args', message }
+}
+
 /** Maps an input preparation failure to a tool error; API rejections are left to the caller. */
 const buildInputError = (error: unknown): CallToolResult => {
   // API rejections (the token check) are not input mistakes; the outer handler maps them.
   if (error instanceof ApiError) throw error
-  const message = error instanceof Error ? error.message : 'Invalid file input.'
-  if (message.startsWith('Duplicate file field')) {
-    return buildToolError('mcp_duplicate_field', message, { path: 'files' })
-  }
-  if (message.startsWith('Base64 payload exceeds')) {
-    return buildToolError('mcp_base64_too_large', message, {
-      hint: 'Use a public URL import or upload from your own machine instead.',
-    })
-  }
-  return buildToolError('mcp_invalid_args', message)
+  const { code, message, ...details } = describeInputError(error)
+  return buildToolError(code, message, details)
 }
 
 /** A URL input download that failed after the call stopped waiting for it up front. */
@@ -553,8 +563,9 @@ const isAssemblyRunning = (assembly: AssemblyStatus): boolean =>
 
 /** Tells the model that the call returned early and how to follow the Assembly instead of retrying. */
 const buildStillRunningNotice = (
-  assembly: AssemblyStatus,
+  assembly: { assembly_ssl_url?: unknown; assembly_url?: unknown },
   fallbackUrl?: string,
+  pendingDownloadCount = 0,
 ): { code: string; message: string; hint: string } => {
   const assemblyUrl = isNonEmptyString(assembly.assembly_ssl_url)
     ? assembly.assembly_ssl_url
@@ -565,7 +576,9 @@ const buildStillRunningNotice = (
   return {
     code: 'mcp_assembly_still_running',
     message:
-      'Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running.',
+      pendingDownloadCount > 0
+        ? `Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running; ${pendingDownloadCount} URL input(s) are still downloading to this server and are uploaded into it when they arrive. If one cannot be downloaded, the Assembly is cancelled.`
+        : 'Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running.',
     hint: assemblyUrl
       ? `${follow} using assembly_url ${assemblyUrl}; do not create it again.`
       : `${follow}; do not create it again.`,
@@ -751,6 +764,10 @@ const toAuthRejection = (
   return undefined
 }
 
+/** Matches resolveAssemblyReference: the SDK's default when the endpoint is empty. */
+const defaultAssemblyUrl = (options: TransloaditMcpServerOptions, assemblyId: string): string =>
+  `${options.endpoint || 'https://api2.transloadit.com'}/assemblies/${assemblyId}`
+
 /** The Assembly exists, but its status could not be read with the caller's credentials. */
 const buildCreatedAssemblyUnavailable = (
   options: TransloaditMcpServerOptions,
@@ -764,8 +781,7 @@ const buildCreatedAssemblyUnavailable = (
     hint: `Reconnect if needed, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl} instead of creating it again.`,
   }),
 ): CallToolResult => {
-  // Matches resolveAssemblyReference: the SDK's default when the endpoint is empty.
-  const assemblyUrl = `${options.endpoint || 'https://api2.transloadit.com'}/assemblies/${assemblyId}`
+  const assemblyUrl = defaultAssemblyUrl(options, assemblyId)
   return buildToolResponse(
     {
       status: 'error',
@@ -784,9 +800,47 @@ const buildCreationPending = (
   buildCreatedAssemblyUnavailable(options, assemblyId, (assemblyUrl) => ({
     code: 'mcp_assembly_creation_pending',
     message:
-      'Transloadit has not confirmed the Assembly yet; the creation request is still running.',
-    hint: `Call transloadit_get_assembly_status with assembly_url ${assemblyUrl} in a moment instead of creating it again. Create it again only if that reports the Assembly does not exist.`,
+      'Transloadit did not confirm the Assembly in time, so this server stopped sending the creation request. Transloadit may still have received it.',
+    hint: `Wait a few seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist.`,
   }))
+
+/** A URL input failed after its Assembly was created; names the Assembly and its cancellation. */
+const buildLateDownloadFailure = (
+  options: TransloaditMcpServerOptions,
+  assemblyId: string,
+  cause: unknown,
+  cancelled: boolean,
+): CallToolResult => {
+  const assemblyUrl = defaultAssemblyUrl(options, assemblyId)
+  // A token check that failed without rejecting the credentials, such as API2 being unavailable.
+  const failure: ToolMessage =
+    cause instanceof ApiError
+      ? {
+          code: 'mcp_url_download_failed',
+          message: 'Transloadit could not check the credentials before a URL input was downloaded.',
+        }
+      : describeInputError(cause)
+  return buildToolResponse(
+    {
+      status: 'error',
+      assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
+      errors: [failure],
+      warnings: [
+        cancelled
+          ? {
+              code: 'mcp_assembly_cancelled',
+              message: 'The Assembly was cancelled because the URL input never reached it.',
+            }
+          : {
+              code: 'mcp_assembly_cancel_failed',
+              message:
+                'The Assembly could not be cancelled; it stops once it times out waiting for the URL input.',
+            },
+      ],
+    },
+    { isError: true },
+  )
+}
 
 /** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
 const buildCredentialError = (error: {
@@ -945,9 +999,35 @@ const assemblyUrlSchema = z.url()
 
 type AssemblyReference = { assemblyId: string; assemblyUrl: string }
 
-/** Reads an Assembly's current status once, without outlasting the host's patience. */
-const readAssemblyStatus = (client: Transloadit, assemblyId: string): Promise<AssemblyStatus> =>
-  client.getAssembly(assemblyId, { signal: AbortSignal.timeout(statusReadTimeoutMs) })
+/**
+ * Reads an Assembly's current status once, without outlasting the host's patience. The SDK's
+ * rate-limit backoff does not observe the abort signal, so the read is also raced against the
+ * clock; without a status in time, it returns undefined.
+ */
+const readAssemblyStatus = async (
+  client: Transloadit,
+  assemblyId: string,
+): Promise<AssemblyStatus | undefined> => {
+  const status = await settleWithin(
+    // Aborts after the race below gave up, so the abort never becomes the call's error.
+    client.getAssembly(assemblyId, { signal: AbortSignal.timeout(statusReadTimeoutMs + 1_000) }),
+    statusReadTimeoutMs,
+  )
+  return status === deadlineReached ? undefined : status
+}
+
+/** Answers a call that returned early when not even the Assembly's status arrived in time. */
+const buildStatusPendingResponse = (
+  reference: AssemblyReference,
+  fields: Record<string, unknown> = {},
+): CallToolResult =>
+  buildToolResponse({
+    status: 'ok',
+    assembly: { assembly_id: reference.assemblyId, assembly_ssl_url: reference.assemblyUrl },
+    running: true,
+    ...fields,
+    warnings: [buildStillRunningNotice({}, reference.assemblyUrl)],
+  })
 
 /** Production (`.com`) and development or tunnel (`.dev`) Transloadit hosts. */
 const isTransloaditHost = (hostname: string): boolean =>
@@ -1499,9 +1579,11 @@ export const createTransloaditMcpServer = (
           startedAt +
           (waitForCompletion ? Math.min(wait_timeout_ms ?? maxWaitMs, maxWaitMs) : maxWaitMs)
         const remainingMs = (): number => Math.max(deadline - performance.now(), 0)
-        // The SDK also applies this timeout to the creation request, which a nearly spent budget
-        // must not fail. The deadline below bounds the call itself.
-        const sdkTimeout = (): number => Math.max(remainingMs(), minimumSdkTimeoutMs)
+        // The SDK also applies this timeout to the creation request. It outlasts the deadline and
+        // the creation grace period after it, so a request timeout never fails a creation that
+        // API2 may have accepted; the deadline below bounds the call itself.
+        const sdkTimeout = (): number =>
+          Math.max(remainingMs() + statusReadTimeoutMs + 1_000, minimumSdkTimeoutMs)
 
         let downloadedFiles: Record<string, string> = {}
         let pendingDownloads: typeof downloads
@@ -1572,6 +1654,10 @@ export const createTransloaditMcpServer = (
         let work: Promise<AssemblyStatus>
         // Chosen by the SDK before the creation request is sent.
         let creationAssemblyId: string | undefined
+        // Stops a creation request (and its rate-limit retries) that outlasted the call.
+        const creationAbort = new AbortController()
+        // Whether the Assembly a failed URL input was meant for could be cancelled.
+        let lateCancelled = false
         if (reference) {
           work = awaitPendingDownloads().then((late) =>
             resumeUploads(
@@ -1600,6 +1686,7 @@ export const createTransloaditMcpServer = (
               resolveCreated(status)
             },
             onAssemblyProgress: trackProgress,
+            signal: creationAbort.signal,
           })
           creationAssemblyId = creation.assemblyId
           work = pendingDownloads
@@ -1608,7 +1695,10 @@ export const createTransloaditMcpServer = (
                   // Nothing will upload into this Assembly anymore. Cancelling is best effort:
                   // the download failure is what the caller needs to see.
                   if (createdAssemblyId) {
-                    await client.cancelAssembly(createdAssemblyId).catch(() => undefined)
+                    lateCancelled = await client.cancelAssembly(createdAssemblyId).then(
+                      () => true,
+                      () => false,
+                    )
                   }
                   throw error
                 })
@@ -1635,7 +1725,9 @@ export const createTransloaditMcpServer = (
             backgroundWork = work.then(
               () => undefined,
               (error: unknown) => {
-                if (isPollingTimeout(error)) return
+                if (isPollingTimeout(error) || creationAbort.signal.aborted) return
+                // The cancelled Assembly is what follow-up status calls show. Its cause is only
+                // logged: hosted instances keep no per-Assembly state to report it later.
                 const cause = error instanceof LateDownloadError ? error.cause : error
                 logger.warn('Assembly work after an early return failed: %s', redactError(cause))
               },
@@ -1643,11 +1735,21 @@ export const createTransloaditMcpServer = (
             if (latest) {
               assembly = latest
             } else if (reference) {
-              assembly = await readAssemblyStatus(client, reference.assemblyId)
+              const status = await readAssemblyStatus(client, reference.assemblyId)
+              if (!status) {
+                return buildStatusPendingResponse(reference, {
+                  upload: { ...uploadSummary, status: 'uploading', resumed: true },
+                  next_steps: ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status'],
+                })
+              }
+              assembly = status
             } else {
               // The creation request itself is slow (or retried); give it as long as a status read.
               const known = await settleWithin(Promise.race([created, work]), statusReadTimeoutMs)
               if (known === deadlineReached) {
+                // Without the request, nothing can create this Assembly later, so a status check
+                // that finds no Assembly makes creating it again safe.
+                creationAbort.abort()
                 return creationAssemblyId
                   ? buildCreationPending(options, creationAssemblyId)
                   : buildToolError(
@@ -1670,9 +1772,19 @@ export const createTransloaditMcpServer = (
             // client as a challenge: it would refresh and replay the call, creating and billing a
             // second Assembly.
             if (createdAssemblyId && toAuthRejection(options, cause, credentials, [])) {
-              return buildCreatedAssemblyUnavailable(options, createdAssemblyId)
+              return error instanceof LateDownloadError
+                ? buildCreatedAssemblyUnavailable(options, createdAssemblyId, (assemblyUrl) => ({
+                    code: 'mcp_assembly_status_unavailable',
+                    message: `Transloadit rejected the credentials before a URL input could be downloaded, after the Assembly was created. ${lateCancelled ? 'The Assembly was cancelled.' : 'The Assembly could not be cancelled.'}`,
+                    hint: `Reconnect if needed, then check transloadit_get_assembly_status with assembly_url ${assemblyUrl} before creating it again.`,
+                  }))
+                : buildCreatedAssemblyUnavailable(options, createdAssemblyId)
             }
-            if (error instanceof LateDownloadError) return buildInputError(cause)
+            if (error instanceof LateDownloadError) {
+              return createdAssemblyId
+                ? buildLateDownloadFailure(options, createdAssemblyId, cause, lateCancelled)
+                : buildInputError(cause)
+            }
             if (isErrnoException(error) && error.code === 'ENOENT') {
               return buildToolError(
                 'mcp_file_not_found',
@@ -1725,7 +1837,14 @@ export const createTransloaditMcpServer = (
         }
         const running = isAssemblyRunning(assembly)
         if (returnedEarly && running) {
-          warnings.push(buildStillRunningNotice(assembly, reference?.assemblyUrl))
+          warnings.push(
+            buildStillRunningNotice(
+              assembly,
+              reference?.assemblyUrl,
+              // All URL inputs download together, so either none or all of them are pending.
+              workSettled || !pendingDownloads ? 0 : downloadInputs.length,
+            ),
+          )
         }
         const nextSteps = uploadInstructions
           ? ['transloadit_wait_for_assembly']
@@ -1892,7 +2011,17 @@ export const createTransloaditMcpServer = (
         if (outcome === deadlineReached) {
           polling.abort()
           returnedEarly = true
-          assembly = latest ?? (await readAssemblyStatus(access.client, access.assemblyId))
+          const status = latest ?? (await readAssemblyStatus(access.client, access.assemblyId))
+          if (!status) {
+            return buildStatusPendingResponse(
+              {
+                assemblyId: access.assemblyId,
+                assemblyUrl: access.assemblyUrl ?? defaultAssemblyUrl(options, access.assemblyId),
+              },
+              { waited_ms: Date.now() - start },
+            )
+          }
+          assembly = status
         } else {
           assembly = outcome
         }
