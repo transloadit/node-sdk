@@ -291,7 +291,11 @@ describe('Builtin shortcuts with URL inputs', () => {
   })
 
   it.each([
-    { name: 'still importing', status: executing },
+    { name: 'still importing', status: { ...executing, executing_jobs: ['imported'] } },
+    {
+      name: 'importing between status reads',
+      status: { ...executing, started_jobs: ['imported::imported'] },
+    },
     {
       name: 'failed to import',
       status: { assembly_id: assemblyId, error: 'HTTP_IMPORT_VALIDATION' },
@@ -318,6 +322,85 @@ describe('Builtin shortcuts with URL inputs', () => {
       files: [url(photo)],
     })
     expect(result.isError).toBe(true)
+    expect(creations).toHaveLength(1)
+  })
+
+  it('stops probing once the status shows the import running', async () => {
+    createReturns(executing)
+    const status = vi
+      .spyOn(Transloadit.prototype, 'getAssembly')
+      .mockResolvedValue({ ...executing, executing_jobs: ['imported'] })
+    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', { files: [url(photo)] })
+    expect(status).toHaveBeenCalledTimes(1)
+    expect(creations).toHaveLength(1)
+  })
+
+  it('keeps probing a slow host until it shows whether it imported the URLs', async () => {
+    nock(origin).get('/photo.jpg').reply(200, 'bytes')
+    createReturns(executing, { ...executing, assembly_id: 'f'.repeat(32) })
+    vi.spyOn(Transloadit.prototype, 'getAssembly')
+      .mockResolvedValueOnce(executing)
+      .mockResolvedValueOnce(executing)
+      .mockResolvedValue(completed)
+    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', { files: [url(photo)] })
+    expect(creations).toHaveLength(2)
+    expect(creations[1]?.params).not.toHaveProperty('input_url')
+  })
+
+  it('keeps upload reservations for upload_behavior none', async () => {
+    nock(origin).get('/photo.jpg').reply(200, 'bytes')
+    createReturns(executing)
+    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
+      files: [url(photo)],
+      upload_behavior: 'none',
+    })
+    expect(creations).toHaveLength(1)
+    expect(creations[0]?.params).not.toHaveProperty('input_url')
+    expect(Object.keys(creations[0]?.files ?? {})).toEqual(['file'])
+  })
+
+  it.each([
+    { name: 'a file', args: { files: [{ ...url(`${origin}/doc`), filename: 'notes.md' }] } },
+    {
+      name: 'an attachment',
+      args: {
+        attachments: [{ download_url: `${origin}/doc`, file_id: 'f', file_name: 'notes.md' }],
+      },
+    },
+  ])('downloads $name whose given name differs from its URL, to keep that name', async ({
+    args,
+  }) => {
+    const download = nock(origin).get('/doc').reply(200, '# Notes')
+    createReturns(executing)
+    await call('transloadit_convert_to_pdf', 'builtin/convert-to-pdf@0.0.1', args)
+    expect(download.isDone()).toBe(true)
+    expect(creations[0]?.params).not.toHaveProperty('input_url')
+  })
+
+  it('sends a URL whose given name matches its own as input_url', async () => {
+    createReturns({ ...completed, num_input_files: 1 })
+    await call('transloadit_convert_to_pdf', 'builtin/convert-to-pdf@0.0.1', {
+      attachments: [
+        {
+          download_url: `${origin}/dir/notes%20v2.md?sig=1`,
+          file_id: 'f',
+          file_name: 'notes v2.md',
+        },
+      ],
+      wait_for_completion: true,
+    })
+    expect(creations[0]?.params).toMatchObject({ input_url: [`${origin}/dir/notes%20v2.md?sig=1`] })
+  })
+
+  it('does not probe past the caller’s wait deadline', async () => {
+    createReturns(executing)
+    const status = vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue(completed)
+    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
+      files: [url(photo)],
+      wait_for_completion: true,
+      wait_timeout_ms: 1,
+    })
+    expect(status).not.toHaveBeenCalled()
     expect(creations).toHaveLength(1)
   })
 })

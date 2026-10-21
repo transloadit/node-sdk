@@ -2,6 +2,8 @@ import type { InputFile, Transloadit } from '@transloadit/node'
 import type { BuiltinTemplateCatalogItem } from '@transloadit/zod/v4/builtinTemplates'
 import type { ValidateFunction } from 'ajv'
 
+import { basename } from 'node:path'
+
 import {
   builtinTemplateCatalogItemSchema,
   mcpBuiltinInputUrlMaxCounts,
@@ -177,11 +179,21 @@ const isLiteralHttpUrl = (value: string): boolean => {
   return protocol === 'http:' || protocol === 'https:'
 }
 
+const urlFilename = (value: string): string | undefined => {
+  const segment = new URL(value).pathname.split('/').pop()
+  if (!segment) return undefined
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
+
 /**
  * The URLs a shortcut call hands to API2 as `input_url`, so API2 imports them itself and nothing
  * is downloaded here. Only for eligible Builtins and calls whose every input is such a URL;
- * anything else (local, base64 or sandbox inputs, too many URLs) returns undefined and keeps the
- * download-and-upload path.
+ * anything else (local, base64 or sandbox inputs, too many URLs, names the URLs do not carry)
+ * returns undefined and keeps the download-and-upload path.
  */
 export const selectBuiltinInputUrls = (
   templateId: string,
@@ -195,6 +207,10 @@ export const selectBuiltinInputUrls = (
   const urls: string[] = []
   for (const input of inputs) {
     if (input.kind !== 'url' || !isLiteralHttpUrl(input.url)) return undefined
+    // API2 names an imported file after its URL. A different given name (an opaque host
+    // attachment URL, say) may carry the extension processing depends on, so keep downloading.
+    if (input.filename !== undefined && basename(input.filename) !== urlFilename(input.url))
+      return undefined
     urls.push(input.url)
   }
   return urls

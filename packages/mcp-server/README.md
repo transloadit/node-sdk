@@ -531,9 +531,10 @@ The Builtin shortcuts for `caption-video`, `convert-to-pdf`, `encode-video`, `ex
 [`input_url`](https://github.com/transloadit/api2/pull/10292) next to `template_id` when every
 file and attachment of the call is a URL (up to 10, one for `caption-video`). Transloadit then
 fetches the files itself, so the Assembly exists at once and nothing is downloaded by the MCP server
-or held up by a large file. File names come from the URLs. Calls that mix URLs with base64 files
-or sandbox uploads, and URLs that API2 would refuse (whitespace, `|`, `${…}`, over 4096
-characters), keep the download path above. When API2 refuses `input_url` for the request, or ran
+or held up by a large file. API2 names the files after their URLs, so inputs given a different
+name (such as host attachments with opaque URLs) keep the download path above, as do calls that
+mix URLs with base64 files or sandbox uploads, calls with `upload_behavior: 'none'`, and URLs that
+API2 would refuse (whitespace, `|`, `${…}`, over 4096 characters). When API2 refuses `input_url` for the request, or ran
 the Builtin without importing the URLs (an API2 host that predates `input_url`), the shortcut
 downloads and uploads the URLs as before; the eligible Builtins are listed in the
 [alphalib Builtin manifest](../node/src/alphalib/types/builtinTemplates.ts).

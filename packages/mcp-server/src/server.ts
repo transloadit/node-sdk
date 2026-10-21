@@ -1236,20 +1236,35 @@ const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => 
 
 /**
  * Status reads after an `input_url` creation that tell an API2 without input_url support, whose
- * Assembly completes without input files within milliseconds, from one still importing the URLs.
+ * Assembly completes without input files within milliseconds, from one importing the URLs. The
+ * reads stop at the first conclusive status, so a working host costs one or two of them.
  * Remove once api2#10292 runs on every API2 host.
  */
-const inputUrlProbeDelaysMs = [0, 300]
+const inputUrlProbeDelaysMs = [0, 300, 700, 1500]
+
+/** The `/http/import` Step that API2 puts in place of a Builtin's upload input. */
+const inputUrlImportStepName = 'imported'
+
+const listsImportJob = (jobs: unknown): boolean =>
+  Array.isArray(jobs) &&
+  jobs.some(
+    (job) =>
+      job === inputUrlImportStepName ||
+      (typeof job === 'string' && job.startsWith(`${inputUrlImportStepName}::`)),
+  )
 
 /**
- * `ignored`: the Assembly completed without any input file, so API2 dropped `input_url`; an import
- * that fetched nothing ends with an error instead. `pending`: still running without input files.
+ * `used`: API2 runs or ran the import Step (eligible Builtins have no Step of that name
+ * otherwise), or the Assembly has input files or failed. `ignored`: it completed without any
+ * input file, so API2 dropped `input_url`; an import that fetched nothing ends with an error
+ * instead. `pending`: still running without either sign.
  */
 const classifyInputUrlImport = (
   status: Record<string, unknown>,
 ): 'ignored' | 'used' | 'pending' => {
   if (status.error != null) return 'used'
   if (typeof status.num_input_files === 'number' && status.num_input_files > 0) return 'used'
+  if (listsImportJob(status.executing_jobs) || listsImportJob(status.started_jobs)) return 'used'
   if (status.ok === 'ASSEMBLY_COMPLETED' && status.num_input_files === 0) return 'ignored'
   return typeof status.ok === 'string' && runningAssemblyStates.has(status.ok) ? 'pending' : 'used'
 }
@@ -1927,17 +1942,25 @@ export const createTransloaditMcpServer = (
     if (result.structuredContent?.status !== 'ok' || !isRecord(created)) return result
     const assemblyId = created.assembly_id
     const live = createLiveClient(options, extra)
+    // The same deadline the call itself waits for; probing must not outlast it.
+    const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
+    const deadline =
+      startedAt +
+      (args.wait_for_completion
+        ? Math.min(args.wait_timeout_ms ?? maxWaitMs, maxWaitMs)
+        : maxWaitMs)
     let outcome = classifyInputUrlImport(created)
     for (const delayMs of inputUrlProbeDelaysMs) {
       if (outcome !== 'pending' || !isNonEmptyString(assemblyId) || 'error' in live) break
       // The probe must not spend the budget the fallback download still needs.
-      if (startedAt + (options.maxWaitMs ?? defaultMaxWaitMs) - performance.now() < delayMs * 2)
-        break
+      if (deadline - performance.now() < Math.max(delayMs * 2, 1)) break
       await delay(delayMs)
       const status = await readAssemblyStatus(live.client, assemblyId).catch(() => undefined)
       if (!status) break
       outcome = classifyInputUrlImport(status)
     }
+    // Still pending after the probes counts as importing: uploading then would process the files
+    // twice on a working host, while an old host has never taken this long for an empty Assembly.
     if (outcome !== 'ignored') return result
     logger.warn(
       'API2 ran Assembly %s without importing input_url; uploading the URLs instead.',
@@ -1991,11 +2014,15 @@ export const createTransloaditMcpServer = (
         }
         return buildShortcutError('mcp_invalid_builtin_fields', error.message, { path: 'fields' })
       }
-      const inputUrls = selectBuiltinInputUrls(
-        template.id,
-        [...(args.files ?? []), ...toAttachmentInputs(args.attachments ?? [])],
-        args.expected_uploads,
-      )
+      // upload_behavior none asks for reserved upload URLs, which only the upload path hands out.
+      const inputUrls =
+        args.upload_behavior === 'none'
+          ? undefined
+          : selectBuiltinInputUrls(
+              template.id,
+              [...(args.files ?? []), ...toAttachmentInputs(args.attachments ?? [])],
+              args.expected_uploads,
+            )
       const imported = inputUrls
         ? await createWithInputUrls(
             {
