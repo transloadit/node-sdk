@@ -141,6 +141,18 @@ describe('URL inputs for Steps that take uploads', () => {
       },
     },
     {
+      name: 'Steps whose `use` is interpolated',
+      instructions: {
+        steps: { ...uploadSteps, resized: { ...resized, use: '${fields.source}' } },
+        fields: { source: ':original' },
+      },
+    },
+    {
+      name: 'a URL with a pipe, which /http/import would split',
+      instructions: { steps: uploadSteps },
+      url: 'http://198.51.100.10/first.jpg?filters=a|b',
+    },
+    {
       name: 'one URL given twice under different names',
       instructions: { steps: uploadSteps },
       extraFiles: [{ kind: 'url', field: 'again', url: firstUrl, filename: 'again.jpg' }],
@@ -159,9 +171,10 @@ describe('URL inputs for Steps that take uploads', () => {
       instructions: { template_id: 'builtin/prepare-image@0.0.1' },
       template: { allow_steps_override: false, steps: uploadSteps },
     },
-  ])('still downloads the URL for $name', async ({ instructions, extraFiles, template }) => {
+  ])('still downloads the URL for $name', async ({ instructions, extraFiles, template, url }) => {
     const download = nock('http://198.51.100.10')
       .get('/first.jpg')
+      .query(true)
       .times(1 + (extraFiles ?? []).filter((file) => file.kind === 'url').length)
       .reply(200, 'Image bytes')
     if (template) {
@@ -173,7 +186,7 @@ describe('URL inputs for Steps that take uploads', () => {
 
     const result = await call({
       instructions,
-      files: [{ kind: 'url', field: 'first', url: firstUrl }, ...(extraFiles ?? [])],
+      files: [{ kind: 'url', field: 'first', url: url ?? firstUrl }, ...(extraFiles ?? [])],
     })
 
     expect(result.structuredContent).toMatchObject({ status: 'ok' })

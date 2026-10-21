@@ -566,7 +566,7 @@ const buildStillRunningNotice = (
   return {
     code: 'mcp_assembly_still_running',
     message:
-      'Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running.',
+      'Returned before the Assembly finished, within the time this call may wait. The Assembly keeps running.',
     hint: assemblyUrl
       ? `${follow} using assembly_url ${assemblyUrl}; do not create it again.`
       : `${follow}; do not create it again.`,
@@ -791,11 +791,11 @@ const buildCreationPending = (
     message:
       'Transloadit did not confirm the Assembly in time, so this server stopped sending the creation request. Transloadit may still have received it.',
     // An Assembly that API2 accepted only after the request was stopped never receives this
-    // call's files; it fails once it times out waiting for them, so creating it again is safe.
+    // call's files, but its imports may already run, so it is resumed rather than created again.
     // API2 could in theory still be handling a request it received before the abort, so the
     // hint asks for a pause first. Strict idempotency would need an API2 creation key, which
     // does not exist; this path only runs after a request already took longer than the budget.
-    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist${hasUploads ? ', or that it is still waiting for uploads (ASSEMBLY_UPLOADING): its files were never sent' : ''}.`,
+    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist${hasUploads ? `. If it is still waiting for uploads (ASSEMBLY_UPLOADING), its files were never sent: resume it with assembly_url ${assemblyUrl} and the same files` : ''}.`,
   }))
 
 /** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
@@ -966,7 +966,11 @@ const replaceUploadWithImport = (
   for (const [name, step] of Object.entries(steps)) {
     if (name === uploadStepName) continue
     if (!isRecord(step) || step.use === undefined || selectsByField(step.use)) return undefined
+    // An interpolated reference to the upload Step cannot be renamed before API2 resolves it.
+    if (JSON.stringify(step.use).includes('${')) return undefined
   }
+  // /http/import splits each URL at its url_delimiter, which defaults to a pipe.
+  if (urlInputs.some(({ url }) => url.includes('|'))) return undefined
   // Interpolations such as ${file.field} or ${file['field']} would no longer match.
   if (/\$\{[^}]*\bfield\b/.test(JSON.stringify(steps))) return undefined
   // Imports are named after their URL. Keep the names a caller gave, as a download did, because
@@ -1542,6 +1546,9 @@ export const createTransloaditMcpServer = (
             // Uploads would make this server download every URL before the Assembly exists.
             // Transloadit fetches them itself once the upload Step becomes an /http/import Step.
             // Builtins forbid Steps overrides, so their own Steps run without the Template ID.
+            // API2 offers no way to keep the Builtin association with other Steps (it rejects
+            // fields.associate_with_template_id then too); that is the accepted cost of not
+            // holding the Assembly back for a download.
             const importSteps = mergedSteps && replaceUploadWithImport(mergedSteps, urlInputs)
             if (importSteps && mergedInstructions) {
               const {

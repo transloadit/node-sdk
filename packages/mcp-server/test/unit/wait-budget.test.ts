@@ -265,6 +265,31 @@ describe('waiting within the host tool-call budget', () => {
     expect(signal?.aborted).toBe(true)
   })
 
+  it('suggests resuming, not recreating, an Assembly that waits for uploads after a stopped creation', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation(() =>
+      Object.assign(pending(), { assemblyId }),
+    )
+
+    const pendingResult = call('transloadit_create_assembly', {
+      instructions: uploadTemplate,
+      files: [{ kind: 'base64', field: 'file', base64: 'aGVsbG8=', filename: 'hello.txt' }],
+    })
+    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(maxWaitMs + 10_000)
+    const result = await pendingResult
+
+    // Imports in such an Assembly may already have been processed or exported.
+    expect(result.structuredContent).toMatchObject({
+      errors: [
+        {
+          code: 'mcp_assembly_creation_pending',
+          hint: expect.stringContaining(`resume it with assembly_url ${assemblyUrl}`),
+        },
+      ],
+    })
+  })
+
   it('reports the pending Assembly when the creation request would time out with the budget', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
     vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) =>
