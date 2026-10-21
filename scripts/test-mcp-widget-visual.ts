@@ -6,8 +6,8 @@ import { execa } from 'execa'
 
 const usage = `Usage: node scripts/test-mcp-widget-visual.ts [--update] [--states-dir <dir>] [-- <playwright args>]
 
-Runs the MCP result widget's visual and stability specs in the official Playwright image, the
-same one CI uses, so screenshots match the committed baselines regardless of local fonts.
+Runs the MCP result widget's visual and stability specs in the official Playwright image with
+a patched Node runtime, matching CI, so screenshots match the baselines regardless of local fonts.
 
   --update            Rewrite every baseline screenshot.
   --states-dir <dir>  Also write each state as a flat PNG, e.g. /tmp/widget-states, plus an
@@ -65,8 +65,19 @@ async function main(): Promise<void> {
   ) {
     throw new Error('Could not read the installed @playwright/test version')
   }
-  // Keep in sync with the visual job's container in .github/workflows/ci.yml.
-  const image = `mcr.microsoft.com/playwright:v${playwrightPackage.version}-noble`
+  // Keep the runtime and browser image in sync with the visual job in .github/workflows/ci.yml.
+  const nodeVersion = '24.22.1'
+  const image = `transloadit-mcp-widget:${playwrightPackage.version}-node${nodeVersion}`
+  await execa('docker', ['build', '--tag', image, '-'], {
+    // Replacing only Node preserves the browsers and fonts used by the committed baselines.
+    input: `FROM node:${nodeVersion}-bookworm-slim AS runtime
+FROM mcr.microsoft.com/playwright:v${playwrightPackage.version}-noble
+COPY --from=runtime /usr/local/bin/node /usr/local/bin/node
+RUN node --version && test "$(node --version)" = "v${nodeVersion}"
+`,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  })
 
   const statesDir = values['states-dir'] ? resolve(values['states-dir']) : undefined
   if (statesDir) await mkdir(statesDir, { recursive: true })
