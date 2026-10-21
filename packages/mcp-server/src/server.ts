@@ -1718,7 +1718,7 @@ export const createTransloaditMcpServer = (
                 // Without the request, nothing can create this Assembly later, so a status check
                 // that finds no Assembly makes creating it again safe. The SDK keeps the read
                 // streams it opened for the files until they are collected, as on any failed
-                // creation; closing them needs an SDK change (tracked outside this server).
+                // creation; closing them needs an SDK change.
                 creationAbort.abort()
                 return creationAssemblyId
                   ? buildCreationPending(
