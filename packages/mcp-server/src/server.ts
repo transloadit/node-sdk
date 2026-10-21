@@ -1967,7 +1967,11 @@ export const createTransloaditMcpServer = (
     }
     // Still pending after the probes counts as importing: uploading then would process the files
     // twice on a working host, while an old host has never taken this long for an empty Assembly.
+    // The probes only choose the path, so the response keeps the status the call itself returned,
+    // like any call that does not wait.
     if (outcome !== 'ignored') return result
+    // The empty Assembly is a transition artifact that processed nothing, so it is only logged;
+    // the response describes the Assembly that processes the files.
     logger.warn(
       'API2 ran Assembly %s without importing input_url; uploading the URLs instead.',
       assemblyId,
