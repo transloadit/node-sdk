@@ -431,10 +431,10 @@ describe('waiting within the host tool-call budget', () => {
     expect(payload.upload_instructions).toEqual([expect.objectContaining({ fieldname: 'file_2' })])
   })
 
-  it('still waits for a resumed Assembly whose expected uploads all arrived', async () => {
+  it('hands out upload instructions at once instead of waiting on a resumed Assembly', async () => {
     vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue({
-      ...executing,
-      ok: 'ASSEMBLY_COMPLETED',
+      ...uploading,
+      tus_url: 'https://api2.transloadit.com/resumable/files/',
     })
 
     const result = await call('transloadit_create_assembly', {
@@ -443,11 +443,28 @@ describe('waiting within the host tool-call budget', () => {
       wait_for_completion: true,
     })
 
+    // Waiting would spend the whole budget on an Assembly that waits for these very uploads.
     expect(Transloadit.prototype.resumeAssemblyUploads).toHaveBeenCalledWith(
-      expect.objectContaining({ waitForCompletion: true }),
+      expect.objectContaining({ waitForCompletion: false }),
     )
-    const payload = result.structuredContent as { warnings?: unknown }
+    expect(result.structuredContent).toMatchObject({
+      upload_instructions: [{ fieldname: 'file_1' }],
+      warnings: [{ code: 'mcp_wait_skipped_for_uploads' }],
+    })
+  })
+
+  it('does not point at upload instructions a resumed Assembly does not need', async () => {
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue(executing)
+
+    const result = await call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      expected_uploads: 1,
+      wait_for_completion: true,
+    })
+
+    const payload = result.structuredContent as { warnings?: unknown; next_steps?: unknown }
     expect(payload.warnings).toBeUndefined()
+    expect(payload.next_steps).toContain('transloadit_wait_for_assembly')
   })
 
   it('hands out no upload instructions for a resumed Assembly that no longer waits for uploads', async () => {
@@ -470,6 +487,33 @@ describe('waiting within the host tool-call budget', () => {
     expect(payload.warnings).toBeUndefined()
   })
 
+  it('keeps the call’s own files in the upload instructions hint of a resumed Assembly', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockImplementation(() => pending())
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockImplementation(() => pending())
+
+    const pendingResult = call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      files: [{ kind: 'base64', field: 'file', base64: 'aGVsbG8=', filename: 'hello.txt' }],
+      expected_uploads: 2,
+    })
+    await vi.waitFor(() => expect(Transloadit.prototype.resumeAssemblyUploads).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(maxWaitMs + 10_000)
+    const result = await pendingResult
+
+    // Without its own file, the next call would hand out a command for that upload as well.
+    expect(result.structuredContent).toMatchObject({
+      warnings: expect.arrayContaining([
+        expect.objectContaining({
+          code: 'mcp_upload_instructions_pending',
+          hint: expect.stringContaining(
+            `assembly_url ${assemblyUrl}, the same files and expected_uploads 2`,
+          ),
+        }),
+      ]),
+    })
+  })
+
   it('says how to get upload instructions when a resumed Assembly has no status in time', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
     vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockImplementation(() => pending())
@@ -489,7 +533,9 @@ describe('waiting within the host tool-call budget', () => {
       warnings: expect.arrayContaining([
         expect.objectContaining({
           code: 'mcp_upload_instructions_pending',
-          hint: expect.stringContaining(`assembly_url ${assemblyUrl} and expected_uploads 1`),
+          hint: expect.stringMatching(
+            `^Wait about 30 seconds.* assembly_url ${assemblyUrl} and expected_uploads 1`,
+          ),
         }),
       ]),
     })

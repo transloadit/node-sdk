@@ -1571,19 +1571,11 @@ export const createTransloaditMcpServer = (
 
         // Files the caller uploads itself (from a sandbox) can only start once this call returns,
         // so waiting here would just run into the timeout. A resumed Assembly hands them out
-        // again, e.g. after a creation request that was stopped, but only its status tells
-        // whether they already arrived, so a resume still waits when asked to; one that returns
-        // early still gets the upload instructions.
+        // again, e.g. after a creation request that was stopped. Whether its uploads already
+        // arrived shows only in its status, so a resume with expected_uploads does not wait
+        // either; next_steps then point to transloadit_wait_for_assembly.
         const outOfBandUploads = Math.max((expected_uploads ?? 0) - totalFiles, 0)
-        const skipWaitForUploads = !reference && outOfBandUploads > 0
-        const waitForCompletion = (wait_for_completion ?? false) && !skipWaitForUploads
-        if (wait_for_completion && skipWaitForUploads) {
-          warnings.push({
-            code: 'mcp_wait_skipped_for_uploads',
-            message:
-              'Did not wait for completion because the Assembly waits for the expected uploads. Run upload_instructions, then call transloadit_wait_for_assembly.',
-          })
-        }
+        const waitForCompletion = (wait_for_completion ?? false) && outOfBandUploads === 0
         const uploadBehavior = upload_behavior ?? (waitForCompletion ? 'await' : 'background')
         const uploadConcurrency = upload_concurrency
         const chunkSize = upload_chunk_size
@@ -1695,7 +1687,9 @@ export const createTransloaditMcpServer = (
                           code: 'mcp_upload_instructions_pending',
                           message:
                             'The upload instructions were not ready before this call returned.',
-                          hint: `Call transloadit_create_assembly with assembly_url ${reference.assemblyUrl} and expected_uploads ${expected_uploads} to get them.`,
+                          // Uploads this call started still reserve their fields; with the same
+                          // files, the next call reuses them instead of handing out commands.
+                          hint: `Wait about 30 seconds, then call transloadit_create_assembly with assembly_url ${reference.assemblyUrl}${totalFiles > 0 ? ', the same files' : ''} and expected_uploads ${expected_uploads} to get them.`,
                         },
                       ]
                     : []),
@@ -1806,6 +1800,13 @@ export const createTransloaditMcpServer = (
                 new Set([...ownFields, ...receivedFields]),
               )
             : undefined
+        if (wait_for_completion && uploadInstructions) {
+          warnings.push({
+            code: 'mcp_wait_skipped_for_uploads',
+            message:
+              'Did not wait for completion because the Assembly waits for the expected uploads. Run upload_instructions, then call transloadit_wait_for_assembly.',
+          })
+        }
         if (pendingUploads > 0 && !uploadInstructions) {
           warnings.push({
             code: 'mcp_upload_instructions_unavailable',
