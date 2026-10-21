@@ -1515,15 +1515,17 @@ export const createTransloaditMcpServer = (
           // download once the budget is spent; a retry would otherwise run next to it. The extra
           // second lets the budget check below answer first, with mcp_preparation_timeout. Each
           // download gets this timeout from its own start, but beforeUrlDownload starts none
-          // after the budget.
+          // after the budget, so an abandoned download ends at most one timeout after the budget
+          // (twice the budget at worst). A tighter bound needs an abort signal in the SDK, which
+          // the URL import work in API2 makes unnecessary.
           urlDownloadTimeoutMs: Math.min(
             options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
             preparationRemainingMs() + 1_000,
           ),
           // Runs before each download, so an abandoned preparation starts no further one.
           beforeUrlDownload: async () => {
-            if (preparationRemainingMs() === 0) throw new Error('The wait budget is spent.')
             if (credentials === 'bearer') await verifyTokenBeforeDownload()
+            if (preparationRemainingMs() === 0) throw new Error('The wait budget is spent.')
           },
         })
         const prep = await settleWithin(preparation, preparationRemainingMs()).catch(
@@ -1671,14 +1673,29 @@ export const createTransloaditMcpServer = (
                 () => undefined,
               )
               if (!status) {
-                // Without uploads, nothing sends the files; the caller needs the reserved URLs.
-                const reserveOnly = uploadBehavior === 'none' && totalFiles > 0
+                // Nothing sends reserved files or sandbox files by itself; say how to get the
+                // URLs or commands for them.
+                const recovery = [
+                  ...(uploadBehavior === 'none' && totalFiles > 0
+                    ? [buildUploadUrlsPending(reference.assemblyUrl)]
+                    : []),
+                  ...(outOfBandUploads > 0
+                    ? [
+                        {
+                          code: 'mcp_upload_instructions_pending',
+                          message:
+                            'The upload instructions were not ready before this call returned.',
+                          hint: `Call transloadit_create_assembly with assembly_url ${reference.assemblyUrl} and expected_uploads ${expected_uploads} to get them.`,
+                        },
+                      ]
+                    : []),
+                ]
                 return buildStatusPendingResponse(
                   reference,
                   {
                     upload: {
                       ...uploadSummary,
-                      status: uploadBehavior === 'none' ? 'none' : 'uploading',
+                      status: uploadBehavior === 'none' || totalFiles === 0 ? 'none' : 'uploading',
                       resumed: true,
                     },
                     next_steps: [
@@ -1686,7 +1703,7 @@ export const createTransloaditMcpServer = (
                       'transloadit_get_assembly_status',
                     ],
                   },
-                  reserveOnly ? [buildUploadUrlsPending(reference.assemblyUrl)] : [],
+                  recovery,
                 )
               }
               assembly = status
@@ -1756,15 +1773,26 @@ export const createTransloaditMcpServer = (
           uploadSummary.upload_urls = assembly.upload_urls as Record<string, string>
         }
 
+        const ownFields = new Set([...Object.keys(filesMap), ...Object.keys(uploadsMap)])
+        // A resumed Assembly may have received some uploads already, and takes more only while
+        // it waits for them; expected_uploads counts all of its uploads, as at creation.
+        const receivedFields = (Array.isArray(assembly.uploads) ? assembly.uploads : [])
+          .map((upload) => (isRecord(upload) ? upload.field : undefined))
+          .filter((field): field is string => isNonEmptyString(field) && !ownFields.has(field))
+        const pendingUploads = !reference
+          ? outOfBandUploads
+          : assembly.ok === 'ASSEMBLY_UPLOADING'
+            ? Math.max(outOfBandUploads - receivedFields.length, 0)
+            : 0
         const uploadInstructions =
-          outOfBandUploads > 0
+          pendingUploads > 0
             ? buildUploadInstructions(
                 assembly,
-                outOfBandUploads,
-                new Set([...Object.keys(filesMap), ...Object.keys(uploadsMap)]),
+                pendingUploads,
+                new Set([...ownFields, ...receivedFields]),
               )
             : undefined
-        if (outOfBandUploads > 0 && !uploadInstructions) {
+        if (pendingUploads > 0 && !uploadInstructions) {
           warnings.push({
             code: 'mcp_upload_instructions_unavailable',
             message: 'The Assembly status has no tus_url or assembly_ssl_url to upload to.',

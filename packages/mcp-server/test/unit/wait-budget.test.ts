@@ -230,6 +230,31 @@ describe('waiting within the host tool-call budget', () => {
     expect(second.isDone()).toBe(false)
   })
 
+  it('starts no download when the token check ends after the budget', async () => {
+    const download = nock('http://198.51.100.10').get('/file.jpg').reply(200, 'Downloaded bytes')
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(resolve, maxWaitMs + 200, { items: [], count: 0 })
+        }),
+    )
+
+    const result = await call(
+      'transloadit_create_assembly',
+      {
+        instructions: uploadTemplate,
+        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/file.jpg' }],
+      },
+      { bearer: 'forwarded-token' },
+    )
+
+    expect(result.structuredContent).toMatchObject({
+      errors: [{ code: 'mcp_preparation_timeout' }],
+    })
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(download.isDone()).toBe(false)
+  })
+
   it('returns the latest status from transloadit_wait_for_assembly once the budget is spent', async () => {
     let signal: AbortSignal | undefined
     vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockImplementation(
@@ -362,6 +387,67 @@ describe('waiting within the host tool-call budget', () => {
       status: 'ok',
       upload_instructions: [{ fieldname: 'file_1' }],
       next_steps: ['transloadit_wait_for_assembly'],
+    })
+  })
+
+  it('hands out upload instructions only for uploads a resumed Assembly still waits for', async () => {
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue({
+      ...uploading,
+      tus_url: 'https://api2.transloadit.com/resumable/files/',
+      uploads: [{ field: 'file_1', name: 'first.jpg' }],
+    })
+
+    const result = await call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      expected_uploads: 2,
+    })
+
+    const payload = result.structuredContent as { upload_instructions?: unknown[] }
+    expect(payload.upload_instructions).toEqual([expect.objectContaining({ fieldname: 'file_2' })])
+  })
+
+  it('hands out no upload instructions for a resumed Assembly that no longer waits for uploads', async () => {
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue({
+      ...executing,
+      ok: 'ASSEMBLY_COMPLETED',
+      tus_url: 'https://api2.transloadit.com/resumable/files/',
+    })
+
+    const result = await call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      expected_uploads: 1,
+    })
+
+    const payload = result.structuredContent as {
+      upload_instructions?: unknown
+      warnings?: unknown
+    }
+    expect(payload.upload_instructions).toBeUndefined()
+    expect(payload.warnings).toBeUndefined()
+  })
+
+  it('says how to get upload instructions when a resumed Assembly has no status in time', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockImplementation(() => pending())
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockImplementation(() => pending())
+
+    const pendingResult = call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      expected_uploads: 1,
+    })
+    await vi.waitFor(() => expect(Transloadit.prototype.resumeAssemblyUploads).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(maxWaitMs + 10_000)
+    const result = await pendingResult
+
+    // Nothing sends the sandbox files, so polling alone would leave the Assembly waiting.
+    expect(result.structuredContent).toMatchObject({
+      upload: { status: 'none' },
+      warnings: expect.arrayContaining([
+        expect.objectContaining({
+          code: 'mcp_upload_instructions_pending',
+          hint: expect.stringContaining(`assembly_url ${assemblyUrl} and expected_uploads 1`),
+        }),
+      ]),
     })
   })
 

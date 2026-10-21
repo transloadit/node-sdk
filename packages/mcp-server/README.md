@@ -476,8 +476,9 @@ impractical for anything but tiny files, so the agent uploads the file itself:
    bash shell; it prints `201` once the file is uploaded (tus creation-with-upload, one request).
 3. Call `transloadit_wait_for_assembly` with the Assembly URL.
 
-Calling `transloadit_create_assembly` with `assembly_url` and `expected_uploads` hands out
-`upload_instructions` for an existing Assembly that still waits for uploads.
+Calling `transloadit_create_assembly` with `assembly_url` and `expected_uploads` (all uploads the
+Assembly expects, as at creation) hands out `upload_instructions` for the uploads an existing
+Assembly still waits for.
 
 The commands contain no credentials: the Assembly URL is the only capability, and it lets the holder
 add files to that one Assembly while it waits for uploads.
