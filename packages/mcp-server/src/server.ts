@@ -519,6 +519,11 @@ const buildInputError = (error: unknown): CallToolResult => {
 
 const deadlineReached = Symbol('deadlineReached')
 
+/** Stops input preparation from starting another download once the wait budget is spent. */
+class PreparationBudgetSpentError extends Error {
+  override name = 'PreparationBudgetSpentError'
+}
+
 /** Settles like `promise`, or with `deadlineReached` when it is still pending after `ms`. */
 const settleWithin = async <T>(
   promise: Promise<T>,
@@ -1525,11 +1530,13 @@ export const createTransloaditMcpServer = (
           // Runs before each download, so an abandoned preparation starts no further one.
           beforeUrlDownload: async () => {
             if (credentials === 'bearer') await verifyTokenBeforeDownload()
-            if (preparationRemainingMs() === 0) throw new Error('The wait budget is spent.')
+            if (preparationRemainingMs() === 0) throw new PreparationBudgetSpentError()
           },
         })
         const prep = await settleWithin(preparation, preparationRemainingMs()).catch(
-          buildInputError,
+          (error: unknown) =>
+            // The budget check can reject just before the deadline timer fires.
+            error instanceof PreparationBudgetSpentError ? deadlineReached : buildInputError(error),
         )
         if (prep === deadlineReached) {
           // The download stops at its timeout and prepareInputFiles() removes its files; one that
@@ -1563,11 +1570,14 @@ export const createTransloaditMcpServer = (
         }
 
         // Files the caller uploads itself (from a sandbox) can only start once this call returns,
-        // so waiting here would just run into the timeout.
-        // A resumed Assembly hands them out again, e.g. after a creation request that was stopped.
+        // so waiting here would just run into the timeout. A resumed Assembly hands them out
+        // again, e.g. after a creation request that was stopped, but only its status tells
+        // whether they already arrived, so a resume still waits when asked to; one that returns
+        // early still gets the upload instructions.
         const outOfBandUploads = Math.max((expected_uploads ?? 0) - totalFiles, 0)
-        const waitForCompletion = (wait_for_completion ?? false) && outOfBandUploads === 0
-        if (wait_for_completion && outOfBandUploads > 0) {
+        const skipWaitForUploads = !reference && outOfBandUploads > 0
+        const waitForCompletion = (wait_for_completion ?? false) && !skipWaitForUploads
+        if (wait_for_completion && skipWaitForUploads) {
           warnings.push({
             code: 'mcp_wait_skipped_for_uploads',
             message:
@@ -1776,13 +1786,17 @@ export const createTransloaditMcpServer = (
         const ownFields = new Set([...Object.keys(filesMap), ...Object.keys(uploadsMap)])
         // A resumed Assembly may have received some uploads already, and takes more only while
         // it waits for them; expected_uploads counts all of its uploads, as at creation.
-        const receivedFields = (Array.isArray(assembly.uploads) ? assembly.uploads : [])
-          .map((upload) => (isRecord(upload) ? upload.field : undefined))
-          .filter((field): field is string => isNonEmptyString(field) && !ownFields.has(field))
+        // Finished uploads are listed under uploads, running ones under tus_uploads.
+        const receivedFields = new Set(
+          [
+            ...(assembly.uploads ?? []).map((upload) => upload.field),
+            ...(assembly.tus_uploads ?? []).map((upload) => upload.fieldname),
+          ].filter((field): field is string => isNonEmptyString(field) && !ownFields.has(field)),
+        )
         const pendingUploads = !reference
           ? outOfBandUploads
           : assembly.ok === 'ASSEMBLY_UPLOADING'
-            ? Math.max(outOfBandUploads - receivedFields.length, 0)
+            ? Math.max(outOfBandUploads - receivedFields.size, 0)
             : 0
         const uploadInstructions =
           pendingUploads > 0

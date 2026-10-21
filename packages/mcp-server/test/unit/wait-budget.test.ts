@@ -406,6 +406,50 @@ describe('waiting within the host tool-call budget', () => {
     expect(payload.upload_instructions).toEqual([expect.objectContaining({ fieldname: 'file_2' })])
   })
 
+  it('counts uploads that are still running when resuming with expected_uploads', async () => {
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue({
+      ...uploading,
+      tus_url: 'https://api2.transloadit.com/resumable/files/',
+      tus_uploads: [
+        {
+          filename: 'first.jpg',
+          fieldname: 'file_1',
+          size: 10,
+          offset: 4,
+          finished: false,
+          upload_url: 'https://api2.transloadit.com/resumable/files/abc',
+        },
+      ],
+    })
+
+    const result = await call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      expected_uploads: 2,
+    })
+
+    const payload = result.structuredContent as { upload_instructions?: unknown[] }
+    expect(payload.upload_instructions).toEqual([expect.objectContaining({ fieldname: 'file_2' })])
+  })
+
+  it('still waits for a resumed Assembly whose expected uploads all arrived', async () => {
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue({
+      ...executing,
+      ok: 'ASSEMBLY_COMPLETED',
+    })
+
+    const result = await call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      expected_uploads: 1,
+      wait_for_completion: true,
+    })
+
+    expect(Transloadit.prototype.resumeAssemblyUploads).toHaveBeenCalledWith(
+      expect.objectContaining({ waitForCompletion: true }),
+    )
+    const payload = result.structuredContent as { warnings?: unknown }
+    expect(payload.warnings).toBeUndefined()
+  })
+
   it('hands out no upload instructions for a resumed Assembly that no longer waits for uploads', async () => {
     vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue({
       ...executing,
