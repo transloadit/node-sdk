@@ -88,6 +88,20 @@ describe('URL inputs for Steps that take uploads', () => {
       },
     },
     {
+      name: 'Steps that select uploads by field',
+      instructions: {
+        steps: {
+          ...uploadSteps,
+          resized: { ...resized, use: { steps: [{ name: ':original', fields: 'first' }] } },
+        },
+      },
+    },
+    {
+      name: 'one URL given twice under different names',
+      instructions: { steps: uploadSteps },
+      extraFiles: [{ kind: 'url', field: 'again', url: firstUrl, filename: 'again.jpg' }],
+    },
+    {
       name: 'a Step that relies on the implicit upload Step',
       instructions: { steps: { resized } },
     },
@@ -102,7 +116,10 @@ describe('URL inputs for Steps that take uploads', () => {
       template: { allow_steps_override: false, steps: uploadSteps },
     },
   ])('still downloads the URL for $name', async ({ instructions, extraFiles, template }) => {
-    const download = nock('http://198.51.100.10').get('/first.jpg').reply(200, 'Image bytes')
+    const download = nock('http://198.51.100.10')
+      .get('/first.jpg')
+      .times(1 + (extraFiles ?? []).filter((file) => file.kind === 'url').length)
+      .reply(200, 'Image bytes')
     if (template) {
       nock('https://api2.transloadit.com')
         .get(`/templates/${instructions.template_id}`)

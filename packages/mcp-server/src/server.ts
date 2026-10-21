@@ -885,6 +885,13 @@ const usesOriginalReference = (value: unknown): boolean => {
   return false
 }
 
+/** Whether a `use` value picks files by their upload field, which imported files do not have. */
+const selectsByField = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.some((item) => selectsByField(item))
+  if (!isRecord(value)) return false
+  return 'fields' in value || Object.values(value).some((item) => selectsByField(item))
+}
+
 type StepAnalysis = {
   importStepNames: string[]
   hasHttpImport: boolean
@@ -951,12 +958,20 @@ const replaceUploadWithImport = (
   })
   const [uploadStepName] = uploadStepNames
   if (uploadStepName === undefined || uploadStepNames.length > 1) return undefined
-  // An import Step cannot carry upload parameters such as output_meta, and a Step without `use`
-  // would not receive the imported files.
+  // An import Step cannot carry upload parameters such as output_meta. A Step without `use`
+  // would not receive the imported files, and imports carry no upload field to select by.
   const uploadStep = steps[uploadStepName]
   if (!isRecord(uploadStep) || Object.keys(uploadStep).length > 1) return undefined
   for (const [name, step] of Object.entries(steps)) {
-    if (name !== uploadStepName && !(isRecord(step) && step.use !== undefined)) return undefined
+    if (name === uploadStepName) continue
+    if (!isRecord(step) || step.use === undefined || selectsByField(step.use)) return undefined
+  }
+  // Names are given per URL, so one URL cannot be imported under two names.
+  const nameByUrl = new Map<string, string | undefined>()
+  for (const { url, filename } of urlInputs) {
+    const name = filename ? basename(filename) : undefined
+    if (nameByUrl.has(url) && nameByUrl.get(url) !== name) return undefined
+    nameByUrl.set(url, name)
   }
 
   const rewritten = safeJsonParse(addImportRobot(JSON.stringify({ steps })))
@@ -977,9 +992,7 @@ const replaceUploadWithImport = (
   const { url: _demoUrl, ...importWithoutUrl } = importStep
   // Imports are named after their URL. Keep the names a caller gave, as a download did, because
   // host attachment URLs rarely end in the file's name.
-  const names = urlInputs.flatMap(({ url, filename }) =>
-    filename ? [[url, basename(filename)] as const] : [],
-  )
+  const names = [...nameByUrl].filter((entry): entry is [string, string] => entry[1] !== undefined)
   return {
     ...nextSteps,
     [importStepName]: {
