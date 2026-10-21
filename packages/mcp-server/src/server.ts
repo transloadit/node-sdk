@@ -969,35 +969,31 @@ const replaceUploadWithImport = (
     // An interpolated reference to the upload Step cannot be renamed before API2 resolves it.
     if (JSON.stringify(step.use).includes('${')) return undefined
   }
-  // /http/import splits each URL at its url_delimiter, which defaults to a pipe.
-  if (urlInputs.some(({ url }) => url.includes('|'))) return undefined
+  // /http/import splits each URL at its url_delimiter, which defaults to a pipe. Names are given
+  // per URL, so a URL given twice could not be imported as two files with their own names.
+  const urls = urlInputs.map(({ url }) => url)
+  if (urls.some((url) => url.includes('|')) || new Set(urls).size < urls.length) return undefined
   // Interpolations such as ${file.field} or ${file['field']} would no longer match.
   if (/\$\{[^}]*\bfield\b/.test(JSON.stringify(steps))) return undefined
   // Imports are named after their URL. Keep the names a caller gave, as a download did, because
   // host attachment URLs rarely end in the file's name. API2 applies the whole name map to a URL
   // it does not list, so once one URL is named, every URL gets the name a download would use.
-  const requestedByUrl = new Map<string, string>()
+  // Downloads kept URLs with one name apart as photo.jpg and photo-1.jpg.
+  const usedNames = new Set<string>()
+  const nameByUrl = new Map<string, string>()
+  let renamed = false
   for (const { field, url, filename } of urlInputs) {
     const requested = filename
       ? basename(filename)
       : basename(new URL(url).pathname) || `${field}.bin`
-    // Names are given per URL, so one URL cannot be imported under two names.
-    if ((requestedByUrl.get(url) ?? requested) !== requested) return undefined
-    requestedByUrl.set(url, requested)
-  }
-  // Downloads kept distinct URLs with one name apart as photo.jpg and photo-1.jpg.
-  const usedNames = new Set<string>()
-  const nameByUrl = new Map<string, string>()
-  for (const [url, requested] of requestedByUrl) {
     const { name, ext } = parse(requested)
     let unique = requested
     for (let counter = 1; usedNames.has(unique); counter += 1) unique = `${name}-${counter}${ext}`
+    renamed ||= unique !== requested
     usedNames.add(unique)
     nameByUrl.set(url, unique)
   }
-  const named =
-    urlInputs.some(({ filename }) => filename) ||
-    [...nameByUrl].some(([url, name]) => requestedByUrl.get(url) !== name)
+  const named = renamed || urlInputs.some(({ filename }) => filename)
 
   const rewritten = safeJsonParse(addImportRobot(JSON.stringify({ steps })))
   const nextSteps = isRecord(rewritten) && isRecord(rewritten.steps) ? rewritten.steps : {}
@@ -1539,6 +1535,8 @@ export const createTransloaditMcpServer = (
             // Other schemes are left to the download path, which rejects them before creation.
             fileInputs.every((file) => file.kind === 'url' && isHttpUrl(file.url)) &&
             (expected_uploads ?? 0) === 0 &&
+            // Without uploads, the Assembly waits for files the caller sends later.
+            upload_behavior !== 'none' &&
             // Only a shortcut's Builtin, whose fields were checked against the catalog contract,
             // runs without its Template ID; other Templates keep API2's own handling.
             (params.template_id === undefined || fieldContractValidated)

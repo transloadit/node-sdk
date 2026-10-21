@@ -153,6 +153,16 @@ describe('URL inputs for Steps that take uploads', () => {
       url: 'http://198.51.100.10/first.jpg?filters=a|b',
     },
     {
+      name: 'one URL given twice under the same name',
+      instructions: { steps: uploadSteps },
+      extraFiles: [{ kind: 'url', field: 'again', url: firstUrl }],
+    },
+    {
+      name: 'calls that only reserve uploads',
+      instructions: { steps: uploadSteps },
+      uploadBehavior: 'none',
+    },
+    {
       name: 'one URL given twice under different names',
       instructions: { steps: uploadSteps },
       extraFiles: [{ kind: 'url', field: 'again', url: firstUrl, filename: 'again.jpg' }],
@@ -171,7 +181,13 @@ describe('URL inputs for Steps that take uploads', () => {
       instructions: { template_id: 'builtin/prepare-image@0.0.1' },
       template: { allow_steps_override: false, steps: uploadSteps },
     },
-  ])('still downloads the URL for $name', async ({ instructions, extraFiles, template, url }) => {
+  ])('still downloads the URL for $name', async ({
+    instructions,
+    extraFiles,
+    template,
+    url,
+    uploadBehavior,
+  }) => {
     const download = nock('http://198.51.100.10')
       .get('/first.jpg')
       .query(true)
@@ -187,6 +203,7 @@ describe('URL inputs for Steps that take uploads', () => {
     const result = await call({
       instructions,
       files: [{ kind: 'url', field: 'first', url: url ?? firstUrl }, ...(extraFiles ?? [])],
+      upload_behavior: uploadBehavior,
     })
 
     expect(result.structuredContent).toMatchObject({ status: 'ok' })
