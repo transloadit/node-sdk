@@ -69,7 +69,8 @@ describe('URL inputs for Steps that take uploads', () => {
         robot: '/http/import',
         url: [firstUrl, secondUrl],
         // Named like the download it replaces, which kept the caller's file name.
-        force_name: { [secondUrl]: 'holiday.jpg' },
+        // API2 applies the whole map to a URL it does not name, so every URL gets a name.
+        force_name: { [firstUrl]: 'first.jpg', [secondUrl]: 'holiday.jpg' },
       },
       resized: { ...resized, use: 'imported' },
     })
@@ -93,6 +94,19 @@ describe('URL inputs for Steps that take uploads', () => {
         steps: {
           ...uploadSteps,
           resized: { ...resized, use: { steps: [{ name: ':original', fields: 'first' }] } },
+        },
+      },
+    },
+    {
+      name: 'Steps that filter on the upload field',
+      instructions: {
+        steps: {
+          ...uploadSteps,
+          picked: {
+            robot: '/file/filter',
+            use: 'resized',
+            accepts: [['${file.field}', '==', 'first']],
+          },
         },
       },
     },

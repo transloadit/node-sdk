@@ -7,7 +7,7 @@ import { join } from 'node:path'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { Transloadit } from '@transloadit/node'
+import { ApiError, Transloadit } from '@transloadit/node'
 import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -336,6 +336,32 @@ describe('waiting within the host tool-call budget', () => {
 
     expect(result.structuredContent).toMatchObject({
       upload_instructions: [{ fieldname: 'file_2' }],
+    })
+  })
+
+  it('does not challenge for new credentials while a resumed upload continues', async () => {
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockImplementation(() => pending())
+    const tokenRejected = Object.assign(new ApiError({ body: { error: 'INVALID_TOKEN' } }), {
+      response: { statusCode: 401 },
+    })
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockRejectedValue(tokenRejected)
+
+    const result = await call(
+      'transloadit_create_assembly',
+      {
+        assembly_url: assemblyUrl,
+        files: [{ kind: 'base64', field: 'file', base64: 'aGVsbG8=', filename: 'hello.txt' }],
+      },
+      { bearer: 'forwarded-token' },
+    )
+
+    // A challenge would make the client refresh and replay the call next to the running upload.
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined()
+    expect(result.structuredContent).toMatchObject({
+      status: 'ok',
+      running: true,
+      assembly: { assembly_id: assemblyId },
+      warnings: [{ code: 'mcp_assembly_still_running' }],
     })
   })
 

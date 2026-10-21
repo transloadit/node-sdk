@@ -950,7 +950,7 @@ const mergeImportOverrides = (
  */
 const replaceUploadWithImport = (
   steps: Record<string, unknown>,
-  urlInputs: Array<{ url: string; filename?: string }>,
+  urlInputs: Array<{ field: string; url: string; filename?: string }>,
 ): Record<string, unknown> | undefined => {
   const uploadStepNames = Object.keys(steps).filter((name) => {
     const step = steps[name]
@@ -959,18 +959,24 @@ const replaceUploadWithImport = (
   const [uploadStepName] = uploadStepNames
   if (uploadStepName === undefined || uploadStepNames.length > 1) return undefined
   // An import Step cannot carry upload parameters such as output_meta. A Step without `use`
-  // would not receive the imported files, and imports carry no upload field to select by.
+  // would not receive the imported files, and imports carry no upload field to select or filter
+  // by.
   const uploadStep = steps[uploadStepName]
   if (!isRecord(uploadStep) || Object.keys(uploadStep).length > 1) return undefined
   for (const [name, step] of Object.entries(steps)) {
     if (name === uploadStepName) continue
     if (!isRecord(step) || step.use === undefined || selectsByField(step.use)) return undefined
   }
-  // Names are given per URL, so one URL cannot be imported under two names.
-  const nameByUrl = new Map<string, string | undefined>()
-  for (const { url, filename } of urlInputs) {
-    const name = filename ? basename(filename) : undefined
-    if (nameByUrl.has(url) && nameByUrl.get(url) !== name) return undefined
+  if (/\bfile\.field\b/.test(JSON.stringify(steps))) return undefined
+  // Imports are named after their URL. Keep the names a caller gave, as a download did, because
+  // host attachment URLs rarely end in the file's name. API2 applies the whole name map to a URL
+  // it does not list, so once one URL is named, every URL gets the name a download would use.
+  const named = urlInputs.some(({ filename }) => filename)
+  const nameByUrl = new Map<string, string>()
+  for (const { field, url, filename } of urlInputs) {
+    const name = filename ? basename(filename) : basename(new URL(url).pathname) || `${field}.bin`
+    // Names are given per URL, so one URL cannot be imported under two names.
+    if ((nameByUrl.get(url) ?? name) !== name) return undefined
     nameByUrl.set(url, name)
   }
 
@@ -990,14 +996,11 @@ const replaceUploadWithImport = (
   }
   // The fix imports a demo file; the URL inputs take its place.
   const { url: _demoUrl, ...importWithoutUrl } = importStep
-  // Imports are named after their URL. Keep the names a caller gave, as a download did, because
-  // host attachment URLs rarely end in the file's name.
-  const names = [...nameByUrl].filter((entry): entry is [string, string] => entry[1] !== undefined)
   return {
     ...nextSteps,
     [importStepName]: {
       ...importWithoutUrl,
-      ...(names.length > 0 ? { force_name: Object.fromEntries(names) } : {}),
+      ...(named ? { force_name: Object.fromEntries(nameByUrl) } : {}),
     },
   }
 }
@@ -1720,7 +1723,10 @@ export const createTransloaditMcpServer = (
             if (latest) {
               assembly = latest
             } else if (reference) {
-              const status = await readAssemblyStatus(client, reference.assemblyId)
+              // The uploads keep running, so even a rejected read must not invite a replay.
+              const status = await readAssemblyStatus(client, reference.assemblyId).catch(
+                () => undefined,
+              )
               if (!status) {
                 return buildStatusPendingResponse(reference, {
                   upload: { ...uploadSummary, status: 'uploading', resumed: true },
