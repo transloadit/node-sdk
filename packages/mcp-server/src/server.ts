@@ -993,11 +993,12 @@ type AssemblyReference = { assemblyId: string; assemblyUrl: string }
 const readAssemblyStatus = async (
   client: Transloadit,
   assemblyId: string,
+  timeoutMs = statusReadTimeoutMs,
 ): Promise<AssemblyStatus | undefined> => {
   const status = await settleWithin(
     // Aborts after the race below gave up, so the abort never becomes the call's error.
-    client.getAssembly(assemblyId, { signal: AbortSignal.timeout(statusReadTimeoutMs + 1_000) }),
-    statusReadTimeoutMs,
+    client.getAssembly(assemblyId, { signal: AbortSignal.timeout(timeoutMs + 1_000) }),
+    timeoutMs,
   )
   return status === deadlineReached ? undefined : status
 }
@@ -1955,7 +1956,11 @@ export const createTransloaditMcpServer = (
       // The probe must not spend the budget the fallback download still needs.
       if (deadline - performance.now() < Math.max(delayMs * 2, 1)) break
       await delay(delayMs)
-      const status = await readAssemblyStatus(live.client, assemblyId).catch(() => undefined)
+      const status = await readAssemblyStatus(
+        live.client,
+        assemblyId,
+        Math.min(statusReadTimeoutMs, Math.max(deadline - performance.now(), 1)),
+      ).catch(() => undefined)
       if (!status) break
       outcome = classifyInputUrlImport(status)
     }

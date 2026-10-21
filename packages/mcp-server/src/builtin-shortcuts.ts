@@ -179,15 +179,9 @@ const isLiteralHttpUrl = (value: string): boolean => {
   return protocol === 'http:' || protocol === 'https:'
 }
 
-const urlFilename = (value: string): string | undefined => {
-  const segment = new URL(value).pathname.split('/').pop()
-  if (!segment) return undefined
-  try {
-    return decodeURIComponent(segment)
-  } catch {
-    return segment
-  }
-}
+// Undecoded: API2 keeps percent escapes in an imported file's name.
+const urlFilename = (value: string): string | undefined =>
+  new URL(value).pathname.split('/').pop() || undefined
 
 /**
  * The URLs a shortcut call hands to API2 as `input_url`, so API2 imports them itself and nothing

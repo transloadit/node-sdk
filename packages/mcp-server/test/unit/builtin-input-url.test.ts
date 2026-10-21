@@ -102,7 +102,12 @@ describe('Builtin shortcuts with URL inputs', () => {
   let server: ReturnType<typeof createTransloaditMcpServer> | undefined
   const creations: CreateAssemblyOptions[] = []
 
-  const call = async (name: string, id: string, args: Record<string, unknown>) => {
+  const call = async (
+    name: string,
+    id: string,
+    args: Record<string, unknown>,
+    maxWaitMs?: number,
+  ) => {
     vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({
       items: [catalogEntry(id)],
       count: 1,
@@ -118,7 +123,7 @@ describe('Builtin shortcuts with URL inputs', () => {
         steps: { ':original': { robot: '/upload/handle' } },
       },
     })
-    server = createTransloaditMcpServer({ authKey: 'key', authSecret: 'secret' })
+    server = createTransloaditMcpServer({ authKey: 'key', authSecret: 'secret', maxWaitMs })
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     client = new Client({ name: 'builtin-input-url', version: '1.0.0' })
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
@@ -381,15 +386,39 @@ describe('Builtin shortcuts with URL inputs', () => {
     createReturns({ ...completed, num_input_files: 1 })
     await call('transloadit_convert_to_pdf', 'builtin/convert-to-pdf@0.0.1', {
       attachments: [
-        {
-          download_url: `${origin}/dir/notes%20v2.md?sig=1`,
-          file_id: 'f',
-          file_name: 'notes v2.md',
-        },
+        { download_url: `${origin}/dir/notes.md?sig=1`, file_id: 'f', file_name: 'notes.md' },
       ],
       wait_for_completion: true,
     })
-    expect(creations[0]?.params).toMatchObject({ input_url: [`${origin}/dir/notes%20v2.md?sig=1`] })
+    expect(creations[0]?.params).toMatchObject({ input_url: [`${origin}/dir/notes.md?sig=1`] })
+  })
+
+  it('downloads a URL whose name only matches the given one after decoding', async () => {
+    // API2 keeps percent escapes in an imported file's name, which would hide the extension.
+    const download = nock(origin).get('/notes%2Emd').reply(200, '# Notes')
+    createReturns(executing)
+    await call('transloadit_convert_to_pdf', 'builtin/convert-to-pdf@0.0.1', {
+      files: [{ ...url(`${origin}/notes%2Emd`), filename: 'notes.md' }],
+    })
+    expect(download.isDone()).toBe(true)
+    expect(creations[0]?.params).not.toHaveProperty('input_url')
+  })
+
+  it('bounds each status read by the remaining wait budget', async () => {
+    createReturns(executing)
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockImplementation(
+      () => new Promise(() => undefined),
+    )
+    const startedAt = performance.now()
+    const result = await call(
+      'transloadit_prepare_image',
+      'builtin/prepare-image@0.0.1',
+      { files: [url(photo)] },
+      300,
+    )
+    expect(performance.now() - startedAt).toBeLessThan(2_000)
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(creations).toHaveLength(1)
   })
 
   it('does not probe past the caller’s wait deadline', async () => {
