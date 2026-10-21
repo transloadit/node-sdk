@@ -7,6 +7,7 @@ import type {
   InputFile,
   LintAssemblyInstructionsResult,
 } from '@transloadit/node'
+import type { SevLogger } from '@transloadit/sev-logger'
 import type { ZodObject } from 'zod'
 
 import type { BuiltinCatalog } from './builtin-shortcuts.ts'
@@ -36,6 +37,7 @@ import {
   validateBuiltinFields,
 } from './builtin-shortcuts.ts'
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
+import { buildRedactor, getDiagnosticsLogger } from './logger.ts'
 import { assertServerOptions } from './options.ts'
 import { mirrorSecuritySchemes } from './tool-list.ts'
 import {
@@ -88,6 +90,13 @@ export type TransloaditMcpServerOptions = {
   maxUrlDownloadBytes?: number
   /** Longest one URL input download may take, redirects included; defaults to 10 minutes. */
   urlDownloadTimeoutMs?: number
+  /**
+   * Longest a call that creates, resumes or waits for an Assembly blocks before it returns the
+   * Assembly's current state; defaults to 45 seconds, below the tool-call limits of MCP hosts.
+   */
+  maxWaitMs?: number
+  /** Receives diagnostics from tool calls; defaults to a logger that writes to stderr. */
+  logger?: SevLogger
   /** Console origin used for widget deep links; defaults to the public website. */
   consoleUrl?: string
   endpoint?: string
@@ -134,6 +143,17 @@ const maxBase64Bytes = 512_000
 /** URL inputs beyond these limits are not downloaded to this server's disk (per call). */
 const defaultMaxUrlDownloadBytes = 1024 * 1024 * 1024
 const defaultUrlDownloadTimeoutMs = 10 * 60 * 1000
+
+/**
+ * Hosts abandon tool calls that run too long (ChatGPT after about a minute) and may retry them,
+ * creating a second Assembly. Calls that create or follow an Assembly therefore return its
+ * current state once this budget is spent; transloadit_wait_for_assembly follows it from there.
+ */
+const defaultMaxWaitMs = 45_000
+/** Lowest request timeout handed to the SDK, so a nearly spent budget cannot fail a request. */
+const minimumSdkTimeoutMs = 10_000
+/** Longest a status read after an early return may take. */
+const statusReadTimeoutMs = 5_000
 
 type LintAssemblyInstructionsInput = Parameters<Transloadit['lintAssemblyInstructions']>[0]
 
@@ -262,6 +282,7 @@ const createAssemblyInputSchema = z.object({
 const createAssemblyOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   assembly: z.unknown().optional(),
+  running: z.boolean().optional(),
   upload: z
     .object({
       status: z.enum(['none', 'uploading', 'complete']),
@@ -298,6 +319,7 @@ const waitForAssemblyInputSchema = z.object({
 const waitForAssemblyOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   assembly: z.unknown().optional(),
+  running: z.boolean().optional(),
   waited_ms: z.number().int().nonnegative().optional(),
   errors: z.array(toolMessageSchema).optional(),
   warnings: z.array(toolMessageSchema).optional(),
@@ -479,6 +501,80 @@ const buildShortcutError = (...args: Parameters<typeof buildToolError>): CallToo
   isError: true,
 })
 
+/** Maps an input preparation failure to a tool error; API rejections are left to the caller. */
+const buildInputError = (error: unknown): CallToolResult => {
+  // API rejections (the token check) are not input mistakes; the outer handler maps them.
+  if (error instanceof ApiError) throw error
+  const message = error instanceof Error ? error.message : 'Invalid file input.'
+  if (message.startsWith('Duplicate file field')) {
+    return buildToolError('mcp_duplicate_field', message, { path: 'files' })
+  }
+  if (message.startsWith('Base64 payload exceeds')) {
+    return buildToolError('mcp_base64_too_large', message, {
+      hint: 'Use a public URL import or upload from your own machine instead.',
+    })
+  }
+  return buildToolError('mcp_invalid_args', message)
+}
+
+const deadlineReached = Symbol('deadlineReached')
+
+/** Stops input preparation from starting another download once the wait budget is spent. */
+class PreparationBudgetSpentError extends Error {
+  override name = 'PreparationBudgetSpentError'
+}
+
+/** Settles like `promise`, or with `deadlineReached` when it is still pending after `ms`. */
+const settleWithin = async <T>(
+  promise: Promise<T>,
+  ms: number,
+): Promise<T | typeof deadlineReached> => {
+  let timer: NodeJS.Timeout | undefined
+  const deadline = new Promise<typeof deadlineReached>((resolve) => {
+    timer = setTimeout(resolve, ms, deadlineReached)
+  })
+  try {
+    return await Promise.race([promise, deadline])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** The SDK does not export PollingTimeoutError, so it is recognized by name. */
+const isPollingTimeout = (error: unknown): boolean =>
+  error instanceof Error && error.name === 'PollingTimeoutError'
+
+/** The same states the SDK's awaitAssemblyCompletion keeps polling on. */
+const runningAssemblyStates = new Set([
+  'ASSEMBLY_UPLOADING',
+  'ASSEMBLY_EXECUTING',
+  'ASSEMBLY_REPLAYING',
+])
+
+const isAssemblyRunning = (assembly: AssemblyStatus): boolean =>
+  !assembly.error && typeof assembly.ok === 'string' && runningAssemblyStates.has(assembly.ok)
+
+/** Tells the model that the call returned early and how to follow the Assembly instead of retrying. */
+const buildStillRunningNotice = (
+  assembly: { assembly_ssl_url?: unknown; assembly_url?: unknown },
+  fallbackUrl?: string,
+): { code: string; message: string; hint: string } => {
+  const assemblyUrl = isNonEmptyString(assembly.assembly_ssl_url)
+    ? assembly.assembly_ssl_url
+    : isNonEmptyString(assembly.assembly_url)
+      ? assembly.assembly_url
+      : fallbackUrl
+  const follow = 'Follow it with transloadit_wait_for_assembly or transloadit_get_assembly_status'
+  return {
+    code: 'mcp_assembly_still_running',
+    message:
+      'Returned before the Assembly finished, within the time this call may wait. The Assembly keeps running.',
+    hint: assemblyUrl
+      ? `${follow} using assembly_url ${assemblyUrl}; do not create it again.`
+      : `${follow}; do not create it again.`,
+  }
+}
+
 const getClientName = (options: TransloaditMcpServerOptions): string => {
   const base = options.clientName ?? `mcp-server:${packageJson.version}`
   const suffix = options.clientSuffix
@@ -658,29 +754,76 @@ const toAuthRejection = (
   return undefined
 }
 
+/** Matches resolveAssemblyReference: the SDK's default when the endpoint is empty. */
+const defaultAssemblyUrl = (options: TransloaditMcpServerOptions, assemblyId: string): string =>
+  `${options.endpoint || 'https://api2.transloadit.com'}/assemblies/${assemblyId}`
+
 /** The Assembly exists, but its status could not be read with the caller's credentials. */
 const buildCreatedAssemblyUnavailable = (
   options: TransloaditMcpServerOptions,
   assemblyId: string,
+  describe: (assemblyUrl: string) => { code: string; message: string; hint: string } = (
+    assemblyUrl,
+  ) => ({
+    code: 'mcp_assembly_status_unavailable',
+    message:
+      'The Assembly was created, but Transloadit rejected the credentials while reading its status.',
+    hint: `Reconnect if needed, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl} instead of creating it again.`,
+  }),
 ): CallToolResult => {
-  // Matches resolveAssemblyReference: the SDK's default when the endpoint is empty.
-  const assemblyUrl = `${options.endpoint || 'https://api2.transloadit.com'}/assemblies/${assemblyId}`
+  const assemblyUrl = defaultAssemblyUrl(options, assemblyId)
   return buildToolResponse(
     {
       status: 'error',
       assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
-      errors: [
-        {
-          code: 'mcp_assembly_status_unavailable',
-          message:
-            'The Assembly was created, but Transloadit rejected the credentials while reading its status.',
-          hint: `Reconnect if needed, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl} instead of creating it again.`,
-        },
-      ],
+      errors: [describe(assemblyUrl)],
     },
     { isError: true },
   )
 }
+
+/** The creation request is still in flight after the budget; its ID is chosen by this server. */
+const buildCreationPending = (
+  options: TransloaditMcpServerOptions,
+  assemblyId: string,
+  serverFiles: number,
+  /** Set when some of them are uploaded from the caller's sandbox. */
+  expectedUploads: number | undefined,
+): CallToolResult =>
+  buildCreatedAssemblyUnavailable(options, assemblyId, (assemblyUrl) => {
+    // An Assembly that API2 accepted only after the request was stopped never receives this
+    // call's files, so it is resumed rather than created again: another Assembly could repeat
+    // Steps that already ran, such as imports. API2 could in theory still be handling a request
+    // it received before the abort, so the hint asks for a pause first. Strict idempotency would
+    // need an API2 creation key, which does not exist; this path only runs after a request
+    // already took longer than the budget.
+    const resumeArguments = [
+      `assembly_url ${assemblyUrl}`,
+      ...(serverFiles > 0 ? ['the same files'] : []),
+      ...(expectedUploads ? [`expected_uploads ${expectedUploads}`] : []),
+    ]
+    const resume =
+      serverFiles > 0 || expectedUploads
+        ? `. If it is still waiting for uploads (ASSEMBLY_UPLOADING), its files were never sent: resume it by calling transloadit_create_assembly with ${resumeArguments.join(' and ')}${expectedUploads ? ', which hands out new upload_instructions' : ''}`
+        : ''
+    return {
+      code: 'mcp_assembly_creation_pending',
+      message:
+        'Transloadit did not confirm the Assembly in time, so this server stopped sending the creation request. Transloadit may still have received it.',
+      hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if several checks over a few minutes report that the Assembly does not exist${resume}.`,
+    }
+  })
+
+/** Reserved upload URLs that an early return could not include yet. */
+const buildUploadUrlsPending = (
+  assemblyUrl: string | undefined,
+): { code: string; message: string; hint: string } => ({
+  code: 'mcp_upload_urls_pending',
+  message: 'The upload URLs were not reserved before this call returned.',
+  // The reservations this call started keep running; asking at once could reserve the files
+  // a second time instead of returning the URLs those reservations produce.
+  hint: `Wait about 30 seconds, then call transloadit_create_assembly with assembly_url ${assemblyUrl ?? 'from this result'}, the same files and upload_behavior "none" to get them.`,
+})
 
 /** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
 const buildCredentialError = (error: {
@@ -838,6 +981,37 @@ const assemblyIdSchema = z.string().regex(/^[a-f\d]{32}$/i)
 const assemblyUrlSchema = z.url()
 
 type AssemblyReference = { assemblyId: string; assemblyUrl: string }
+
+/**
+ * Reads an Assembly's current status once, without outlasting the host's patience. The SDK's
+ * rate-limit backoff does not observe the abort signal, so the read is also raced against the
+ * clock; without a status in time, it returns undefined.
+ */
+const readAssemblyStatus = async (
+  client: Transloadit,
+  assemblyId: string,
+): Promise<AssemblyStatus | undefined> => {
+  const status = await settleWithin(
+    // Aborts after the race below gave up, so the abort never becomes the call's error.
+    client.getAssembly(assemblyId, { signal: AbortSignal.timeout(statusReadTimeoutMs + 1_000) }),
+    statusReadTimeoutMs,
+  )
+  return status === deadlineReached ? undefined : status
+}
+
+/** Answers a call that returned early when not even the Assembly's status arrived in time. */
+const buildStatusPendingResponse = (
+  reference: AssemblyReference,
+  fields: Record<string, unknown> = {},
+  warnings: Array<{ code: string; message: string; hint?: string }> = [],
+): CallToolResult =>
+  buildToolResponse({
+    status: 'ok',
+    assembly: { assembly_id: reference.assemblyId, assembly_ssl_url: reference.assemblyUrl },
+    running: true,
+    ...fields,
+    warnings: [buildStillRunningNotice({}, reference.assemblyUrl), ...warnings],
+  })
 
 /** Production (`.com`) and development or tunnel (`.dev`) Transloadit hosts. */
 const isTransloaditHost = (hostname: string): boolean =>
@@ -1081,6 +1255,8 @@ export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
   assertServerOptions(options)
+  const logger = (options.logger ?? getDiagnosticsLogger()).nest('assemblies')
+  const redactError = buildRedactor([options.authSecret, options.upstreamSecret, options.mcpToken])
   const server = new McpServer({
     name: options.serverName ?? 'Transloadit MCP',
     version: options.serverVersion ?? packageJson.version,
@@ -1165,6 +1341,8 @@ export const createTransloaditMcpServer = (
       },
       extra,
       fieldContractValidated = false,
+      // Shortcuts start the clock before loading their catalog, which counts toward the budget.
+      startedAt = performance.now(),
     ) => {
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
@@ -1173,8 +1351,25 @@ export const createTransloaditMcpServer = (
         assembly_url === undefined ? undefined : resolveAssemblyReference(options, { assembly_url })
       if (reference && 'error' in reference) return reference.error
       const tempCleanups: Array<() => Promise<void>> = []
+      // Uploads or polling that continue after the call returned early.
+      let backgroundWork: Promise<void> | undefined
       const warnings: Array<{ code: string; message: string; hint?: string; path?: string }> = []
       let templatePathHint: string | undefined
+      const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
+      // Preparation (Template lookup, file inputs) runs before any Assembly exists, so failing
+      // once it used up the budget is safe to retry, unlike a host timeout after creation.
+      const preparationRemainingMs = (): number =>
+        Math.max(startedAt + maxWaitMs - performance.now(), 0)
+      const preparationTimeout = (reason?: string): CallToolResult =>
+        buildToolError(
+          'mcp_preparation_timeout',
+          reference
+            ? 'Preparing the files took too long, so none were added to the Assembly.'
+            : 'Preparing the Assembly took too long, so none was created.',
+          {
+            hint: reason ? `Retrying this call is safe. ${reason}` : 'Retrying this call is safe.',
+          },
+        )
 
       try {
         const fileInputs: InputFile[] = [...(files ?? []), ...toAttachmentInputs(attachments ?? [])]
@@ -1193,7 +1388,12 @@ export const createTransloaditMcpServer = (
           templatePathHint = templatePathHint ?? 'instructions.template_id'
           let template: Awaited<ReturnType<typeof client.getTemplate>>
           try {
-            template = await client.getTemplate(params.template_id)
+            const lookup = await settleWithin(
+              client.getTemplate(params.template_id),
+              preparationRemainingMs(),
+            )
+            if (lookup === deadlineReached) return preparationTimeout()
+            template = lookup
           } catch (error) {
             const isTemplateNotFound =
               (error instanceof ApiError && error.code === 'TEMPLATE_NOT_FOUND') ||
@@ -1307,7 +1507,7 @@ export const createTransloaditMcpServer = (
           tokenCheck ??= client.listTemplates({ pagesize: 1 })
           await tokenCheck
         }
-        const prep = await prepareInputFiles({
+        const preparation = prepareInputFiles({
           inputFiles: inputFilesForPrep,
           params,
           fields,
@@ -1316,22 +1516,45 @@ export const createTransloaditMcpServer = (
           allowPrivateUrls: false,
           maxBase64Bytes,
           maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
-          urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
-          beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
-        }).catch((error) => {
-          // API rejections (the token check) are not input mistakes; the outer handler maps them.
-          if (error instanceof ApiError) throw error
-          const message = error instanceof Error ? error.message : 'Invalid file input.'
-          if (message.startsWith('Duplicate file field')) {
-            return buildToolError('mcp_duplicate_field', message, { path: 'files' })
-          }
-          if (message.startsWith('Base64 payload exceeds')) {
-            return buildToolError('mcp_base64_too_large', message, {
-              hint: 'Use a public URL import or upload from your own machine instead.',
-            })
-          }
-          return buildToolError('mcp_invalid_args', message)
+          // prepareInputFiles() takes no abort signal, so its download timeout is what stops a
+          // download once the budget is spent; a retry would otherwise run next to it. The extra
+          // second lets the budget check below answer first, with mcp_preparation_timeout. Each
+          // download gets this timeout from its own start, but beforeUrlDownload starts none
+          // after the budget, so an abandoned download ends at most one timeout after the budget
+          // (twice the budget at worst). A tighter bound needs an abort signal in the SDK, which
+          // the URL import work in API2 makes unnecessary.
+          urlDownloadTimeoutMs: Math.min(
+            options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
+            preparationRemainingMs() + 1_000,
+          ),
+          // Runs before each download, so an abandoned preparation starts no further one.
+          beforeUrlDownload: async () => {
+            if (credentials === 'bearer') await verifyTokenBeforeDownload()
+            if (preparationRemainingMs() === 0) throw new PreparationBudgetSpentError()
+          },
         })
+        const prep = await settleWithin(preparation, preparationRemainingMs()).catch(
+          (error: unknown) =>
+            // The budget check can reject just before the deadline timer fires.
+            error instanceof PreparationBudgetSpentError ? deadlineReached : buildInputError(error),
+        )
+        if (prep === deadlineReached) {
+          // The download stops at its timeout and prepareInputFiles() removes its files; one that
+          // still finishes first returns files that nothing uploads.
+          void preparation
+            .then(
+              (late) => Promise.all(late.cleanup.map((cleanupFile) => cleanupFile())),
+              () => undefined,
+            )
+            .catch((error: unknown) => {
+              logger.warn('Removing prepared files failed: %s', redactError(error))
+            })
+          return preparationTimeout(
+            inputFilesForPrep.some((file) => file.kind === 'url')
+              ? 'A retry downloads the URL inputs again from the start. To have Transloadit fetch large files itself, use transloadit_create_assembly with Steps that contain an /http/import Step.'
+              : undefined,
+          )
+        }
         if ('content' in prep) {
           return prep
         }
@@ -1346,72 +1569,195 @@ export const createTransloaditMcpServer = (
           total_files: totalFiles,
         }
 
-        const timeout = wait_timeout_ms
         // Files the caller uploads itself (from a sandbox) can only start once this call returns,
-        // so waiting here would just run into the timeout.
-        const outOfBandUploads = reference ? 0 : Math.max((expected_uploads ?? 0) - totalFiles, 0)
+        // so waiting here would just run into the timeout. A resumed Assembly hands them out
+        // again, e.g. after a creation request that was stopped. Whether its uploads already
+        // arrived shows only in its status, so a resume with expected_uploads does not wait
+        // either; next_steps then point to transloadit_wait_for_assembly.
+        const outOfBandUploads = Math.max((expected_uploads ?? 0) - totalFiles, 0)
         const waitForCompletion = (wait_for_completion ?? false) && outOfBandUploads === 0
-        if (wait_for_completion && outOfBandUploads > 0) {
-          warnings.push({
-            code: 'mcp_wait_skipped_for_uploads',
-            message:
-              'Did not wait for completion because the Assembly waits for the expected uploads. Run upload_instructions, then call transloadit_wait_for_assembly.',
-          })
-        }
         const uploadBehavior = upload_behavior ?? (waitForCompletion ? 'await' : 'background')
         const uploadConcurrency = upload_concurrency
         const chunkSize = upload_chunk_size
 
-        let assembly: Awaited<ReturnType<typeof client.createAssembly>>
+        const deadline =
+          startedAt +
+          (waitForCompletion ? Math.min(wait_timeout_ms ?? maxWaitMs, maxWaitMs) : maxWaitMs)
+        const remainingMs = (): number => Math.max(deadline - performance.now(), 0)
+        // The SDK also applies this timeout to the creation request. It outlasts the deadline and
+        // the creation grace period after it, so a request timeout never fails a creation that
+        // API2 may have accepted; the deadline below bounds the call itself. Polling after an
+        // early return is not stopped separately: it ends with this timeout, a few seconds later,
+        // and the signal that could stop it would also stop uploads the Assembly still needs.
+        const timeout = Math.max(remainingMs() + statusReadTimeoutMs + 1_000, minimumSdkTimeoutMs)
+
+        // Every status the SDK reports, so a call that returns early still has the latest state.
+        let latest: AssemblyStatus | undefined
+        const trackProgress = (status: AssemblyStatus): void => {
+          latest = status
+        }
+
+        let assembly: AssemblyStatus
         // Set by the SDK only after API2 accepted the creation request, so a rejected request
         // (including an error body with HTTP 200) is never mistaken for an existing Assembly.
         let createdAssemblyId: string | undefined
+        let resolveCreated: (status: AssemblyStatus) => void = () => undefined
+        const created = new Promise<AssemblyStatus>((resolve) => {
+          resolveCreated = resolve
+        })
+        let work: Promise<AssemblyStatus>
+        // Chosen by the SDK before the creation request is sent.
+        let creationAssemblyId: string | undefined
+        // Stops a creation request (and its rate-limit retries) that outlasted the call.
+        const creationAbort = new AbortController()
+        if (reference) {
+          work = client.resumeAssemblyUploads({
+            assemblyUrl: reference.assemblyUrl,
+            files: filesMap,
+            uploads: uploadsMap,
+            waitForCompletion,
+            timeout,
+            uploadConcurrency,
+            chunkSize,
+            uploadBehavior,
+            onAssemblyProgress: trackProgress,
+          })
+        } else {
+          const creation = client.createAssembly({
+            params,
+            files: filesMap,
+            uploads: uploadsMap,
+            waitForCompletion,
+            timeout,
+            uploadConcurrency,
+            chunkSize,
+            uploadBehavior,
+            expectedUploads: expected_uploads,
+            onAssemblyCreated: (status) => {
+              createdAssemblyId = status.assembly_id ?? creation.assemblyId
+              latest = status
+              resolveCreated(status)
+            },
+            onAssemblyProgress: trackProgress,
+            signal: creationAbort.signal,
+          })
+          creationAssemblyId = creation.assemblyId
+          work = creation
+        }
+
+        let workSettled = true
+        let returnedEarly = false
         try {
-          if (reference) {
-            assembly = await client.resumeAssemblyUploads({
-              assemblyUrl: reference.assemblyUrl,
-              files: filesMap,
-              uploads: uploadsMap,
-              waitForCompletion,
-              timeout,
-              uploadConcurrency,
-              chunkSize,
-              uploadBehavior,
-            })
+          const outcome = await settleWithin(work, remainingMs())
+          if (outcome !== deadlineReached) {
+            assembly = outcome
           } else {
-            const creation = client.createAssembly({
-              params,
-              files: filesMap,
-              uploads: uploadsMap,
-              waitForCompletion,
-              timeout,
-              uploadConcurrency,
-              chunkSize,
-              uploadBehavior,
-              expectedUploads: expected_uploads,
-              onAssemblyCreated: (created) => {
-                createdAssemblyId = created.assembly_id ?? creation.assemblyId
-              },
-            })
-            assembly = await creation
-          }
-        } catch (error) {
-          // Once API2 accepted the creation request, an auth failure (a token expiring while
-          // uploads or polling run) must not reach the client as a challenge: it would refresh and
-          // replay the call, creating and billing a second Assembly.
-          if (createdAssemblyId && toAuthRejection(options, error, credentials, [])) {
-            return buildCreatedAssemblyUnavailable(options, createdAssemblyId)
-          }
-          if (isErrnoException(error) && error.code === 'ENOENT') {
-            return buildToolError(
-              'mcp_file_not_found',
-              'A prepared upload is no longer available.',
-              {
-                hint: 'Retry with base64 or a public URL, or upload via `npx -y @transloadit/node upload`.',
+            // Hosts abandon calls that outlast their deadline and retry them, which creates a
+            // second Assembly. Return what is known instead; the Assembly keeps running.
+            workSettled = false
+            returnedEarly = true
+            backgroundWork = work.then(
+              () => undefined,
+              (error: unknown) => {
+                if (isPollingTimeout(error) || creationAbort.signal.aborted) return
+                // A creation failure within the grace period below also reaches the caller; the
+                // extra log line is accepted to keep this handler attached before that wait.
+                // Hosted instances keep no per-Assembly state to report this later; follow-up
+                // status calls show the Assembly itself.
+                logger.warn('Assembly work after an early return failed: %s', redactError(error))
               },
             )
+            if (latest) {
+              assembly = latest
+            } else if (reference) {
+              // The uploads keep running, so even a rejected read must not invite a replay.
+              const status = await readAssemblyStatus(client, reference.assemblyId).catch(
+                () => undefined,
+              )
+              if (!status) {
+                // Nothing sends reserved files or sandbox files by itself; say how to get the
+                // URLs or commands for them.
+                const recovery = [
+                  ...(uploadBehavior === 'none' && totalFiles > 0
+                    ? [buildUploadUrlsPending(reference.assemblyUrl)]
+                    : []),
+                  ...(outOfBandUploads > 0
+                    ? [
+                        {
+                          code: 'mcp_upload_instructions_pending',
+                          message:
+                            'The upload instructions were not ready before this call returned.',
+                          // Uploads this call started still reserve their fields; with the same
+                          // files, the next call reuses them instead of handing out commands.
+                          hint: `Wait about 30 seconds, then call transloadit_create_assembly with assembly_url ${reference.assemblyUrl}${totalFiles > 0 ? ', the same files' : ''} and expected_uploads ${expected_uploads} to get them.`,
+                        },
+                      ]
+                    : []),
+                ]
+                return buildStatusPendingResponse(
+                  reference,
+                  {
+                    upload: {
+                      ...uploadSummary,
+                      status: uploadBehavior === 'none' || totalFiles === 0 ? 'none' : 'uploading',
+                      resumed: true,
+                    },
+                    next_steps: [
+                      'transloadit_wait_for_assembly',
+                      'transloadit_get_assembly_status',
+                    ],
+                  },
+                  recovery,
+                )
+              }
+              assembly = status
+            } else {
+              // The creation request itself is slow (or retried); give it as long as a status read.
+              const known = await settleWithin(Promise.race([created, work]), statusReadTimeoutMs)
+              if (known === deadlineReached) {
+                // Without the request, nothing can create this Assembly later, so a status check
+                // that finds no Assembly makes creating it again safe. The SDK keeps the read
+                // streams it opened for the files until they are collected, as on any failed
+                // creation; closing them needs an SDK change.
+                creationAbort.abort()
+                return creationAssemblyId
+                  ? buildCreationPending(
+                      options,
+                      creationAssemblyId,
+                      totalFiles,
+                      outOfBandUploads > 0 ? expected_uploads : undefined,
+                    )
+                  : buildToolError(
+                      'mcp_assembly_creation_pending',
+                      'Creating the Assembly is taking too long.',
+                    )
+              }
+              assembly = known
+            }
           }
-          throw error
+        } catch (error) {
+          if (isPollingTimeout(error) && latest) {
+            // The SDK's own polling ran out of time; the Assembly is still known and running.
+            assembly = latest
+            returnedEarly = true
+          } else {
+            // Once API2 accepted the creation request, an auth failure (a token expiring while
+            // uploads or polling run) must not reach the client as a challenge: it would refresh
+            // and replay the call, creating and billing a second Assembly.
+            if (createdAssemblyId && toAuthRejection(options, error, credentials, [])) {
+              return buildCreatedAssemblyUnavailable(options, createdAssemblyId)
+            }
+            if (isErrnoException(error) && error.code === 'ENOENT') {
+              return buildToolError(
+                'mcp_file_not_found',
+                'A prepared upload is no longer available.',
+                {
+                  hint: 'Retry with base64 or a public URL, or upload via `npx -y @transloadit/node upload`.',
+                },
+              )
+            }
+            throw error
+          }
         }
 
         if (assembly_url) {
@@ -1422,7 +1768,10 @@ export const createTransloaditMcpServer = (
           uploadSummary.status = 'none'
         } else if (uploadBehavior === 'none') {
           uploadSummary.status = 'none'
-        } else if (uploadBehavior === 'background') {
+        } else if (
+          uploadBehavior === 'background' ||
+          (!workSettled && assembly.ok === 'ASSEMBLY_UPLOADING')
+        ) {
           uploadSummary.status = 'uploading'
         }
 
@@ -1430,23 +1779,61 @@ export const createTransloaditMcpServer = (
           uploadSummary.upload_urls = assembly.upload_urls as Record<string, string>
         }
 
+        const ownFields = new Set([...Object.keys(filesMap), ...Object.keys(uploadsMap)])
+        // A resumed Assembly may have received some uploads already, and takes more only while
+        // it waits for them; expected_uploads counts all of its uploads, as at creation.
+        // Finished uploads are listed under uploads, running ones under tus_uploads.
+        const receivedFields = new Set(
+          [
+            ...(assembly.uploads ?? []).map((upload) => upload.field),
+            ...(assembly.tus_uploads ?? []).map((upload) => upload.fieldname),
+          ].filter((field): field is string => isNonEmptyString(field) && !ownFields.has(field)),
+        )
+        const pendingUploads = !reference
+          ? outOfBandUploads
+          : assembly.ok === 'ASSEMBLY_UPLOADING'
+            ? Math.max(outOfBandUploads - receivedFields.size, 0)
+            : 0
         const uploadInstructions =
-          outOfBandUploads > 0
+          pendingUploads > 0
             ? buildUploadInstructions(
                 assembly,
-                outOfBandUploads,
-                new Set([...Object.keys(filesMap), ...Object.keys(uploadsMap)]),
+                pendingUploads,
+                new Set([...ownFields, ...receivedFields]),
               )
             : undefined
-        if (outOfBandUploads > 0 && !uploadInstructions) {
+        if (wait_for_completion && uploadInstructions) {
+          warnings.push({
+            code: 'mcp_wait_skipped_for_uploads',
+            message:
+              'Did not wait for completion because the Assembly waits for the expected uploads. Run upload_instructions, then call transloadit_wait_for_assembly.',
+          })
+        }
+        if (pendingUploads > 0 && !uploadInstructions) {
           warnings.push({
             code: 'mcp_upload_instructions_unavailable',
             message: 'The Assembly status has no tus_url or assembly_ssl_url to upload to.',
           })
         }
+        const running = isAssemblyRunning(assembly)
+        if (returnedEarly && running) {
+          warnings.push(buildStillRunningNotice(assembly, reference?.assemblyUrl))
+        }
+        if (
+          returnedEarly &&
+          uploadBehavior === 'none' &&
+          totalFiles > 0 &&
+          !uploadSummary.upload_urls
+        ) {
+          // Nothing uploads these files later, so the caller needs their reserved upload URLs.
+          const assemblyUrl =
+            reference?.assemblyUrl ??
+            (isNonEmptyString(assembly.assembly_ssl_url) ? assembly.assembly_ssl_url : undefined)
+          warnings.push(buildUploadUrlsPending(assemblyUrl))
+        }
         const nextSteps = uploadInstructions
           ? ['transloadit_wait_for_assembly']
-          : waitForCompletion
+          : waitForCompletion && !running
             ? []
             : ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status']
 
@@ -1454,6 +1841,7 @@ export const createTransloaditMcpServer = (
           {
             status: 'ok',
             assembly,
+            running,
             upload: uploadSummary,
             upload_instructions: uploadInstructions,
             next_steps: nextSteps,
@@ -1471,7 +1859,18 @@ export const createTransloaditMcpServer = (
         if (rejection) return rejection
         throw error
       } finally {
-        await Promise.all(tempCleanups.map((cleanup) => cleanup()))
+        const cleanup = async (): Promise<void> => {
+          await Promise.all(tempCleanups.map((cleanupFile) => cleanupFile()))
+        }
+        // Uploads that continue after an early return still read the prepared files. This
+        // promise never rejects.
+        if (backgroundWork) {
+          void backgroundWork.then(cleanup).catch((error: unknown) => {
+            logger.warn('Removing prepared files failed: %s', redactError(error))
+          })
+        } else {
+          await cleanup()
+        }
       }
     },
   )
@@ -1483,6 +1882,7 @@ export const createTransloaditMcpServer = (
     .strict()
   for (const { id, name } of builtinShortcuts) {
     register(name, shortcutInputSchema, createAssemblyOutputSchema, async (args, extra) => {
+      const startedAt = performance.now()
       const live = createLiveClient(options, extra, 0)
       if ('error' in live) return live.error
       let catalog: BuiltinCatalog
@@ -1524,6 +1924,7 @@ export const createTransloaditMcpServer = (
         { ...args, fields, instructions: { template_id: template.id } },
         extra,
         true,
+        startedAt,
       )
       // Keep the generic tool's historical error shape while making new shortcut failures
       // recognizable to MCP clients that rely on isError instead of structuredContent.status.
@@ -1569,30 +1970,70 @@ export const createTransloaditMcpServer = (
       if ('error' in access) return access.error
 
       const start = Date.now()
+      const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
+      const budgetMs = Math.min(timeout_ms ?? maxWaitMs, maxWaitMs)
+      // Polling only reads status, so it can be stopped as soon as the budget is spent.
+      const polling = new AbortController()
+      let latest: AssemblyStatus | undefined
       let assembly: AssemblyStatus
+      let returnedEarly = false
       try {
-        assembly = await access.client.awaitAssemblyCompletion(access.assemblyId, {
-          timeout: timeout_ms,
-          interval: poll_interval_ms,
-          assemblyUrl: access.assemblyUrl,
-        })
-      } catch (error) {
-        const rejection = toAuthRejection(
-          options,
-          error,
-          access.credentials,
-          toolMetadata.transloadit_wait_for_assembly.scopes,
+        const outcome = await settleWithin(
+          access.client.awaitAssemblyCompletion(access.assemblyId, {
+            timeout: budgetMs,
+            interval: poll_interval_ms,
+            assemblyUrl: access.assemblyUrl,
+            signal: polling.signal,
+            onAssemblyProgress: (status) => {
+              latest = status
+            },
+          }),
+          budgetMs,
         )
-        if (rejection) return rejection
-        throw error
+        if (outcome === deadlineReached) {
+          polling.abort()
+          returnedEarly = true
+          const status = latest ?? (await readAssemblyStatus(access.client, access.assemblyId))
+          if (!status) {
+            return buildStatusPendingResponse(
+              {
+                assemblyId: access.assemblyId,
+                assemblyUrl: access.assemblyUrl ?? defaultAssemblyUrl(options, access.assemblyId),
+              },
+              { waited_ms: Date.now() - start },
+            )
+          }
+          assembly = status
+        } else {
+          assembly = outcome
+        }
+      } catch (error) {
+        if (!(isPollingTimeout(error) && latest)) {
+          const rejection = toAuthRejection(
+            options,
+            error,
+            access.credentials,
+            toolMetadata.transloadit_wait_for_assembly.scopes,
+          )
+          if (rejection) return rejection
+          throw error
+        }
+        assembly = latest
+        returnedEarly = true
       }
       const waited_ms = Date.now() - start
+      const running = isAssemblyRunning(assembly)
 
       return buildToolResponse(
         {
           status: 'ok',
           assembly,
+          running,
           waited_ms,
+          warnings:
+            returnedEarly && running
+              ? [buildStillRunningNotice(assembly, access.assemblyUrl)]
+              : undefined,
         },
         { meta: { [widgetContextMetaKey]: buildWidgetContext(options, assembly) } },
       )

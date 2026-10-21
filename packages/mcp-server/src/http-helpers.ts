@@ -278,6 +278,7 @@ export const assertHttpOptions = (options: {
   maxRequestBodyBytes?: unknown
   maxUrlDownloadBytes?: unknown
   urlDownloadTimeoutMs?: unknown
+  maxWaitMs?: unknown
   resultDomains?: string[]
   widgetDomain?: string
 }): void => {

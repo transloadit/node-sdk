@@ -39,3 +39,9 @@ export const buildRedactor = (secrets: Array<string | undefined>): ((value: unkn
 }
 
 export const getLogger = (): SevLogger => baseLogger
+
+// SevLogger writes warnings and errors to its stdout stream, which the stdio transport owns.
+const diagnosticsLogger = new SevLogger({ breadcrumbs: ['mcp-server'], stdout: process.stderr })
+
+/** Logs diagnostics from tool calls to stderr, so they cannot corrupt the stdio MCP stream. */
+export const getDiagnosticsLogger = (): SevLogger => diagnosticsLogger

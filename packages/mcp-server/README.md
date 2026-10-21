@@ -476,6 +476,10 @@ impractical for anything but tiny files, so the agent uploads the file itself:
    bash shell; it prints `201` once the file is uploaded (tus creation-with-upload, one request).
 3. Call `transloadit_wait_for_assembly` with the Assembly URL.
 
+Calling `transloadit_create_assembly` with `assembly_url` and `expected_uploads` (all uploads the
+Assembly expects, as at creation) hands out `upload_instructions` for the uploads an existing
+Assembly still waits for.
+
 The commands contain no credentials: the Assembly URL is the only capability, and it lets the holder
 add files to that one Assembly while it waits for uploads.
 
@@ -495,7 +499,21 @@ its limit there.
 URL inputs that the server downloads (for templates that expect uploads) are capped at 1 GiB in
 total per call and 10 minutes per download, redirects included; set `maxUrlDownloadBytes` and
 `urlDownloadTimeoutMs` to change that. On the hosted
-endpoint the caller's token is checked with API2 before anything is downloaded.
+endpoint the caller's token is checked with API2 before anything is downloaded. Downloads count
+toward the wait budget below: when they do not finish in time, no Assembly is created and the call
+returns `mcp_preparation_timeout`, so a retry is safe. The download is stopped about a second
+later and its file removed.
+
+## Waiting for Assemblies
+
+MCP hosts abandon tool calls that run too long (ChatGPT after about a minute) and may retry them,
+which would create a second Assembly. `transloadit_create_assembly`, the Builtin shortcuts and
+`transloadit_wait_for_assembly` therefore wait at most 45 seconds, even with a larger
+`wait_timeout_ms`/`timeout_ms`. When that budget is spent, the call returns the Assembly with its
+current status (a last status read or a slow creation request may take up to 5 seconds more, so
+keep the budget that far below the host's limit), `running: true` and an `mcp_assembly_still_running` notice; uploads and processing
+continue, and `transloadit_wait_for_assembly` or `transloadit_get_assembly_status` follow it. Set
+`maxWaitMs` (option or JSON config key) or `TRANSLOADIT_MCP_MAX_WAIT_MS` to change the budget.
 
 ## URL inputs and template behavior
 

@@ -1016,7 +1016,9 @@ export const assemblyResultWidgetHtml = `<!doctype html>
     refresh.hostResult = result
     render(result)
     const assembly = assemblyOf(result)
-    if (assembly && isRunning(assembly) && statusArguments(assembly)) {
+    // A call that returned before any status arrived knows only the reference, with running: true.
+    const running = assembly && (isRunning(assembly) || payloadOf(result).running === true)
+    if (running && statusArguments(assembly)) {
       if (refresh.active) return
       startRefreshing()
       scheduleRefresh()

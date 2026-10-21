@@ -103,7 +103,7 @@ const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
   transloadit_create_assembly: {
     title: 'Create or resume an Assembly',
     description:
-      'Create or resume an Assembly, optionally uploading files and waiting for completion. Files attached in the chat arrive under attachments; public URLs and small base64 payloads go under files. If a file exists only locally or in your sandbox, set expected_uploads, run each upload_instructions curl command there (it needs outbound HTTPS to Transloadit), then call transloadit_wait_for_assembly.',
+      'Create or resume an Assembly, optionally uploading files and waiting for completion. Files attached in the chat arrive under attachments; public URLs and small base64 payloads go under files. If a file exists only locally or in your sandbox, set expected_uploads, run each upload_instructions curl command there (it needs outbound HTTPS to Transloadit), then call transloadit_wait_for_assembly. Waiting stops after a server budget (45 seconds by default); a result with running: true is still processing, so follow it with transloadit_wait_for_assembly instead of creating it again.',
     annotations: {
       readOnlyHint: false,
       // Export Robots (/s3/store, /google/store, …) can overwrite files at the destination, so
@@ -140,7 +140,8 @@ const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
   },
   transloadit_wait_for_assembly: {
     title: 'Wait for Assembly completion',
-    description: 'Polls until the Assembly completes or timeout is reached.',
+    description:
+      'Polls until the Assembly completes, timeout_ms passes or the server budget (45 seconds by default) is spent. A result with running: true is still processing; call this again to keep following it.',
     annotations: readOnly,
     access: 'account',
     scopes: [mcpScopes.assembliesRead],
