@@ -781,30 +781,33 @@ const buildCreatedAssemblyUnavailable = (
 const buildCreationPending = (
   options: TransloaditMcpServerOptions,
   assemblyId: string,
-  uploads: 'none' | 'server' | 'sandbox',
+  serverFiles: number,
+  /** Set when some of them are uploaded from the caller's sandbox. */
+  expectedUploads: number | undefined,
 ): CallToolResult =>
-  buildCreatedAssemblyUnavailable(options, assemblyId, (assemblyUrl) => ({
-    code: 'mcp_assembly_creation_pending',
-    message:
-      'Transloadit did not confirm the Assembly in time, so this server stopped sending the creation request. Transloadit may still have received it.',
+  buildCreatedAssemblyUnavailable(options, assemblyId, (assemblyUrl) => {
     // An Assembly that API2 accepted only after the request was stopped never receives this
-    // call's files, so it is resumed rather than created again.
-    // API2 could in theory still be handling a request it received before the abort, so the
-    // hint asks for a pause first. Strict idempotency would need an API2 creation key, which
-    // does not exist; this path only runs after a request already took longer than the budget.
-    // Uploads from the caller's sandbox are the exception: resuming hands out no
-    // upload_instructions, and the waiting Assembly processes nothing without its files.
-    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if several checks over a few minutes report that the Assembly does not exist${uploadRecoveryHints[uploads](assemblyUrl)}.`,
-  }))
-
-const uploadRecoveryHints: Record<'none' | 'server' | 'sandbox', (assemblyUrl: string) => string> =
-  {
-    none: () => '',
-    server: (assemblyUrl) =>
-      `. If it is still waiting for uploads (ASSEMBLY_UPLOADING), its files were never sent: resume it with assembly_url ${assemblyUrl} and the same files`,
-    sandbox: () =>
-      '. If it is still waiting for uploads (ASSEMBLY_UPLOADING), it never received them and cannot hand out upload_instructions again: create a new Assembly with the same arguments instead, since the waiting one processes nothing',
-  }
+    // call's files, so it is resumed rather than created again: another Assembly could repeat
+    // Steps that already ran, such as imports. API2 could in theory still be handling a request
+    // it received before the abort, so the hint asks for a pause first. Strict idempotency would
+    // need an API2 creation key, which does not exist; this path only runs after a request
+    // already took longer than the budget.
+    const resumeArguments = [
+      `assembly_url ${assemblyUrl}`,
+      ...(serverFiles > 0 ? ['the same files'] : []),
+      ...(expectedUploads ? [`expected_uploads ${expectedUploads}`] : []),
+    ]
+    const resume =
+      serverFiles > 0 || expectedUploads
+        ? `. If it is still waiting for uploads (ASSEMBLY_UPLOADING), its files were never sent: resume it by calling transloadit_create_assembly with ${resumeArguments.join(' and ')}${expectedUploads ? ', which hands out new upload_instructions' : ''}`
+        : ''
+    return {
+      code: 'mcp_assembly_creation_pending',
+      message:
+        'Transloadit did not confirm the Assembly in time, so this server stopped sending the creation request. Transloadit may still have received it.',
+      hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if several checks over a few minutes report that the Assembly does not exist${resume}.`,
+    }
+  })
 
 /** Reserved upload URLs that an early return could not include yet. */
 const buildUploadUrlsPending = (
@@ -1510,12 +1513,18 @@ export const createTransloaditMcpServer = (
           maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
           // prepareInputFiles() takes no abort signal, so its download timeout is what stops a
           // download once the budget is spent; a retry would otherwise run next to it. The extra
-          // second lets the budget check below answer first, with mcp_preparation_timeout.
+          // second lets the budget check below answer first, with mcp_preparation_timeout. Each
+          // download gets this timeout from its own start, but beforeUrlDownload starts none
+          // after the budget.
           urlDownloadTimeoutMs: Math.min(
             options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
             preparationRemainingMs() + 1_000,
           ),
-          beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
+          // Runs before each download, so an abandoned preparation starts no further one.
+          beforeUrlDownload: async () => {
+            if (preparationRemainingMs() === 0) throw new Error('The wait budget is spent.')
+            if (credentials === 'bearer') await verifyTokenBeforeDownload()
+          },
         })
         const prep = await settleWithin(preparation, preparationRemainingMs()).catch(
           buildInputError,
@@ -1553,7 +1562,8 @@ export const createTransloaditMcpServer = (
 
         // Files the caller uploads itself (from a sandbox) can only start once this call returns,
         // so waiting here would just run into the timeout.
-        const outOfBandUploads = reference ? 0 : Math.max((expected_uploads ?? 0) - totalFiles, 0)
+        // A resumed Assembly hands them out again, e.g. after a creation request that was stopped.
+        const outOfBandUploads = Math.max((expected_uploads ?? 0) - totalFiles, 0)
         const waitForCompletion = (wait_for_completion ?? false) && outOfBandUploads === 0
         if (wait_for_completion && outOfBandUploads > 0) {
           warnings.push({
@@ -1691,7 +1701,8 @@ export const createTransloaditMcpServer = (
                   ? buildCreationPending(
                       options,
                       creationAssemblyId,
-                      outOfBandUploads > 0 ? 'sandbox' : totalFiles > 0 ? 'server' : 'none',
+                      totalFiles,
+                      outOfBandUploads > 0 ? expected_uploads : undefined,
                     )
                   : buildToolError(
                       'mcp_assembly_creation_pending',

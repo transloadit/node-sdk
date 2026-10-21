@@ -563,6 +563,39 @@ describe('assembly result widget status refresh', () => {
     await widget.window.happyDOM.close()
   })
 
+  it('follows an Assembly whose status had not arrived when the call returned', async () => {
+    const widget = mountWidget({
+      maxTimeout: 0,
+      answerToolCall: () => statusResult(completed),
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      result: {
+        protocolVersion: '2026-01-26',
+        hostInfo,
+        hostCapabilities: { serverTools: {} },
+        hostContext: {},
+      },
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          // The server only knows the reference, so the Assembly carries no ok state.
+          assembly: { assembly_id: 'abc123', assembly_ssl_url: assemblyUrl },
+          running: true,
+        },
+      },
+    })
+
+    await waitFor(() => widget.appText().includes('Completed'))
+    expect(toolCalls(widget.sent)).toEqual([statusCall])
+    await widget.window.happyDOM.close()
+  })
+
   it.each([
     ['failed', { error: 'INVALID_FILE_META_DATA', message: 'Bad file.' }, 'Failed'],
     ['canceled', { ok: 'ASSEMBLY_CANCELED' }, 'Canceled'],

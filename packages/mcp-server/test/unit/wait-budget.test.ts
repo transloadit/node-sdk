@@ -203,6 +203,33 @@ describe('waiting within the host tool-call budget', () => {
     }
   })
 
+  it('starts no further download once the budget is spent', async () => {
+    const first = nock('http://198.51.100.10')
+      .get('/first.jpg')
+      // Finishes after the call returned, but within the download timeout it was given.
+      .delay(maxWaitMs + 500)
+      .reply(200, 'First file')
+    const second = nock('http://198.51.100.10').get('/second.jpg').reply(200, 'Second file')
+    vi.spyOn(Transloadit.prototype, 'createAssembly')
+
+    const result = await call('transloadit_create_assembly', {
+      instructions: uploadTemplate,
+      files: [
+        { kind: 'url', field: 'first', url: 'http://198.51.100.10/first.jpg' },
+        { kind: 'url', field: 'second', url: 'http://198.51.100.10/second.jpg' },
+      ],
+    })
+
+    expect(result.structuredContent).toMatchObject({
+      errors: [{ code: 'mcp_preparation_timeout' }],
+    })
+    expect(first.isDone()).toBe(true)
+    // Past the moment the first download finishes.
+    await new Promise((resolve) => setTimeout(resolve, 1_000))
+    // A retry downloads everything again, so the abandoned preparation must not go on.
+    expect(second.isDone()).toBe(false)
+  })
+
   it('returns the latest status from transloadit_wait_for_assembly once the budget is spent', async () => {
     let signal: AbortSignal | undefined
     vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockImplementation(
@@ -283,7 +310,9 @@ describe('waiting within the host tool-call budget', () => {
       errors: [
         {
           code: 'mcp_assembly_creation_pending',
-          hint: expect.stringContaining(`resume it with assembly_url ${assemblyUrl}`),
+          hint: expect.stringContaining(
+            `resume it by calling transloadit_create_assembly with assembly_url ${assemblyUrl} and the same files`,
+          ),
         },
       ],
     })
@@ -291,7 +320,7 @@ describe('waiting within the host tool-call budget', () => {
     expect(JSON.stringify(result.structuredContent)).toContain('several checks')
   })
 
-  it('asks for a new Assembly when a stopped creation expected uploads from the sandbox', async () => {
+  it('asks to resume a stopped creation that expected uploads from the sandbox', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
     vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation(() =>
       Object.assign(pending(), { assemblyId }),
@@ -305,10 +334,35 @@ describe('waiting within the host tool-call budget', () => {
     await vi.advanceTimersByTimeAsync(maxWaitMs + 10_000)
     const result = await pendingResult
 
-    // Resuming cannot hand out upload_instructions, so the sandbox could never upload its files.
-    const [error] = (result.structuredContent as { errors: Array<{ hint: string }> }).errors
-    expect(error?.hint).not.toContain('resume it')
-    expect(error?.hint).toContain('create a new Assembly')
+    // Another Assembly could repeat Steps that already ran, so the existing one gets the uploads.
+    expect(result.structuredContent).toMatchObject({
+      errors: [
+        {
+          code: 'mcp_assembly_creation_pending',
+          hint: expect.stringContaining(
+            `transloadit_create_assembly with assembly_url ${assemblyUrl} and expected_uploads 1`,
+          ),
+        },
+      ],
+    })
+  })
+
+  it('hands out upload instructions when resuming an Assembly that expects sandbox uploads', async () => {
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue({
+      ...uploading,
+      tus_url: 'https://api2.transloadit.com/resumable/files/',
+    })
+
+    const result = await call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      expected_uploads: 1,
+    })
+
+    expect(result.structuredContent).toMatchObject({
+      status: 'ok',
+      upload_instructions: [{ fieldname: 'file_1' }],
+      next_steps: ['transloadit_wait_for_assembly'],
+    })
   })
 
   it('reports the pending Assembly when the creation request would time out with the budget', async () => {
