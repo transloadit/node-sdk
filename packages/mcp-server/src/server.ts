@@ -781,7 +781,7 @@ const buildCreatedAssemblyUnavailable = (
 const buildCreationPending = (
   options: TransloaditMcpServerOptions,
   assemblyId: string,
-  hasUploads: boolean,
+  uploads: 'none' | 'server' | 'sandbox',
 ): CallToolResult =>
   buildCreatedAssemblyUnavailable(options, assemblyId, (assemblyUrl) => ({
     code: 'mcp_assembly_creation_pending',
@@ -792,8 +792,30 @@ const buildCreationPending = (
     // API2 could in theory still be handling a request it received before the abort, so the
     // hint asks for a pause first. Strict idempotency would need an API2 creation key, which
     // does not exist; this path only runs after a request already took longer than the budget.
-    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if several checks over a few minutes report that the Assembly does not exist${hasUploads ? `. If it is still waiting for uploads (ASSEMBLY_UPLOADING), its files were never sent: resume it with assembly_url ${assemblyUrl} and the same files` : ''}.`,
+    // Uploads from the caller's sandbox are the exception: resuming hands out no
+    // upload_instructions, and the waiting Assembly processes nothing without its files.
+    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if several checks over a few minutes report that the Assembly does not exist${uploadRecoveryHints[uploads](assemblyUrl)}.`,
   }))
+
+const uploadRecoveryHints: Record<'none' | 'server' | 'sandbox', (assemblyUrl: string) => string> =
+  {
+    none: () => '',
+    server: (assemblyUrl) =>
+      `. If it is still waiting for uploads (ASSEMBLY_UPLOADING), its files were never sent: resume it with assembly_url ${assemblyUrl} and the same files`,
+    sandbox: () =>
+      '. If it is still waiting for uploads (ASSEMBLY_UPLOADING), it never received them and cannot hand out upload_instructions again: create a new Assembly with the same arguments instead, since the waiting one processes nothing',
+  }
+
+/** Reserved upload URLs that an early return could not include yet. */
+const buildUploadUrlsPending = (
+  assemblyUrl: string | undefined,
+): { code: string; message: string; hint: string } => ({
+  code: 'mcp_upload_urls_pending',
+  message: 'The upload URLs were not reserved before this call returned.',
+  // The reservations this call started keep running; asking at once could reserve the files
+  // a second time instead of returning the URLs those reservations produce.
+  hint: `Wait about 30 seconds, then call transloadit_create_assembly with assembly_url ${assemblyUrl ?? 'from this result'}, the same files and upload_behavior "none" to get them.`,
+})
 
 /** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
 const buildCredentialError = (error: {
@@ -973,13 +995,14 @@ const readAssemblyStatus = async (
 const buildStatusPendingResponse = (
   reference: AssemblyReference,
   fields: Record<string, unknown> = {},
+  warnings: Array<{ code: string; message: string; hint?: string }> = [],
 ): CallToolResult =>
   buildToolResponse({
     status: 'ok',
     assembly: { assembly_id: reference.assemblyId, assembly_ssl_url: reference.assemblyUrl },
     running: true,
     ...fields,
-    warnings: [buildStillRunningNotice({}, reference.assemblyUrl)],
+    warnings: [buildStillRunningNotice({}, reference.assemblyUrl), ...warnings],
   })
 
 /** Production (`.com`) and development or tunnel (`.dev`) Transloadit hosts. */
@@ -1485,15 +1508,21 @@ export const createTransloaditMcpServer = (
           allowPrivateUrls: false,
           maxBase64Bytes,
           maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
-          urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
+          // prepareInputFiles() takes no abort signal, so its download timeout is what stops a
+          // download once the budget is spent; a retry would otherwise run next to it. The extra
+          // second lets the budget check below answer first, with mcp_preparation_timeout.
+          urlDownloadTimeoutMs: Math.min(
+            options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
+            preparationRemainingMs() + 1_000,
+          ),
           beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
         })
         const prep = await settleWithin(preparation, preparationRemainingMs()).catch(
           buildInputError,
         )
         if (prep === deadlineReached) {
-          // prepareInputFiles() cannot be stopped, so a download keeps running until it ends or
-          // reaches urlDownloadTimeoutMs; its files are removed then, since nothing uploads them.
+          // The download stops at its timeout and prepareInputFiles() removes its files; one that
+          // still finishes first returns files that nothing uploads.
           void preparation
             .then(
               (late) => Promise.all(late.cleanup.map((cleanupFile) => cleanupFile())),
@@ -1617,6 +1646,8 @@ export const createTransloaditMcpServer = (
               () => undefined,
               (error: unknown) => {
                 if (isPollingTimeout(error) || creationAbort.signal.aborted) return
+                // A creation failure within the grace period below also reaches the caller; the
+                // extra log line is accepted to keep this handler attached before that wait.
                 // Hosted instances keep no per-Assembly state to report this later; follow-up
                 // status calls show the Assembly itself.
                 logger.warn('Assembly work after an early return failed: %s', redactError(error))
@@ -1630,10 +1661,23 @@ export const createTransloaditMcpServer = (
                 () => undefined,
               )
               if (!status) {
-                return buildStatusPendingResponse(reference, {
-                  upload: { ...uploadSummary, status: 'uploading', resumed: true },
-                  next_steps: ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status'],
-                })
+                // Without uploads, nothing sends the files; the caller needs the reserved URLs.
+                const reserveOnly = uploadBehavior === 'none' && totalFiles > 0
+                return buildStatusPendingResponse(
+                  reference,
+                  {
+                    upload: {
+                      ...uploadSummary,
+                      status: uploadBehavior === 'none' ? 'none' : 'uploading',
+                      resumed: true,
+                    },
+                    next_steps: [
+                      'transloadit_wait_for_assembly',
+                      'transloadit_get_assembly_status',
+                    ],
+                  },
+                  reserveOnly ? [buildUploadUrlsPending(reference.assemblyUrl)] : [],
+                )
               }
               assembly = status
             } else {
@@ -1647,7 +1691,7 @@ export const createTransloaditMcpServer = (
                   ? buildCreationPending(
                       options,
                       creationAssemblyId,
-                      totalFiles + outOfBandUploads > 0,
+                      outOfBandUploads > 0 ? 'sandbox' : totalFiles > 0 ? 'server' : 'none',
                     )
                   : buildToolError(
                       'mcp_assembly_creation_pending',
@@ -1729,11 +1773,7 @@ export const createTransloaditMcpServer = (
           const assemblyUrl =
             reference?.assemblyUrl ??
             (isNonEmptyString(assembly.assembly_ssl_url) ? assembly.assembly_ssl_url : undefined)
-          warnings.push({
-            code: 'mcp_upload_urls_pending',
-            message: 'The upload URLs were not reserved before this call returned.',
-            hint: `Call transloadit_create_assembly with assembly_url ${assemblyUrl ?? 'from this result'}, the same files and upload_behavior "none" to get them.`,
-          })
+          warnings.push(buildUploadUrlsPending(assemblyUrl))
         }
         const nextSteps = uploadInstructions
           ? ['transloadit_wait_for_assembly']

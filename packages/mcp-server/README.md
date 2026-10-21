@@ -497,8 +497,8 @@ total per call and 10 minutes per download, redirects included; set `maxUrlDownl
 `urlDownloadTimeoutMs` to change that. On the hosted
 endpoint the caller's token is checked with API2 before anything is downloaded. Downloads count
 toward the wait budget below: when they do not finish in time, no Assembly is created and the call
-returns `mcp_preparation_timeout`, so a retry is safe. The abandoned download runs until it ends or
-reaches its own timeout, and its file is then removed.
+returns `mcp_preparation_timeout`, so a retry is safe. The download is stopped about a second
+later and its file removed.
 
 ## Waiting for Assemblies
 
@@ -506,7 +506,8 @@ MCP hosts abandon tool calls that run too long (ChatGPT after about a minute) an
 which would create a second Assembly. `transloadit_create_assembly`, the Builtin shortcuts and
 `transloadit_wait_for_assembly` therefore wait at most 45 seconds, even with a larger
 `wait_timeout_ms`/`timeout_ms`. When that budget is spent, the call returns the Assembly with its
-current status, `running: true` and an `mcp_assembly_still_running` notice; uploads and processing
+current status (a last status read or a slow creation request may take up to 5 seconds more, so
+keep the budget that far below the host's limit), `running: true` and an `mcp_assembly_still_running` notice; uploads and processing
 continue, and `transloadit_wait_for_assembly` or `transloadit_get_assembly_status` follow it. Set
 `maxWaitMs` (option or JSON config key) or `TRANSLOADIT_MCP_MAX_WAIT_MS` to change the budget.
 

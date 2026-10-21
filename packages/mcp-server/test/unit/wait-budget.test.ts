@@ -174,7 +174,8 @@ describe('waiting within the host tool-call budget', () => {
     try {
       const scope = nock('http://198.51.100.10')
         .get('/large.mp4')
-        .delay(maxWaitMs * 3)
+        // Far longer than the budget, so only a stopped download leaves the directory empty soon.
+        .delay(maxWaitMs * 100)
         .reply(200, 'Downloaded bytes')
       vi.spyOn(Transloadit.prototype, 'createAssembly')
 
@@ -190,9 +191,9 @@ describe('waiting within the host tool-call budget', () => {
         ],
       })
       expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
-      // Nothing uploads the abandoned download, so its file is removed once it arrives.
+      // A retry starts another download, so the abandoned one is stopped and its file removed.
       await vi.waitFor(async () => expect(await readdir(tempRoot)).toEqual([]), {
-        timeout: maxWaitMs * 10,
+        timeout: 3_000,
       })
       expect(scope.isDone()).toBe(true)
     } finally {
@@ -288,6 +289,26 @@ describe('waiting within the host tool-call budget', () => {
     })
     // A request API2 received before the abort may still create the Assembly after one check.
     expect(JSON.stringify(result.structuredContent)).toContain('several checks')
+  })
+
+  it('asks for a new Assembly when a stopped creation expected uploads from the sandbox', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation(() =>
+      Object.assign(pending(), { assemblyId }),
+    )
+
+    const pendingResult = call('transloadit_create_assembly', {
+      instructions: uploadTemplate,
+      expected_uploads: 1,
+    })
+    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(maxWaitMs + 10_000)
+    const result = await pendingResult
+
+    // Resuming cannot hand out upload_instructions, so the sandbox could never upload its files.
+    const [error] = (result.structuredContent as { errors: Array<{ hint: string }> }).errors
+    expect(error?.hint).not.toContain('resume it')
+    expect(error?.hint).toContain('create a new Assembly')
   })
 
   it('reports the pending Assembly when the creation request would time out with the budget', async () => {
@@ -408,8 +429,33 @@ describe('waiting within the host tool-call budget', () => {
       warnings: expect.arrayContaining([
         expect.objectContaining({
           code: 'mcp_upload_urls_pending',
-          hint: expect.stringContaining(`assembly_url ${assemblyUrl}`),
+          // This call's reservations still run; resuming at once could reserve the files twice.
+          hint: expect.stringMatching(`^Wait about 30 seconds.* assembly_url ${assemblyUrl},`),
         }),
+      ]),
+    })
+  })
+
+  it('says how to get reserved upload URLs when a resumed reservation has no status in time', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockImplementation(() => pending())
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockImplementation(() => pending())
+
+    const pendingResult = call('transloadit_create_assembly', {
+      assembly_url: assemblyUrl,
+      files: [{ kind: 'base64', field: 'file', base64: 'aGVsbG8=', filename: 'hello.txt' }],
+      upload_behavior: 'none',
+    })
+    await vi.waitFor(() => expect(Transloadit.prototype.resumeAssemblyUploads).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(maxWaitMs + 10_000)
+    const result = await pendingResult
+
+    // Nothing uploads in this mode, so waiting alone would never finish the Assembly.
+    expect(result.structuredContent).toMatchObject({
+      running: true,
+      upload: { status: 'none' },
+      warnings: expect.arrayContaining([
+        expect.objectContaining({ code: 'mcp_upload_urls_pending' }),
       ]),
     })
   })
