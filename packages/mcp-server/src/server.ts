@@ -1959,7 +1959,8 @@ export const createTransloaditMcpServer = (
       const status = await readAssemblyStatus(
         live.client,
         assemblyId,
-        Math.min(statusReadTimeoutMs, Math.max(deadline - performance.now(), 1)),
+        // AbortSignal.timeout() refuses fractional delays.
+        Math.min(statusReadTimeoutMs, Math.max(Math.floor(deadline - performance.now()), 1)),
       ).catch(() => undefined)
       if (!status) break
       outcome = classifyInputUrlImport(status)

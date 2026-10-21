@@ -382,23 +382,12 @@ describe('Builtin shortcuts with URL inputs', () => {
     expect(creations[0]?.params).not.toHaveProperty('input_url')
   })
 
-  it('sends a URL whose given name matches its own as input_url', async () => {
-    createReturns({ ...completed, num_input_files: 1 })
-    await call('transloadit_convert_to_pdf', 'builtin/convert-to-pdf@0.0.1', {
-      attachments: [
-        { download_url: `${origin}/dir/notes.md?sig=1`, file_id: 'f', file_name: 'notes.md' },
-      ],
-      wait_for_completion: true,
-    })
-    expect(creations[0]?.params).toMatchObject({ input_url: [`${origin}/dir/notes.md?sig=1`] })
-  })
-
-  it('downloads a URL whose name only matches the given one after decoding', async () => {
-    // API2 keeps percent escapes in an imported file's name, which would hide the extension.
-    const download = nock(origin).get('/notes%2Emd').reply(200, '# Notes')
+  it('downloads a URL given a name even when its URL ends in that name', async () => {
+    // Redirects or Content-Disposition can rename an imported file; only a download keeps it.
+    const download = nock(origin).get('/notes.md').reply(200, '# Notes')
     createReturns(executing)
     await call('transloadit_convert_to_pdf', 'builtin/convert-to-pdf@0.0.1', {
-      files: [{ ...url(`${origin}/notes%2Emd`), filename: 'notes.md' }],
+      attachments: [{ download_url: `${origin}/notes.md`, file_id: 'f', file_name: 'notes.md' }],
     })
     expect(download.isDone()).toBe(true)
     expect(creations[0]?.params).not.toHaveProperty('input_url')
@@ -417,8 +406,23 @@ describe('Builtin shortcuts with URL inputs', () => {
       300,
     )
     expect(performance.now() - startedAt).toBeLessThan(2_000)
+    expect(Transloadit.prototype.getAssembly).toHaveBeenCalled()
     expect(result.structuredContent).toMatchObject({ status: 'ok' })
     expect(creations).toHaveLength(1)
+  })
+
+  it('falls back within a wait budget shorter than a status read', async () => {
+    nock(origin).get('/photo.jpg').reply(200, 'bytes')
+    createReturns(executing, { ...executing, assembly_id: 'f'.repeat(32) })
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue(completed)
+    await call(
+      'transloadit_prepare_image',
+      'builtin/prepare-image@0.0.1',
+      { files: [url(photo)] },
+      3_000,
+    )
+    expect(creations).toHaveLength(2)
+    expect(creations[1]?.params).not.toHaveProperty('input_url')
   })
 
   it('does not probe past the caller’s wait deadline', async () => {
