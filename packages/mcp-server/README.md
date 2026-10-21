@@ -526,6 +526,18 @@ For URL inputs, behavior depends on the template/instructions:
 - If the template does not take input files, URL inputs are ignored and a warning is returned.
 - If `allow_steps_override=false` and only `/http/import` would work, URL inputs are rejected.
 
+The Builtin shortcuts for `caption-video`, `convert-to-pdf`, `encode-video`, `extract-text`,
+`prepare-image`, `remove-background`, `transcribe` and `video-covers` send URLs to API2 as
+[`input_url`](https://github.com/transloadit/api2/pull/10292) next to `template_id` when every
+file and attachment of the call is a URL (up to 10, one for `caption-video`). Transloadit then
+fetches the files itself, so the Assembly exists at once and nothing is downloaded by the MCP server
+or held up by a large file. File names come from the URLs. Calls that mix URLs with base64 files
+or sandbox uploads, and URLs that API2 would refuse (whitespace, `|`, `${…}`, over 4096
+characters), keep the download path above. When API2 refuses `input_url` for the request, or ran
+the Builtin without importing the URLs (an API2 host that predates `input_url`), the shortcut
+downloads and uploads the URLs as before; the eligible Builtins are listed in the
+[alphalib Builtin manifest](../node/src/alphalib/types/builtinTemplates.ts).
+
 ## Local vs hosted file access
 
 - MCP accepts base64 and URL inputs in both self-hosted and hosted deployments. Local filesystem

@@ -1,9 +1,10 @@
-import type { Transloadit } from '@transloadit/node'
+import type { InputFile, Transloadit } from '@transloadit/node'
 import type { BuiltinTemplateCatalogItem } from '@transloadit/zod/v4/builtinTemplates'
 import type { ValidateFunction } from 'ajv'
 
 import {
   builtinTemplateCatalogItemSchema,
+  mcpBuiltinInputUrlMaxCounts,
   mcpBuiltinTemplateManifest,
 } from '@transloadit/zod/v4/builtinTemplates'
 import { Ajv } from 'ajv'
@@ -165,6 +166,38 @@ export const validateBuiltinFields = (
     }
   }
   return merged
+}
+
+// API2's literal-URL rules for `input_url`; a URL it would refuse keeps today's download path.
+const isLiteralHttpUrl = (value: string): boolean => {
+  if ([...value].length > 4096 || /\s/u.test(value) || value.includes('${') || value.includes('|'))
+    return false
+  if (!URL.canParse(value)) return false
+  const { protocol } = new URL(value)
+  return protocol === 'http:' || protocol === 'https:'
+}
+
+/**
+ * The URLs a shortcut call hands to API2 as `input_url`, so API2 imports them itself and nothing
+ * is downloaded here. Only for eligible Builtins and calls whose every input is such a URL;
+ * anything else (local, base64 or sandbox inputs, too many URLs) returns undefined and keeps the
+ * download-and-upload path.
+ */
+export const selectBuiltinInputUrls = (
+  templateId: string,
+  inputs: readonly InputFile[],
+  expectedUploads = 0,
+): string[] | undefined => {
+  const maxUrls = mcpBuiltinInputUrlMaxCounts[templateId]
+  if (maxUrls === undefined || inputs.length === 0 || inputs.length > maxUrls) return undefined
+  // expected_uploads counts every input; more than the URLs means sandbox uploads follow.
+  if (expectedUploads > inputs.length) return undefined
+  const urls: string[] = []
+  for (const input of inputs) {
+    if (input.kind !== 'url' || !isLiteralHttpUrl(input.url)) return undefined
+    urls.push(input.url)
+  }
+  return urls
 }
 
 /** Read approved Builtins with a dedicated, retry-disabled client; callers never share catalogs. */

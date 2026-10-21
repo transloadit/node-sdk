@@ -105,4 +105,24 @@ maybeDescribe('mcp-server URL inputs (stdio)', { timeout: 60000 }, () => {
     expect(Array.isArray(resized)).toBe(true)
     expect(resized).toHaveLength(2)
   })
+
+  // Passes with either API2: one with input_url (api2#10292) imports the URL itself, an older one
+  // runs the Builtin without input files and the shortcut falls back to downloading the URL.
+  it('processes a URL with a Builtin shortcut', async () => {
+    const result = await client.callTool({
+      name: 'transloadit_prepare_image',
+      arguments: {
+        fields: { w: 64, h: 64 },
+        files: [{ kind: 'url', field: 'remote', url: demoImage }],
+        wait_for_completion: true,
+      },
+    })
+
+    const payload = parseToolPayload(result)
+    expect(payload.status).toBe('ok')
+    const assembly = isRecord(payload.assembly) ? payload.assembly : {}
+    expect(assembly.ok).toBe('ASSEMBLY_COMPLETED')
+    expect(assembly.num_input_files).toBe(1)
+    expect(Object.values(isRecord(assembly.results) ? assembly.results : {}).flat()).not.toEqual([])
+  })
 })

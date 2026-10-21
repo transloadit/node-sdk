@@ -14,6 +14,8 @@ import type { BuiltinCatalog } from './builtin-shortcuts.ts'
 import type { ToolName } from './tool-metadata.ts'
 import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
+import { setTimeout as delay } from 'node:timers/promises'
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import {
   ApiError,
@@ -34,6 +36,7 @@ import {
   BuiltinFieldValidationError,
   builtinShortcuts,
   loadBuiltinShortcuts,
+  selectBuiltinInputUrls,
   validateBuiltinFields,
 } from './builtin-shortcuts.ts'
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
@@ -1231,6 +1234,32 @@ const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => 
   return undefined
 }
 
+/**
+ * Status reads after an `input_url` creation that tell an API2 without input_url support, whose
+ * Assembly completes without input files within milliseconds, from one still importing the URLs.
+ * Remove once api2#10292 runs on every API2 host.
+ */
+const inputUrlProbeDelaysMs = [0, 300]
+
+/**
+ * `ignored`: the Assembly completed without any input file, so API2 dropped `input_url`; an import
+ * that fetched nothing ends with an error instead. `pending`: still running without input files.
+ */
+const classifyInputUrlImport = (
+  status: Record<string, unknown>,
+): 'ignored' | 'used' | 'pending' => {
+  if (status.error != null) return 'used'
+  if (typeof status.num_input_files === 'number' && status.num_input_files > 0) return 'used'
+  if (status.ok === 'ASSEMBLY_COMPLETED' && status.num_input_files === 0) return 'ignored'
+  return typeof status.ok === 'string' && runningAssemblyStates.has(status.ok) ? 'pending' : 'used'
+}
+
+/** API2's refusals of `input_url` for a request (api2#10292); nothing ran, so uploading is safe. */
+const refusesInputUrl = (error: unknown): boolean =>
+  error instanceof ApiError &&
+  error.code === 'INVALID_FORM_DATA' &&
+  (error.reason ?? error.rawMessage ?? '').includes('input_url')
+
 const toAssemblyInstructionsInput = (params: CreateAssemblyParams): AssemblyInstructionsInput => {
   if (!params.auth || params.auth.key) {
     return params as AssemblyInstructionsInput
@@ -1875,6 +1904,48 @@ export const createTransloaditMcpServer = (
     },
   )
 
+  /**
+   * Creates a Builtin's Assembly with `input_url`, so API2 fetches the URLs and the Assembly exists
+   * at once. Returns undefined when API2 did not import them, so the caller downloads and uploads
+   * the URLs as before: an API2 that refuses `input_url` for this call, or one that predates it
+   * (api2#10292). Those ignore unknown params and run the Builtin without input files, which ends
+   * the Assembly within milliseconds with no input files at all.
+   */
+  const createWithInputUrls = async (
+    args: Parameters<typeof createAssembly>[0],
+    extra: Parameters<typeof createAssembly>[1],
+    startedAt: number,
+  ): Promise<CallToolResult | undefined> => {
+    let result: CallToolResult
+    try {
+      result = await createAssembly(args, extra, true, startedAt)
+    } catch (error) {
+      if (refusesInputUrl(error)) return undefined
+      throw error
+    }
+    const created = result.structuredContent?.assembly
+    if (result.structuredContent?.status !== 'ok' || !isRecord(created)) return result
+    const assemblyId = created.assembly_id
+    const live = createLiveClient(options, extra)
+    let outcome = classifyInputUrlImport(created)
+    for (const delayMs of inputUrlProbeDelaysMs) {
+      if (outcome !== 'pending' || !isNonEmptyString(assemblyId) || 'error' in live) break
+      // The probe must not spend the budget the fallback download still needs.
+      if (startedAt + (options.maxWaitMs ?? defaultMaxWaitMs) - performance.now() < delayMs * 2)
+        break
+      await delay(delayMs)
+      const status = await readAssemblyStatus(live.client, assemblyId).catch(() => undefined)
+      if (!status) break
+      outcome = classifyInputUrlImport(status)
+    }
+    if (outcome !== 'ignored') return result
+    logger.warn(
+      'API2 ran Assembly %s without importing input_url; uploading the URLs instead.',
+      assemblyId,
+    )
+    return undefined
+  }
+
   // Keep the generic execution path responsible for auth, uploads, waiting and widget results.
   // Shortcuts can supply fields and files, but cannot replace the Builtin's reviewed workflow.
   const shortcutInputSchema = createAssemblyInputSchema
@@ -1920,12 +1991,33 @@ export const createTransloaditMcpServer = (
         }
         return buildShortcutError('mcp_invalid_builtin_fields', error.message, { path: 'fields' })
       }
-      const result = await createAssembly(
-        { ...args, fields, instructions: { template_id: template.id } },
-        extra,
-        true,
-        startedAt,
+      const inputUrls = selectBuiltinInputUrls(
+        template.id,
+        [...(args.files ?? []), ...toAttachmentInputs(args.attachments ?? [])],
+        args.expected_uploads,
       )
+      const imported = inputUrls
+        ? await createWithInputUrls(
+            {
+              ...args,
+              files: undefined,
+              attachments: undefined,
+              expected_uploads: undefined,
+              fields,
+              instructions: { template_id: template.id, input_url: inputUrls },
+            },
+            extra,
+            startedAt,
+          )
+        : undefined
+      const result =
+        imported ??
+        (await createAssembly(
+          { ...args, fields, instructions: { template_id: template.id } },
+          extra,
+          true,
+          startedAt,
+        ))
       // Keep the generic tool's historical error shape while making new shortcut failures
       // recognizable to MCP clients that rely on isError instead of structuredContent.status.
       return result.structuredContent?.status === 'error' ? { ...result, isError: true } : result
