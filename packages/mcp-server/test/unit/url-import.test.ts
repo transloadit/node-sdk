@@ -76,6 +76,23 @@ describe('URL inputs for Steps that take uploads', () => {
     })
   })
 
+  it('keeps imported file names apart like downloads did', async () => {
+    const otherPhoto = 'http://198.51.100.20/photo.jpg'
+    await call({
+      instructions: { steps: uploadSteps },
+      files: [
+        { kind: 'url', field: 'first', url: 'http://198.51.100.10/photo.jpg' },
+        { kind: 'url', field: 'second', url: otherPhoto },
+      ],
+    })
+
+    expect(created?.params?.steps).toMatchObject({
+      imported: {
+        force_name: { 'http://198.51.100.10/photo.jpg': 'photo.jpg', [otherPhoto]: 'photo-1.jpg' },
+      },
+    })
+  })
+
   it.each([
     {
       name: 'URL inputs next to a base64 input',
@@ -106,6 +123,19 @@ describe('URL inputs for Steps that take uploads', () => {
             robot: '/file/filter',
             use: 'resized',
             accepts: [['${file.field}', '==', 'first']],
+          },
+        },
+      },
+    },
+    {
+      name: 'Steps that read the upload field with bracket notation',
+      instructions: {
+        steps: {
+          ...uploadSteps,
+          picked: {
+            robot: '/file/filter',
+            use: 'resized',
+            accepts: [["${file['field']}", '==', 'first']],
           },
         },
       },

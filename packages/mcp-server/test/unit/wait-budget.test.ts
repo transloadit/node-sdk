@@ -174,7 +174,7 @@ describe('waiting within the host tool-call budget', () => {
     try {
       const scope = nock('http://198.51.100.10')
         .get('/large.mp4')
-        .delay(maxWaitMs * 2)
+        .delay(maxWaitMs * 20)
         .reply(200, 'Downloaded bytes')
       vi.spyOn(Transloadit.prototype, 'createAssembly')
 
@@ -192,10 +192,11 @@ describe('waiting within the host tool-call budget', () => {
         ],
       })
       expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
-      await vi.waitFor(() => expect(scope.isDone()).toBe(true), { timeout: 5_000 })
+      // A retry would start another download, so the abandoned one is stopped and removed.
       await vi.waitFor(async () => expect(await readdir(tempRoot)).toEqual([]), {
-        timeout: 3_000,
+        timeout: maxWaitMs,
       })
+      expect(scope.isDone()).toBe(true)
     } finally {
       if (previousTmpdir === undefined) delete process.env.TMPDIR
       else process.env.TMPDIR = previousTmpdir

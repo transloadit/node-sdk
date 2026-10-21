@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 
@@ -322,6 +322,31 @@ describe('prepareInputFiles', () => {
         urlDownloadTimeoutMs: 50,
       }),
     ).rejects.toThrow(/Timeout/)
+  })
+
+  it('stops URL downloads once the signal aborts and removes what they wrote', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
+    nock('http://rebind.test').get('/slow').delay(2_000).reply(200, 'late')
+    const tempDir = await mkdtemp(join(tmpdir(), 'input-files-abort-'))
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 50)
+
+    try {
+      const startedAt = Date.now()
+      await expect(
+        prepareInputFiles({
+          inputFiles: [{ kind: 'url', field: 'remote', url: 'http://rebind.test/slow' }],
+          urlStrategy: 'download',
+          allowPrivateUrls: false,
+          tempDir,
+          signal: controller.signal,
+        }),
+      ).rejects.toThrow()
+      expect(Date.now() - startedAt).toBeLessThan(1_000)
+      expect(await readdir(tempDir)).toEqual([])
+    } finally {
+      await rm(tempDir, { recursive: true, force: true })
+    }
   })
 
   it('caps the total bytes of all URL downloads in one call', async () => {

@@ -14,7 +14,7 @@ import type { BuiltinCatalog } from './builtin-shortcuts.ts'
 import type { ToolName } from './tool-metadata.ts'
 import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
-import { basename } from 'node:path'
+import { basename, parse } from 'node:path'
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import {
@@ -967,18 +967,33 @@ const replaceUploadWithImport = (
     if (name === uploadStepName) continue
     if (!isRecord(step) || step.use === undefined || selectsByField(step.use)) return undefined
   }
-  if (/\bfile\.field\b/.test(JSON.stringify(steps))) return undefined
+  // Interpolations such as ${file.field} or ${file['field']} would no longer match.
+  if (/\$\{[^}]*\bfield\b/.test(JSON.stringify(steps))) return undefined
   // Imports are named after their URL. Keep the names a caller gave, as a download did, because
   // host attachment URLs rarely end in the file's name. API2 applies the whole name map to a URL
   // it does not list, so once one URL is named, every URL gets the name a download would use.
-  const named = urlInputs.some(({ filename }) => filename)
-  const nameByUrl = new Map<string, string>()
+  const requestedByUrl = new Map<string, string>()
   for (const { field, url, filename } of urlInputs) {
-    const name = filename ? basename(filename) : basename(new URL(url).pathname) || `${field}.bin`
+    const requested = filename
+      ? basename(filename)
+      : basename(new URL(url).pathname) || `${field}.bin`
     // Names are given per URL, so one URL cannot be imported under two names.
-    if ((nameByUrl.get(url) ?? name) !== name) return undefined
-    nameByUrl.set(url, name)
+    if ((requestedByUrl.get(url) ?? requested) !== requested) return undefined
+    requestedByUrl.set(url, requested)
   }
+  // Downloads kept distinct URLs with one name apart as photo.jpg and photo-1.jpg.
+  const usedNames = new Set<string>()
+  const nameByUrl = new Map<string, string>()
+  for (const [url, requested] of requestedByUrl) {
+    const { name, ext } = parse(requested)
+    let unique = requested
+    for (let counter = 1; usedNames.has(unique); counter += 1) unique = `${name}-${counter}${ext}`
+    usedNames.add(unique)
+    nameByUrl.set(url, unique)
+  }
+  const named =
+    urlInputs.some(({ filename }) => filename) ||
+    [...nameByUrl].some(([url, name]) => requestedByUrl.get(url) !== name)
 
   const rewritten = safeJsonParse(addImportRobot(JSON.stringify({ steps })))
   const nextSteps = isRecord(rewritten) && isRecord(rewritten.steps) ? rewritten.steps : {}
@@ -1574,6 +1589,8 @@ export const createTransloaditMcpServer = (
           tokenCheck ??= client.listTemplates({ pagesize: 1 })
           await tokenCheck
         }
+        // Stops downloads once the budget is spent; a retry would otherwise start another one.
+        const preparationAbort = new AbortController()
         const preparation = prepareInputFiles({
           inputFiles: inputFilesForPrep,
           params,
@@ -1585,13 +1602,14 @@ export const createTransloaditMcpServer = (
           maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
           urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
           beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
+          signal: preparationAbort.signal,
         })
         const prep = await settleWithin(preparation, preparationRemainingMs()).catch(
           buildInputError,
         )
         if (prep === deadlineReached) {
-          // prepareInputFiles takes no abort signal, so a download still running is removed once
-          // it ends; urlDownloadTimeoutMs and maxUrlDownloadBytes bound it meanwhile.
+          preparationAbort.abort()
+          // A preparation that still finishes first returns files that nothing uploads.
           void preparation
             .then(
               (late) => Promise.all(late.cleanup.map((cleanupFile) => cleanupFile())),
