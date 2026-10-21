@@ -795,7 +795,7 @@ const buildCreationPending = (
     // API2 could in theory still be handling a request it received before the abort, so the
     // hint asks for a pause first. Strict idempotency would need an API2 creation key, which
     // does not exist; this path only runs after a request already took longer than the budget.
-    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist${hasUploads ? `. If it is still waiting for uploads (ASSEMBLY_UPLOADING), its files were never sent: resume it with assembly_url ${assemblyUrl} and the same files` : ''}.`,
+    hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if several checks over a few minutes report that the Assembly does not exist${hasUploads ? `. If it is still waiting for uploads (ASSEMBLY_UPLOADING), its files were never sent: resume it with assembly_url ${assemblyUrl} and the same files` : ''}.`,
   }))
 
 /** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
@@ -975,13 +975,11 @@ const replaceUploadWithImport = (
   if (urls.some((url) => url.includes('|')) || new Set(urls).size < urls.length) return undefined
   // Interpolations such as ${file.field} or ${file['field']} would no longer match.
   if (/\$\{[^}]*\bfield\b/.test(JSON.stringify(steps))) return undefined
-  // Imports are named after their URL. Keep the names a caller gave, as a download did, because
-  // host attachment URLs rarely end in the file's name. API2 applies the whole name map to a URL
-  // it does not list, so once one URL is named, every URL gets the name a download would use.
-  // Downloads kept URLs with one name apart as photo.jpg and photo-1.jpg.
+  // Every import gets the name its download had: the caller's name (host attachment URLs rarely
+  // end in it), else the URL's, kept apart as photo.jpg and photo-1.jpg. /http/import would
+  // otherwise prefer a Content-Disposition name, and applies a partial map to unlisted URLs.
   const usedNames = new Set<string>()
   const nameByUrl = new Map<string, string>()
-  let renamed = false
   for (const { field, url, filename } of urlInputs) {
     const requested = filename
       ? basename(filename)
@@ -989,11 +987,9 @@ const replaceUploadWithImport = (
     const { name, ext } = parse(requested)
     let unique = requested
     for (let counter = 1; usedNames.has(unique); counter += 1) unique = `${name}-${counter}${ext}`
-    renamed ||= unique !== requested
     usedNames.add(unique)
     nameByUrl.set(url, unique)
   }
-  const named = renamed || urlInputs.some(({ filename }) => filename)
 
   const rewritten = safeJsonParse(addImportRobot(JSON.stringify({ steps })))
   const nextSteps = isRecord(rewritten) && isRecord(rewritten.steps) ? rewritten.steps : {}
@@ -1015,7 +1011,7 @@ const replaceUploadWithImport = (
     ...nextSteps,
     [importStepName]: {
       ...importWithoutUrl,
-      ...(named ? { force_name: Object.fromEntries(nameByUrl) } : {}),
+      force_name: Object.fromEntries(nameByUrl),
     },
   }
 }
@@ -1625,7 +1621,7 @@ export const createTransloaditMcpServer = (
             })
           return preparationTimeout(
             inputFilesForPrep.some((file) => file.kind === 'url')
-              ? 'Downloading a URL input took too long. Transloadit fetches a URL itself when it is the only input of a Builtin shortcut, or when the Steps contain an /http/import Step.'
+              ? 'A retry downloads the URL inputs again from the start. Transloadit fetches the URLs itself when they are the only inputs of a Builtin shortcut or of Steps with an upload Step, without expected_uploads or upload_behavior "none", or when the Steps contain an /http/import Step.'
               : undefined,
           )
         }
@@ -1839,6 +1835,22 @@ export const createTransloaditMcpServer = (
         const running = isAssemblyRunning(assembly)
         if (returnedEarly && running) {
           warnings.push(buildStillRunningNotice(assembly, reference?.assemblyUrl))
+        }
+        if (
+          returnedEarly &&
+          uploadBehavior === 'none' &&
+          totalFiles > 0 &&
+          !uploadSummary.upload_urls
+        ) {
+          // Nothing uploads these files later, so the caller needs their reserved upload URLs.
+          const assemblyUrl =
+            reference?.assemblyUrl ??
+            (isNonEmptyString(assembly.assembly_ssl_url) ? assembly.assembly_ssl_url : undefined)
+          warnings.push({
+            code: 'mcp_upload_urls_pending',
+            message: 'The upload URLs were not reserved before this call returned.',
+            hint: `Call transloadit_create_assembly with assembly_url ${assemblyUrl ?? 'from this result'}, the same files and upload_behavior "none" to get them.`,
+          })
         }
         const nextSteps = uploadInstructions
           ? ['transloadit_wait_for_assembly']

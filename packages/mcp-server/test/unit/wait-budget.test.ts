@@ -288,6 +288,8 @@ describe('waiting within the host tool-call budget', () => {
         },
       ],
     })
+    // A request API2 received before the abort may still create the Assembly after one check.
+    expect(JSON.stringify(result.structuredContent)).toContain('several checks')
   })
 
   it('reports the pending Assembly when the creation request would time out with the budget', async () => {
@@ -388,6 +390,29 @@ describe('waiting within the host tool-call budget', () => {
       running: true,
       assembly: { assembly_id: assemblyId },
       warnings: [{ code: 'mcp_assembly_still_running' }],
+    })
+  })
+
+  it('says how to get the upload URLs when reserving uploads outlasts the budget', async () => {
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
+      options?.onAssemblyCreated?.(uploading)
+      return Object.assign(pending(), { assemblyId })
+    })
+
+    const result = await call('transloadit_create_assembly', {
+      instructions: uploadTemplate,
+      files: [{ kind: 'base64', field: 'file', base64: 'aGVsbG8=', filename: 'hello.txt' }],
+      upload_behavior: 'none',
+    })
+
+    expect(result.structuredContent).toMatchObject({
+      running: true,
+      warnings: expect.arrayContaining([
+        expect.objectContaining({
+          code: 'mcp_upload_urls_pending',
+          hint: expect.stringContaining(`assembly_url ${assemblyUrl}`),
+        }),
+      ]),
     })
   })
 

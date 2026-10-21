@@ -518,7 +518,10 @@ For URL inputs, behavior depends on the template/instructions:
   replaces that Step with an `/http/import` Step, so Transloadit fetches the URLs and the Assembly
   is created at once. This applies to `steps` passed in the instructions and to the Builtin
   shortcuts. Builtins forbid Steps overrides, so a shortcut then runs the Builtin's own Steps
-  without its `template_id`, after checking `fields` against the Builtin's field contract.
+  without its `template_id`, after checking `fields` against the Builtin's field contract. Each
+  file keeps the name a download would give it. Steps that select or filter by upload field,
+  interpolated `use` values, URLs given twice or containing `|`, and `upload_behavior: "none"`
+  keep the download below.
 - Otherwise, if the template expects uploads (`:original` or `/upload/handle`), for example with
   `expected_uploads`, mixed URL and base64 inputs, or a saved Template, MCP downloads then uploads
   via tus. These downloads require public HTTP(S) URLs; private-network targets are rejected,

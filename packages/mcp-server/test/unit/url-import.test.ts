@@ -93,6 +93,18 @@ describe('URL inputs for Steps that take uploads', () => {
     })
   })
 
+  it('names an imported file after its URL, as its download was', async () => {
+    await call({
+      instructions: { steps: uploadSteps },
+      files: [{ kind: 'url', field: 'first', url: firstUrl }],
+    })
+
+    // /http/import would otherwise prefer a Content-Disposition name.
+    expect(created?.params?.steps).toMatchObject({
+      imported: { force_name: { [firstUrl]: 'first.jpg' } },
+    })
+  })
+
   it.each([
     {
       name: 'URL inputs next to a base64 input',
