@@ -1270,6 +1270,22 @@ const classifyInputUrlImport = (
   return typeof status.ok === 'string' && runningAssemblyStates.has(status.ok) ? 'pending' : 'used'
 }
 
+/** Adds a warning to a tool response, in its structured and its text form. */
+const withWarning = (
+  result: CallToolResult,
+  warning: { code: string; message: string; hint?: string },
+): CallToolResult => {
+  const payload = result.structuredContent
+  if (!payload) return result
+  const warnings = Array.isArray(payload.warnings) ? payload.warnings : []
+  const next = { ...payload, warnings: [...warnings, warning] }
+  return {
+    ...result,
+    structuredContent: next,
+    content: [{ type: 'text', text: JSON.stringify(next) }],
+  }
+}
+
 /** API2's refusals of `input_url` for a request (api2#10292); nothing ran, so uploading is safe. */
 const refusesInputUrl = (error: unknown): boolean =>
   error instanceof ApiError &&
@@ -1962,14 +1978,23 @@ export const createTransloaditMcpServer = (
         // AbortSignal.timeout() refuses fractional delays.
         Math.min(statusReadTimeoutMs, Math.max(Math.floor(deadline - performance.now()), 1)),
       ).catch(() => undefined)
-      if (!status) break
-      outcome = classifyInputUrlImport(status)
+      // A failed or slow read decides nothing; the next one may.
+      if (status) outcome = classifyInputUrlImport(status)
     }
-    // Still pending after the probes counts as importing: uploading then would process the files
-    // twice on a working host, while an old host has never taken this long for an empty Assembly.
     // The probes only choose the path, so the response keeps the status the call itself returned,
     // like any call that does not wait.
-    if (outcome !== 'ignored') return result
+    if (outcome === 'used') return result
+    // Still pending after the probes counts as importing: uploading then would process the files
+    // twice on a working host, while an old host has never taken this long for an empty Assembly.
+    // The caller learns that this was not confirmed.
+    if (outcome === 'pending') {
+      return withWarning(result, {
+        code: 'mcp_input_url_unconfirmed',
+        message:
+          'Transloadit was asked to fetch the URLs itself, which could not be confirmed yet.',
+        hint: 'If the Assembly completes without input files, call this tool again.',
+      })
+    }
     // The empty Assembly is a transition artifact that processed nothing, so it is only logged;
     // the response describes the Assembly that processes the files.
     logger.warn(

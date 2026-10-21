@@ -428,12 +428,43 @@ describe('Builtin shortcuts with URL inputs', () => {
   it('does not probe past the caller’s wait deadline', async () => {
     createReturns(executing)
     const status = vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue(completed)
-    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
+    const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
       files: [url(photo)],
       wait_for_completion: true,
       wait_timeout_ms: 1,
     })
     expect(status).not.toHaveBeenCalled()
     expect(creations).toHaveLength(1)
+    expect(result.structuredContent).toMatchObject({
+      warnings: expect.arrayContaining([
+        expect.objectContaining({ code: 'mcp_input_url_unconfirmed' }),
+      ]),
+    })
+  })
+
+  it('reads the status again after a failed read', async () => {
+    nock(origin).get('/photo.jpg').reply(200, 'bytes')
+    createReturns(executing, { ...executing, assembly_id: 'f'.repeat(32) })
+    vi.spyOn(Transloadit.prototype, 'getAssembly')
+      .mockRejectedValueOnce(new Error('socket hang up'))
+      .mockResolvedValue(completed)
+    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', { files: [url(photo)] })
+    expect(creations).toHaveLength(2)
+    expect(creations[1]?.params).not.toHaveProperty('input_url')
+  })
+
+  it('says so when it could not confirm the import', async () => {
+    createReturns(executing)
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockRejectedValue(new Error('socket hang up'))
+    const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
+      files: [url(photo)],
+    })
+    expect(creations).toHaveLength(1)
+    expect(result.structuredContent).toMatchObject({
+      status: 'ok',
+      assembly: { assembly_id: assemblyId },
+      warnings: [{ code: 'mcp_input_url_unconfirmed' }],
+    })
+    expect(JSON.stringify(result.content)).toContain('mcp_input_url_unconfirmed')
   })
 })

@@ -537,7 +537,8 @@ path above, as do calls that
 mix URLs with base64 files or sandbox uploads, calls with `upload_behavior: 'none'`, and URLs that
 API2 would refuse (whitespace, `|`, `${…}`, over 4096 characters). When API2 refuses `input_url` for the request, or ran
 the Builtin without importing the URLs (an API2 host that predates `input_url`), the shortcut
-downloads and uploads the URLs as before; the eligible Builtins are listed in the
+downloads and uploads the URLs as before. If a few status reads within the wait budget cannot tell,
+the result carries an `mcp_input_url_unconfirmed` warning; the eligible Builtins are listed in the
 [alphalib Builtin manifest](../node/src/alphalib/types/builtinTemplates.ts).
 
 ## Local vs hosted file access
