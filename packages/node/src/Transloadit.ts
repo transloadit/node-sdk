@@ -182,7 +182,7 @@ export {
   UploadError,
 } from 'got'
 
-export { extractFieldNamesFromTemplate } from './alphalib/stepParsing.ts'
+export { addImportRobot, extractFieldNamesFromTemplate } from './alphalib/stepParsing.ts'
 // Builtin templates replace the legacy golden template helpers.
 export { mergeTemplateContent } from './alphalib/templateMerge.ts'
 export * from './apiTypes.ts'

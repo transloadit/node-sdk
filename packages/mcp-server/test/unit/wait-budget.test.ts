@@ -1,15 +1,15 @@
 import type { MessageExtraInfo } from '@modelcontextprotocol/sdk/types.js'
 import type { AssemblyStatus } from '@transloadit/node'
 
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { ApiError, Transloadit } from '@transloadit/node'
+import { Transloadit } from '@transloadit/node'
 import nock from 'nock'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createTransloaditMcpServer } from '../../src/server.ts'
 
@@ -57,12 +57,6 @@ describe('waiting within the host tool-call budget', () => {
     }
     return client.callTool({ name, arguments: args })
   }
-
-  beforeEach(() => {
-    vi.spyOn(Transloadit.prototype, 'cancelAssembly').mockResolvedValue({
-      ok: 'ASSEMBLY_CANCELED',
-    })
-  })
 
   afterEach(async () => {
     vi.useRealTimers()
@@ -148,75 +142,65 @@ describe('waiting within the host tool-call budget', () => {
     )
   })
 
-  it('creates the Assembly before a slow URL download finishes, then uploads into it', async () => {
-    const content = 'Slowly downloaded bytes'
-    nock('http://198.51.100.10').get('/large.mp4').delay(1_000).reply(200, content)
+  it('logs work that fails after an early return to stderr, never to stdout', async () => {
     vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
       options?.onAssemblyCreated?.(uploading)
-      return Object.assign(Promise.resolve(uploading), { assemblyId })
-    })
-    let uploadedContent: string | undefined
-    const resume = vi
-      .spyOn(Transloadit.prototype, 'resumeAssemblyUploads')
-      .mockImplementation(async (options) => {
-        const file = options.files?.file
-        if (file == null) throw new Error('Expected the downloaded file')
-        uploadedContent = await readFile(file, 'utf8')
-        return { ...executing, ok: 'ASSEMBLY_COMPLETED' }
+      const failed = new Promise<AssemblyStatus>((_resolve, reject) => {
+        setTimeout(reject, maxWaitMs * 2, new Error('Upload failed'))
       })
-
-    const result = await call('transloadit_create_assembly', {
-      instructions: uploadTemplate,
-      files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
-      wait_for_completion: true,
+      return Object.assign(failed, { assemblyId })
     })
-
-    expect(result.structuredContent).toMatchObject({
-      status: 'ok',
-      running: true,
-      assembly: { assembly_id: assemblyId },
-      upload: { status: 'uploading', total_files: 1 },
-      warnings: [
-        { code: 'mcp_assembly_still_running', message: expect.stringContaining('URL input') },
-      ],
-    })
-    expect(Transloadit.prototype.createAssembly).toHaveBeenCalledWith(
-      expect.objectContaining({ files: {}, expectedUploads: 1, waitForCompletion: false }),
-    )
-    await vi.waitFor(() => expect(uploadedContent).toBe(content), { timeout: 5_000 })
-    expect(resume).toHaveBeenCalledWith(expect.objectContaining({ assemblyUrl }))
-    expect(Transloadit.prototype.cancelAssembly).not.toHaveBeenCalled()
-  })
-
-  it('cancels the Assembly when a slow URL download fails after it was created', async () => {
-    nock('http://198.51.100.10').get('/missing.mp4').delay(600).reply(404)
-    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
-      options?.onAssemblyCreated?.(uploading)
-      return Object.assign(Promise.resolve(uploading), { assemblyId })
-    })
-    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads')
     const stdoutWrite = vi.spyOn(process.stdout, 'write')
     const stderrWrite = vi.spyOn(process.stderr, 'write')
 
     const result = await call('transloadit_create_assembly', {
       instructions: uploadTemplate,
-      files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/missing.mp4' }],
+      files: [{ kind: 'base64', field: 'file', base64: 'aGVsbG8=', filename: 'hello.txt' }],
     })
 
-    expect(result.structuredContent).toMatchObject({
-      status: 'ok',
-      assembly: { assembly_id: assemblyId },
-    })
-    await vi.waitFor(
-      () => expect(Transloadit.prototype.cancelAssembly).toHaveBeenCalledWith(assemblyId),
-      { timeout: 5_000 },
-    )
-    expect(Transloadit.prototype.resumeAssemblyUploads).not.toHaveBeenCalled()
+    expect(result.structuredContent).toMatchObject({ status: 'ok', running: true })
     // The stdio transport owns stdout, so diagnostics must not be written there.
     await vi.waitFor(() =>
       expect(stderrWrite).toHaveBeenCalledWith(expect.stringContaining('early return failed')),
     )
     expect(stdoutWrite).not.toHaveBeenCalledWith(expect.stringContaining('early return failed'))
+  })
+
+  it('creates nothing when a URL download outlasts the budget, and removes the file later', async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), 'wait-budget-'))
+    const previousTmpdir = process.env.TMPDIR
+    // os.tmpdir() reads TMPDIR on every call, so the download lands in a directory this test owns.
+    process.env.TMPDIR = tempRoot
+    try {
+      const scope = nock('http://198.51.100.10')
+        .get('/large.mp4')
+        .delay(maxWaitMs * 2)
+        .reply(200, 'Downloaded bytes')
+      vi.spyOn(Transloadit.prototype, 'createAssembly')
+
+      const result = await call('transloadit_create_assembly', {
+        instructions: uploadTemplate,
+        // Out-of-band uploads need the upload Step, so the URL is downloaded by this server.
+        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
+        expected_uploads: 2,
+      })
+
+      expect(result.structuredContent).toMatchObject({
+        status: 'error',
+        errors: [
+          { code: 'mcp_preparation_timeout', hint: expect.stringContaining('/http/import') },
+        ],
+      })
+      expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+      await vi.waitFor(() => expect(scope.isDone()).toBe(true), { timeout: 5_000 })
+      await vi.waitFor(async () => expect(await readdir(tempRoot)).toEqual([]), {
+        timeout: 3_000,
+      })
+    } finally {
+      if (previousTmpdir === undefined) delete process.env.TMPDIR
+      else process.env.TMPDIR = previousTmpdir
+      await rm(tempRoot, { recursive: true, force: true })
+    }
   })
 
   it('returns the latest status from transloadit_wait_for_assembly once the budget is spent', async () => {
@@ -241,79 +225,6 @@ describe('waiting within the host tool-call budget', () => {
       warnings: [{ code: 'mcp_assembly_still_running' }],
     })
     expect(signal?.aborted).toBe(true)
-  })
-
-  it('removes a slow download once it finishes, even when creating the Assembly failed', async () => {
-    const tempRoot = await mkdtemp(join(tmpdir(), 'wait-budget-'))
-    const previousTmpdir = process.env.TMPDIR
-    // os.tmpdir() reads TMPDIR on every call, so the download lands in a directory this test owns.
-    process.env.TMPDIR = tempRoot
-    try {
-      const scope = nock('http://198.51.100.10')
-        .get('/large.mp4')
-        .delay(600)
-        .reply(200, 'Downloaded bytes')
-      vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation(() =>
-        Object.assign(Promise.reject(new Error('Creation failed')), { assemblyId }),
-      )
-
-      const result = await call('transloadit_create_assembly', {
-        instructions: uploadTemplate,
-        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
-      })
-
-      expect(result.isError).toBe(true)
-      await vi.waitFor(() => expect(scope.isDone()).toBe(true), { timeout: 5_000 })
-      await vi.waitFor(async () => expect(await readdir(tempRoot)).toEqual([]), {
-        timeout: 3_000,
-      })
-    } finally {
-      if (previousTmpdir === undefined) delete process.env.TMPDIR
-      else process.env.TMPDIR = previousTmpdir
-      await rm(tempRoot, { recursive: true, force: true })
-    }
-  })
-
-  it('does not challenge for new credentials when a late token check fails after creation', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
-    const tokenRejected = Object.assign(new ApiError({ body: { error: 'INVALID_TOKEN' } }), {
-      response: { statusCode: 401 },
-    })
-    vi.spyOn(Transloadit.prototype, 'listTemplates').mockImplementation(
-      () =>
-        new Promise((_resolve, reject) => {
-          setTimeout(reject, 15_000, tokenRejected)
-        }),
-    )
-    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
-      options?.onAssemblyCreated?.(uploading)
-      return Object.assign(Promise.resolve(uploading), { assemblyId })
-    })
-    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads')
-
-    const pendingResult = call(
-      'transloadit_create_assembly',
-      {
-        instructions: uploadTemplate,
-        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
-      },
-      { budgetMs: 30_000, bearer: 'forwarded-token' },
-    )
-    await vi.waitFor(() => expect(Transloadit.prototype.listTemplates).toHaveBeenCalled())
-    // Past the download head start, so the Assembly is created while the token check still runs.
-    await vi.advanceTimersByTimeAsync(10_001)
-    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
-    await vi.advanceTimersByTimeAsync(5_000)
-    const result = await pendingResult
-
-    expect(result.structuredContent).toMatchObject({
-      status: 'error',
-      assembly: { assembly_id: assemblyId },
-      errors: [{ code: 'mcp_assembly_status_unavailable' }],
-    })
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined()
-    expect(Transloadit.prototype.cancelAssembly).toHaveBeenCalledWith(assemblyId)
-    expect(Transloadit.prototype.resumeAssemblyUploads).not.toHaveBeenCalled()
   })
 
   it('stays within the budget when the creation request itself outlasts it', async () => {
@@ -405,42 +316,6 @@ describe('waiting within the host tool-call budget', () => {
     })
   })
 
-  it('names the cancelled Assembly when a URL input fails after it was created', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
-    vi.spyOn(Transloadit.prototype, 'listTemplates').mockImplementation(
-      () =>
-        new Promise((_resolve, reject) => {
-          setTimeout(reject, 15_000, new Error('Network unreachable'))
-        }),
-    )
-    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
-      options?.onAssemblyCreated?.(uploading)
-      return Object.assign(Promise.resolve(uploading), { assemblyId })
-    })
-
-    const pendingResult = call(
-      'transloadit_create_assembly',
-      {
-        instructions: uploadTemplate,
-        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
-      },
-      { budgetMs: 30_000, bearer: 'forwarded-token' },
-    )
-    await vi.waitFor(() => expect(Transloadit.prototype.listTemplates).toHaveBeenCalled())
-    await vi.advanceTimersByTimeAsync(10_001)
-    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
-    await vi.advanceTimersByTimeAsync(5_000)
-    const result = await pendingResult
-
-    expect(result.isError).toBe(true)
-    expect(result.structuredContent).toMatchObject({
-      status: 'error',
-      assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
-      errors: [{ code: 'mcp_invalid_args' }],
-      warnings: [{ code: 'mcp_assembly_cancelled' }],
-    })
-  })
-
   it('reserves downloaded URL fields when it suggests out-of-band upload fields', async () => {
     nock('http://198.51.100.10').get('/small.jpg').reply(200, 'Small file')
     vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
@@ -479,115 +354,6 @@ describe('waiting within the host tool-call budget', () => {
       errors: [{ code: 'mcp_preparation_timeout' }],
     })
     expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
-  })
-
-  it('does not report a finished URL download as still downloading', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
-    nock('http://198.51.100.10').get('/large.mp4').reply(200, 'Downloaded bytes')
-    vi.spyOn(Transloadit.prototype, 'listTemplates').mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          setTimeout(resolve, 12_000, { items: [], count: 0 })
-        }),
-    )
-    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
-      options?.onAssemblyCreated?.(uploading)
-      return Object.assign(Promise.resolve(uploading), { assemblyId })
-    })
-    // The file is downloaded, but uploading it outlasts the budget.
-    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockImplementation(() => pending())
-
-    const pendingResult = call(
-      'transloadit_create_assembly',
-      {
-        instructions: uploadTemplate,
-        files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
-      },
-      { budgetMs: 20_000, bearer: 'forwarded-token' },
-    )
-    await vi.waitFor(() => expect(Transloadit.prototype.listTemplates).toHaveBeenCalled())
-    await vi.advanceTimersByTimeAsync(10_001)
-    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
-    await vi.advanceTimersByTimeAsync(2_000)
-    await vi.waitFor(() => expect(Transloadit.prototype.resumeAssemblyUploads).toHaveBeenCalled())
-    await vi.advanceTimersByTimeAsync(8_000)
-    const result = await pendingResult
-
-    expect(result.structuredContent).toMatchObject({
-      running: true,
-      warnings: [
-        {
-          code: 'mcp_assembly_still_running',
-          message:
-            'Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running.',
-        },
-      ],
-    })
-  })
-
-  it('keeps the upload URLs of files sent at creation when late downloads follow', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
-    nock('http://198.51.100.10').get('/large.mp4').reply(200, 'Downloaded bytes')
-    vi.spyOn(Transloadit.prototype, 'listTemplates').mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          setTimeout(resolve, 10_500, { items: [], count: 0 })
-        }),
-    )
-    vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
-      const status = { ...uploading, upload_urls: { notes: 'https://tus.example/notes' } }
-      options?.onAssemblyCreated?.(status)
-      return Object.assign(Promise.resolve(status), { assemblyId })
-    })
-    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue({
-      ...uploading,
-      upload_urls: { file: 'https://tus.example/file' },
-    })
-
-    const pendingResult = call(
-      'transloadit_create_assembly',
-      {
-        instructions: uploadTemplate,
-        files: [
-          { kind: 'base64', field: 'notes', base64: 'aGVsbG8=', filename: 'notes.txt' },
-          { kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' },
-        ],
-        upload_behavior: 'none',
-      },
-      { budgetMs: 20_000, bearer: 'forwarded-token' },
-    )
-    await vi.waitFor(() => expect(Transloadit.prototype.listTemplates).toHaveBeenCalled())
-    await vi.advanceTimersByTimeAsync(10_001)
-    await vi.waitFor(() => expect(Transloadit.prototype.createAssembly).toHaveBeenCalled())
-    await vi.advanceTimersByTimeAsync(1_000)
-    const result = await pendingResult
-
-    expect(result.structuredContent).toMatchObject({
-      upload: {
-        upload_urls: { notes: 'https://tus.example/notes', file: 'https://tus.example/file' },
-      },
-    })
-  })
-
-  it('does not promise to cancel a resumed Assembly when a URL input is still downloading', async () => {
-    nock('http://198.51.100.10').get('/large.mp4').delay(1_000).reply(200, 'Downloaded bytes')
-    vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue(uploading)
-    vi.spyOn(Transloadit.prototype, 'resumeAssemblyUploads').mockResolvedValue(executing)
-
-    const result = await call('transloadit_create_assembly', {
-      assembly_url: assemblyUrl,
-      files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
-    })
-
-    expect(result.structuredContent).toMatchObject({
-      running: true,
-      warnings: [
-        {
-          code: 'mcp_assembly_still_running',
-          message: expect.stringContaining('it is not added to the Assembly'),
-        },
-      ],
-    })
   })
 
   it('checks a forwarded token before any URL input is downloaded, whatever the Steps are named', async () => {

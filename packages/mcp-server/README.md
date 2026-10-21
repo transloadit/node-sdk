@@ -495,9 +495,9 @@ its limit there.
 URL inputs that the server downloads (for templates that expect uploads) are capped at 1 GiB in
 total per call and 10 minutes per download, redirects included; set `maxUrlDownloadBytes` and
 `urlDownloadTimeoutMs` to change that. On the hosted
-endpoint the caller's token is checked with API2 before anything is downloaded. A download that
-takes longer than a few seconds no longer delays the Assembly: it is created first and receives the
-file once the download finishes (and is cancelled if the download fails).
+endpoint the caller's token is checked with API2 before anything is downloaded. A download still
+counts toward the wait budget below: when it does not finish in time, no Assembly is created and
+the call returns `mcp_preparation_timeout`.
 
 ## Waiting for Assemblies
 
@@ -514,9 +514,15 @@ continue, and `transloadit_wait_for_assembly` or `transloadit_get_assembly_statu
 For URL inputs, behavior depends on the template/instructions:
 
 - If an `/http/import` Step exists, MCP sets/overrides that Step's `url`.
-- If the template expects uploads (`:original` or `/upload/handle`), MCP downloads then uploads via
-  tus. These downloads require public HTTP(S) URLs; private-network targets are rejected, including
-  redirects to private addresses.
+- If the Steps take uploads through a single `/upload/handle` Step and every input is a URL, MCP
+  replaces that Step with an `/http/import` Step, so Transloadit fetches the URLs and the Assembly
+  is created at once. This applies to `steps` passed in the instructions and to the Builtin
+  shortcuts. Builtins forbid Steps overrides, so a shortcut then runs the Builtin's own Steps
+  without its `template_id`, after checking `fields` against the Builtin's field contract.
+- Otherwise, if the template expects uploads (`:original` or `/upload/handle`), for example with
+  `expected_uploads`, mixed URL and base64 inputs, or a saved Template, MCP downloads then uploads
+  via tus. These downloads require public HTTP(S) URLs; private-network targets are rejected,
+  including redirects to private addresses.
 - If the template does not take input files, URL inputs are ignored and a warning is returned.
 - If `allow_steps_override=false` and only `/http/import` would work, URL inputs are rejected.
 

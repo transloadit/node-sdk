@@ -14,9 +14,12 @@ import type { BuiltinCatalog } from './builtin-shortcuts.ts'
 import type { ToolName } from './tool-metadata.ts'
 import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
+import { basename } from 'node:path'
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import {
   ApiError,
+  addImportRobot,
   extractFieldNamesFromTemplate,
   getRobotHelp,
   isKnownRobot,
@@ -150,8 +153,6 @@ const defaultUrlDownloadTimeoutMs = 10 * 60 * 1000
  * current state once this budget is spent; transloadit_wait_for_assembly follows it from there.
  */
 const defaultMaxWaitMs = 45_000
-/** URL downloads that finish within this window still complete before the Assembly is created. */
-const downloadHeadStartMs = 10_000
 /** Lowest request timeout handed to the SDK, so a nearly spent budget cannot fail a request. */
 const minimumSdkTimeoutMs = 10_000
 /** Longest a status read after an early return may take. */
@@ -503,34 +504,21 @@ const buildShortcutError = (...args: Parameters<typeof buildToolError>): CallToo
   isError: true,
 })
 
-type ToolMessage = { code: string; message: string; hint?: string; path?: string }
-
-/** Describes an input preparation failure that is not an API rejection. */
-const describeInputError = (error: unknown): ToolMessage => {
-  const message = error instanceof Error ? error.message : 'Invalid file input.'
-  if (message.startsWith('Duplicate file field')) {
-    return { code: 'mcp_duplicate_field', message, path: 'files' }
-  }
-  if (message.startsWith('Base64 payload exceeds')) {
-    return {
-      code: 'mcp_base64_too_large',
-      message,
-      hint: 'Use a public URL import or upload from your own machine instead.',
-    }
-  }
-  return { code: 'mcp_invalid_args', message }
-}
-
 /** Maps an input preparation failure to a tool error; API rejections are left to the caller. */
 const buildInputError = (error: unknown): CallToolResult => {
   // API rejections (the token check) are not input mistakes; the outer handler maps them.
   if (error instanceof ApiError) throw error
-  const { code, message, ...details } = describeInputError(error)
-  return buildToolError(code, message, details)
+  const message = error instanceof Error ? error.message : 'Invalid file input.'
+  if (message.startsWith('Duplicate file field')) {
+    return buildToolError('mcp_duplicate_field', message, { path: 'files' })
+  }
+  if (message.startsWith('Base64 payload exceeds')) {
+    return buildToolError('mcp_base64_too_large', message, {
+      hint: 'Use a public URL import or upload from your own machine instead.',
+    })
+  }
+  return buildToolError('mcp_invalid_args', message)
 }
-
-/** A URL input download that failed after the call stopped waiting for it up front. */
-class LateDownloadError extends Error {}
 
 const deadlineReached = Symbol('deadlineReached')
 
@@ -568,10 +556,6 @@ const isAssemblyRunning = (assembly: AssemblyStatus): boolean =>
 const buildStillRunningNotice = (
   assembly: { assembly_ssl_url?: unknown; assembly_url?: unknown },
   fallbackUrl?: string,
-  pendingDownloadCount = 0,
-  // A resumed Assembly was created by an earlier call and may hold other files, so a failed
-  // download is not a reason to cancel it.
-  resumed = false,
 ): { code: string; message: string; hint: string } => {
   const assemblyUrl = isNonEmptyString(assembly.assembly_ssl_url)
     ? assembly.assembly_ssl_url
@@ -582,9 +566,7 @@ const buildStillRunningNotice = (
   return {
     code: 'mcp_assembly_still_running',
     message:
-      pendingDownloadCount > 0
-        ? `Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running; ${pendingDownloadCount} URL input(s) are still downloading to this server and are uploaded into it when they arrive. ${resumed ? 'If one cannot be downloaded, it is not added to the Assembly.' : 'If one cannot be downloaded, the Assembly is cancelled.'}`
-        : 'Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running.',
+      'Returned before the Assembly finished, so the host does not abandon this call. The Assembly keeps running.',
     hint: assemblyUrl
       ? `${follow} using assembly_url ${assemblyUrl}; do not create it again.`
       : `${follow}; do not create it again.`,
@@ -816,44 +798,6 @@ const buildCreationPending = (
     hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if that reports the Assembly does not exist${hasUploads ? ', or that it is still waiting for uploads (ASSEMBLY_UPLOADING): its files were never sent' : ''}.`,
   }))
 
-/** A URL input failed after its Assembly was created; names the Assembly and its cancellation. */
-const buildLateDownloadFailure = (
-  options: TransloaditMcpServerOptions,
-  assemblyId: string,
-  cause: unknown,
-  cancelled: boolean,
-): CallToolResult => {
-  const assemblyUrl = defaultAssemblyUrl(options, assemblyId)
-  // A token check that failed without rejecting the credentials, such as API2 being unavailable.
-  const failure: ToolMessage =
-    cause instanceof ApiError
-      ? {
-          code: 'mcp_url_download_failed',
-          message: 'Transloadit could not check the credentials before a URL input was downloaded.',
-        }
-      : describeInputError(cause)
-  return buildToolResponse(
-    {
-      status: 'error',
-      assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
-      errors: [failure],
-      warnings: [
-        cancelled
-          ? {
-              code: 'mcp_assembly_cancelled',
-              message: 'The Assembly was cancelled because the URL input never reached it.',
-            }
-          : {
-              code: 'mcp_assembly_cancel_failed',
-              message:
-                'The Assembly could not be cancelled; it stops once it times out waiting for the URL input.',
-            },
-      ],
-    },
-    { isError: true },
-  )
-}
-
 /** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
 const buildCredentialError = (error: {
   code: string
@@ -991,6 +935,60 @@ const mergeImportOverrides = (
   return nextOverrides
 }
 
+/**
+ * Turns a workflow's upload Step into an /http/import Step, so Transloadit fetches the URL inputs
+ * itself instead of this server downloading and uploading them. It reuses the Console's import fix
+ * (alphalib's addImportRobot); API2 rewrites the `:original` Step of a replayed Assembly the same
+ * way. Returns undefined unless every consumer then reads exactly the imported files.
+ */
+const replaceUploadWithImport = (
+  steps: Record<string, unknown>,
+  urlInputs: Array<{ url: string; filename?: string }>,
+): Record<string, unknown> | undefined => {
+  const uploadStepNames = Object.keys(steps).filter((name) => {
+    const step = steps[name]
+    return isRecord(step) && step.robot === '/upload/handle'
+  })
+  const [uploadStepName] = uploadStepNames
+  if (uploadStepName === undefined || uploadStepNames.length > 1) return undefined
+  // An import Step cannot carry upload parameters such as output_meta, and a Step without `use`
+  // would not receive the imported files.
+  const uploadStep = steps[uploadStepName]
+  if (!isRecord(uploadStep) || Object.keys(uploadStep).length > 1) return undefined
+  for (const [name, step] of Object.entries(steps)) {
+    if (name !== uploadStepName && !(isRecord(step) && step.use !== undefined)) return undefined
+  }
+
+  const rewritten = safeJsonParse(addImportRobot(JSON.stringify({ steps })))
+  const nextSteps = isRecord(rewritten) && isRecord(rewritten.steps) ? rewritten.steps : {}
+  const [importStepName, ...otherImportStepNames] = listHttpImportStepNames(nextSteps)
+  const importStep = importStepName === undefined ? undefined : nextSteps[importStepName]
+  if (
+    importStepName === undefined ||
+    !isRecord(importStep) ||
+    otherImportStepNames.length > 0 ||
+    // Another Step with the import Step's name would have replaced it.
+    Object.keys(nextSteps).length !== Object.keys(steps).length ||
+    analyzeSteps(nextSteps).requiresUpload
+  ) {
+    return undefined
+  }
+  // The fix imports a demo file; the URL inputs take its place.
+  const { url: _demoUrl, ...importWithoutUrl } = importStep
+  // Imports are named after their URL. Keep the names a caller gave, as a download did, because
+  // host attachment URLs rarely end in the file's name.
+  const names = urlInputs.flatMap(({ url, filename }) =>
+    filename ? [[url, basename(filename)] as const] : [],
+  )
+  return {
+    ...nextSteps,
+    [importStepName]: {
+      ...importWithoutUrl,
+      ...(names.length > 0 ? { force_name: Object.fromEntries(names) } : {}),
+    },
+  }
+}
+
 const collectFieldNames = (templateContent: string): string[] => {
   const names = extractFieldNamesFromTemplate(templateContent).map((field) => field.fieldName)
   return Array.from(new Set(names))
@@ -1040,6 +1038,9 @@ const buildStatusPendingResponse = (
     ...fields,
     warnings: [buildStillRunningNotice({}, reference.assemblyUrl)],
   })
+
+const isHttpUrl = (value: string): boolean =>
+  URL.canParse(value) && ['http:', 'https:'].includes(new URL(value).protocol)
 
 /** Production (`.com`) and development or tunnel (`.dev`) Transloadit hosts. */
 const isTransloaditHost = (hostname: string): boolean =>
@@ -1381,8 +1382,6 @@ export const createTransloaditMcpServer = (
       const tempCleanups: Array<() => Promise<void>> = []
       // Uploads or polling that continue after the call returned early.
       let backgroundWork: Promise<void> | undefined
-      // URL downloads that outlived the call's head start; their files are removed after them.
-      let downloadsSettled: Promise<void> | undefined
       const warnings: Array<{ code: string; message: string; hint?: string; path?: string }> = []
       let templatePathHint: string | undefined
       const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
@@ -1390,16 +1389,22 @@ export const createTransloaditMcpServer = (
       // once it used up the budget is safe to retry, unlike a host timeout after creation.
       const preparationRemainingMs = (): number =>
         Math.max(startedAt + maxWaitMs - performance.now(), 0)
-      const preparationTimeout = (): CallToolResult =>
+      const preparationTimeout = (reason?: string): CallToolResult =>
         buildToolError(
           'mcp_preparation_timeout',
-          'Preparing the Assembly took too long, so none was created.',
-          { hint: 'Retrying this call is safe.' },
+          reference
+            ? 'Preparing the files took too long, so none were added to the Assembly.'
+            : 'Preparing the Assembly took too long, so none was created.',
+          {
+            hint: reason ? `Retrying this call is safe. ${reason}` : 'Retrying this call is safe.',
+          },
         )
 
       try {
         const fileInputs: InputFile[] = [...(files ?? []), ...toAttachmentInputs(attachments ?? [])]
-        const urlInputs = fileInputs.filter((file) => file.kind === 'url')
+        const urlInputs = fileInputs.filter(
+          (file): file is Extract<InputFile, { kind: 'url' }> => file.kind === 'url',
+        )
         const hasUrlInputs = urlInputs.length > 0
         let inputFilesForPrep = fileInputs
         let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
@@ -1495,6 +1500,26 @@ export const createTransloaditMcpServer = (
                 analysis.importStepNames,
               ) as CreateAssemblyParams['steps']
             }
+          } else if (
+            // Other schemes are left to the download path, which rejects them before creation.
+            fileInputs.every((file) => file.kind === 'url' && isHttpUrl(file.url)) &&
+            (expected_uploads ?? 0) === 0 &&
+            // Only a shortcut's Builtin, whose fields were checked against the catalog contract,
+            // runs without its Template ID; other Templates keep API2's own handling.
+            (params.template_id === undefined || fieldContractValidated)
+          ) {
+            // Uploads would make this server download every URL before the Assembly exists.
+            // Transloadit fetches them itself once the upload Step becomes an /http/import Step.
+            // Builtins forbid Steps overrides, so their own Steps run without the Template ID.
+            const importSteps = mergedSteps && replaceUploadWithImport(mergedSteps, urlInputs)
+            if (importSteps && mergedInstructions) {
+              const {
+                template_id: _templateId,
+                allow_steps_override: _allowStepsOverride,
+                ...instructions
+              } = mergedInstructions
+              params = { ...instructions, steps: importSteps as CreateAssemblyParams['steps'] }
+            }
           }
         }
 
@@ -1525,13 +1550,6 @@ export const createTransloaditMcpServer = (
             )
           }
         }
-        // URL downloads run beside Assembly creation, so they are split from the inputs that are
-        // ready at once: base64 payloads and URLs an /http/import Step fetches.
-        const importStepNames = listHttpImportStepNames(isRecord(params.steps) ? params.steps : {})
-        const isDownloaded = (file: InputFile): boolean =>
-          file.kind === 'url' &&
-          (reference !== undefined ||
-            !(importStepNames.includes(file.field) || importStepNames.length === 1))
         // The hosted gate only checks that a bearer is present. Before a URL input is downloaded
         // to this server's disk (not for /http/import), API2 vouches for the token once
         // (templates:read is declared for this tool).
@@ -1540,32 +1558,38 @@ export const createTransloaditMcpServer = (
           tokenCheck ??= client.listTemplates({ pagesize: 1 })
           await tokenCheck
         }
-        // Both preparation calls may download: the SDK can still download a URL this server
-        // expected an /http/import Step to fetch (such as one with an empty name).
-        const downloadSafeguards = {
-          maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
-          urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
-          beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
-        }
-        const usedFields = new Set<string>()
-        for (const file of inputFilesForPrep) {
-          if (usedFields.has(file.field)) {
-            return buildToolError('mcp_duplicate_field', `Duplicate file field: ${file.field}`, {
-              path: 'files',
-            })
-          }
-          usedFields.add(file.field)
-        }
-        const prep = await prepareInputFiles({
-          inputFiles: inputFilesForPrep.filter((file) => !isDownloaded(file)),
+        const preparation = prepareInputFiles({
+          inputFiles: inputFilesForPrep,
           params,
           fields,
           base64Strategy: 'tempfile',
-          urlStrategy: 'import-if-present',
+          urlStrategy: reference ? 'download' : 'import-if-present',
           allowPrivateUrls: false,
           maxBase64Bytes,
-          ...downloadSafeguards,
-        }).catch(buildInputError)
+          maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
+          urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
+          beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
+        })
+        const prep = await settleWithin(preparation, preparationRemainingMs()).catch(
+          buildInputError,
+        )
+        if (prep === deadlineReached) {
+          // prepareInputFiles takes no abort signal, so a download still running is removed once
+          // it ends; urlDownloadTimeoutMs and maxUrlDownloadBytes bound it meanwhile.
+          void preparation
+            .then(
+              (late) => Promise.all(late.cleanup.map((cleanupFile) => cleanupFile())),
+              () => undefined,
+            )
+            .catch((error: unknown) => {
+              logger.warn('Removing prepared files failed: %s', redactError(error))
+            })
+          return preparationTimeout(
+            inputFilesForPrep.some((file) => file.kind === 'url')
+              ? 'Downloading a URL input took too long. Transloadit fetches a URL itself when it is the only input of a Builtin shortcut, or when the Steps contain an /http/import Step.'
+              : undefined,
+          )
+        }
         if ('content' in prep) {
           return prep
         }
@@ -1574,22 +1598,7 @@ export const createTransloaditMcpServer = (
         const uploadsMap = prep.uploads
         tempCleanups.push(...prep.cleanup)
 
-        if (preparationRemainingMs() === 0) return preparationTimeout()
-
-        const downloadInputs = inputFilesForPrep.filter(isDownloaded)
-        const downloads =
-          downloadInputs.length === 0
-            ? undefined
-            : prepareInputFiles({
-                inputFiles: downloadInputs,
-                urlStrategy: 'download',
-                allowPrivateUrls: false,
-                ...downloadSafeguards,
-              })
-
-        // Each URL input still being downloaded becomes exactly one uploaded file.
-        const totalFiles =
-          Object.keys(filesMap).length + Object.keys(uploadsMap).length + downloadInputs.length
+        const totalFiles = Object.keys(filesMap).length + Object.keys(uploadsMap).length
         const uploadSummary: UploadSummary = {
           status: totalFiles > 0 ? 'complete' : 'none',
           total_files: totalFiles,
@@ -1619,71 +1628,13 @@ export const createTransloaditMcpServer = (
         // API2 may have accepted; the deadline below bounds the call itself. Polling after an
         // early return is not stopped separately: it ends with this timeout, a few seconds later,
         // and the signal that could stop it would also stop uploads the Assembly still needs.
-        const sdkTimeout = (): number =>
-          Math.max(remainingMs() + statusReadTimeoutMs + 1_000, minimumSdkTimeoutMs)
-
-        let downloadedFiles: Record<string, string> = {}
-        let pendingDownloads: typeof downloads
-        let downloadsFinished = false
-        if (downloads) {
-          // Downloads that finish or fail quickly keep the historical order: no Assembly is
-          // created for an input that cannot be fetched. A slow download must not hold back the
-          // Assembly ID, so the Assembly is created and receives the file once it arrives.
-          const early = await settleWithin(
-            downloads,
-            Math.min(downloadHeadStartMs, remainingMs()),
-          ).catch(buildInputError)
-          if (early === deadlineReached) {
-            pendingDownloads = downloads
-            // Whatever happens to the Assembly, the files are removed once the download ends.
-            // prepareInputFiles takes no abort signal, so a download whose Assembly failed still
-            // runs until it finishes or hits urlDownloadTimeoutMs (and maxUrlDownloadBytes caps
-            // its disk use). Adding one would change @transloadit/node's public API.
-            downloadsSettled = downloads.then(
-              (late) => {
-                tempCleanups.push(...late.cleanup)
-              },
-              () => undefined,
-            )
-            void downloadsSettled.then(() => {
-              downloadsFinished = true
-            })
-          } else if ('content' in early) {
-            return early
-          } else {
-            downloadedFiles = early.files
-            tempCleanups.push(...early.cleanup)
-          }
-        }
-        const awaitPendingDownloads = async (): Promise<Record<string, string>> => {
-          if (!pendingDownloads) return {}
-          const late = await pendingDownloads.catch((error: unknown) => {
-            throw new LateDownloadError('A URL input could not be downloaded.', { cause: error })
-          })
-          return late.files
-        }
+        const timeout = Math.max(remainingMs() + statusReadTimeoutMs + 1_000, minimumSdkTimeoutMs)
 
         // Every status the SDK reports, so a call that returns early still has the latest state.
         let latest: AssemblyStatus | undefined
         const trackProgress = (status: AssemblyStatus): void => {
           latest = status
         }
-        const resumeUploads = (
-          assemblyUrl: string,
-          files: Record<string, string>,
-          uploads: typeof uploadsMap,
-        ): Promise<AssemblyStatus> =>
-          client.resumeAssemblyUploads({
-            assemblyUrl,
-            files,
-            uploads,
-            waitForCompletion: waitForCompletion && remainingMs() > 0,
-            timeout: sdkTimeout(),
-            uploadConcurrency,
-            chunkSize,
-            uploadBehavior,
-            onAssemblyProgress: trackProgress,
-          })
 
         let assembly: AssemblyStatus
         // Set by the SDK only after API2 accepted the creation request, so a rejected request
@@ -1698,34 +1649,29 @@ export const createTransloaditMcpServer = (
         let creationAssemblyId: string | undefined
         // Stops a creation request (and its rate-limit retries) that outlasted the call.
         const creationAbort = new AbortController()
-        // Whether the Assembly a failed URL input was meant for could be cancelled.
-        let lateCancelled = false
         if (reference) {
-          work = awaitPendingDownloads().then((late) =>
-            resumeUploads(
-              reference.assemblyUrl,
-              { ...filesMap, ...downloadedFiles, ...late },
-              uploadsMap,
-            ),
-          )
-        } else {
-          const creation = client.createAssembly({
-            params,
-            files: { ...filesMap, ...downloadedFiles },
+          work = client.resumeAssemblyUploads({
+            assemblyUrl: reference.assemblyUrl,
+            files: filesMap,
             uploads: uploadsMap,
-            waitForCompletion: waitForCompletion && !pendingDownloads,
-            timeout: sdkTimeout(),
+            waitForCompletion,
+            timeout,
             uploadConcurrency,
             chunkSize,
             uploadBehavior,
-            // The SDK counts only the files it uploads itself; reserve the pending downloads too.
-            // API2 still aborts an Assembly whose tus uploads are not started within two minutes
-            // of creation, so a deferred download must finish well within that window. Starting
-            // the upload as a stream before the download ends would lift that limit, but the SDK
-            // names stream uploads after their field, which would lose the file's name.
-            expectedUploads: pendingDownloads
-              ? Math.max(expected_uploads ?? 0, totalFiles)
-              : expected_uploads,
+            onAssemblyProgress: trackProgress,
+          })
+        } else {
+          const creation = client.createAssembly({
+            params,
+            files: filesMap,
+            uploads: uploadsMap,
+            waitForCompletion,
+            timeout,
+            uploadConcurrency,
+            chunkSize,
+            uploadBehavior,
+            expectedUploads: expected_uploads,
             onAssemblyCreated: (status) => {
               createdAssemblyId = status.assembly_id ?? creation.assemblyId
               latest = status
@@ -1735,35 +1681,7 @@ export const createTransloaditMcpServer = (
             signal: creationAbort.signal,
           })
           creationAssemblyId = creation.assemblyId
-          work = pendingDownloads
-            ? creation.then(async (status) => {
-                const late = await awaitPendingDownloads().catch(async (error: unknown) => {
-                  // Nothing will upload into this Assembly anymore. Cancelling is best effort:
-                  // the download failure is what the caller needs to see.
-                  if (createdAssemblyId) {
-                    lateCancelled = await client.cancelAssembly(createdAssemblyId).then(
-                      () => true,
-                      () => false,
-                    )
-                  }
-                  throw error
-                })
-                const assemblyUrl = status.assembly_ssl_url ?? status.assembly_url
-                if (!assemblyUrl) {
-                  throw new Error('The Assembly status has no URL to upload the downloads to.')
-                }
-                const resumed = await resumeUploads(assemblyUrl, late, {})
-                // Files sent with the creation request have their upload URLs only in its status.
-                if (!isRecord(status.upload_urls)) return resumed
-                return {
-                  ...resumed,
-                  upload_urls: {
-                    ...status.upload_urls,
-                    ...(isRecord(resumed.upload_urls) ? resumed.upload_urls : {}),
-                  },
-                }
-              })
-            : creation
+          work = creation
         }
 
         let workSettled = true
@@ -1781,10 +1699,9 @@ export const createTransloaditMcpServer = (
               () => undefined,
               (error: unknown) => {
                 if (isPollingTimeout(error) || creationAbort.signal.aborted) return
-                // The cancelled Assembly is what follow-up status calls show. Its cause is only
-                // logged: hosted instances keep no per-Assembly state to report it later.
-                const cause = error instanceof LateDownloadError ? error.cause : error
-                logger.warn('Assembly work after an early return failed: %s', redactError(cause))
+                // Hosted instances keep no per-Assembly state to report this later; follow-up
+                // status calls show the Assembly itself.
+                logger.warn('Assembly work after an early return failed: %s', redactError(error))
               },
             )
             if (latest) {
@@ -1825,24 +1742,11 @@ export const createTransloaditMcpServer = (
             assembly = latest
             returnedEarly = true
           } else {
-            const cause = error instanceof LateDownloadError ? error.cause : error
             // Once API2 accepted the creation request, an auth failure (a token expiring while
-            // uploads or polling run, or a late token check before a download) must not reach the
-            // client as a challenge: it would refresh and replay the call, creating and billing a
-            // second Assembly.
-            if (createdAssemblyId && toAuthRejection(options, cause, credentials, [])) {
-              return error instanceof LateDownloadError
-                ? buildCreatedAssemblyUnavailable(options, createdAssemblyId, (assemblyUrl) => ({
-                    code: 'mcp_assembly_status_unavailable',
-                    message: `Transloadit rejected the credentials before a URL input could be downloaded, after the Assembly was created. ${lateCancelled ? 'The Assembly was cancelled.' : 'The Assembly could not be cancelled.'}`,
-                    hint: `Reconnect if needed, then check transloadit_get_assembly_status with assembly_url ${assemblyUrl} before creating it again.`,
-                  }))
-                : buildCreatedAssemblyUnavailable(options, createdAssemblyId)
-            }
-            if (error instanceof LateDownloadError) {
-              return createdAssemblyId
-                ? buildLateDownloadFailure(options, createdAssemblyId, cause, lateCancelled)
-                : buildInputError(cause)
+            // uploads or polling run) must not reach the client as a challenge: it would refresh
+            // and replay the call, creating and billing a second Assembly.
+            if (createdAssemblyId && toAuthRejection(options, error, credentials, [])) {
+              return buildCreatedAssemblyUnavailable(options, createdAssemblyId)
             }
             if (isErrnoException(error) && error.code === 'ENOENT') {
               return buildToolError(
@@ -1867,7 +1771,7 @@ export const createTransloaditMcpServer = (
           uploadSummary.status = 'none'
         } else if (
           uploadBehavior === 'background' ||
-          (!workSettled && (pendingDownloads !== undefined || assembly.ok === 'ASSEMBLY_UPLOADING'))
+          (!workSettled && assembly.ok === 'ASSEMBLY_UPLOADING')
         ) {
           uploadSummary.status = 'uploading'
         }
@@ -1881,11 +1785,7 @@ export const createTransloaditMcpServer = (
             ? buildUploadInstructions(
                 assembly,
                 outOfBandUploads,
-                new Set([
-                  ...Object.keys(filesMap),
-                  ...Object.keys(uploadsMap),
-                  ...downloadInputs.map((file) => file.field),
-                ]),
+                new Set([...Object.keys(filesMap), ...Object.keys(uploadsMap)]),
               )
             : undefined
         if (outOfBandUploads > 0 && !uploadInstructions) {
@@ -1896,15 +1796,7 @@ export const createTransloaditMcpServer = (
         }
         const running = isAssemblyRunning(assembly)
         if (returnedEarly && running) {
-          warnings.push(
-            buildStillRunningNotice(
-              assembly,
-              reference?.assemblyUrl,
-              // All URL inputs download together, so either none or all of them are pending.
-              workSettled || !pendingDownloads || downloadsFinished ? 0 : downloadInputs.length,
-              reference !== undefined,
-            ),
-          )
+          warnings.push(buildStillRunningNotice(assembly, reference?.assemblyUrl))
         }
         const nextSteps = uploadInstructions
           ? ['transloadit_wait_for_assembly']
@@ -1937,15 +1829,12 @@ export const createTransloaditMcpServer = (
         const cleanup = async (): Promise<void> => {
           await Promise.all(tempCleanups.map((cleanupFile) => cleanupFile()))
         }
-        // Uploads that continue after an early return still read the prepared files, and late
-        // downloads add theirs only once they finish. Neither promise rejects.
-        const deferred = [backgroundWork, downloadsSettled].filter((entry) => entry !== undefined)
-        if (deferred.length > 0) {
-          void Promise.all(deferred)
-            .then(cleanup)
-            .catch((error: unknown) => {
-              logger.warn('Removing prepared files failed: %s', redactError(error))
-            })
+        // Uploads that continue after an early return still read the prepared files. This
+        // promise never rejects.
+        if (backgroundWork) {
+          void backgroundWork.then(cleanup).catch((error: unknown) => {
+            logger.warn('Removing prepared files failed: %s', redactError(error))
+          })
         } else {
           await cleanup()
         }

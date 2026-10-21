@@ -566,6 +566,8 @@ describe('MCP file inputs', () => {
       arguments: {
         instructions: { steps: { ':original': { robot: '/upload/handle' } } },
         files: [{ kind: 'url', field: 'file', url: `${origin}/fixture` }],
+        // Out-of-band uploads keep the upload Step, so this server downloads the URL.
+        expected_uploads: 2,
       },
     })
     expect(result.structuredContent).toMatchObject({
@@ -748,6 +750,8 @@ describe('MCP file inputs', () => {
       arguments: {
         instructions: { steps: { ':original': { robot: '/upload/handle' } } },
         files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/big.bin' }],
+        // Out-of-band uploads keep the upload Step, so this server downloads the URL.
+        expected_uploads: 2,
       },
     })
     expect(result.structuredContent).toMatchObject({
