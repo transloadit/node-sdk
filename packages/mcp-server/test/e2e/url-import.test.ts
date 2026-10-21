@@ -20,7 +20,7 @@ maybeDescribe('mcp-server URL inputs (stdio)', { timeout: 60000 }, () => {
     await client?.close()
   })
 
-  it('imports the URL into Steps that take uploads', async () => {
+  it('downloads the URL when no import step is present', async () => {
     const result = await client.callTool({
       name: 'transloadit_create_assembly',
       arguments: {
@@ -52,33 +52,12 @@ maybeDescribe('mcp-server URL inputs (stdio)', { timeout: 60000 }, () => {
     const payload = parseToolPayload(result)
     expect(payload.status).toBe('ok')
     const upload = isRecord(payload.upload) ? payload.upload : {}
-    // Transloadit fetches the URL through an /http/import Step; nothing is uploaded.
-    expect(upload.status).toBe('none')
+    expect(upload.status).toBe('complete')
 
     const assembly = isRecord(payload.assembly) ? payload.assembly : {}
     const results = isRecord(assembly.results) ? assembly.results : {}
     const resized = (results as Record<string, unknown>).resize
     expect(Array.isArray(resized)).toBe(true)
-  })
-
-  it('lets Transloadit import the URL into a Builtin shortcut', async () => {
-    const result = await client.callTool({
-      name: 'transloadit_prepare_image',
-      arguments: {
-        fields: { w: 8, h: 8 },
-        files: [{ kind: 'url', field: 'image', url: demoImage }],
-        wait_for_completion: true,
-      },
-    })
-
-    const payload = parseToolPayload(result)
-    expect(payload.status).toBe('ok')
-    const upload = isRecord(payload.upload) ? payload.upload : {}
-    expect(upload.status).toBe('none')
-    const assembly = isRecord(payload.assembly) ? payload.assembly : {}
-    expect(assembly.ok).toBe('ASSEMBLY_COMPLETED')
-    const results = isRecord(assembly.results) ? assembly.results : {}
-    expect(Array.isArray(results.prepared)).toBe(true)
   })
 
   it('uses the existing /http/import step when provided', async () => {

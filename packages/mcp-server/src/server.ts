@@ -14,12 +14,9 @@ import type { BuiltinCatalog } from './builtin-shortcuts.ts'
 import type { ToolName } from './tool-metadata.ts'
 import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
-import { basename, parse } from 'node:path'
-
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import {
   ApiError,
-  addImportRobot,
   extractFieldNamesFromTemplate,
   getRobotHelp,
   isKnownRobot,
@@ -791,7 +788,7 @@ const buildCreationPending = (
     message:
       'Transloadit did not confirm the Assembly in time, so this server stopped sending the creation request. Transloadit may still have received it.',
     // An Assembly that API2 accepted only after the request was stopped never receives this
-    // call's files, but its imports may already run, so it is resumed rather than created again.
+    // call's files, so it is resumed rather than created again.
     // API2 could in theory still be handling a request it received before the abort, so the
     // hint asks for a pause first. Strict idempotency would need an API2 creation key, which
     // does not exist; this path only runs after a request already took longer than the budget.
@@ -885,13 +882,6 @@ const usesOriginalReference = (value: unknown): boolean => {
   return false
 }
 
-/** Whether a `use` value picks files by their upload field, which imported files do not have. */
-const selectsByField = (value: unknown): boolean => {
-  if (Array.isArray(value)) return value.some((item) => selectsByField(item))
-  if (!isRecord(value)) return false
-  return 'fields' in value || Object.values(value).some((item) => selectsByField(item))
-}
-
 type StepAnalysis = {
   importStepNames: string[]
   hasHttpImport: boolean
@@ -940,80 +930,6 @@ const mergeImportOverrides = (
     }
   }
   return nextOverrides
-}
-
-/**
- * Turns a workflow's upload Step into an /http/import Step, so Transloadit fetches the URL inputs
- * itself instead of this server downloading and uploading them. It reuses the Console's import fix
- * (alphalib's addImportRobot); API2 rewrites the `:original` Step of a replayed Assembly the same
- * way. Returns undefined unless every consumer then reads exactly the imported files.
- */
-const replaceUploadWithImport = (
-  steps: Record<string, unknown>,
-  urlInputs: Array<{ field: string; url: string; filename?: string }>,
-): Record<string, unknown> | undefined => {
-  const uploadStepNames = Object.keys(steps).filter((name) => {
-    const step = steps[name]
-    return isRecord(step) && step.robot === '/upload/handle'
-  })
-  const [uploadStepName] = uploadStepNames
-  if (uploadStepName === undefined || uploadStepNames.length > 1) return undefined
-  // An import Step cannot carry upload parameters such as output_meta. A Step without `use`
-  // would not receive the imported files, and imports carry no upload field to select or filter
-  // by.
-  const uploadStep = steps[uploadStepName]
-  if (!isRecord(uploadStep) || Object.keys(uploadStep).length > 1) return undefined
-  for (const [name, step] of Object.entries(steps)) {
-    if (name === uploadStepName) continue
-    if (!isRecord(step) || step.use === undefined || selectsByField(step.use)) return undefined
-    // An interpolated reference to the upload Step cannot be renamed before API2 resolves it.
-    if (JSON.stringify(step.use).includes('${')) return undefined
-  }
-  // /http/import splits each URL at its url_delimiter, which defaults to a pipe. Names are given
-  // per URL, so a URL given twice could not be imported as two files with their own names.
-  const urls = urlInputs.map(({ url }) => url)
-  if (urls.some((url) => url.includes('|')) || new Set(urls).size < urls.length) return undefined
-  // Interpolations such as ${file.field} or ${file['field']} would no longer match.
-  if (/\$\{[^}]*\bfield\b/.test(JSON.stringify(steps))) return undefined
-  // Every import gets the name its download had: the caller's name (host attachment URLs rarely
-  // end in it), else the URL's, kept apart as photo.jpg and photo-1.jpg. /http/import would
-  // otherwise prefer a Content-Disposition name, and applies a partial map to unlisted URLs.
-  const usedNames = new Set<string>()
-  const nameByUrl = new Map<string, string>()
-  for (const { field, url, filename } of urlInputs) {
-    const requested = filename
-      ? basename(filename)
-      : basename(new URL(url).pathname) || `${field}.bin`
-    const { name, ext } = parse(requested)
-    let unique = requested
-    for (let counter = 1; usedNames.has(unique); counter += 1) unique = `${name}-${counter}${ext}`
-    usedNames.add(unique)
-    nameByUrl.set(url, unique)
-  }
-
-  const rewritten = safeJsonParse(addImportRobot(JSON.stringify({ steps })))
-  const nextSteps = isRecord(rewritten) && isRecord(rewritten.steps) ? rewritten.steps : {}
-  const [importStepName, ...otherImportStepNames] = listHttpImportStepNames(nextSteps)
-  const importStep = importStepName === undefined ? undefined : nextSteps[importStepName]
-  if (
-    importStepName === undefined ||
-    !isRecord(importStep) ||
-    otherImportStepNames.length > 0 ||
-    // Another Step with the import Step's name would have replaced it.
-    Object.keys(nextSteps).length !== Object.keys(steps).length ||
-    analyzeSteps(nextSteps).requiresUpload
-  ) {
-    return undefined
-  }
-  // The fix imports a demo file; the URL inputs take its place.
-  const { url: _demoUrl, ...importWithoutUrl } = importStep
-  return {
-    ...nextSteps,
-    [importStepName]: {
-      ...importWithoutUrl,
-      force_name: Object.fromEntries(nameByUrl),
-    },
-  }
 }
 
 const collectFieldNames = (templateContent: string): string[] => {
@@ -1065,9 +981,6 @@ const buildStatusPendingResponse = (
     ...fields,
     warnings: [buildStillRunningNotice({}, reference.assemblyUrl)],
   })
-
-const isHttpUrl = (value: string): boolean =>
-  URL.canParse(value) && ['http:', 'https:'].includes(new URL(value).protocol)
 
 /** Production (`.com`) and development or tunnel (`.dev`) Transloadit hosts. */
 const isTransloaditHost = (hostname: string): boolean =>
@@ -1429,9 +1342,7 @@ export const createTransloaditMcpServer = (
 
       try {
         const fileInputs: InputFile[] = [...(files ?? []), ...toAttachmentInputs(attachments ?? [])]
-        const urlInputs = fileInputs.filter(
-          (file): file is Extract<InputFile, { kind: 'url' }> => file.kind === 'url',
-        )
+        const urlInputs = fileInputs.filter((file) => file.kind === 'url')
         const hasUrlInputs = urlInputs.length > 0
         let inputFilesForPrep = fileInputs
         let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
@@ -1527,31 +1438,6 @@ export const createTransloaditMcpServer = (
                 analysis.importStepNames,
               ) as CreateAssemblyParams['steps']
             }
-          } else if (
-            // Other schemes are left to the download path, which rejects them before creation.
-            fileInputs.every((file) => file.kind === 'url' && isHttpUrl(file.url)) &&
-            (expected_uploads ?? 0) === 0 &&
-            // Without uploads, the Assembly waits for files the caller sends later.
-            upload_behavior !== 'none' &&
-            // Only a shortcut's Builtin, whose fields were checked against the catalog contract,
-            // runs without its Template ID; other Templates keep API2's own handling.
-            (params.template_id === undefined || fieldContractValidated)
-          ) {
-            // Uploads would make this server download every URL before the Assembly exists.
-            // Transloadit fetches them itself once the upload Step becomes an /http/import Step.
-            // Builtins forbid Steps overrides, so their own Steps run without the Template ID.
-            // API2 offers no way to keep the Builtin association with other Steps (it rejects
-            // fields.associate_with_template_id then too); that is the accepted cost of not
-            // holding the Assembly back for a download.
-            const importSteps = mergedSteps && replaceUploadWithImport(mergedSteps, urlInputs)
-            if (importSteps && mergedInstructions) {
-              const {
-                template_id: _templateId,
-                allow_steps_override: _allowStepsOverride,
-                ...instructions
-              } = mergedInstructions
-              params = { ...instructions, steps: importSteps as CreateAssemblyParams['steps'] }
-            }
           }
         }
 
@@ -1590,8 +1476,6 @@ export const createTransloaditMcpServer = (
           tokenCheck ??= client.listTemplates({ pagesize: 1 })
           await tokenCheck
         }
-        // Stops downloads once the budget is spent; a retry would otherwise start another one.
-        const preparationAbort = new AbortController()
         const preparation = prepareInputFiles({
           inputFiles: inputFilesForPrep,
           params,
@@ -1603,14 +1487,13 @@ export const createTransloaditMcpServer = (
           maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
           urlDownloadTimeoutMs: options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
           beforeUrlDownload: credentials === 'bearer' ? verifyTokenBeforeDownload : undefined,
-          signal: preparationAbort.signal,
         })
         const prep = await settleWithin(preparation, preparationRemainingMs()).catch(
           buildInputError,
         )
         if (prep === deadlineReached) {
-          preparationAbort.abort()
-          // A preparation that still finishes first returns files that nothing uploads.
+          // prepareInputFiles() cannot be stopped, so a download keeps running until it ends or
+          // reaches urlDownloadTimeoutMs; its files are removed then, since nothing uploads them.
           void preparation
             .then(
               (late) => Promise.all(late.cleanup.map((cleanupFile) => cleanupFile())),
@@ -1621,7 +1504,7 @@ export const createTransloaditMcpServer = (
             })
           return preparationTimeout(
             inputFilesForPrep.some((file) => file.kind === 'url')
-              ? 'A retry downloads the URL inputs again from the start. Transloadit fetches the URLs itself when they are the only inputs of a Builtin shortcut or of Steps with an upload Step, without expected_uploads or upload_behavior "none", or when the Steps contain an /http/import Step.'
+              ? 'A retry downloads the URL inputs again from the start. To have Transloadit fetch large files itself, use transloadit_create_assembly with Steps that contain an /http/import Step.'
               : undefined,
           )
         }

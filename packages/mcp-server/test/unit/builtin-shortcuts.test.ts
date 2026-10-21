@@ -235,38 +235,6 @@ describe('Builtin shortcut protocol', () => {
     expect(http.params()).not.toHaveProperty('steps')
   })
 
-  it('lets Transloadit import a URL into the Builtin instead of downloading it', async () => {
-    const steps = {
-      ':original': { robot: '/upload/handle' },
-      resized: { robot: '/image/resize', use: ':original', width: '${fields.w}', result: true },
-    }
-    const entry = { ...template, content: { ...template.content, steps } }
-    catalog([entry])
-    const http = assembly(entry)
-    nock.disableNetConnect()
-    try {
-      const result = await call(await connect(), {
-        fields: { w: 300 },
-        files: [{ kind: 'url', field: 'image', url: 'https://example.com/photo.jpg' }],
-      })
-      expect(parseToolPayload(result)).toMatchObject({ status: 'ok' })
-    } finally {
-      nock.enableNetConnect()
-    }
-    expect(http.get.isDone() && http.post.isDone()).toBe(true)
-    // Builtins forbid Steps overrides, so their own Steps run without the Template ID.
-    expect(http.params()).not.toHaveProperty('template_id')
-    expect(http.params()).not.toHaveProperty('allow_steps_override')
-    expect(http.params()).toMatchObject({
-      fields: { ...entry.content.fields, w: 300 },
-      steps: {
-        imported: { robot: '/http/import', url: 'https://example.com/photo.jpg' },
-        resized: { ...steps.resized, use: 'imported' },
-      },
-    })
-    expect(http.params().steps).not.toHaveProperty(':original')
-  })
-
   it('marks fields required only when required properties lack defaults', async () => {
     catalog([{ ...template, content: { ...template.content, fields: { strip: true } } }])
     const tools = (await (await connect()).listTools()).tools

@@ -174,15 +174,13 @@ describe('waiting within the host tool-call budget', () => {
     try {
       const scope = nock('http://198.51.100.10')
         .get('/large.mp4')
-        .delay(maxWaitMs * 20)
+        .delay(maxWaitMs * 3)
         .reply(200, 'Downloaded bytes')
       vi.spyOn(Transloadit.prototype, 'createAssembly')
 
       const result = await call('transloadit_create_assembly', {
         instructions: uploadTemplate,
-        // Out-of-band uploads need the upload Step, so the URL is downloaded by this server.
         files: [{ kind: 'url', field: 'file', url: 'http://198.51.100.10/large.mp4' }],
-        expected_uploads: 2,
       })
 
       expect(result.structuredContent).toMatchObject({
@@ -192,9 +190,9 @@ describe('waiting within the host tool-call budget', () => {
         ],
       })
       expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
-      // A retry would start another download, so the abandoned one is stopped and removed.
+      // Nothing uploads the abandoned download, so its file is removed once it arrives.
       await vi.waitFor(async () => expect(await readdir(tempRoot)).toEqual([]), {
-        timeout: maxWaitMs,
+        timeout: maxWaitMs * 10,
       })
       expect(scope.isDone()).toBe(true)
     } finally {

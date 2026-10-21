@@ -1424,8 +1424,6 @@ Options:
 - `allowPrivateUrls` – Allow downloading private/loopback URLs when using `urlStrategy: 'download'`
   (default `true`). Hosted deployments should disable this.
 - `tempDir` – Optional temp directory base when `base64Strategy: 'tempfile'`.
-- `signal` – Optional `AbortSignal` that stops URL downloads; the call then rejects and removes
-  the files it wrote.
 
 ### Managing Templates
 

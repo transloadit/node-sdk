@@ -63,8 +63,6 @@ export type PrepareInputFilesOptions = {
    * vouch for the requester first; rejecting aborts preparation.
    */
   beforeUrlDownload?: () => Promise<void>
-  /** Stops URL downloads; preparation then rejects and removes the files it wrote. */
-  signal?: AbortSignal
   tempDir?: string
 }
 
@@ -417,14 +415,12 @@ const downloadUrlToFile = async ({
   url,
   budget,
   timeoutMs,
-  signal,
 }: {
   allowPrivateUrls: boolean
   filePath: string
   url: string
   budget?: DownloadBudget
   timeoutMs?: number
-  signal?: AbortSignal
 }): Promise<void> => {
   let currentUrl = url
   // One deadline for the whole download, so DNS checks and redirects cannot each restart it.
@@ -439,7 +435,6 @@ const downloadUrlToFile = async ({
   }
 
   for (let redirectCount = 0; redirectCount <= MAX_URL_REDIRECTS; redirectCount += 1) {
-    signal?.throwIfAborted()
     let validatedAddresses: Array<{ address: string; family: 4 | 6 }> | null = null
     if (!allowPrivateUrls) {
       // Not raced against the deadline: the system resolver bounds each lookup with its own
@@ -456,7 +451,6 @@ const downloadUrlToFile = async ({
       followRedirect: false,
       retry: { limit: 0 },
       throwHttpErrors: false,
-      signal,
       ...(requestTimeoutMs === undefined ? {} : { timeout: { request: requestTimeoutMs } }),
     })
 
@@ -491,16 +485,14 @@ const downloadUrlToFile = async ({
     }
 
     if (budget === undefined) {
-      await pipeline(responseStream, createWriteStream(filePath), { signal })
+      await pipeline(responseStream, createWriteStream(filePath))
       return
     }
     if (Number(response.headers['content-length']) > budget.remainingBytes) {
       responseStream.destroy()
       throw budgetExceeded(budget, url)
     }
-    await pipeline(responseStream, limitDownloadBytes(budget, url), createWriteStream(filePath), {
-      signal,
-    })
+    await pipeline(responseStream, limitDownloadBytes(budget, url), createWriteStream(filePath))
     return
   }
 
@@ -521,7 +513,6 @@ export const prepareInputFiles = async (
     maxUrlDownloadBytes,
     urlDownloadTimeoutMs,
     beforeUrlDownload,
-    signal,
     tempDir,
   } = options
 
@@ -618,7 +609,6 @@ export const prepareInputFiles = async (
           url: file.url,
           budget: downloadBudget,
           timeoutMs: urlDownloadTimeoutMs,
-          signal,
         })
         files[file.field] = filePath
       }
