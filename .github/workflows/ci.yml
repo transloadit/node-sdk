@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
-          node-version: '22.23.4'
+          node-version: '26.12.1'
       - name: Ensure each package's lockfile matches dependency changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -106,7 +106,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '22.23.4'
+          node-version: '26.12.1'
+      - name: Install Corepack
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       - run: corepack yarn run pack
       - uses: actions/upload-artifact@v7
@@ -121,7 +123,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.22.1'
+          node-version: '26.12.1'
+      - name: Install Corepack
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       - run: corepack yarn verify
 
@@ -132,7 +136,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.22.1'
+          node-version: '26.12.1'
+      - name: Install Corepack
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       - run: corepack yarn verify:full
 
@@ -146,9 +152,11 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
-          node-version: '22.23.4'
+          node-version: '26.12.1'
           registry-url: https://registry.npmjs.org
       - run: npm install -g npm@11.5.1
+      - name: Install Corepack
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       - run: corepack yarn tsc:utils
       - run: corepack yarn tsc:zod
@@ -166,7 +174,9 @@ jobs:
         with:
           cache: npm
           cache-dependency-path: scripts/fixtures/img-next/package-lock.json
-          node-version: '24.22.1'
+          node-version: '26.12.1'
+      - name: Install Corepack
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       - run: corepack yarn test:img:fixture
       - uses: actions/upload-artifact@v7
@@ -184,7 +194,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.22.1'
+          node-version: '26.12.1'
+      - name: Install Corepack
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       - run: corepack yarn test:sdk:edge
       - uses: actions/upload-artifact@v7
@@ -202,7 +214,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.22.1'
+          node-version: '26.12.1'
+      - name: Install Corepack
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       - run: corepack yarn test:init:fixture
 
@@ -220,11 +234,13 @@ jobs:
       # Keep the browsers and baseline fonts; replace the image's older bundled Node.
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.22.1'
+          node-version: '26.12.1'
       - name: Verify patched Node runtime
         run: |
           node --version
-          test "$(node --version)" = v24.22.1
+          test "$(node --version)" = v26.12.1
+      - name: Install Corepack
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       - run: corepack yarn workspace @transloadit/mcp-server test:visual
       - uses: actions/upload-artifact@v7
@@ -247,18 +263,23 @@ jobs:
             version: '22.23.4'
           - node: 24
             version: '24.22.1'
+          - node: 26
+            version: '26.12.1'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.version }}
+      - name: Install Corepack
+        if: matrix.node == 26
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       # Root unit tests execute TypeScript scripts via Node's strip-types support.
       # Keep those on Node 24+; Node 20/22 only run @transloadit/node unit tests.
       - run: corepack yarn test:unit
-        if: matrix.node == 24
+        if: matrix.node >= 24
       - run: corepack yarn workspace @transloadit/node test:unit
-        if: matrix.node != 24
+        if: matrix.node < 24
       - name: Upload coverage reports artifact
         if: matrix.node == 24
         uses: actions/upload-artifact@v7
@@ -280,7 +301,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.22.1'
+          node-version: '26.12.1'
+      - name: Install Corepack
+        run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
       - name: Download cloudflared
         run: |
@@ -376,7 +399,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v6
         with:
-          node-version: '22.23.4'
+          node-version: '26.12.1'
       - name: Send Slack notification
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

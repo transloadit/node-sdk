@@ -66,7 +66,7 @@ async function main(): Promise<void> {
     throw new Error('Could not read the installed @playwright/test version')
   }
   // Keep the runtime and browser image in sync with the visual job in .github/workflows/ci.yml.
-  const nodeVersion = '24.22.1'
+  const nodeVersion = '26.12.1'
   const image = `transloadit-mcp-widget:${playwrightPackage.version}-node${nodeVersion}`
   await execa('docker', ['build', '--tag', image, '-'], {
     // Replacing only Node preserves the browsers and fonts used by the committed baselines.
