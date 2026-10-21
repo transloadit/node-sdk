@@ -174,9 +174,9 @@ jobs:
         with:
           cache: npm
           cache-dependency-path: scripts/fixtures/img-next/package-lock.json
-          node-version: '26.12.1'
-      - name: Install Corepack
-        run: npm install --global corepack@0.36.0
+          # Playwright 1.58.2 stalls while unpacking Chromium on Node 26.
+          # Keep this fixture on the patched LTS runtime that completes installation.
+          node-version: '24.22.1'
       - run: corepack yarn install --immutable
       - run: corepack yarn test:img:fixture
       - uses: actions/upload-artifact@v7
