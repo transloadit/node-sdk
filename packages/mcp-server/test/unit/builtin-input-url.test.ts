@@ -411,6 +411,21 @@ describe('Builtin shortcuts with URL inputs', () => {
     expect(creations).toHaveLength(1)
   })
 
+  it('spends at most a few seconds on probes when status reads stall', async () => {
+    createReturns(executing)
+    vi.spyOn(Transloadit.prototype, 'getAssembly').mockImplementation(
+      () => new Promise(() => undefined),
+    )
+    const startedAt = performance.now()
+    const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
+      files: [url(photo)],
+    })
+    expect(performance.now() - startedAt).toBeLessThan(4_000)
+    expect(result.structuredContent).toMatchObject({
+      warnings: [{ code: 'mcp_input_url_unconfirmed' }],
+    })
+  }, 30_000)
+
   it('falls back within a wait budget shorter than a status read', async () => {
     nock(origin).get('/photo.jpg').reply(200, 'bytes')
     createReturns(executing, { ...executing, assembly_id: 'f'.repeat(32) })

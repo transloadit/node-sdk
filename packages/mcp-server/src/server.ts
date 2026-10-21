@@ -1243,6 +1243,9 @@ const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => 
  */
 const inputUrlProbeDelaysMs = [0, 300, 700, 1500]
 
+/** The most the probes, reads included, may add to a call. */
+const inputUrlProbeBudgetMs = 3_000
+
 /** The `/http/import` Step that API2 puts in place of a Builtin's upload input. */
 const inputUrlImportStepName = 'imported'
 
@@ -1961,15 +1964,17 @@ export const createTransloaditMcpServer = (
     const live = createLiveClient(options, extra)
     // The same deadline the call itself waits for; probing must not outlast it.
     const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
-    const deadline =
+    const deadline = Math.min(
       startedAt +
-      (args.wait_for_completion
-        ? Math.min(args.wait_timeout_ms ?? maxWaitMs, maxWaitMs)
-        : maxWaitMs)
+        (args.wait_for_completion
+          ? Math.min(args.wait_timeout_ms ?? maxWaitMs, maxWaitMs)
+          : maxWaitMs),
+      // Stalled reads must not eat into the time a fallback download needs.
+      performance.now() + inputUrlProbeBudgetMs,
+    )
     let outcome = classifyInputUrlImport(created)
     for (const delayMs of inputUrlProbeDelaysMs) {
       if (outcome !== 'pending' || !isNonEmptyString(assemblyId) || 'error' in live) break
-      // The probe must not spend the budget the fallback download still needs.
       if (deadline - performance.now() < Math.max(delayMs * 2, 1)) break
       await delay(delayMs)
       const status = await readAssemblyStatus(
