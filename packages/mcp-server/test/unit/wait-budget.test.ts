@@ -66,6 +66,11 @@ describe('waiting within the host tool-call budget', () => {
     nock.cleanAll()
   })
 
+  it('refuses a wait budget longer than Node timers support', () => {
+    // setTimeout runs such a delay after about 1 ms, so every call would return at once.
+    expect(() => createTransloaditMcpServer({ maxWaitMs: 2 ** 31 })).toThrow(/maxWaitMs/)
+  })
+
   it('returns the running Assembly when completion outlasts the budget', async () => {
     vi.spyOn(Transloadit.prototype, 'createAssembly').mockImplementation((options) => {
       options?.onAssemblyCreated?.(uploading)

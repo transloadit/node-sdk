@@ -11,6 +11,9 @@ const assertPositiveInteger = (value: unknown, name: string, unit: string): void
   }
 }
 
+/** The longest delay Node's setTimeout honors. */
+const maxTimerDelayMs = 2 ** 31 - 1
+
 /** Validates what every server instance relies on, however it is constructed. */
 export const assertServerOptions = (options: {
   resourceMetadataUrl?: string
@@ -31,6 +34,10 @@ export const assertServerOptions = (options: {
   assertPositiveInteger(options.maxUrlDownloadBytes, 'maxUrlDownloadBytes', 'bytes')
   assertPositiveInteger(options.urlDownloadTimeoutMs, 'urlDownloadTimeoutMs', 'milliseconds')
   assertPositiveInteger(options.maxWaitMs, 'maxWaitMs', 'milliseconds')
+  // setTimeout runs a longer delay after about 1 ms, which would end every wait at once.
+  if (typeof options.maxWaitMs === 'number' && options.maxWaitMs > maxTimerDelayMs) {
+    throw new Error(`maxWaitMs must be at most ${maxTimerDelayMs} milliseconds.`)
+  }
   // A malformed origin would only surface as blank previews in the host, so it fails startup.
   for (const domain of options.resultDomains ?? []) {
     parseWidgetOrigin(domain, 'resultDomains')
