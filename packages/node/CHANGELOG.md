@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 6.4.0
+
+### Minor Changes
+
+- bcbd703: Contract: add the `input_url` Assembly parameter (transloadit/api2#10292), which imports one or more URLs as the input files of a Builtin Template selected with `template_id`, and share the Builtins that accept it with the MCP Builtin manifest.
+
 ## 6.3.0
 
 ### Minor Changes

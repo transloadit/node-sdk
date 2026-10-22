@@ -1,5 +1,19 @@
 # @transloadit/mcp-server
 
+## 0.8.0
+
+### Minor Changes
+
+- bcbd703: Builtin shortcuts send URL inputs to Transloadit as `input_url` with `template_id` (transloadit/api2#10292) when every file and attachment of the call is a URL and the Builtin accepts it. Transloadit fetches the files itself, so the Assembly is created at once, the MCP server downloads nothing and large files no longer run into the wait budget. Mixed inputs, named inputs, `upload_behavior: 'none'` and other Builtins keep the download-and-upload path; this needs an API2 with `input_url` support.
+
+### Patch Changes
+
+- bcbd703: Contract: add the `input_url` Assembly parameter (transloadit/api2#10292), which imports one or more URLs as the input files of a Builtin Template selected with `template_id`, and share the Builtins that accept it with the MCP Builtin manifest.
+- 650dc48: Return the Assembly ID promptly from `transloadit_create_assembly`, the Builtin shortcuts and `transloadit_wait_for_assembly`. Waiting now stops after a 45 second budget (configurable with `maxWaitMs` or `TRANSLOADIT_MCP_MAX_WAIT_MS`), below the point where MCP hosts abandon and retry a tool call, and a polling timeout returns the known Assembly instead of an error. Such results carry `running: true` and an `mcp_assembly_still_running` notice that says to follow the Assembly instead of creating it again. Template lookups and URL downloads before creation count toward the budget and fail with a retryable `mcp_preparation_timeout` before anything is created. Resuming with `assembly_url` and `expected_uploads` hands out `upload_instructions` again, and the result widget keeps following a running Assembly whose status had not arrived yet. Diagnostics are logged to stderr, so they cannot corrupt the stdio transport.
+- Updated dependencies [bcbd703]
+  - @transloadit/node@6.4.0
+  - @transloadit/zod@7.3.0
+
 ## 0.7.4
 
 ### Patch Changes
