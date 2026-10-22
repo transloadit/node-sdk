@@ -12,8 +12,9 @@ import { z } from 'zod'
 
 const repoRoot = resolve(import.meta.dirname, '..')
 // Same ESZIP bundler and Deno runtime used by Supabase, pinned across local and CI runs.
+// Use Supabase's official GHCR mirror to avoid public ECR's anonymous pull quota.
 const edgeImage =
-  'public.ecr.aws/supabase/edge-runtime:v1.76.2@sha256:edd22bef4477b900d5c300e287ce9b18bff9b81a0291bee14ee0b7c7b71a2899'
+  'ghcr.io/supabase/edge-runtime:v1.76.2@sha256:edd22bef4477b900d5c300e287ce9b18bff9b81a0291bee14ee0b7c7b71a2899'
 const signedResponse = z.object({ signature: z.string(), params: z.string() })
 
 async function waitForResponse(url: string): Promise<z.infer<typeof signedResponse>> {
