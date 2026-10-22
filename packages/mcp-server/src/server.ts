@@ -14,8 +14,6 @@ import type { BuiltinCatalog } from './builtin-shortcuts.ts'
 import type { ToolName } from './tool-metadata.ts'
 import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
-import { setTimeout as delay } from 'node:timers/promises'
-
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import {
   ApiError,
@@ -993,12 +991,11 @@ type AssemblyReference = { assemblyId: string; assemblyUrl: string }
 const readAssemblyStatus = async (
   client: Transloadit,
   assemblyId: string,
-  timeoutMs = statusReadTimeoutMs,
 ): Promise<AssemblyStatus | undefined> => {
   const status = await settleWithin(
     // Aborts after the race below gave up, so the abort never becomes the call's error.
-    client.getAssembly(assemblyId, { signal: AbortSignal.timeout(timeoutMs + 1_000) }),
-    timeoutMs,
+    client.getAssembly(assemblyId, { signal: AbortSignal.timeout(statusReadTimeoutMs + 1_000) }),
+    statusReadTimeoutMs,
   )
   return status === deadlineReached ? undefined : status
 }
@@ -1234,66 +1231,6 @@ const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => 
   }
   return undefined
 }
-
-/**
- * Status reads after an `input_url` creation that tell an API2 without input_url support, whose
- * Assembly completes without input files within milliseconds, from one importing the URLs. The
- * reads stop at the first conclusive status, so a working host costs one or two of them.
- * Remove once api2#10292 runs on every API2 host.
- */
-const inputUrlProbeDelaysMs = [0, 300, 700, 1500]
-
-/** The most the probes, reads included, may add to a call. */
-const inputUrlProbeBudgetMs = 3_000
-
-/** The `/http/import` Step that API2 puts in place of a Builtin's upload input. */
-const inputUrlImportStepName = 'imported'
-
-const listsImportJob = (jobs: unknown): boolean =>
-  Array.isArray(jobs) &&
-  jobs.some(
-    (job) =>
-      job === inputUrlImportStepName ||
-      (typeof job === 'string' && job.startsWith(`${inputUrlImportStepName}::`)),
-  )
-
-/**
- * `used`: API2 runs or ran the import Step (eligible Builtins have no Step of that name
- * otherwise), or the Assembly has input files or failed. `ignored`: it completed without any
- * input file, so API2 dropped `input_url`; an import that fetched nothing ends with an error
- * instead. `pending`: still running without either sign.
- */
-const classifyInputUrlImport = (
-  status: Record<string, unknown>,
-): 'ignored' | 'used' | 'pending' => {
-  if (status.error != null) return 'used'
-  if (typeof status.num_input_files === 'number' && status.num_input_files > 0) return 'used'
-  if (listsImportJob(status.executing_jobs) || listsImportJob(status.started_jobs)) return 'used'
-  if (status.ok === 'ASSEMBLY_COMPLETED' && status.num_input_files === 0) return 'ignored'
-  return typeof status.ok === 'string' && runningAssemblyStates.has(status.ok) ? 'pending' : 'used'
-}
-
-/** Adds a warning to a tool response, in its structured and its text form. */
-const withWarning = (
-  result: CallToolResult,
-  warning: { code: string; message: string; hint?: string },
-): CallToolResult => {
-  const payload = result.structuredContent
-  if (!payload) return result
-  const warnings = Array.isArray(payload.warnings) ? payload.warnings : []
-  const next = { ...payload, warnings: [...warnings, warning] }
-  return {
-    ...result,
-    structuredContent: next,
-    content: [{ type: 'text', text: JSON.stringify(next) }],
-  }
-}
-
-/** API2's refusals of `input_url` for a request (api2#10292); nothing ran, so uploading is safe. */
-const refusesInputUrl = (error: unknown): boolean =>
-  error instanceof ApiError &&
-  error.code === 'INVALID_FORM_DATA' &&
-  (error.reason ?? error.rawMessage ?? '').includes('input_url')
 
 const toAssemblyInstructionsInput = (params: CreateAssemblyParams): AssemblyInstructionsInput => {
   if (!params.auth || params.auth.key) {
@@ -1939,76 +1876,6 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  /**
-   * Creates a Builtin's Assembly with `input_url`, so API2 fetches the URLs and the Assembly exists
-   * at once. Returns undefined when API2 did not import them, so the caller downloads and uploads
-   * the URLs as before: an API2 that refuses `input_url` for this call, or one that predates it
-   * (api2#10292). Those ignore unknown params and run the Builtin without input files, which ends
-   * the Assembly within milliseconds with no input files at all.
-   */
-  const createWithInputUrls = async (
-    args: Parameters<typeof createAssembly>[0],
-    extra: Parameters<typeof createAssembly>[1],
-    startedAt: number,
-  ): Promise<CallToolResult | undefined> => {
-    let result: CallToolResult
-    try {
-      result = await createAssembly(args, extra, true, startedAt)
-    } catch (error) {
-      if (refusesInputUrl(error)) return undefined
-      throw error
-    }
-    const created = result.structuredContent?.assembly
-    if (result.structuredContent?.status !== 'ok' || !isRecord(created)) return result
-    const assemblyId = created.assembly_id
-    const live = createLiveClient(options, extra)
-    // The same deadline the call itself waits for; probing must not outlast it.
-    const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
-    const deadline = Math.min(
-      startedAt +
-        (args.wait_for_completion
-          ? Math.min(args.wait_timeout_ms ?? maxWaitMs, maxWaitMs)
-          : maxWaitMs),
-      // Stalled reads must not eat into the time a fallback download needs.
-      performance.now() + inputUrlProbeBudgetMs,
-    )
-    let outcome = classifyInputUrlImport(created)
-    for (const delayMs of inputUrlProbeDelaysMs) {
-      if (outcome !== 'pending' || !isNonEmptyString(assemblyId) || 'error' in live) break
-      if (deadline - performance.now() < Math.max(delayMs * 2, 1)) break
-      await delay(delayMs)
-      const status = await readAssemblyStatus(
-        live.client,
-        assemblyId,
-        // AbortSignal.timeout() refuses fractional delays.
-        Math.min(statusReadTimeoutMs, Math.max(Math.floor(deadline - performance.now()), 1)),
-      ).catch(() => undefined)
-      // A failed or slow read decides nothing; the next one may.
-      if (status) outcome = classifyInputUrlImport(status)
-    }
-    // The probes only choose the path, so the response keeps the status the call itself returned,
-    // like any call that does not wait.
-    if (outcome === 'used') return result
-    // Still pending after the probes counts as importing: uploading then would process the files
-    // twice on a working host, while an old host has never taken this long for an empty Assembly.
-    // The caller learns that this was not confirmed.
-    if (outcome === 'pending') {
-      return withWarning(result, {
-        code: 'mcp_input_url_unconfirmed',
-        message:
-          'Transloadit was asked to fetch the URLs itself, which could not be confirmed yet.',
-        hint: 'If the Assembly completes without input files, call this tool again.',
-      })
-    }
-    // The empty Assembly is a transition artifact that processed nothing, so it is only logged;
-    // the response describes the Assembly that processes the files.
-    logger.warn(
-      'API2 ran Assembly %s without importing input_url; uploading the URLs instead.',
-      assemblyId,
-    )
-    return undefined
-  }
-
   // Keep the generic execution path responsible for auth, uploads, waiting and widget results.
   // Shortcuts can supply fields and files, but cannot replace the Builtin's reviewed workflow.
   const shortcutInputSchema = createAssemblyInputSchema
@@ -2063,28 +1930,23 @@ export const createTransloaditMcpServer = (
               [...(args.files ?? []), ...toAttachmentInputs(args.attachments ?? [])],
               args.expected_uploads,
             )
-      const imported = inputUrls
-        ? await createWithInputUrls(
-            {
+      // API2 imports eligible URLs itself (api2#10292), so the Assembly exists at once and nothing
+      // is downloaded here. A refusal is API2's to explain, so it surfaces like any other error.
+      const result = await createAssembly(
+        inputUrls
+          ? {
               ...args,
               files: undefined,
               attachments: undefined,
               expected_uploads: undefined,
               fields,
               instructions: { template_id: template.id, input_url: inputUrls },
-            },
-            extra,
-            startedAt,
-          )
-        : undefined
-      const result =
-        imported ??
-        (await createAssembly(
-          { ...args, fields, instructions: { template_id: template.id } },
-          extra,
-          true,
-          startedAt,
-        ))
+            }
+          : { ...args, fields, instructions: { template_id: template.id } },
+        extra,
+        true,
+        startedAt,
+      )
       // Keep the generic tool's historical error shape while making new shortcut failures
       // recognizable to MCP clients that rely on isError instead of structuredContent.status.
       return result.structuredContent?.status === 'error' ? { ...result, isError: true } : result

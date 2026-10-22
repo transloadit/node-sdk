@@ -102,12 +102,7 @@ describe('Builtin shortcuts with URL inputs', () => {
   let server: ReturnType<typeof createTransloaditMcpServer> | undefined
   const creations: CreateAssemblyOptions[] = []
 
-  const call = async (
-    name: string,
-    id: string,
-    args: Record<string, unknown>,
-    maxWaitMs?: number,
-  ) => {
+  const call = async (name: string, id: string, args: Record<string, unknown>) => {
     vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({
       items: [catalogEntry(id)],
       count: 1,
@@ -123,7 +118,7 @@ describe('Builtin shortcuts with URL inputs', () => {
         steps: { ':original': { robot: '/upload/handle' } },
       },
     })
-    server = createTransloaditMcpServer({ authKey: 'key', authSecret: 'secret', maxWaitMs })
+    server = createTransloaditMcpServer({ authKey: 'key', authSecret: 'secret' })
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     client = new Client({ name: 'builtin-input-url', version: '1.0.0' })
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
@@ -157,10 +152,7 @@ describe('Builtin shortcuts with URL inputs', () => {
   it('sends URL files and attachments as input_url with template_id and downloads nothing', async () => {
     const download = nock(origin).get(/.*/).reply(200, 'bytes')
     createReturns(executing)
-    vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue({
-      ...executing,
-      num_input_files: 1,
-    })
+    const status = vi.spyOn(Transloadit.prototype, 'getAssembly')
 
     const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
       fields: { w: 320 },
@@ -183,6 +175,8 @@ describe('Builtin shortcuts with URL inputs', () => {
       fields: { w: 320 },
     })
     expect(download.isDone()).toBe(false)
+    // API2 with input_url runs on every host, so nothing checks whether it was used.
+    expect(status).not.toHaveBeenCalled()
   })
 
   it('sends one caption-video URL as input_url but downloads two', async () => {
@@ -241,115 +235,36 @@ describe('Builtin shortcuts with URL inputs', () => {
     expect(creations[0]?.params).not.toHaveProperty('input_url')
   })
 
-  it('uploads the URLs instead when API2 ran the Builtin without importing them', async () => {
-    // An API2 without input_url support ignores it and completes the Assembly at once.
+  it('returns an Assembly that ran without input files as API2 reported it', async () => {
     const download = nock(origin).get('/photo.jpg').reply(200, 'bytes')
-    createReturns(executing, { ...executing, assembly_id: 'f'.repeat(32) })
-    vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue(completed)
-
+    createReturns(completed)
     const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
-      files: [url(photo)],
-    })
-
-    expect(creations).toHaveLength(2)
-    expect(creations[0]?.params).toMatchObject({ input_url: [photo] })
-    expect(creations[1]?.params).not.toHaveProperty('input_url')
-    expect(Object.keys(creations[1]?.files ?? {})).toEqual(['file'])
-    expect(download.isDone()).toBe(true)
-    expect(result.structuredContent).toMatchObject({
-      status: 'ok',
-      assembly: { assembly_id: 'f'.repeat(32) },
-      upload: { total_files: 1 },
-    })
-  })
-
-  it('uploads the URLs instead when a waited Assembly completed without input files', async () => {
-    nock(origin).get('/photo.jpg').reply(200, 'bytes')
-    createReturns(completed, { ...completed, num_input_files: 1 })
-    const status = vi.spyOn(Transloadit.prototype, 'getAssembly')
-    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
       files: [url(photo)],
       wait_for_completion: true,
     })
-    expect(creations).toHaveLength(2)
-    expect(creations[1]?.params).not.toHaveProperty('input_url')
-    expect(status).not.toHaveBeenCalled()
-  })
-
-  it('uploads the URLs instead when API2 refuses input_url for the request', async () => {
-    nock(origin).get('/photo.jpg').reply(200, 'bytes')
-    createReturns(() => {
-      throw new ApiError({
-        body: {
-          error: 'INVALID_FORM_DATA',
-          reason:
-            '“input_url” is only supported with Builtin Templates that accept an input file. Select one with “template_id”, or import the URLs with an /http/import Step instead.',
-        },
-      })
-    }, executing)
-    const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
-      files: [url(photo)],
-    })
-    expect(creations).toHaveLength(2)
-    expect(creations[1]?.params).not.toHaveProperty('input_url')
-    expect(result.structuredContent).toMatchObject({ status: 'ok' })
-  })
-
-  it.each([
-    { name: 'still importing', status: { ...executing, executing_jobs: ['imported'] } },
-    {
-      name: 'importing between status reads',
-      status: { ...executing, started_jobs: ['imported::imported'] },
-    },
-    {
-      name: 'failed to import',
-      status: { assembly_id: assemblyId, error: 'HTTP_IMPORT_VALIDATION' },
-    },
-    { name: 'imported', status: { ...completed, num_input_files: 1 } },
-  ])('keeps an Assembly that is $name', async ({ status }) => {
-    createReturns(executing)
-    vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue(status)
-    const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
-      files: [url(photo)],
-    })
     expect(creations).toHaveLength(1)
+    expect(download.isDone()).toBe(false)
     expect(result.structuredContent).toMatchObject({
       status: 'ok',
-      assembly: { assembly_id: assemblyId },
+      assembly: { assembly_id: assemblyId, ok: 'ASSEMBLY_COMPLETED', num_input_files: 0 },
     })
   })
 
-  it('does not retry other API2 refusals by uploading', async () => {
+  it('surfaces API2’s refusal of input_url instead of downloading the URLs', async () => {
+    const download = nock(origin).get('/photo.jpg').reply(200, 'bytes')
+    const reason =
+      '“input_url” is only supported with Builtin Templates that accept an input file. Select one with “template_id”, or import the URLs with an /http/import Step instead.'
     createReturns(() => {
-      throw new ApiError({ body: { error: 'NO_SIGNATURE_FIELD' } })
-    })
+      throw new ApiError({ body: { error: 'INVALID_FORM_DATA', reason } })
+    }, executing)
     const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
       files: [url(photo)],
     })
     expect(result.isError).toBe(true)
     expect(creations).toHaveLength(1)
-  })
-
-  it('stops probing once the status shows the import running', async () => {
-    createReturns(executing)
-    const status = vi
-      .spyOn(Transloadit.prototype, 'getAssembly')
-      .mockResolvedValue({ ...executing, executing_jobs: ['imported'] })
-    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', { files: [url(photo)] })
-    expect(status).toHaveBeenCalledTimes(1)
-    expect(creations).toHaveLength(1)
-  })
-
-  it('keeps probing a slow host until it shows whether it imported the URLs', async () => {
-    nock(origin).get('/photo.jpg').reply(200, 'bytes')
-    createReturns(executing, { ...executing, assembly_id: 'f'.repeat(32) })
-    vi.spyOn(Transloadit.prototype, 'getAssembly')
-      .mockResolvedValueOnce(executing)
-      .mockResolvedValueOnce(executing)
-      .mockResolvedValue(completed)
-    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', { files: [url(photo)] })
-    expect(creations).toHaveLength(2)
-    expect(creations[1]?.params).not.toHaveProperty('input_url')
+    expect(creations[0]?.params).toMatchObject({ input_url: [photo] })
+    expect(download.isDone()).toBe(false)
+    expect(JSON.stringify(result.content)).toContain('INVALID_FORM_DATA')
   })
 
   it('keeps upload reservations for upload_behavior none', async () => {
@@ -391,95 +306,5 @@ describe('Builtin shortcuts with URL inputs', () => {
     })
     expect(download.isDone()).toBe(true)
     expect(creations[0]?.params).not.toHaveProperty('input_url')
-  })
-
-  it('bounds each status read by the remaining wait budget', async () => {
-    createReturns(executing)
-    vi.spyOn(Transloadit.prototype, 'getAssembly').mockImplementation(
-      () => new Promise(() => undefined),
-    )
-    const startedAt = performance.now()
-    const result = await call(
-      'transloadit_prepare_image',
-      'builtin/prepare-image@0.0.1',
-      { files: [url(photo)] },
-      300,
-    )
-    expect(performance.now() - startedAt).toBeLessThan(2_000)
-    expect(Transloadit.prototype.getAssembly).toHaveBeenCalled()
-    expect(result.structuredContent).toMatchObject({ status: 'ok' })
-    expect(creations).toHaveLength(1)
-  })
-
-  it('spends at most a few seconds on probes when status reads stall', async () => {
-    createReturns(executing)
-    vi.spyOn(Transloadit.prototype, 'getAssembly').mockImplementation(
-      () => new Promise(() => undefined),
-    )
-    const startedAt = performance.now()
-    const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
-      files: [url(photo)],
-    })
-    expect(performance.now() - startedAt).toBeLessThan(4_000)
-    expect(result.structuredContent).toMatchObject({
-      warnings: [{ code: 'mcp_input_url_unconfirmed' }],
-    })
-  }, 30_000)
-
-  it('falls back within a wait budget shorter than a status read', async () => {
-    nock(origin).get('/photo.jpg').reply(200, 'bytes')
-    createReturns(executing, { ...executing, assembly_id: 'f'.repeat(32) })
-    vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue(completed)
-    await call(
-      'transloadit_prepare_image',
-      'builtin/prepare-image@0.0.1',
-      { files: [url(photo)] },
-      3_000,
-    )
-    expect(creations).toHaveLength(2)
-    expect(creations[1]?.params).not.toHaveProperty('input_url')
-  })
-
-  it('does not probe past the caller’s wait deadline', async () => {
-    createReturns(executing)
-    const status = vi.spyOn(Transloadit.prototype, 'getAssembly').mockResolvedValue(completed)
-    const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
-      files: [url(photo)],
-      wait_for_completion: true,
-      wait_timeout_ms: 1,
-    })
-    expect(status).not.toHaveBeenCalled()
-    expect(creations).toHaveLength(1)
-    expect(result.structuredContent).toMatchObject({
-      warnings: expect.arrayContaining([
-        expect.objectContaining({ code: 'mcp_input_url_unconfirmed' }),
-      ]),
-    })
-  })
-
-  it('reads the status again after a failed read', async () => {
-    nock(origin).get('/photo.jpg').reply(200, 'bytes')
-    createReturns(executing, { ...executing, assembly_id: 'f'.repeat(32) })
-    vi.spyOn(Transloadit.prototype, 'getAssembly')
-      .mockRejectedValueOnce(new Error('socket hang up'))
-      .mockResolvedValue(completed)
-    await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', { files: [url(photo)] })
-    expect(creations).toHaveLength(2)
-    expect(creations[1]?.params).not.toHaveProperty('input_url')
-  })
-
-  it('says so when it could not confirm the import', async () => {
-    createReturns(executing)
-    vi.spyOn(Transloadit.prototype, 'getAssembly').mockRejectedValue(new Error('socket hang up'))
-    const result = await call('transloadit_prepare_image', 'builtin/prepare-image@0.0.1', {
-      files: [url(photo)],
-    })
-    expect(creations).toHaveLength(1)
-    expect(result.structuredContent).toMatchObject({
-      status: 'ok',
-      assembly: { assembly_id: assemblyId },
-      warnings: [{ code: 'mcp_input_url_unconfirmed' }],
-    })
-    expect(JSON.stringify(result.content)).toContain('mcp_input_url_unconfirmed')
   })
 })
