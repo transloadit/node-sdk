@@ -59,3 +59,20 @@ export const mcpBuiltinTemplateManifest: Readonly<
   'builtin/transcribe@0.0.1': {},
   'builtin/video-covers@0.0.1': {},
 }
+
+/**
+ * MCP-approved Builtins whose upload input API2 replaces with `input_url` (api2#10292), with the
+ * most URLs each takes. API2 opts Builtins in explicitly (`allowInputImport`) without publishing
+ * that in the catalog, so this mirrors its `builtinInputImportTemplateNames` for the approved
+ * versions. `caption-video` pairs outputs per original and therefore takes exactly one URL.
+ */
+export const mcpBuiltinInputUrlMaxCounts: Readonly<Record<string, number>> = {
+  'builtin/caption-video@0.0.1': 1,
+  'builtin/convert-to-pdf@0.0.1': 10,
+  'builtin/encode-video@0.0.1': 10,
+  'builtin/extract-text@0.0.1': 10,
+  'builtin/prepare-image@0.0.1': 10,
+  'builtin/remove-background@0.0.1': 10,
+  'builtin/transcribe@0.0.1': 10,
+  'builtin/video-covers@0.0.1': 10,
+}

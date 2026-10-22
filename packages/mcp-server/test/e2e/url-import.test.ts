@@ -1,5 +1,6 @@
 import type { Client } from '@modelcontextprotocol/sdk/client'
 
+import { Transloadit } from '@transloadit/node'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createMcpClient, isRecord, parseToolPayload } from './mcp-client.ts'
@@ -7,6 +8,7 @@ import { createMcpClient, isRecord, parseToolPayload } from './mcp-client.ts'
 const shouldRun = process.env.TRANSLOADIT_KEY != null && process.env.TRANSLOADIT_SECRET != null
 const maybeDescribe = shouldRun ? describe : describe.skip
 
+const prepareImage = 'builtin/prepare-image@0.0.1'
 const demoImage = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
 
 maybeDescribe('mcp-server URL inputs (stdio)', { timeout: 60000 }, () => {
@@ -104,5 +106,47 @@ maybeDescribe('mcp-server URL inputs (stdio)', { timeout: 60000 }, () => {
     const resized = (results as Record<string, unknown>).resize
     expect(Array.isArray(resized)).toBe(true)
     expect(resized).toHaveLength(2)
+  })
+
+  // Until api2#10292 runs on every API2 host, an older host ignores input_url and completes the
+  // Builtin without input files. Asking API2 directly first tells that apart from an MCP bug. Only
+  // that exact old-host outcome skips; any error fails. The release waits for the rollout, so once
+  // it is done, drop the skip and assert the direct import instead.
+  it('lets API2 import a URL for a Builtin shortcut', async (context) => {
+    const api = new Transloadit({
+      authKey: process.env.TRANSLOADIT_KEY ?? '',
+      authSecret: process.env.TRANSLOADIT_SECRET ?? '',
+      endpoint: process.env.TRANSLOADIT_ENDPOINT,
+    })
+    const direct = await api.createAssembly({
+      params: { template_id: prepareImage, input_url: [demoImage], fields: { w: 64, h: 64 } },
+      waitForCompletion: true,
+    })
+    expect(direct.error).toBeUndefined()
+    expect(direct.ok).toBe('ASSEMBLY_COMPLETED')
+    context.skip(
+      direct.num_input_files === 0,
+      `API2 build ${direct.build_id ?? 'unknown'} ignored input_url (api2#10292 not on this host yet). Re-run after the rollout.`,
+    )
+    expect(direct.num_input_files).toBe(1)
+
+    const result = await client.callTool({
+      name: 'transloadit_prepare_image',
+      arguments: {
+        fields: { w: 64, h: 64 },
+        files: [{ kind: 'url', field: 'remote', url: demoImage }],
+        wait_for_completion: true,
+      },
+    })
+
+    const payload = parseToolPayload(result)
+    expect(payload.status).toBe('ok')
+    // Nothing went through the MCP server: API2's imported job supplied the input file.
+    expect(payload.upload).toMatchObject({ total_files: 0 })
+    const assembly = isRecord(payload.assembly) ? payload.assembly : {}
+    expect(assembly.ok).toBe('ASSEMBLY_COMPLETED')
+    expect(assembly.num_input_files).toBe(1)
+    expect(assembly.uploads).toEqual([])
+    expect(Object.values(isRecord(assembly.results) ? assembly.results : {}).flat()).not.toEqual([])
   })
 })

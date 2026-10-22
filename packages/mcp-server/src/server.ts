@@ -34,6 +34,7 @@ import {
   BuiltinFieldValidationError,
   builtinShortcuts,
   loadBuiltinShortcuts,
+  selectBuiltinInputUrls,
   validateBuiltinFields,
 } from './builtin-shortcuts.ts'
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
@@ -1920,8 +1921,28 @@ export const createTransloaditMcpServer = (
         }
         return buildShortcutError('mcp_invalid_builtin_fields', error.message, { path: 'fields' })
       }
+      // upload_behavior none asks for reserved upload URLs, which only the upload path hands out.
+      const inputUrls =
+        args.upload_behavior === 'none'
+          ? undefined
+          : selectBuiltinInputUrls(
+              template.id,
+              [...(args.files ?? []), ...toAttachmentInputs(args.attachments ?? [])],
+              args.expected_uploads,
+            )
+      // API2 imports eligible URLs itself (api2#10292), so the Assembly exists at once and nothing
+      // is downloaded here. A refusal is API2's to explain, so it surfaces like any other error.
       const result = await createAssembly(
-        { ...args, fields, instructions: { template_id: template.id } },
+        inputUrls
+          ? {
+              ...args,
+              files: undefined,
+              attachments: undefined,
+              expected_uploads: undefined,
+              fields,
+              instructions: { template_id: template.id, input_url: inputUrls },
+            }
+          : { ...args, fields, instructions: { template_id: template.id } },
         extra,
         true,
         startedAt,
