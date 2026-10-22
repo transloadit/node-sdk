@@ -109,7 +109,9 @@ maybeDescribe('mcp-server URL inputs (stdio)', { timeout: 60000 }, () => {
   })
 
   // Until api2#10292 runs on every API2 host, an older host ignores input_url and completes the
-  // Builtin without input files. Asking API2 directly first tells that apart from an MCP bug.
+  // Builtin without input files. Asking API2 directly first tells that apart from an MCP bug. Only
+  // that exact old-host outcome skips; any error fails. The release waits for the rollout, so once
+  // it is done, drop the skip and assert the direct import instead.
   it('lets API2 import a URL for a Builtin shortcut', async (context) => {
     const api = new Transloadit({
       authKey: process.env.TRANSLOADIT_KEY ?? '',
@@ -120,10 +122,13 @@ maybeDescribe('mcp-server URL inputs (stdio)', { timeout: 60000 }, () => {
       params: { template_id: prepareImage, input_url: [demoImage], fields: { w: 64, h: 64 } },
       waitForCompletion: true,
     })
+    expect(direct.error).toBeUndefined()
+    expect(direct.ok).toBe('ASSEMBLY_COMPLETED')
     context.skip(
-      !direct.num_input_files,
-      `API2 build ${direct.build_id ?? 'unknown'} did not import input_url (api2#10292 not rolled out yet; ${direct.ok ?? direct.error}). Re-run after the rollout.`,
+      direct.num_input_files === 0,
+      `API2 build ${direct.build_id ?? 'unknown'} ignored input_url (api2#10292 not on this host yet). Re-run after the rollout.`,
     )
+    expect(direct.num_input_files).toBe(1)
 
     const result = await client.callTool({
       name: 'transloadit_prepare_image',
