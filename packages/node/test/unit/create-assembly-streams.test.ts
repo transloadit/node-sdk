@@ -5,6 +5,7 @@ import type { HttpRequest } from 'tus-js-client'
 import { getEventListeners } from 'node:events'
 import fs from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { ClientRequest } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -213,9 +214,11 @@ describe('createAssembly file stream cleanup', () => {
     expect(upload.destroyed).toBe(false)
   })
 
-  it('stops HTTP sends when retry progress aborts the upload', async () => {
+  it.each(['synchronous', 'queued'])('stops HTTP sends for %s retry cancellation', async (mode) => {
     await mockTusUpload(directory, 128 * 1024)
     const controller = new AbortController()
+    const abortUpload =
+      mode === 'queued' ? () => queueMicrotask(() => controller.abort()) : () => controller.abort()
     const sentMethods: string[] = []
     const requests: HttpRequest[] = []
     const createRequest = defaultOptions.httpStack.createRequest.bind(defaultOptions.httpStack)
@@ -237,13 +240,20 @@ describe('createAssembly file stream cleanup', () => {
           signal: controller.signal,
           uploadConcurrency: 1,
           onUploadProgress: ({ uploadedBytes }) => {
-            if (uploadedBytes !== undefined && uploadedBytes >= 128 * 1024) controller.abort()
+            if (uploadedBytes !== undefined && uploadedBytes >= 128 * 1024) abortUpload()
           },
         }),
       ).rejects.toThrow(/aborted/i)
       await setImmediate()
 
-      expect(sentMethods).toEqual(['POST', 'PATCH', 'HEAD'])
+      expect(sentMethods.slice(0, 3)).toEqual(['POST', 'PATCH', 'HEAD'])
+      const startedRequests: unknown[] = requests
+        .map((request) => request.getUnderlyingObject())
+        .filter(Boolean)
+      expect(startedRequests.length).toBeGreaterThanOrEqual(3)
+      expect(
+        startedRequests.every((request) => request instanceof ClientRequest && request.destroyed),
+      ).toBe(true)
       expect(openedStreams.map((stream) => stream.closed)).toEqual([true, true, true, true])
     } finally {
       await Promise.all(requests.map((request) => request.abort()))

@@ -1,6 +1,13 @@
 import type { Readable } from 'node:stream'
 
-import type { FileSource, OnSuccessPayload, SliceResult, UploadOptions } from 'tus-js-client'
+import type {
+  FileSource,
+  HttpRequest,
+  HttpResponse,
+  OnSuccessPayload,
+  SliceResult,
+  UploadOptions,
+} from 'tus-js-client'
 
 import type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 import type { UploadProgress } from './Transloadit.ts'
@@ -213,9 +220,20 @@ export async function sendTusRequest({
           fieldname: label,
           filename,
         },
-        onBeforeRequest: () => {
-          // Retry progress callbacks can abort after slicing but before the HTTP send.
-          if (signal?.aborted) throw new Error('Upload aborted')
+        httpStack: {
+          createRequest(method: string, url: string): HttpRequest {
+            const request = defaultOptions.httpStack.createRequest(method, url)
+            const send = request.send.bind(request)
+            request.send = (body: unknown): Promise<HttpResponse> => {
+              // tus awaits pre-request hooks, so queued aborts must be checked at send itself.
+              if (signal?.aborted) return Promise.reject(new Error('Upload aborted'))
+              return send(body)
+            }
+            return request
+          },
+          getName(): string {
+            return defaultOptions.httpStack.getName()
+          },
         },
         onError: reject,
         onProgress: onTusProgress,
