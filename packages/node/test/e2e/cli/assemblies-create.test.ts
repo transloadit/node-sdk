@@ -255,7 +255,7 @@ describeLive('assemblies', { retry: 1 }, () => {
             .to.have.property('type')
             .that.equals('error')
           expect(result[result.length - 1])
-            .to.have.nested.property('msg.message')
+            .to.have.property('msg')
             .that.equals("Output collision between 'in/1.jpg' and '1.jpg'")
         }
         // Small delay to allow abort signals to propagate and streams to close

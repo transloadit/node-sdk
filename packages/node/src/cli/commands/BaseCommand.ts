@@ -2,9 +2,14 @@ import type { ResolvedCliConfig } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 
 import { Command, Option } from 'clipanion'
+import { RequestError } from 'got'
+import { z } from 'zod'
 
+import { ApiError } from '../../ApiError.ts'
+import { tryCatch } from '../../alphalib/tryCatch.ts'
 import { Transloadit as TransloaditClient } from '../../Transloadit.ts'
-import { buildMissingAuthMessage, resolveCliConfig } from '../helpers.ts'
+import { CliInputError, formatSchemaIssues } from '../errors.ts'
+import { buildMissingAuthMessage, formatAPIError, resolveCliConfig } from '../helpers.ts'
 import OutputCtl, { LOG_LEVEL_DEFAULT, LOG_LEVEL_NAMES, parseLogLevel } from '../OutputCtl.ts'
 
 abstract class BaseCommand extends Command {
@@ -50,6 +55,27 @@ abstract class BaseCommand extends Command {
   }
 
   abstract override execute(): Promise<number | undefined>
+
+  protected abstract run(): Promise<number | undefined>
+
+  /** Report schema, API, and transport failures once; other errors retain Clipanion's diagnostics. */
+  protected async runWithErrorReporting(): Promise<number | undefined> {
+    const [error, result] = await tryCatch(this.run())
+    if (!error) return result
+    if (error instanceof z.ZodError) {
+      this.output.error(`Invalid options: ${formatSchemaIssues(error.issues)}`)
+      return 1
+    }
+    if (error instanceof RequestError) {
+      this.output.error(formatAPIError(error))
+      return 1
+    }
+    if (error instanceof CliInputError || error instanceof ApiError) {
+      this.output.error(formatAPIError(error))
+      return 1
+    }
+    throw error
+  }
 }
 
 export abstract class AuthenticatedCommand extends BaseCommand {
@@ -58,17 +84,13 @@ export abstract class AuthenticatedCommand extends BaseCommand {
     if (!this.setupClient()) {
       return 1
     }
-    return await this.run()
+    return await this.runWithErrorReporting()
   }
-
-  protected abstract run(): Promise<number | undefined>
 }
 
 export abstract class UnauthenticatedCommand extends BaseCommand {
   override async execute(): Promise<number | undefined> {
     this.setupOutput()
-    return await this.run()
+    return await this.runWithErrorReporting()
   }
-
-  protected abstract run(): Promise<number | undefined>
 }

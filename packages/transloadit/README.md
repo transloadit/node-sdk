@@ -265,6 +265,19 @@ npx -y transloadit auth token --aud mcp --scope assemblies:write,templates:read
 
 ### Processing Media
 
+Assembly runs print their ID and status URL to stderr, including when processing fails.
+`--json` writes newline-delimited JSON summaries for terminal Assembly statuses, with their
+reference, final status, and `ignored_errors`. Ignored errors also produce a warning with their
+count and up to five details.
+If polling fails before a terminal status is retrieved, the error and known Assembly reference
+are reported on stderr.
+With `--print-urls`, JSON remains a single object containing `urls` and `assemblies`.
+This document is written after the batch finishes; an input or watch error that aborts the batch
+can prevent it from being written.
+`--output -` keeps Assembly summaries off stdout; the reference stays on stderr.
+When creating Assemblies, invalid Robot parameters and API failures produce a short diagnostic and
+a nonzero exit status.
+
 For common one-off tasks, prefer the intent-first commands:
 
 The full generated intent reference also lives in [`docs/intent-commands.md`](./docs/intent-commands.md).

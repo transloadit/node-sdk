@@ -5,9 +5,11 @@ import fsp from 'node:fs/promises'
 
 import { z } from 'zod'
 
+import { tryCatch } from '../alphalib/tryCatch.ts'
 import { robotsSchema } from '../alphalib/types/robots/_index.ts'
 import { refineDocumentExtractOcr } from '../alphalib/types/robots/document-extract.ts'
 import { refineTransloaditImportSelector } from '../alphalib/types/robots/transloadit-import.ts'
+import { CliInputError, formatSchemaIssues } from './errors.ts'
 
 const stepsWrapperSchema = z.object({ steps: z.record(z.unknown()) })
 
@@ -35,7 +37,12 @@ export function parseStepsInputJson(
   content: string,
   output: Pick<IOutputCtl, 'warn'> = console,
 ): StepsInput {
-  const parsed: unknown = JSON.parse(content)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(content)
+  } catch (error) {
+    throw new CliInputError('Invalid steps format: expected valid JSON', { cause: error })
+  }
   const wrapped = stepsWrapperSchema.safeParse(parsed)
   let stepsInput = parsed
   // A step named “steps” has a robot, unlike the top-level instructions wrapper.
@@ -43,13 +50,18 @@ export function parseStepsInputJson(
     // --steps only supplies steps; other instructions must not be silently discarded.
     const validatedWrapper = stepsWrapperSchema.strict().safeParse(parsed)
     if (!validatedWrapper.success) {
-      throw new Error(`Invalid steps format: ${validatedWrapper.error.message}`)
+      throw new CliInputError(
+        `Invalid steps format: ${formatSchemaIssues(validatedWrapper.error.issues)}`,
+        { cause: validatedWrapper.error },
+      )
     }
     stepsInput = validatedWrapper.data.steps
   }
   const validated = createCliStepsSchema(output).safeParse(stepsInput)
   if (!validated.success) {
-    throw new Error(`Invalid steps format: ${validated.error.message}`)
+    throw new CliInputError(`Invalid steps format: ${formatSchemaIssues(validated.error.issues)}`, {
+      cause: validated.error,
+    })
   }
 
   const parsedSteps = stepsInput as Record<string, Record<string, unknown>>
@@ -72,6 +84,9 @@ export async function readStepsInputFile(
   filePath: string,
   output: Pick<IOutputCtl, 'warn'> = console,
 ): Promise<StepsInput> {
-  const content = await fsp.readFile(filePath, 'utf8')
+  const [error, content] = await tryCatch(fsp.readFile(filePath, 'utf8'))
+  if (error) {
+    throw new CliInputError(`Cannot read steps input: ${error.message}`, { cause: error })
+  }
   return parseStepsInputJson(content, output)
 }

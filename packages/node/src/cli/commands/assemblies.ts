@@ -1,5 +1,6 @@
 import type { Readable } from 'node:stream'
 
+import type { AssemblyStatus } from '../../alphalib/types/assemblyStatus.ts'
 import type { StepsInput } from '../../alphalib/types/template.ts'
 import type { CreateAssemblyParams, ReplayAssemblyParams } from '../../apiTypes.ts'
 import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
@@ -11,6 +12,7 @@ import type {
 import type { IOutputCtl } from '../OutputCtl.ts'
 import type { NormalizedAssemblyResultFile, NormalizedAssemblyResults } from '../resultFiles.ts'
 import type { ResultUrlRow } from '../resultUrls.ts'
+import type { AssemblySummary } from '../types.ts'
 
 import { randomUUID } from 'node:crypto'
 import EventEmitter from 'node:events'
@@ -24,7 +26,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { promisify } from 'node:util'
 
 import { Command, Option } from 'clipanion'
-import got from 'got'
+import got, { RequestError } from 'got'
 import PQueue from 'p-queue'
 import * as t from 'typanion'
 import { z } from 'zod'
@@ -49,7 +51,7 @@ import { formatAPIError, readCliInput } from '../helpers.ts'
 import { normalizeAssemblyResults } from '../resultFiles.ts'
 import { collectNormalizedResultUrlRows, printResultUrls } from '../resultUrls.ts'
 import { parseStepsInputJson, readStepsInputFile } from '../stepsInput.ts'
-import { ensureError, isErrnoException } from '../types.ts'
+import { assemblySummarySchema, ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
 // --- From assemblies.ts: Schemas and interfaces ---
@@ -194,11 +196,7 @@ export async function get(
 ): Promise<void> {
   for (const assembly of assemblies) {
     await delay(1000)
-    const [err, result] = await tryCatch(client.getAssembly(assembly))
-    if (err) {
-      output.error(formatAPIError(err))
-      throw ensureError(err)
-    }
+    const result = await client.getAssembly(assembly)
     output.print(result, result)
   }
 }
@@ -1323,6 +1321,7 @@ export interface AssembliesCreateOptions {
   reprocessStale?: boolean
   singleAssembly?: boolean
   concurrency?: number
+  printUrls?: boolean
 }
 
 const DEFAULT_CONCURRENCY = 5
@@ -1345,8 +1344,14 @@ export async function create(
     reprocessStale,
     singleAssembly,
     concurrency = DEFAULT_CONCURRENCY,
+    printUrls = false,
   }: AssembliesCreateOptions,
-): Promise<{ resultUrls: ResultUrlRow[]; results: unknown[]; hasFailures: boolean }> {
+): Promise<{
+  assemblies: AssemblySummary[]
+  resultUrls: ResultUrlRow[]
+  results: unknown[]
+  hasFailures: boolean
+}> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
   // Only default to stdout when output is undefined (not provided), not when explicitly null
   let resolvedOutput = output
@@ -1429,6 +1434,7 @@ export async function create(
     // Use p-queue for concurrency management
     const queue = new PQueue({ concurrency })
     const results: unknown[] = []
+    const assemblies: AssemblySummary[] = []
     const resultUrls: ResultUrlRow[] = []
     const reservedResultPaths = new Set<string>()
     const latestWatchJobTokenByOutputPath = new Map<string, number>()
@@ -1480,11 +1486,40 @@ export async function create(
       assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
       assemblyId: string
     }> {
-      const result = await client.createAssembly(createOptions)
-      const assemblyId = result.assembly_id
-      if (!assemblyId) throw new Error('No assembly_id in result')
-      const assemblyUrl = result.assembly_ssl_url ?? result.assembly_url ?? null
-      const assemblyReference = formatAssemblyReference({ assemblyId, assemblyUrl })
+      let assemblyReference: string | undefined
+      function reportCreatedAssembly(rawAssembly: AssemblyStatus): void {
+        const assembly = assemblySummarySchema.parse(rawAssembly)
+        if (assemblyReference || !assembly.assembly_id) return
+        assemblyReference = formatAssemblyReference({
+          assemblyId: assembly.assembly_id,
+          assemblyUrl: assembly.assembly_ssl_url ?? assembly.assembly_url ?? null,
+        })
+        outputctl.notice(assemblyReference)
+      }
+
+      const creation = client.createAssembly({
+        ...createOptions,
+        onAssemblyCreated: reportCreatedAssembly,
+      })
+      const [creationError, result] = await tryCatch(creation)
+      if (creationError) {
+        if (!assemblyReference && creationError instanceof RequestError && creation.assemblyId) {
+          const requestUrl = creationError.options.url
+          assemblyReference = formatAssemblyReference({
+            assemblyId: creation.assemblyId,
+            assemblyUrl:
+              requestUrl instanceof URL ? `${requestUrl.origin}${requestUrl.pathname}` : null,
+          })
+        }
+        if (!assemblyReference) throw creationError
+        throw new Error(`${formatAPIError(creationError)} (${assemblyReference})`, {
+          cause: creationError,
+        })
+      }
+      reportCreatedAssembly(result)
+      const createdSummary = assemblySummarySchema.parse(result)
+      const assemblyId = createdSummary.assembly_id
+      if (!assemblyId || !assemblyReference) throw new Error('No assembly_id in result')
 
       let assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
       try {
@@ -1492,16 +1527,50 @@ export async function create(
           signal: abortController.signal,
           onPoll: () => true,
           onAssemblyProgress: (status) => {
-            outputctl.debug(`Assembly status: ${status.ok}`)
+            const summary = assemblySummarySchema.parse(status)
+            outputctl.debug(`Assembly status: ${summary.ok ?? 'unknown'}`)
           },
         })
       } catch (err) {
         const error = ensureError(err)
-        throw new Error(`${error.message} (${assemblyReference})`, { cause: error })
+        const message = error instanceof RequestError ? formatAPIError(error) : error.message
+        throw new Error(`${message} (${assemblyReference})`, { cause: error })
       }
 
+      const summary = assemblySummarySchema.parse(assembly)
+      summary.assembly_id = assemblyId
+      summary.assembly_url ??= createdSummary.assembly_url
+      summary.assembly_ssl_url ??= createdSummary.assembly_ssl_url
+      const ignoredErrors = summary.ignored_errors
+      const ignoredErrorCount = Math.max(summary.ignored_error_count, ignoredErrors.length)
+      summary.ignored_error_count = ignoredErrorCount
+      // Preserve stdout file bytes. URL mode combines all summaries with its existing JSON object.
+      if (resolvedOutput !== '-') {
+        if (printUrls) assemblies.push(summary)
+        else outputctl.print(undefined, summary)
+      }
+      if (ignoredErrorCount > 0) {
+        const details = ignoredErrors
+          .map((ignored) => {
+            const code = typeof ignored.error === 'string' ? ignored.error : ignored.error?.code
+            const message =
+              ignored.message ||
+              (typeof ignored.error === 'object' ? ignored.error.message : undefined)
+            return [ignored.step, code, message].filter(Boolean).join(': ')
+          })
+          .filter(Boolean)
+          .slice(0, 5)
+        outputctl.warn(
+          `${ignoredErrorCount} ignored error${ignoredErrorCount === 1 ? '' : 's'} (${assemblyReference})${details.length > 0 ? `: ${details.join('; ')}` : ''}`,
+        )
+      }
+
+      // Malformed error fields still signal failure, but only sanitized values enter the message.
       if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
-        const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok}, ${assemblyReference})`
+        const details =
+          [summary.error ?? summary.ok, summary.message].filter(Boolean).join(': ') ||
+          'Unknown Assembly error'
+        const msg = `Assembly failed: ${details} (${assemblyReference})`
         throw new Error(msg)
       }
 
@@ -1612,7 +1681,7 @@ export async function create(
     function handleEmitterError(err: Error): void {
       abortController.abort()
       queue.clear()
-      outputctl.error(err)
+      outputctl.error(formatAPIError(err))
       reject(err)
     }
 
@@ -1643,7 +1712,7 @@ export async function create(
           })
         ) {
           outputctl.debug(`SKIPPED STALE SINGLE ASSEMBLY ${resolvedOutput ?? 'null'}`)
-          resolve({ resultUrls, results: [], hasFailures: false })
+          resolve({ assemblies, resultUrls, results: [], hasFailures: false })
           return
         }
 
@@ -1691,10 +1760,10 @@ export async function create(
           results.push(assembly)
         } catch (err) {
           hasFailures = true
-          outputctl.error(err as Error)
+          outputctl.error(formatAPIError(err))
         }
 
-        resolve({ resultUrls, results, hasFailures })
+        resolve({ assemblies, resultUrls, results, hasFailures })
       })
     }
 
@@ -1713,13 +1782,13 @@ export async function create(
           })
           .catch((err: unknown) => {
             hasFailures = true
-            outputctl.error(err as Error)
+            outputctl.error(formatAPIError(err))
           })
       })
 
       emitter.on('end', async () => {
         await queue.onIdle()
-        resolve({ resultUrls, results, hasFailures })
+        resolve({ assemblies, resultUrls, results, hasFailures })
       })
     }
 
@@ -1895,7 +1964,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const { hasFailures, resultUrls } = await create(this.output, this.client, {
+    const { assemblies, hasFailures, resultUrls } = await create(this.output, this.client, {
       steps: this.steps,
       template: this.template,
       fields: fieldsMap ?? {},
@@ -1907,9 +1976,10 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       reprocessStale: this.reprocessStale,
       singleAssembly: this.singleAssembly,
       concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      printUrls: this.printUrls,
     })
     if (this.printUrls) {
-      printResultUrls(this.output, resultUrls)
+      printResultUrls(this.output, resultUrls, assemblies)
     }
     return hasFailures ? 1 : undefined
   }
@@ -2026,7 +2096,7 @@ export class RunCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const { hasFailures, resultUrls } = await create(this.output, this.client, {
+    const { assemblies, hasFailures, resultUrls } = await create(this.output, this.client, {
       stepsData: parseStepsInputJson(JSON.stringify(compiled.instructions.steps), this.output),
       fields: fieldsMap ?? {},
       watch: this.watch,
@@ -2037,9 +2107,10 @@ export class RunCommand extends AuthenticatedCommand {
       reprocessStale: this.reprocessStale,
       singleAssembly: this.singleAssembly,
       concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      printUrls: this.printUrls,
     })
     if (this.printUrls) {
-      printResultUrls(this.output, resultUrls)
+      printResultUrls(this.output, resultUrls, assemblies)
     }
     return hasFailures ? 1 : undefined
   }

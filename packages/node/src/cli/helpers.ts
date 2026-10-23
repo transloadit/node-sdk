@@ -8,8 +8,10 @@ import { homedir, userInfo } from 'node:os'
 import path from 'node:path'
 
 import { parse as parseDotenv } from 'dotenv'
+import { ParseError, RequestError } from 'got'
 import { z } from 'zod'
 
+import { ApiError } from '../ApiError.ts'
 import { isAPIError } from './types.ts'
 
 /** API signing algorithms supported by CLI credentials and device authorization. */
@@ -535,6 +537,25 @@ export async function readCliInput(options: ReadCliInputOptions): Promise<CliInp
 }
 
 export function formatAPIError(err: unknown): string {
+  if (err instanceof RequestError) {
+    // ParseError messages contain response fragments and signed request URLs.
+    if (err instanceof ParseError) return `${err.code}: The API returned invalid JSON.`
+    const requestUrl = err.options.url
+    const message =
+      requestUrl instanceof URL
+        ? err.message.replaceAll(requestUrl.href, `${requestUrl.origin}${requestUrl.pathname}`)
+        : err.message
+    return `${err.code}: ${message}`
+  }
+  if (err instanceof ApiError && !err.assemblySslUrl) {
+    const requestUrl = err.cause?.options.url
+    const url = typeof requestUrl === 'string' ? new URL(requestUrl) : requestUrl
+    if (url && /\/assemblies\/[^/]+$/.test(url.pathname)) {
+      // Request URLs can carry signed query parameters; only expose the Assembly location.
+      return `${err.message} (Assembly URL: ${url.origin}${url.pathname})`
+    }
+    if (err.assemblyId) return `${err.message} (Assembly ID: ${err.assemblyId})`
+  }
   if (isAPIError(err)) {
     return `${err.error}: ${err.message}`
   }

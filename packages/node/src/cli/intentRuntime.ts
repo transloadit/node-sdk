@@ -383,14 +383,15 @@ async function executeIntentCommand({
           } as AssembliesCreateOptions['stepsData'],
         }
 
-  const { hasFailures, resultUrls } = await assembliesCommands.create(output, client, {
+  const { assemblies, hasFailures, resultUrls } = await assembliesCommands.create(output, client, {
     ...createOptions,
     output: outputPath ?? null,
     outputMode,
     ...executionOptions,
+    printUrls,
   })
   if (printUrls) {
-    printResultUrls(output, resultUrls)
+    printResultUrls(output, resultUrls, assemblies)
   }
   return hasFailures ? 1 : undefined
 }
