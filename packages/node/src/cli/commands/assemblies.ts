@@ -639,8 +639,59 @@ function sanitizeResultName(value: string): string {
 }
 
 interface DownloadPathReservations {
+  allocations: PQueue
+  bundleCommits: PQueue
+  caseSensitive: boolean
+  directories: Set<string>
   ownersByPath: Map<string, string>
   pathsByOwner: Map<string, string>
+}
+
+async function outputNamesAreCaseSensitive(root: string): Promise<boolean> {
+  await fsp.mkdir(root, { recursive: true })
+  const probe = await fsp.mkdtemp(path.join(root, '.transloadit-case-'))
+  try {
+    await fsp.writeFile(path.join(probe, 'case'), '')
+    const [error] = await tryCatch(fsp.lstat(path.join(probe, 'CASE')))
+    if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
+    return error != null
+  } finally {
+    await fsp.rm(probe, { recursive: true, force: true })
+  }
+}
+
+function downloadPathKey(target: string, reservedPaths: DownloadPathReservations): string {
+  const absolutePath = path.resolve(target)
+  return reservedPaths.caseSensitive ? absolutePath : absolutePath.normalize('NFC').toLowerCase()
+}
+
+function hasReservedFileAncestor(target: string, reservedPaths: DownloadPathReservations): boolean {
+  let current = downloadPathKey(target, reservedPaths)
+  while (true) {
+    if (reservedPaths.ownersByPath.has(current) && !reservedPaths.directories.has(current)) {
+      return true
+    }
+    const parent = path.dirname(current)
+    if (parent === current) return false
+    current = parent
+  }
+}
+
+function reserveDownloadPath(
+  target: string,
+  owner: string,
+  reservedPaths: DownloadPathReservations,
+  directory = false,
+): void {
+  const key = downloadPathKey(target, reservedPaths)
+  reservedPaths.ownersByPath.set(key, owner)
+  let current = directory ? key : path.dirname(key)
+  while (true) {
+    reservedPaths.directories.add(current)
+    const parent = path.dirname(current)
+    if (parent === current) return
+    current = parent
+  }
 }
 
 async function ensureUniquePath(
@@ -655,7 +706,7 @@ async function ensureUniquePath(
     initialValue: targetPath,
     isTaken: async (candidate) => await isDownloadPathTaken(candidate, reservedPaths, owner),
     reserve: (candidate) => {
-      reservedPaths.ownersByPath.set(candidate, owner)
+      reserveDownloadPath(candidate, owner, reservedPaths)
       reservedPaths.pathsByOwner.set(owner, candidate)
     },
     nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
@@ -690,8 +741,47 @@ function getResultRelativePath(file: NormalizedAssemblyResultFile): string | nul
 }
 
 interface AssemblyDownloadTarget {
+  bundleRoot?: string
   resultUrl: string
   targetPath: string | null
+}
+
+interface BundleDownloadTarget {
+  resultUrl: string
+  targetPath: string
+}
+
+async function downloadResultBundle(
+  root: string,
+  targets: BundleDownloadTarget[],
+  signal: AbortSignal,
+  isCurrent: () => boolean,
+  commits: PQueue,
+  onDownload: () => void,
+): Promise<void> {
+  const stagingDir = await fsp.mkdtemp(path.join(root, '.transloadit-bundle-'))
+  const staged = targets.map((target, index) => ({
+    ...target,
+    stagingPath: path.join(stagingDir, String(index)),
+  }))
+  try {
+    for (const { resultUrl, stagingPath } of staged) {
+      if (!isCurrent()) return
+      onDownload()
+      await downloadResultToFile(resultUrl, stagingPath, signal, () => true)
+    }
+    await commits.add(async () => {
+      if (!isCurrent()) return
+      // Finish publication once it starts, even if superseded. A failed newer job must not
+      // strand this playlist without its segments, and newer commits must wait for this one.
+      for (const { stagingPath, targetPath } of staged) {
+        await fsp.mkdir(path.dirname(targetPath), { recursive: true })
+        await fsp.rename(stagingPath, targetPath)
+      }
+    })
+  } finally {
+    await fsp.rm(stagingDir, { recursive: true, force: true })
+  }
 }
 
 async function assertNoOutputSymlinks(root: string, target: string): Promise<void> {
@@ -726,8 +816,12 @@ async function isDownloadPathTaken(
   reservedPaths: DownloadPathReservations,
   owner: string,
 ): Promise<boolean> {
-  const existingOwner = reservedPaths.ownersByPath.get(target)
+  const key = downloadPathKey(target, reservedPaths)
+  const existingOwner = reservedPaths.ownersByPath.get(key)
   if (existingOwner != null) return existingOwner !== owner
+  if (reservedPaths.directories.has(key) || hasReservedFileAncestor(target, reservedPaths)) {
+    return true
+  }
   const [error] = await tryCatch(fsp.lstat(target))
   if (isErrnoException(error) && error.code === 'ENOTDIR') return true
   if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
@@ -819,6 +913,9 @@ async function buildDirectoryDownloadTargets({
   reservedPaths: DownloadPathReservations
 }): Promise<AssemblyDownloadTarget[]> {
   await assertNoOutputSymlinks(outputRoot, baseDir)
+  if (hasReservedFileAncestor(baseDir, reservedPaths)) {
+    throw new Error('Output directory conflicts with a result file')
+  }
   await fsp.mkdir(baseDir, { recursive: true })
 
   const targets: AssemblyDownloadTarget[] = []
@@ -833,7 +930,11 @@ async function buildDirectoryDownloadTargets({
     const names = files.map(
       ({ file, relativePath }) => relativePath ?? sanitizeResultName(file.name),
     )
-    if (linked && new Set(names).size !== names.length) {
+    if (
+      linked &&
+      new Set(names.map((name) => downloadPathKey(path.join(targetDir, name), reservedPaths)))
+        .size !== names.length
+    ) {
       throw new Error('Assembly results have duplicate relative paths')
     }
 
@@ -866,9 +967,10 @@ async function buildDirectoryDownloadTargets({
           return collides
         },
         reserve: (candidate) => {
-          if (candidate !== initialDir) reservedPaths.ownersByPath.set(candidate, groupOwner)
+          if (candidate !== initialDir)
+            reserveDownloadPath(candidate, groupOwner, reservedPaths, true)
           for (const name of names) {
-            reservedPaths.ownersByPath.set(path.join(candidate, name), groupOwner)
+            reserveDownloadPath(path.join(candidate, name), groupOwner, reservedPaths)
           }
           reservedPaths.pathsByOwner.set(groupOwner, candidate)
         },
@@ -883,6 +985,9 @@ async function buildDirectoryDownloadTargets({
       })
     }
 
+    if (hasReservedFileAncestor(targetDir, reservedPaths)) {
+      throw new Error('Output directory conflicts with a result file')
+    }
     await fsp.mkdir(targetDir, { recursive: true })
     const nameOccurrences = new Map<string, number>()
     for (const [index, { file }] of files.entries()) {
@@ -899,6 +1004,7 @@ async function buildDirectoryDownloadTargets({
           )
       await assertNoOutputSymlinks(outputRoot, selectedPath)
       targets.push({
+        bundleRoot: linked ? targetDir : undefined,
         resultUrl: file.url,
         targetPath: selectedPath,
       })
@@ -1091,25 +1197,53 @@ async function materializeAssemblyResults({
     return
   }
 
-  const targets = await resolveResultDownloadTargets({
-    hasDirectoryInput,
-    inPath,
-    inputs,
-    normalizedResults,
-    outputPath,
-    outputRoot,
-    outputRootIsDirectory,
-    reservedPaths,
-    singleAssembly,
-  })
+  // Directory creation and filename reservation must share a lock across concurrent jobs.
+  const targets = await reservedPaths.allocations.add(
+    async () =>
+      await resolveResultDownloadTargets({
+        hasDirectoryInput,
+        inPath,
+        inputs,
+        normalizedResults,
+        outputPath,
+        outputRoot,
+        outputRootIsDirectory,
+        reservedPaths,
+        singleAssembly,
+      }),
+  )
 
-  for (const { resultUrl, targetPath } of targets) {
-    outputctl.debug('DOWNLOADING')
-    const [dlErr] = await tryCatch(
-      targetPath == null
-        ? downloadResultToStdout(resultUrl, abortSignal)
-        : downloadResultToFile(resultUrl, targetPath, abortSignal, isCurrent),
+  const bundles = new Map<string, BundleDownloadTarget[]>()
+  const downloads: Array<() => Promise<void>> = []
+  for (const { bundleRoot, resultUrl, targetPath } of targets) {
+    if (bundleRoot != null && targetPath != null) {
+      const files = bundles.get(bundleRoot) ?? []
+      files.push({ resultUrl, targetPath })
+      bundles.set(bundleRoot, files)
+      continue
+    }
+    downloads.push(async () => {
+      outputctl.debug('DOWNLOADING')
+      if (targetPath == null) await downloadResultToStdout(resultUrl, abortSignal)
+      else await downloadResultToFile(resultUrl, targetPath, abortSignal, isCurrent)
+    })
+  }
+  for (const [root, files] of bundles) {
+    downloads.push(
+      async () =>
+        await downloadResultBundle(
+          root,
+          files,
+          abortSignal,
+          isCurrent,
+          reservedPaths.bundleCommits,
+          () => outputctl.debug('DOWNLOADING'),
+        ),
     )
+  }
+
+  for (const download of downloads) {
+    const [dlErr] = await tryCatch(download())
     if (dlErr) {
       if (dlErr.name === 'AbortError') {
         continue
@@ -1549,53 +1683,21 @@ export interface AssembliesCreateOptions {
 
 const DEFAULT_CONCURRENCY = 5
 
-// --- Main assembly create function ---
-/** Create Assemblies after materializing URL inputs as temporary local uploads. */
-export async function create(
-  outputctl: IOutputCtl,
-  client: Transloadit,
-  options: AssembliesCreateOptions,
-): ReturnType<typeof createWithLocalInputs> {
-  const urlInputs = options.inputs.filter((input) => /^https?:\/\//i.test(input))
-  if (urlInputs.length === 0) return await createWithLocalInputs(outputctl, client, options)
-  if (options.watch) throw new Error('--watch requires local inputs')
-
-  const prepared = await prepareInputFiles({
-    inputFiles: urlInputs.map((url, index) => ({ kind: 'url', field: String(index), url })),
-    allowPrivateUrls: false,
-    // Uploading the bytes preserves :original and Template upload semantics, just as Intents do.
-    urlStrategy: 'download',
-  })
-  const localPaths = new Map(urlInputs.map((url, index) => [url, prepared.files[String(index)]]))
-  try {
-    return await createWithLocalInputs(outputctl, client, {
-      ...options,
-      inputs: options.inputs.map((input) => localPaths.get(input) ?? input),
-    })
-  } finally {
-    await Promise.all(prepared.cleanup.map((cleanup) => cleanup()))
-  }
+interface PreparedCreateOptions {
+  effectiveStepsData: StepsInput | undefined
+  hasDirectoryInput: boolean
+  outstat: StatLike | undefined
+  resolvedOutput: string | null | undefined
 }
 
-async function createWithLocalInputs(
+function isUrlInput(input: string): boolean {
+  return /^https?:\/\//i.test(input)
+}
+
+async function prepareCreateOptions(
   outputctl: IOutputCtl,
-  client: Transloadit,
-  {
-    steps,
-    stepsData,
-    template,
-    fields,
-    outputMode,
-    watch: watchOption,
-    recursive,
-    inputs,
-    output,
-    del,
-    reprocessStale,
-    singleAssembly,
-    concurrency = DEFAULT_CONCURRENCY,
-  }: AssembliesCreateOptions,
-): Promise<{ resultUrls: ResultUrlRow[]; results: unknown[]; hasFailures: boolean }> {
+  { steps, stepsData, outputMode, output, inputs, singleAssembly }: AssembliesCreateOptions,
+): Promise<PreparedCreateOptions> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
   // Only default to stdout when output is undefined (not provided), not when explicitly null
   let resolvedOutput = output
@@ -1631,7 +1733,9 @@ async function createWithLocalInputs(
     if (!outstat.isDirectory() && inputs.length !== 0 && !singleAssembly) {
       const firstInput = inputs[0]
       if (firstInput) {
-        const firstInputStat = await myStat(process.stdin, firstInput)
+        const firstInputStat = isUrlInput(firstInput)
+          ? { isDirectory: () => false }
+          : await myStat(process.stdin, firstInput)
         if (inputs.length > 1 || firstInputStat.isDirectory()) {
           const msg = 'Output must be a directory when specifying multiple inputs'
           outputctl.error(msg)
@@ -1643,11 +1747,70 @@ async function createWithLocalInputs(
 
   const inputStats = await Promise.all(
     inputs.map(async (input) => {
-      if (input === '-') return null
+      if (input === '-' || isUrlInput(input)) return null
       return await myStat(process.stdin, input)
     }),
   )
   const hasDirectoryInput = inputStats.some((stat) => stat?.isDirectory() === true)
+  return { effectiveStepsData, hasDirectoryInput, outstat, resolvedOutput }
+}
+
+// --- Main assembly create function ---
+/** Create Assemblies after materializing URL inputs as temporary local uploads. */
+export async function create(
+  outputctl: IOutputCtl,
+  client: Transloadit,
+  options: AssembliesCreateOptions,
+): ReturnType<typeof createWithLocalInputs> {
+  const preparedOptions = await prepareCreateOptions(outputctl, options)
+  const urlInputs = options.inputs.filter(isUrlInput)
+  if (urlInputs.length === 0)
+    return await createWithLocalInputs(outputctl, client, options, preparedOptions)
+  if (options.watch) throw new Error('--watch requires local inputs')
+
+  const prepared = await prepareInputFiles({
+    inputFiles: urlInputs.map((url, index) => ({ kind: 'url', field: String(index), url })),
+    allowPrivateUrls: false,
+    // Uploading the bytes preserves :original and Template upload semantics, just as Intents do.
+    urlStrategy: 'download',
+  })
+  const localPaths = new Map(urlInputs.map((url, index) => [url, prepared.files[String(index)]]))
+  try {
+    return await createWithLocalInputs(
+      outputctl,
+      client,
+      {
+        ...options,
+        inputs: options.inputs.map((input) => localPaths.get(input) ?? input),
+      },
+      preparedOptions,
+    )
+  } finally {
+    await Promise.all(prepared.cleanup.map((cleanup) => cleanup()))
+  }
+}
+
+async function createWithLocalInputs(
+  outputctl: IOutputCtl,
+  client: Transloadit,
+  {
+    template,
+    fields,
+    watch: watchOption,
+    recursive,
+    inputs,
+    del,
+    reprocessStale,
+    singleAssembly,
+    concurrency = DEFAULT_CONCURRENCY,
+  }: AssembliesCreateOptions,
+  preparedOptions: PreparedCreateOptions,
+): Promise<{ resultUrls: ResultUrlRow[]; results: unknown[]; hasFailures: boolean }> {
+  const { effectiveStepsData, hasDirectoryInput, outstat, resolvedOutput } = preparedOptions
+  const caseSensitive =
+    resolvedOutput != null && outstat?.isDirectory()
+      ? await outputNamesAreCaseSensitive(resolvedOutput)
+      : true
 
   return new Promise((resolve, reject) => {
     const params: CreateAssemblyParams = (
@@ -1683,6 +1846,10 @@ async function createWithLocalInputs(
     const results: unknown[] = []
     const resultUrls: ResultUrlRow[] = []
     const reservedResultPaths: DownloadPathReservations = {
+      allocations: new PQueue({ concurrency: 1 }),
+      bundleCommits: new PQueue({ concurrency: 1 }),
+      caseSensitive,
+      directories: new Set(),
       ownersByPath: new Map(),
       pathsByOwner: new Map(),
     }

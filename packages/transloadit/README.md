@@ -1510,12 +1510,11 @@ The `assemblies create` command additionally supports:
   playlist references.
   Watch updates refresh their existing result files. Other directory runs process the inputs again,
   since result filenames are unknown before processing; file outputs keep mtime-based skipping.
-- `--input, -i` - Provide a local upload or an HTTP(S) URL, or use `-i -` to read stdin explicitly.
+- `--input, -i` - Provide a local upload or a public HTTP(S) URL, or use `-i -` to read stdin explicitly.
   URLs are downloaded to temporary files for upload and cleaned up after processing; `--watch`
   requires local inputs. When `--steps` is used without `-i`, stdin is read only when it is a pipe
   or a redirected file. Other non-TTY stdin (such as an agent shell or `/dev/null`) runs the Assembly
-  without uploads. With `--template`,
-  stdin always requires `-i -`.
+  without uploads. With `--template`, stdin always requires `-i -`.
 - `--single-assembly` - Pass all input files to a single assembly instead of one assembly per file
 
 #### Log Levels
