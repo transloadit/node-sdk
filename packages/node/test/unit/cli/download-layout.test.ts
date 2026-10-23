@@ -300,6 +300,14 @@ it.each([
   const multiInput = path.join(path.dirname(inputPath), 'report.pdf.docx')
   await writeFile(singleInput, 'single-result input')
   await writeFile(multiInput, 'multi-result input')
+  const { stat: originalStat } = fs.promises
+  vi.spyOn(fs.promises, 'stat').mockImplementation(async (target, ...args) => {
+    // Input discovery can queue jobs in a different order from the CLI arguments.
+    if (target === path.join(outputDir, path.basename(fileFirst ? singleInput : multiInput))) {
+      await new Promise((resolve) => setTimeout(resolve, 60))
+    }
+    return await originalStat(target, ...args)
+  })
   const single = { output: [{ name: 'report.pdf', url: 'https://downloads.test/pdf' }] }
   const multi = {
     output: [
@@ -307,13 +315,15 @@ it.each([
       { name: 'page2.jpg', url: 'https://downloads.test/page2' },
     ],
   }
-  vi.mocked(Transloadit.prototype.awaitAssemblyCompletion)
-    .mockImplementationOnce(async () => {
-      // Finish the second job first unless the CLI is explicitly asked to run serially.
-      await new Promise((resolve) => setTimeout(resolve, 60))
-      return { ok: 'ASSEMBLY_COMPLETED', results: fileFirst ? single : multi }
-    })
-    .mockResolvedValueOnce({ ok: 'ASSEMBLY_COMPLETED', results: fileFirst ? multi : single })
+  vi.mocked(Transloadit.prototype.createAssembly).mockImplementation(async ({ files }) => {
+    const input = Object.values(files ?? {})[0]
+    expect([singleInput, multiInput]).toContain(input)
+    return { assembly_id: input === singleInput ? 'single' : 'multi' }
+  })
+  vi.mocked(Transloadit.prototype.awaitAssemblyCompletion).mockImplementation(async (id) => ({
+    ok: 'ASSEMBLY_COMPLETED',
+    results: id === 'single' ? single : multi,
+  }))
   nock('https://downloads.test')
     .get('/pdf')
     .reply(200, 'pdf bytes')
@@ -332,10 +342,12 @@ it.each([
       '1',
     ]),
   ).toBe(0)
+  const fileWasFirst = (await stat(path.join(outputDir, 'report.pdf'))).isFile()
+  expect(fileWasFirst).toBe(!fileFirst)
   expect(
-    await readFile(path.join(outputDir, fileFirst ? 'report.pdf' : 'report__1.pdf'), 'utf8'),
+    await readFile(path.join(outputDir, fileWasFirst ? 'report.pdf' : 'report__1.pdf'), 'utf8'),
   ).toBe('pdf bytes')
-  const inputDir = path.join(outputDir, fileFirst ? 'report.pdf__1' : 'report.pdf')
+  const inputDir = path.join(outputDir, fileWasFirst ? 'report.pdf__1' : 'report.pdf')
   expect(await readFile(path.join(inputDir, 'page1.jpg'), 'utf8')).toBe('first page')
   expect(await readFile(path.join(inputDir, 'page2.jpg'), 'utf8')).toBe('second page')
 })
