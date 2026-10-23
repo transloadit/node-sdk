@@ -1,5 +1,8 @@
 import type { ReadStream } from 'node:fs'
 
+import type { HttpRequest } from 'tus-js-client'
+
+import { getEventListeners } from 'node:events'
 import fs from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -12,6 +15,7 @@ import { defaultOptions } from 'tus-js-client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Transloadit } from '../../src/Transloadit.ts'
+import * as tus from '../../src/tus.ts'
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>()
@@ -28,7 +32,7 @@ vi.mock('node:fs', async (importOriginal) => {
 const openedStreams = vi.hoisted((): ReadStream[] => [])
 const endpoint = 'http://assembly.test'
 
-async function mockTusUpload(directory: string): Promise<void> {
+async function mockTusUpload(directory: string, retryOffset?: number): Promise<void> {
   // The Node build of tus-js-client uses require('fs'), outside Vitest's module mock.
   const createReadStream = fs.createReadStream
   vi.spyOn(fs, 'createReadStream').mockImplementation((...args) => {
@@ -45,11 +49,20 @@ async function mockTusUpload(directory: string): Promise<void> {
       assembly_ssl_url: `${endpoint}/assemblies/test`,
       tus_url: `${endpoint}/tus/`,
     })
-  nock(endpoint)
+  const tus = nock(endpoint)
     .post('/tus/')
     .reply(201, '', { Location: `${endpoint}/tus/file` })
-    .patch('/tus/file')
-    .reply(204, '', { 'Upload-Offset': String(4 * 1024 * 1024) })
+  if (retryOffset !== undefined) {
+    tus
+      .patch('/tus/file')
+      .reply(500)
+      .head('/tus/file')
+      .reply(200, '', {
+        'Upload-Offset': String(retryOffset),
+        'Upload-Length': String(4 * 1024 * 1024),
+      })
+  }
+  tus.patch('/tus/file').reply(204, '', { 'Upload-Offset': String(4 * 1024 * 1024) })
 }
 
 describe('createAssembly file stream cleanup', () => {
@@ -198,6 +211,71 @@ describe('createAssembly file stream cleanup', () => {
 
     expect(await result).toEqual({ error: failure, chunksClosed: [true] })
     expect(upload.destroyed).toBe(false)
+  })
+
+  it('stops HTTP sends when retry progress aborts the upload', async () => {
+    await mockTusUpload(directory, 128 * 1024)
+    const controller = new AbortController()
+    const sentMethods: string[] = []
+    const requests: HttpRequest[] = []
+    const createRequest = defaultOptions.httpStack.createRequest.bind(defaultOptions.httpStack)
+    vi.spyOn(defaultOptions.httpStack, 'createRequest').mockImplementation((method, url) => {
+      const request = createRequest(method, url)
+      requests.push(request)
+      const send = request.send.bind(request)
+      request.send = (body: unknown) => {
+        sentMethods.push(method)
+        return send(body)
+      }
+      return request
+    })
+
+    try {
+      await expect(
+        client.createAssembly({
+          files,
+          signal: controller.signal,
+          uploadConcurrency: 1,
+          onUploadProgress: ({ uploadedBytes }) => {
+            if (uploadedBytes !== undefined && uploadedBytes >= 128 * 1024) controller.abort()
+          },
+        }),
+      ).rejects.toThrow(/aborted/i)
+      await setImmediate()
+
+      expect(sentMethods).toEqual(['POST', 'PATCH', 'HEAD'])
+      expect(openedStreams.map((stream) => stream.closed)).toEqual([true, true, true, true])
+    } finally {
+      await Promise.all(requests.map((request) => request.abort()))
+    }
+  })
+
+  it.each([
+    { name: 'during upload', abortWhileUploading: true, abortCalls: 1 },
+    { name: 'after completion', abortWhileUploading: false, abortCalls: 0 },
+  ])('forwards background cancellation only $name', async ({ abortWhileUploading, abortCalls }) => {
+    const controller = new AbortController()
+    const onAbort = vi.fn()
+    let completeUploads: () => void = () => {}
+    const uploadsComplete = new Promise<void>((resolve) => {
+      completeUploads = resolve
+    })
+    vi.spyOn(tus, 'sendTusRequest').mockImplementation(({ signal }) => {
+      signal?.addEventListener('abort', onAbort, { once: true })
+      return Promise.resolve({ uploadUrls: {}, uploadsComplete })
+    })
+    nock(endpoint)
+      .post(/\/assemblies\/[a-f\d]{32}$/)
+      .reply(200, { ok: 'ASSEMBLY_UPLOADING' })
+
+    await client.createAssembly({ files, signal: controller.signal, uploadBehavior: 'background' })
+    if (abortWhileUploading) controller.abort()
+    completeUploads()
+    await setImmediate()
+    controller.abort()
+
+    expect(onAbort).toHaveBeenCalledTimes(abortCalls)
+    expect(getEventListeners(controller.signal, 'abort')).toEqual([])
   })
 
   it('closes files overwritten by an upload label while preserving caller-owned streams', async () => {

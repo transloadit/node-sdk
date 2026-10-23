@@ -36,6 +36,11 @@ interface SendTusRequestOptions {
   onFileSliceStarted?: (slice: Promise<unknown>) => void
 }
 
+interface SendTusRequestResult {
+  uploadUrls: Record<string, string>
+  uploadsComplete?: Promise<unknown>
+}
+
 export async function sendTusRequest({
   streamsMap,
   assembly,
@@ -47,7 +52,7 @@ export async function sendTusRequest({
   uploadBehavior = 'await',
   onFileStreamOpened,
   onFileSliceStarted,
-}: SendTusRequestOptions) {
+}: SendTusRequestOptions): Promise<SendTusRequestResult> {
   const streamLabels = Object.keys(streamsMap)
 
   let totalBytes = 0
@@ -208,6 +213,10 @@ export async function sendTusRequest({
           fieldname: label,
           filename,
         },
+        onBeforeRequest: () => {
+          // Retry progress callbacks can abort after slicing but before the HTTP send.
+          if (signal?.aborted) throw new Error('Upload aborted')
+        },
         onError: reject,
         onProgress: onTusProgress,
         onSuccess: resolve,
@@ -290,13 +299,14 @@ export async function sendTusRequest({
 
   await Promise.all(uploadUrlPromises)
 
+  const uploadsComplete = Promise.allSettled(completionPromises)
   if (uploadBehavior === 'await') {
     await Promise.all(completionPromises)
   } else {
-    Promise.allSettled(completionPromises).catch((err) => {
+    uploadsComplete.catch((err) => {
       logWarn('Background upload failed', err)
     })
   }
 
-  return { uploadUrls: uploadUrlsResult }
+  return { uploadUrls: uploadUrlsResult, uploadsComplete }
 }

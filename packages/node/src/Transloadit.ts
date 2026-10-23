@@ -73,6 +73,7 @@ import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
 import { randomUUID } from 'node:crypto'
+import { addAbortListener } from 'node:events'
 import { constants, createReadStream } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
 import { basename } from 'node:path'
@@ -729,9 +730,17 @@ export class Transloadit {
     }
     const urlSuffix = `/assemblies/${effectiveAssemblyId}`
     const uploadAbort = new AbortController()
-    const signal = callerSignal
-      ? AbortSignal.any([callerSignal, uploadAbort.signal])
-      : uploadAbort.signal
+    const signal = uploadAbort.signal
+    if (callerSignal?.aborted) uploadAbort.abort(callerSignal.reason)
+    // Older supported Node releases retain AbortSignal.any() dependencies indefinitely.
+    const callerAbort =
+      callerSignal && !callerSignal.aborted
+        ? addAbortListener(callerSignal, () => uploadAbort.abort(callerSignal.reason))
+        : undefined
+    const detachCallerAbort = (): void => {
+      callerAbort?.[Symbol.dispose]()
+    }
+    let backgroundUploadsComplete: Promise<unknown> | undefined
     const openedFileStreams = new Set<ReadStream>()
     const pendingFileSlices = new Set<Promise<unknown>>()
     const onFileStreamOpened = (stream: ReadStream): void => {
@@ -802,7 +811,7 @@ export class Transloadit {
         onAssemblyCreated?.(result)
 
         if (Object.keys(allStreamsMap).length > 0) {
-          const { uploadUrls } = await sendTusRequest({
+          const { uploadUrls, uploadsComplete } = await sendTusRequest({
             streamsMap: allStreamsMap,
             assembly: result,
             onProgress: onUploadProgress,
@@ -813,6 +822,7 @@ export class Transloadit {
             onFileStreamOpened,
             onFileSliceStarted,
           })
+          if (uploadBehavior === 'background') backgroundUploadsComplete = uploadsComplete
           if (uploadBehavior !== 'await' && Object.keys(uploadUrls).length > 0) {
             result.upload_urls = uploadUrls
           }
@@ -837,22 +847,30 @@ export class Transloadit {
       }
 
       return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
-    })().catch(async (error: unknown) => {
-      uploadAbort.abort()
-      // File descriptors must be closed before callers can remove their temporary files.
-      // Destroyed, unread streams reject finished(); cleanup must preserve the creation error.
-      while (openedFileStreams.size > 0 || pendingFileSlices.size > 0) {
-        await Promise.allSettled(pendingFileSlices)
-        await Promise.allSettled(
-          [...openedFileStreams].map((stream) => {
-            const closed = finished(stream, { cleanup: true })
-            stream.destroy()
-            return closed
-          }),
-        )
-      }
-      throw error
-    })
+    })()
+      .catch(async (error: unknown) => {
+        uploadAbort.abort()
+        // File descriptors must be closed before callers can remove their temporary files.
+        // Destroyed, unread streams reject finished(); cleanup must preserve the creation error.
+        while (openedFileStreams.size > 0 || pendingFileSlices.size > 0) {
+          await Promise.allSettled(pendingFileSlices)
+          await Promise.allSettled(
+            [...openedFileStreams].map((stream) => {
+              const closed = finished(stream, { cleanup: true })
+              stream.destroy()
+              return closed
+            }),
+          )
+        }
+        throw error
+      })
+      .finally(() => {
+        if (backgroundUploadsComplete && !signal.aborted) {
+          backgroundUploadsComplete.then(detachCallerAbort, detachCallerAbort)
+          return
+        }
+        detachCallerAbort()
+      })
 
     // This allows the user to use or log the assemblyId even before it has been created for easier debugging
     return Object.assign(promise, { assemblyId: effectiveAssemblyId })
