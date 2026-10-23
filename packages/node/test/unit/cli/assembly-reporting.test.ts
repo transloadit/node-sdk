@@ -6,13 +6,16 @@ import { Writable } from 'node:stream'
 import { format } from 'node:util'
 
 import { Cli } from 'clipanion'
+import { Options, RequestError } from 'got'
 import nock from 'nock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AssembliesCreateCommand } from '../../../src/cli/commands/assemblies.ts'
 import {
   TemplatesCreateCommand,
+  TemplatesDeleteCommand,
   TemplatesGetCommand,
+  TemplatesModifyCommand,
   TemplatesSyncCommand,
 } from '../../../src/cli/commands/templates.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
@@ -52,7 +55,9 @@ async function runCommand(
   const code = await Cli.from([
     AssembliesCreateCommand,
     TemplatesCreateCommand,
+    TemplatesDeleteCommand,
     TemplatesGetCommand,
+    TemplatesModifyCommand,
     TemplatesSyncCommand,
   ]).run(args, {
     stdout: new Writable({
@@ -233,6 +238,95 @@ describe('Assembly reporting', () => {
     expect(result.stderr).toBe(
       'err     API error (HTTP 403) AUTH_DENIED: This key cannot create Templates.',
     )
+  })
+
+  it('reports transport failures on stderr without a stack on stdout', async () => {
+    vi.spyOn(Transloadit.prototype, 'getTemplate').mockRejectedValue(
+      new RequestError(
+        'Connection reset by peer',
+        { code: 'ECONNRESET' },
+        new Options('https://api2.transloadit.com/templates/template'),
+      ),
+    )
+
+    const result = await runCommand(['templates', 'get', 'template'])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe('err     ECONNRESET: Connection reset by peer')
+  })
+
+  it('reports every failed Template deletion once with its ID', async () => {
+    const api = nock('https://api2.transloadit.com')
+      .delete('/templates/first-template')
+      .reply(403, { error: 'AUTH_DENIED', message: 'First Template cannot be deleted.' })
+      .delete('/templates/second-template')
+      .reply(403, { error: 'AUTH_DENIED', message: 'Second Template cannot be deleted.' })
+
+    const result = await runCommand(['templates', 'delete', 'first-template', 'second-template'])
+
+    expect(api.isDone()).toBe(true)
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr.split('\n')).toEqual([
+      'err     Template first-template: API error (HTTP 403) AUTH_DENIED: First Template cannot be deleted.',
+      'err     Template second-template: API error (HTTP 403) AUTH_DENIED: Second Template cannot be deleted.',
+    ])
+  })
+
+  it('explains a missing Template input file on stderr', async () => {
+    const file = path.join(tempDir, 'missing.json')
+
+    const result = await runCommand(['templates', 'create', 'name', file])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toContain('err     Cannot read Template input: ENOENT:')
+    expect(result.stderr).toContain(file)
+    expect(result.stderr.split('\n')).toHaveLength(1)
+  })
+
+  it('explains missing steps when modifying a Template', async () => {
+    const file = path.join(tempDir, 'empty.json')
+    await writeFile(file, '')
+    const api = nock('https://api2.transloadit.com')
+      .get('/templates/template')
+      .query(true)
+      .reply(200, { name: 'name', content: {} })
+
+    const result = await runCommand(['templates', 'modify', 'template', file])
+
+    expect(api.isDone()).toBe(true)
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe('err     No steps to update template with')
+  })
+
+  it('explains missing steps and ID when syncing a Template', async () => {
+    const file = path.join(tempDir, 'empty.json')
+    await writeFile(file, JSON.stringify({ transloadit_template_id: '' }))
+
+    const result = await runCommand(['templates', 'sync', file])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe(`err     Template file has no id and no steps: ${file}`)
+  })
+
+  it('explains a nonexistent Template referenced by a sync file', async () => {
+    const file = path.join(tempDir, 'missing.json')
+    await writeFile(file, JSON.stringify({ transloadit_template_id: 'missing', steps: {} }))
+    const api = nock('https://api2.transloadit.com')
+      .get('/templates/missing')
+      .query(true)
+      .reply(404, { error: 'SERVER_404', message: 'Template not found.' })
+
+    const result = await runCommand(['templates', 'sync', file])
+
+    expect(api.isDone()).toBe(true)
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe(`err     Template file references nonexistent template: ${file}`)
   })
 
   it.each([

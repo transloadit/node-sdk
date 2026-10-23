@@ -11,6 +11,8 @@ import { Command, Option } from 'clipanion'
 import rreaddir from 'recursive-readdir'
 import { z } from 'zod'
 
+import { tryCatch } from '../../alphalib/tryCatch.ts'
+import { CliInputError } from '../errors.ts'
 import { createReadStream, formatAPIError, streamToBuffer } from '../helpers.ts'
 import { createCliStepsSchema, parseStepsInputJson } from '../stepsInput.ts'
 import ModifiedLookup from '../template-last-modified.ts'
@@ -53,12 +55,20 @@ export interface TemplateSyncOptions {
   recursive?: boolean
 }
 
+async function readTemplateInput(file: string): Promise<Buffer> {
+  const [error, content] = await tryCatch(streamToBuffer(createReadStream(file)))
+  if (error) {
+    throw new CliInputError(`Cannot read Template input: ${error.message}`, { cause: error })
+  }
+  return content
+}
+
 export async function create(
   output: IOutputCtl,
   client: Transloadit,
   { name, file }: TemplateCreateOptions,
 ): Promise<unknown> {
-  const buf = await streamToBuffer(createReadStream(file))
+  const buf = await readTemplateInput(file)
 
   const steps = parseStepsInputJson(buf.toString(), output)
 
@@ -89,7 +99,7 @@ export async function modify(
   client: Transloadit,
   { template, name, file }: TemplateModifyOptions,
 ): Promise<void> {
-  const buf = await streamToBuffer(createReadStream(file))
+  const buf = await readTemplateInput(file)
 
   let steps: TemplateContent['steps'] | null = null
   let newName = name
@@ -107,7 +117,7 @@ export async function modify(
   }
 
   if (steps === null) {
-    throw new Error('No steps to update template with')
+    throw new CliInputError('No steps to update template with')
   }
 
   await client.editTemplate(template, {
@@ -118,11 +128,20 @@ export async function modify(
 }
 
 async function deleteTemplates(
-  _output: IOutputCtl,
+  output: IOutputCtl,
   client: Transloadit,
   { templates }: TemplateDeleteOptions,
-): Promise<void> {
-  await Promise.all(templates.map((template) => client.deleteTemplate(template)))
+): Promise<number | undefined> {
+  const results = await Promise.allSettled(
+    templates.map((template) => client.deleteTemplate(template)),
+  )
+  let exitCode: number | undefined
+  for (const [index, result] of results.entries()) {
+    if (result.status === 'fulfilled') continue
+    output.error(`Template ${templates[index]}: ${formatAPIError(result.reason)}`)
+    exitCode = 1
+  }
+  return exitCode
 }
 
 // Export with `delete` alias for external consumers
@@ -261,7 +280,7 @@ export async function sync(
     templates.map(async (template) => {
       if (!('steps' in template.data)) {
         if (!template.data.transloadit_template_id) {
-          throw new Error(`Template file has no id and no steps: ${template.file}`)
+          throw new CliInputError(`Template file has no id and no steps: ${template.file}`)
         }
         return download(template)
       }
@@ -289,7 +308,12 @@ export async function sync(
       } catch (err) {
         if (isTransloaditAPIError(err)) {
           if (err.code === 'SERVER_404' || (err.response && err.response.statusCode === 404)) {
-            throw new Error(`Template file references nonexistent template: ${template.file}`)
+            throw new CliInputError(
+              `Template file references nonexistent template: ${template.file}`,
+              {
+                cause: err,
+              },
+            )
           }
         }
         throw err
@@ -449,10 +473,9 @@ export class TemplatesDeleteCommand extends AuthenticatedCommand {
   templateIds = Option.Rest({ required: 1 })
 
   protected async run(): Promise<number | undefined> {
-    await deleteTemplates(this.output, this.client, {
+    return await deleteTemplates(this.output, this.client, {
       templates: this.templateIds,
     })
-    return undefined
   }
 }
 

@@ -2,6 +2,7 @@ import type { ResolvedCliConfig } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 
 import { Command, Option } from 'clipanion'
+import { RequestError } from 'got'
 import { z } from 'zod'
 
 import { ApiError } from '../../ApiError.ts'
@@ -63,6 +64,10 @@ abstract class BaseCommand extends Command {
     if (!error) return result
     if (error instanceof z.ZodError) {
       this.output.error(`Invalid options: ${formatSchemaIssues(error.issues)}`)
+      return 1
+    }
+    if (error instanceof RequestError) {
+      this.output.error(`${error.code}: ${error.message}`)
       return 1
     }
     if (error instanceof CliInputError || error instanceof ApiError) {
