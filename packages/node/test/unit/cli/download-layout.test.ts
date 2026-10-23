@@ -720,6 +720,39 @@ it('rejects watch mode for URL inputs before making a download request', async (
   expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
 })
 
+it('times out a stalled URL input before creating an Assembly', async () => {
+  await fixture({})
+  const { create } = await import('../../../src/cli/commands/assemblies.ts')
+  const download = nock('https://source.invalid')
+    .get('/slow.png')
+    .delay(200)
+    .reply(200, 'delayed input')
+
+  await expect(
+    create(new OutputCtl(), new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
+      inputs: ['https://source.invalid/slow.png'],
+      stepsData: { output: { robot: '/file/filter' } },
+      urlDownloadTimeoutMs: 30,
+    }),
+  ).rejects.toMatchObject({ name: 'TimeoutError' })
+  expect(download.isDone()).toBe(true)
+  expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+})
+
+it('honors the URL download timeout flag before uploading', async () => {
+  const { run } = await fixture({})
+  const download = nock('https://source.invalid')
+    .get('/slow.png')
+    .delay(200)
+    .reply(200, 'delayed input')
+
+  expect(await run(['-i', 'https://source.invalid/slow.png', '--url-download-timeout', '30'])).toBe(
+    1,
+  )
+  expect(download.isDone()).toBe(true)
+  expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+})
+
 it('keeps a repeated linked download together instead of renaming playlist targets', async () => {
   const { inputPath, outputDir, run } = await fixture({
     adaptive: [

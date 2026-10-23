@@ -1752,9 +1752,11 @@ export interface AssembliesCreateOptions {
   singleAssembly?: boolean
   concurrency?: number
   printUrls?: boolean
+  urlDownloadTimeoutMs?: number
 }
 
 const DEFAULT_CONCURRENCY = 5
+const DEFAULT_URL_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000
 
 interface PreparedCreateOptions {
   effectiveStepsData: StepsInput | undefined
@@ -1836,6 +1838,9 @@ export async function create(
   options: AssembliesCreateOptions,
 ): ReturnType<typeof createWithLocalInputs> {
   const preparedOptions = await prepareCreateOptions(outputctl, options)
+  const urlDownloadTimeoutMs =
+    toPositiveInteger(options.urlDownloadTimeoutMs, '--url-download-timeout') ??
+    DEFAULT_URL_DOWNLOAD_TIMEOUT_MS
   if (!options.inputs.some(isUrlInput))
     return await createWithLocalInputs(outputctl, client, options, preparedOptions)
   if (options.watch) throw new Error('--watch requires local inputs')
@@ -1855,6 +1860,7 @@ export async function create(
         allowPrivateUrls: false,
         // Uploading preserves :original and Template semantics, just as Intents do.
         urlStrategy: 'download',
+        urlDownloadTimeoutMs,
       })
       preparedInputs.push(prepared)
       const localPath = prepared.files[field]
@@ -2447,6 +2453,10 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
 
   concurrency = concurrencyOption()
 
+  urlDownloadTimeoutMs = Option.String('--url-download-timeout', {
+    description: 'Maximum time per URL input download in milliseconds (default: 300000)',
+  })
+
   printUrls = printUrlsOption()
 
   protected async run(): Promise<number | undefined> {
@@ -2495,6 +2505,8 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       singleAssembly: this.singleAssembly,
       concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
       printUrls: this.printUrls,
+      urlDownloadTimeoutMs:
+        this.urlDownloadTimeoutMs == null ? undefined : Number(this.urlDownloadTimeoutMs),
     })
     if (this.printUrls) {
       printResultUrls(this.output, resultUrls, assemblies)
@@ -2567,6 +2579,10 @@ export class RunCommand extends AuthenticatedCommand {
 
   concurrency = concurrencyOption()
 
+  urlDownloadTimeoutMs = Option.String('--url-download-timeout', {
+    description: 'Maximum time per URL input download in milliseconds (default: 300000)',
+  })
+
   printUrls = printUrlsOption()
 
   protected async run(): Promise<number | undefined> {
@@ -2626,6 +2642,8 @@ export class RunCommand extends AuthenticatedCommand {
       singleAssembly: this.singleAssembly,
       concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
       printUrls: this.printUrls,
+      urlDownloadTimeoutMs:
+        this.urlDownloadTimeoutMs == null ? undefined : Number(this.urlDownloadTimeoutMs),
     })
     if (this.printUrls) {
       printResultUrls(this.output, resultUrls, assemblies)
