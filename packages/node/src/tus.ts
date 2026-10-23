@@ -221,8 +221,9 @@ export async function sendTusRequest({
           }
         },
       }
-      if (path && onFileStreamOpened) {
+      if (onFileStreamOpened) {
         // tus opens a separate ReadStream for each chunk; abort() leaves those streams open.
+        // Track those chunks even when the original file stream belongs to the caller.
         tusOptions.fileReader = {
           async openFile(input: unknown, chunkSize: number): Promise<FileSource> {
             const source = await defaultOptions.fileReader.openFile(input, chunkSize)

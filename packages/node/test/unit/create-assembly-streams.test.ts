@@ -26,6 +26,30 @@ vi.mock('node:fs', async (importOriginal) => {
 const openedStreams = vi.hoisted((): ReadStream[] => [])
 const endpoint = 'http://assembly.test'
 
+async function mockTusUpload(directory: string): Promise<void> {
+  // The Node build of tus-js-client uses require('fs'), outside Vitest's module mock.
+  const createReadStream = fs.createReadStream
+  vi.spyOn(fs, 'createReadStream').mockImplementation((...args) => {
+    const stream = createReadStream(...args)
+    openedStreams.push(stream)
+    return stream
+  })
+  await writeFile(join(directory, 'first.txt'), Buffer.alloc(4 * 1024 * 1024))
+  nock(endpoint)
+    .post(/\/assemblies\/[a-f\d]{32}$/)
+    .reply(200, {
+      ok: 'ASSEMBLY_UPLOADING',
+      assembly_url: `${endpoint}/assemblies/test`,
+      assembly_ssl_url: `${endpoint}/assemblies/test`,
+      tus_url: `${endpoint}/tus/`,
+    })
+  nock(endpoint)
+    .post('/tus/')
+    .reply(201, '', { Location: `${endpoint}/tus/file` })
+    .patch('/tus/file')
+    .reply(204, '', { 'Upload-Offset': String(4 * 1024 * 1024) })
+}
+
 describe('createAssembly file stream cleanup', () => {
   let directory: string
   let files: Record<string, string>
@@ -95,27 +119,8 @@ describe('createAssembly file stream cleanup', () => {
   })
 
   it('closes tus chunk streams before an upload abort settles', async () => {
-    const createReadStream = fs.createReadStream
-    vi.spyOn(fs, 'createReadStream').mockImplementation((...args) => {
-      const stream = createReadStream(...args)
-      openedStreams.push(stream)
-      return stream
-    })
-    await writeFile(join(directory, 'first.txt'), Buffer.alloc(4 * 1024 * 1024))
+    await mockTusUpload(directory)
     const controller = new AbortController()
-    const creation = nock(endpoint)
-      .post(/\/assemblies\/[a-f\d]{32}$/)
-      .reply(200, {
-        ok: 'ASSEMBLY_UPLOADING',
-        assembly_url: `${endpoint}/assemblies/test`,
-        assembly_ssl_url: `${endpoint}/assemblies/test`,
-        tus_url: `${endpoint}/tus/`,
-      })
-    nock(endpoint)
-      .post('/tus/')
-      .reply(201, '', { Location: `${endpoint}/tus/file` })
-      .patch('/tus/file')
-      .reply(204, '', { 'Upload-Offset': String(4 * 1024 * 1024) })
 
     await expect(
       client.createAssembly({
@@ -126,9 +131,27 @@ describe('createAssembly file stream cleanup', () => {
       }),
     ).rejects.toThrow(/aborted/i)
 
-    creation.done()
     expect(openedStreams).toHaveLength(3)
     expect(openedStreams.map((stream) => stream.closed)).toEqual([true, true, true])
+  })
+
+  it('closes tus chunks for caller-owned file streams without closing the original', async () => {
+    await mockTusUpload(directory)
+    const controller = new AbortController()
+    const upload = fs.createReadStream(join(directory, 'first.txt'))
+
+    await expect(
+      client.createAssembly({
+        uploads: { file: upload },
+        signal: controller.signal,
+        onUploadProgress: () => controller.abort(),
+      }),
+    ).rejects.toThrow(/aborted/i)
+
+    expect(upload.destroyed).toBe(false)
+    const chunks = openedStreams.filter((stream) => stream !== upload)
+    expect(chunks).toHaveLength(1)
+    expect(chunks.map((stream) => stream.closed)).toEqual([true])
   })
 
   it('closes files overwritten by an upload label while preserving caller-owned streams', async () => {
