@@ -697,18 +697,24 @@ async function ensureUniquePath(
   targetPath: string,
   reservedPaths: DownloadPathReservations,
   owner: string,
+  directory = false,
 ): Promise<string> {
   const selectedPath = reservedPaths.pathsByOwner.get(owner)
   if (selectedPath != null) return selectedPath
   const parsed = path.parse(targetPath)
   return await ensureUniqueCounterValue({
     initialValue: targetPath,
-    isTaken: async (candidate) => await isDownloadPathTaken(candidate, reservedPaths, owner),
+    isTaken: async (candidate) =>
+      await isDownloadPathTaken(candidate, reservedPaths, owner, directory),
     reserve: (candidate) => {
-      reserveDownloadPath(candidate, owner, reservedPaths)
+      reserveDownloadPath(candidate, owner, reservedPaths, directory)
       reservedPaths.pathsByOwner.set(owner, candidate)
     },
-    nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
+    nextValue: (counter) =>
+      path.join(
+        parsed.dir,
+        directory ? `${parsed.base}__${counter}` : `${parsed.name}__${counter}${parsed.ext}`,
+      ),
     scope: reservedPaths,
   })
 }
@@ -828,17 +834,19 @@ async function isDownloadPathTaken(
   target: string,
   reservedPaths: DownloadPathReservations,
   owner: string,
+  directory = false,
 ): Promise<boolean> {
   const key = downloadPathKey(target, reservedPaths)
+  if (directory && reservedPaths.directories.has(key)) return false
   const existingOwner = reservedPaths.ownersByPath.get(key)
   if (existingOwner != null) return existingOwner !== owner
   if (reservedPaths.directories.has(key) || hasReservedFileAncestor(target, reservedPaths)) {
     return true
   }
-  const [error] = await tryCatch(fsp.lstat(target))
+  const [error, stats] = await tryCatch(fsp.lstat(target))
   if (isErrnoException(error) && error.code === 'ENOTDIR') return true
   if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
-  return error == null
+  return error == null && (!directory || !stats?.isDirectory())
 }
 
 async function prepareDownloadDirectory(
@@ -909,14 +917,21 @@ function groupDirectoryResults(allFiles: NormalizedAssemblyResultFile[]): Direct
     for (const { name, files } of sources.values()) {
       const occurrence = nameOccurrences.get(name) ?? 0
       nameOccurrences.set(name, occurrence + 1)
-      groups.push({
-        directoryName:
-          sources.size > 1 ? sanitizeResultName(path.parse(name ?? stepName).name, stepName) : null,
-        files,
-        // Upload IDs change between watch runs; source names retain logical ownership.
-        ownerKey: JSON.stringify([name, occurrence]),
-        stepName,
-      })
+      // Ordinary files can be renamed independently, even when they share an HLS source.
+      for (const linked of [true, false]) {
+        const groupFiles = files.filter(({ relativePath }) => (relativePath != null) === linked)
+        if (groupFiles.length === 0) continue
+        groups.push({
+          directoryName:
+            sources.size > 1
+              ? sanitizeResultName(path.parse(name ?? stepName).name, stepName)
+              : null,
+          files: groupFiles,
+          // Upload IDs change between watch runs; source names retain logical ownership.
+          ownerKey: JSON.stringify([name, occurrence, linked]),
+          stepName,
+        })
+      }
     }
   }
   return groups
@@ -1119,9 +1134,23 @@ async function resolveResultDownloadTargets({
     })
   }
 
+  let baseDir = resolveDirectoryBaseDir()
+  if (path.resolve(baseDir) !== path.resolve(outputRoot)) {
+    // Input grouping directories share the result namespace, including files already reserved
+    // by another Assembly. Reuse existing directories and suffix a conflicting filename.
+    await assertNoOutputSymlinks(outputRoot, baseDir)
+    await prepareDownloadDirectory(outputRoot, path.dirname(baseDir), reservedPaths)
+    baseDir = await ensureUniquePath(
+      baseDir,
+      reservedPaths,
+      JSON.stringify([owner, 'input-directory']),
+      true,
+    )
+  }
+
   return await buildDirectoryDownloadTargets({
     allFiles,
-    baseDir: resolveDirectoryBaseDir(),
+    baseDir,
     groupByStep: inPath == null || entries.length > 1,
     owner,
     outputRoot,

@@ -263,6 +263,77 @@ it('rejects duplicate paths within a single HLS bundle', async () => {
   expect(await readdir(outputDir)).toEqual([])
 })
 
+it('suffixes ordinary collisions within the same source as an HLS bundle', async () => {
+  const source = { original_id: 'video', original_name: 'clip.mp4' }
+  const { inputPath, outputDir, run } = await fixture({
+    adaptive: [
+      {
+        ...source,
+        name: 'master.m3u8',
+        url: 'https://downloads.test/master',
+        meta: { relative_path: '' },
+      },
+      { ...source, name: 'cover.jpg', url: 'https://downloads.test/first-cover' },
+      { ...source, name: 'cover.jpg', url: 'https://downloads.test/second-cover' },
+    ],
+  })
+  nock('https://downloads.test')
+    .get('/master')
+    .reply(200, '#EXTM3U\n')
+    .get('/first-cover')
+    .reply(200, 'first cover')
+    .get('/second-cover')
+    .reply(200, 'second cover')
+
+  expect(await run(['-i', inputPath])).toBe(0)
+  expect(await readdir(outputDir)).toEqual(['cover.jpg', 'cover__1.jpg', 'master.m3u8'])
+  expect(await readFile(path.join(outputDir, 'cover.jpg'), 'utf8')).toBe('first cover')
+  expect(await readFile(path.join(outputDir, 'cover__1.jpg'), 'utf8')).toBe('second cover')
+})
+
+it.each([
+  false,
+  true,
+])('separates input directories from result files (file first: %s)', async (fileFirst) => {
+  const { inputPath, outputDir, run } = await fixture({})
+  const singleInput = path.join(path.dirname(inputPath), 'report.docx')
+  const multiInput = path.join(path.dirname(inputPath), 'report.pdf.docx')
+  await writeFile(singleInput, 'single-result input')
+  await writeFile(multiInput, 'multi-result input')
+  const single = { output: [{ name: 'report.pdf', url: 'https://downloads.test/pdf' }] }
+  const multi = {
+    output: [
+      { name: 'page1.jpg', url: 'https://downloads.test/page1' },
+      { name: 'page2.jpg', url: 'https://downloads.test/page2' },
+    ],
+  }
+  vi.mocked(Transloadit.prototype.awaitAssemblyCompletion)
+    .mockResolvedValueOnce({ ok: 'ASSEMBLY_COMPLETED', results: fileFirst ? single : multi })
+    .mockResolvedValueOnce({ ok: 'ASSEMBLY_COMPLETED', results: fileFirst ? multi : single })
+  nock('https://downloads.test')
+    .get('/pdf')
+    .reply(200, 'pdf bytes')
+    .get('/page1')
+    .reply(200, 'first page')
+    .get('/page2')
+    .reply(200, 'second page')
+
+  expect(
+    await run([
+      '-i',
+      fileFirst ? singleInput : multiInput,
+      '-i',
+      fileFirst ? multiInput : singleInput,
+    ]),
+  ).toBe(0)
+  expect(
+    await readFile(path.join(outputDir, fileFirst ? 'report.pdf' : 'report__1.pdf'), 'utf8'),
+  ).toBe('pdf bytes')
+  const inputDir = path.join(outputDir, fileFirst ? 'report.pdf__1' : 'report.pdf')
+  expect(await readFile(path.join(inputDir, 'page1.jpg'), 'utf8')).toBe('first page')
+  expect(await readFile(path.join(inputDir, 'page2.jpg'), 'utf8')).toBe('second page')
+})
+
 it('retains ordinary results from different source groups in a Step containing HLS', async () => {
   const master = {
     name: 'master.m3u8',
