@@ -21,6 +21,7 @@ import { Cli } from 'clipanion'
 import nock from 'nock'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
+import { tryCatch } from '../../../src/alphalib/tryCatch.ts'
 import { AssembliesCreateCommand } from '../../../src/cli/commands/assemblies.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
@@ -190,6 +191,163 @@ it('rejects duplicate paths within a single HLS bundle', async () => {
 
   expect(await run(['-i', inputPath])).toBe(1)
   expect(await readdir(outputDir)).toEqual([])
+})
+
+it('keeps concurrent case-only result names separate on case-insensitive filesystems', async () => {
+  const { inputPath, outputDir, run } = await fixture({})
+  const secondInput = path.join(path.dirname(inputPath), 'second.png')
+  await writeFile(secondInput, 'second input')
+  vi.mocked(Transloadit.prototype.awaitAssemblyCompletion)
+    .mockResolvedValueOnce({
+      ok: 'ASSEMBLY_COMPLETED',
+      results: { resized: [{ name: 'Photo.jpg', url: 'https://downloads.test/first' }] },
+    })
+    .mockResolvedValueOnce({
+      ok: 'ASSEMBLY_COMPLETED',
+      results: { resized: [{ name: 'photo.jpg', url: 'https://downloads.test/second' }] },
+    })
+  async function resolveCaseInsensitivePath(value: fs.PathLike): Promise<fs.PathLike> {
+    if (typeof value !== 'string') return value
+    const [error, siblings] = await tryCatch(readdir(path.dirname(value)))
+    if (error) {
+      if ('code' in error && error.code === 'ENOENT') return value
+      throw error
+    }
+    const match = siblings.find((name) => name.toLowerCase() === path.basename(value).toLowerCase())
+    return match == null ? value : path.join(path.dirname(value), match)
+  }
+  const { lstat, rename } = fs.promises
+  vi.spyOn(fs.promises, 'lstat').mockImplementation(
+    async (target, ...args) => await lstat(await resolveCaseInsensitivePath(target), ...args),
+  )
+  vi.spyOn(fs.promises, 'rename').mockImplementation(
+    async (source, target) => await rename(source, await resolveCaseInsensitivePath(target)),
+  )
+  nock('https://downloads.test')
+    .get('/first')
+    .delayBody(40)
+    .reply(200, 'first result')
+    .get('/second')
+    .delayBody(40)
+    .reply(200, 'second result')
+
+  expect(await run(['-i', inputPath, '-i', secondInput, '--concurrency', '2'])).toBe(0)
+  expect(await readdir(outputDir)).toEqual(['Photo.jpg', 'photo__1.jpg'])
+  expect(await readFile(path.join(outputDir, 'Photo.jpg'), 'utf8')).toBe('first result')
+  expect(await readFile(path.join(outputDir, 'photo__1.jpg'), 'utf8')).toBe('second result')
+})
+
+it.each([
+  false,
+  true,
+])('resolves file and bundle-directory conflicts (bundle first: %s)', async (bundleFirst) => {
+  const linked = {
+    adaptive: [
+      {
+        name: 'segment.ts',
+        url: 'https://downloads.test/segment',
+        meta: { relative_path: 'video' },
+      },
+    ],
+  }
+  const ordinary = { output: [{ name: 'video', url: 'https://downloads.test/file' }] }
+  const { inputPath, outputDir, run } = await fixture(
+    bundleFirst ? { ...linked, ...ordinary } : { ...ordinary, ...linked },
+  )
+  nock('https://downloads.test')
+    .get('/file')
+    .reply(200, 'ordinary file')
+    .get('/segment')
+    .reply(200, 'stream bytes')
+
+  expect(await run(['--single-assembly', '-i', inputPath])).toBe(0)
+  expect(await readFile(path.join(outputDir, bundleFirst ? 'video__1' : 'video'), 'utf8')).toBe(
+    'ordinary file',
+  )
+  expect(
+    await readFile(
+      path.join(outputDir, ...(bundleFirst ? [] : ['adaptive']), 'video', 'segment.ts'),
+      'utf8',
+    ),
+  ).toBe('stream bytes')
+})
+
+it('finishes publishing a linked watch bundle when a newer Assembly fails', async () => {
+  const results = {
+    adaptive: [
+      { name: 'master.m3u8', url: 'https://downloads.test/master', meta: { relative_path: '' } },
+      {
+        name: 'segment.ts',
+        url: 'https://downloads.test/segment',
+        meta: { relative_path: 'video' },
+      },
+    ],
+  }
+  const { inputPath, outputDir } = await fixture(results)
+  class FakeWatcher extends EventEmitter {
+    close(): void {
+      this.emit('close')
+    }
+  }
+  const watcher = new FakeWatcher()
+  vi.doMock('node-watch', () => ({ default: () => watcher }))
+  vi.resetModules()
+  const { create } = await import('../../../src/cli/commands/assemblies.ts')
+  vi.mocked(Transloadit.prototype.awaitAssemblyCompletion)
+    .mockResolvedValueOnce({ ok: 'ASSEMBLY_COMPLETED', results })
+    .mockRejectedValueOnce(new Error('Newer Assembly failed'))
+  const rename = fs.promises.rename
+  vi.spyOn(fs.promises, 'rename').mockImplementation(async (source, target) => {
+    await rename(source, target)
+    if (target === path.join(outputDir, 'master.m3u8')) watcher.emit('change', 'update', inputPath)
+  })
+  const output = new OutputCtl()
+  vi.spyOn(output, 'error').mockImplementation(() => watcher.close())
+  nock('https://downloads.test')
+    .get('/master')
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/segment')
+    .delayBody(40)
+    .reply(200, 'complete stream')
+
+  const result = await create(output, new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
+    inputs: [inputPath],
+    output: `${outputDir}/`,
+    watch: true,
+    stepsData: { adaptive: { robot: '/video/adaptive', use: ':original' } },
+  })
+
+  expect(result.hasFailures).toBe(true)
+  expect(Transloadit.prototype.createAssembly).toHaveBeenCalledTimes(2)
+  expect(await readFile(path.join(outputDir, 'master.m3u8'), 'utf8')).toBe(
+    '#EXTM3U\nvideo/segment.ts\n',
+  )
+  expect(await readFile(path.join(outputDir, 'video', 'segment.ts'), 'utf8')).toBe(
+    'complete stream',
+  )
+})
+
+it.each([
+  'steps',
+  'output',
+])('validates local %s configuration before downloading a URL', async (invalid) => {
+  const { outputDir, run } = await fixture({})
+  let downloads = 0
+  nock('https://source.invalid')
+    .get('/remote.png')
+    .reply(200, () => {
+      downloads += 1
+      return 'remote input'
+    })
+  const args = ['-i', 'https://source.invalid/remote.png']
+  if (invalid === 'steps') args.push('--steps', path.join(outputDir, 'missing.json'))
+  else args.push('-i', 'https://source.invalid/second.png')
+
+  expect(
+    await run(args, invalid === 'output' ? path.join(outputDir, 'result.png') : `${outputDir}/`),
+  ).toBe(1)
+  expect(downloads).toBe(0)
+  expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
 })
 
 it.each([false, true])('uses the bundle result name (single Assembly: %s)', async (single) => {
