@@ -883,6 +883,7 @@ const resultSourceSchema = assemblyStatusResultSchema.pick({
   original_basename: true,
   original_id: true,
   original_name: true,
+  original_path: true,
 })
 
 function groupDirectoryResults(allFiles: NormalizedAssemblyResultFile[]): DirectoryResultGroup[] {
@@ -900,23 +901,32 @@ function groupDirectoryResults(allFiles: NormalizedAssemblyResultFile[]): Direct
       continue
     }
 
-    const sources = new Map<string, { name: string | null; files: DirectoryResultFile[] }>()
+    const sources = new Map<
+      string,
+      { identity: string; name: string | null; files: DirectoryResultFile[] }
+    >()
     for (const file of stepFiles) {
       const parsed = resultSourceSchema.safeParse(file.file.file)
       const source = parsed.success ? parsed.data : undefined
       const sourceId = JSON.stringify(source?.original_id ?? null)
+      const name = source?.original_name ?? source?.original_basename ?? null
       const group = sources.get(sourceId) ?? {
-        name: source?.original_name ?? source?.original_basename ?? null,
+        // A path and a fallback name with identical text still describe different sources.
+        identity: JSON.stringify([
+          source?.original_path ?? null,
+          source?.original_path == null ? name : null,
+        ]),
+        name,
         files: [],
       }
       group.files.push(file)
       sources.set(sourceId, group)
     }
 
-    const nameOccurrences = new Map<string | null, number>()
-    for (const { name, files } of sources.values()) {
-      const occurrence = nameOccurrences.get(name) ?? 0
-      nameOccurrences.set(name, occurrence + 1)
+    const sourceOccurrences = new Map<string, number>()
+    for (const { identity, name, files } of sources.values()) {
+      const occurrence = sourceOccurrences.get(identity) ?? 0
+      sourceOccurrences.set(identity, occurrence + 1)
       // Ordinary files can be renamed independently, even when they share an HLS source.
       for (const linked of [true, false]) {
         const groupFiles = files.filter(({ relativePath }) => (relativePath != null) === linked)
@@ -927,8 +937,9 @@ function groupDirectoryResults(allFiles: NormalizedAssemblyResultFile[]): Direct
               ? sanitizeResultName(path.parse(name ?? stepName).name, stepName)
               : null,
           files: groupFiles,
-          // Upload IDs change between watch runs; source names retain logical ownership.
-          ownerKey: JSON.stringify([name, occurrence, linked]),
+          // Upload IDs change between watch runs. Original paths distinguish same-named sources
+          // even when results arrive in a different order; names are the metadata fallback.
+          ownerKey: JSON.stringify([identity, occurrence, linked]),
           stepName,
         })
       }
