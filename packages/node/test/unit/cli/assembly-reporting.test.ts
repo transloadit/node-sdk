@@ -266,12 +266,28 @@ describe('Assembly reporting', () => {
     expect(result.stderr).toContain('resized')
   })
 
+  it('includes safe structured ignored-error details in warnings', async () => {
+    mockAssembly()
+    vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      ignored_errors: [
+        {
+          step: 'stored',
+          error: { code: 'S3_STORE_ACCESS_DENIED', message: 'Storage refused access.' },
+        },
+      ],
+      results: {},
+    })
+
+    const result = await run(['--template', 'template'])
+
+    expect(result.code).toBe(0)
+    expect(result.stderr).toContain('stored: S3_STORE_ACCESS_DENIED: Storage refused access.')
+  })
+
   it('omits empty ignored-error details while preserving their count and JSON', async () => {
     mockAssembly()
-    const ignoredErrors = [
-      { error: { code: 'UNKNOWN_ERROR' } },
-      { step: 'resized', error: 'INVALID_FILE' },
-    ]
+    const ignoredErrors = [{ error: {} }, { step: 'resized', error: 'INVALID_FILE' }]
     vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
       ok: 'ASSEMBLY_COMPLETED',
       ignored_errors: ignoredErrors,

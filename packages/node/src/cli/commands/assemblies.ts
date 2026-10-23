@@ -1552,8 +1552,11 @@ export async function create(
       if (ignoredErrorCount > 0) {
         const details = ignoredErrors
           .map((ignored) => {
-            const code = typeof ignored.error === 'string' ? ignored.error : undefined
-            return [ignored.step, code, ignored.message].filter(Boolean).join(': ')
+            const code = typeof ignored.error === 'string' ? ignored.error : ignored.error?.code
+            const message =
+              ignored.message ||
+              (typeof ignored.error === 'object' ? ignored.error.message : undefined)
+            return [ignored.step, code, message].filter(Boolean).join(': ')
           })
           .filter(Boolean)
           .slice(0, 5)
