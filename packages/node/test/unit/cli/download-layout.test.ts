@@ -944,6 +944,106 @@ it('keeps a watched HLS Step in its selected folder after the original conflict 
   )
 })
 
+it.each([
+  { firstPath: 'first/clip.mp4', secondPath: 'second/clip.mp4' },
+  { firstPath: 'clip.mp4', secondPath: undefined },
+])('keeps watched HLS source paths attached to their folders (paths: $firstPath, $secondPath)', async ({
+  firstPath,
+  secondPath,
+}) => {
+  const firstMaster = {
+    original_id: 'first-old',
+    original_name: 'clip.mp4',
+    original_path: firstPath,
+    name: 'master.m3u8',
+    url: 'https://downloads.test/first-master',
+    meta: { relative_path: '' },
+  }
+  const firstSegment = {
+    ...firstMaster,
+    name: 'segment.ts',
+    url: 'https://downloads.test/first-segment',
+    meta: { relative_path: 'video' },
+  }
+  const secondMaster = {
+    ...firstMaster,
+    original_id: 'second-old',
+    original_path: secondPath,
+    url: 'https://downloads.test/second-master',
+  }
+  const secondSegment = {
+    ...firstSegment,
+    original_id: 'second-old',
+    original_path: secondPath,
+    url: 'https://downloads.test/second-segment',
+  }
+  const { inputPath, outputDir } = await fixture({
+    adaptive: [firstMaster, firstSegment, secondMaster, secondSegment],
+  })
+  vi.mocked(Transloadit.prototype.awaitAssemblyCompletion)
+    .mockResolvedValueOnce({
+      ok: 'ASSEMBLY_COMPLETED',
+      results: { adaptive: [firstMaster, firstSegment, secondMaster, secondSegment] },
+    })
+    .mockResolvedValueOnce({
+      ok: 'ASSEMBLY_COMPLETED',
+      results: {
+        adaptive: [
+          { ...secondMaster, original_id: 'second-new' },
+          { ...secondSegment, original_id: 'second-new' },
+          { ...firstMaster, original_id: 'first-new' },
+          { ...firstSegment, original_id: 'first-new' },
+        ],
+      },
+    })
+  class FakeWatcher extends EventEmitter {
+    close(): void {
+      this.emit('close')
+    }
+  }
+  const watcher = new FakeWatcher()
+  vi.doMock('node-watch', () => ({ default: () => watcher }))
+  vi.resetModules()
+  const { create } = await import('../../../src/cli/commands/assemblies.ts')
+  const output = new OutputCtl()
+  let completions = 0
+  vi.spyOn(output, 'debug').mockImplementation((message) => {
+    if (!String(message).startsWith('COMPLETED')) return
+    if (++completions === 1) watcher.emit('change', 'update', inputPath)
+    else watcher.close()
+  })
+  nock('https://downloads.test')
+    .get('/first-master')
+    .twice()
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/second-master')
+    .twice()
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/first-segment')
+    .reply(200, 'first original')
+    .get('/first-segment')
+    .reply(200, 'first updated')
+    .get('/second-segment')
+    .reply(200, 'second original')
+    .get('/second-segment')
+    .reply(200, 'second updated')
+
+  const result = await create(output, new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
+    inputs: [inputPath],
+    output: `${outputDir}/`,
+    watch: true,
+    stepsData: { adaptive: { robot: '/video/adaptive', use: ':original' } },
+  })
+  expect(result.hasFailures).toBe(false)
+  expect(completions).toBe(2)
+  expect(await readFile(path.join(outputDir, 'clip', 'video', 'segment.ts'), 'utf8')).toBe(
+    'first updated',
+  )
+  expect(await readFile(path.join(outputDir, 'clip__1', 'video', 'segment.ts'), 'utf8')).toBe(
+    'second updated',
+  )
+})
+
 it('accepts a standalone input and a directory containing the same basename', async () => {
   const { inputPath, outputDir, run, tempDir } = await fixture({
     resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
