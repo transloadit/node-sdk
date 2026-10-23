@@ -315,10 +315,10 @@ it.each([
       { name: 'page2.jpg', url: 'https://downloads.test/page2' },
     ],
   }
-  vi.mocked(Transloadit.prototype.createAssembly).mockImplementation(async ({ files }) => {
+  vi.mocked(Transloadit.prototype.createAssembly).mockImplementation(({ files }) => {
     const input = Object.values(files ?? {})[0]
     expect([singleInput, multiInput]).toContain(input)
-    return { assembly_id: input === singleInput ? 'single' : 'multi' }
+    return Promise.resolve({ assembly_id: input === singleInput ? 'single' : 'multi' })
   })
   vi.mocked(Transloadit.prototype.awaitAssemblyCompletion).mockImplementation(async (id) => ({
     ok: 'ASSEMBLY_COMPLETED',
