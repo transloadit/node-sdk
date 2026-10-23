@@ -635,17 +635,25 @@ function sanitizeResultName(value: string): string {
   return name
 }
 
+interface DownloadPathReservations {
+  ownersByPath: Map<string, string>
+  pathsByOwner: Map<string, string>
+}
+
 async function ensureUniquePath(
   targetPath: string,
-  reservedPaths: Map<string, string>,
+  reservedPaths: DownloadPathReservations,
   owner: string,
 ): Promise<string> {
+  const selectedPath = reservedPaths.pathsByOwner.get(owner)
+  if (selectedPath != null) return selectedPath
   const parsed = path.parse(targetPath)
   return await ensureUniqueCounterValue({
     initialValue: targetPath,
     isTaken: async (candidate) => await isDownloadPathTaken(candidate, reservedPaths, owner),
     reserve: (candidate) => {
-      reservedPaths.set(candidate, owner)
+      reservedPaths.ownersByPath.set(candidate, owner)
+      reservedPaths.pathsByOwner.set(owner, candidate)
     },
     nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
     scope: reservedPaths,
@@ -712,10 +720,10 @@ async function assertNoOutputSymlinks(root: string, target: string): Promise<voi
 
 async function isDownloadPathTaken(
   target: string,
-  reservedPaths: Map<string, string>,
+  reservedPaths: DownloadPathReservations,
   owner: string,
 ): Promise<boolean> {
-  const existingOwner = reservedPaths.get(target)
+  const existingOwner = reservedPaths.ownersByPath.get(target)
   if (existingOwner != null) return existingOwner !== owner
   const [error] = await tryCatch(fsp.lstat(target))
   if (isErrnoException(error) && error.code === 'ENOTDIR') return true
@@ -742,7 +750,7 @@ async function buildDirectoryDownloadTargets({
   groupByStep: boolean
   owner: string
   outputRoot: string
-  reservedPaths: Map<string, string>
+  reservedPaths: DownloadPathReservations
 }): Promise<AssemblyDownloadTarget[]> {
   await assertNoOutputSymlinks(outputRoot, baseDir)
   await fsp.mkdir(baseDir, { recursive: true })
@@ -762,6 +770,9 @@ async function buildDirectoryDownloadTargets({
     const safeStepName = sanitizeResultName(stepName)
     let targetDir = groupByStep ? path.join(baseDir, safeStepName) : baseDir
     const linked = files.some((file) => file.relativePath != null)
+    const groupOwner = JSON.stringify([owner, stepName])
+    const selectedGroupDir = linked ? reservedPaths.pathsByOwner.get(groupOwner) : undefined
+    if (selectedGroupDir != null) targetDir = selectedGroupDir
     const names = files.map(
       ({ file, relativePath }) => relativePath ?? sanitizeResultName(file.name),
     )
@@ -775,7 +786,6 @@ async function buildDirectoryDownloadTargets({
 
     if (linked) {
       const initialDir = targetDir
-      const groupOwner = JSON.stringify([owner, stepName])
       // Selection and reservation share the same lock as ordinary result paths. A Step must
       // move together on collisions, while later watch updates reuse its owned destinations.
       targetDir = await ensureUniqueCounterValue({
@@ -791,11 +801,19 @@ async function buildDirectoryDownloadTargets({
               isDownloadPathTaken(path.join(candidate, name), reservedPaths, groupOwner),
             ),
           )
-          return collisions.some(Boolean)
+          const collides = collisions.some(Boolean)
+          // Moving an already downloaded Step would leave its previous playlist stale.
+          if (collides && selectedGroupDir != null) {
+            throw new Error('Assembly result path conflicts with an existing download')
+          }
+          return collides
         },
         reserve: (candidate) => {
-          if (candidate !== initialDir) reservedPaths.set(candidate, groupOwner)
-          for (const name of names) reservedPaths.set(path.join(candidate, name), groupOwner)
+          if (candidate !== initialDir) reservedPaths.ownersByPath.set(candidate, groupOwner)
+          for (const name of names) {
+            reservedPaths.ownersByPath.set(path.join(candidate, name), groupOwner)
+          }
+          reservedPaths.pathsByOwner.set(groupOwner, candidate)
         },
         nextValue: (counter) => {
           const suffix = groupByStep ? counter : counter - 1
@@ -861,7 +879,7 @@ async function resolveResultDownloadTargets({
   outputPath: string | null
   outputRoot: string
   outputRootIsDirectory: boolean
-  reservedPaths: Map<string, string>
+  reservedPaths: DownloadPathReservations
   singleAssembly?: boolean
 }): Promise<AssemblyDownloadTarget[]> {
   const { allFiles, entries } = normalizedResults
@@ -1006,7 +1024,7 @@ async function materializeAssemblyResults({
   outputRoot: string | null
   outputRootIsDirectory: boolean
   outputctl: IOutputCtl
-  reservedPaths: Map<string, string>
+  reservedPaths: DownloadPathReservations
   singleAssembly?: boolean
 }): Promise<void> {
   if (outputRoot == null) {
@@ -1612,7 +1630,10 @@ async function createWithLocalInputs(
     const results: unknown[] = []
     const assemblies: AssemblySummary[] = []
     const resultUrls: ResultUrlRow[] = []
-    const reservedResultPaths = new Map<string, string>()
+    const reservedResultPaths: DownloadPathReservations = {
+      ownersByPath: new Map(),
+      pathsByOwner: new Map(),
+    }
     const latestWatchJobTokenByOutputPath = new Map<string, number>()
     let hasFailures = false
     let nextWatchJobToken = 0
@@ -1813,6 +1834,7 @@ async function createWithLocalInputs(
         singleAssembly: singleAssemblyMode,
       })
 
+      // Only the current watch job may delete its input; a failed newer job must retain it.
       if (isSupersededWatchJob(outputPlan?.path ?? null, outputToken)) return assembly
       outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
 

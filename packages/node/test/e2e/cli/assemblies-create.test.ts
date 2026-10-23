@@ -400,7 +400,7 @@ describeLive('assemblies', { retry: 1 }, () => {
     )
 
     it(
-      'should not reprocess inputs that are older than their output',
+      'should reprocess directory outputs to discover result filenames',
       testCase(async (client) => {
         const infiles = await Promise.all(['in1.jpg', 'in2.jpg', 'in3.jpg'].map(imgPromise))
         const steps = await stepsPromise()
@@ -414,16 +414,44 @@ describeLive('assemblies', { retry: 1 }, () => {
         })
 
         const output2 = new OutputCtl()
-        await assembliesCreate(output2, client, {
+        const { results } = await assembliesCreate(output2, client, {
           steps,
           inputs: infiles,
           output: 'out',
         })
-        const result = output2.get(true) as OutputEntry[]
+        expect(results).to.have.lengthOf(3)
+        expect(await fsp.readdir('out')).to.deep.equal([
+          'in1.jpg',
+          'in1__1.jpg',
+          'in2.jpg',
+          'in3.jpg',
+        ])
+      }),
+      180_000,
+    )
 
-        expect(
-          result.map((line) => line.msg).filter((msg) => String(msg).includes('in1.jpg')),
-        ).to.have.lengthOf(0)
+    it(
+      'should skip an explicit file output newer than its input',
+      testCase(async (client) => {
+        const infile = await imgPromise()
+        const steps = await stepsPromise()
+        const inputTime = new Date(Date.now() - 60_000)
+        await fsp.utimes(infile, inputTime, inputTime)
+        await assembliesCreate(new OutputCtl(), client, {
+          steps,
+          inputs: [infile],
+          output: 'out.jpg',
+        })
+        const originalOutput = await fsp.readFile('out.jpg')
+
+        const { results } = await assembliesCreate(new OutputCtl(), client, {
+          steps,
+          inputs: [infile],
+          output: 'out.jpg',
+        })
+
+        expect(results).to.have.lengthOf(0)
+        expect(await fsp.readFile('out.jpg')).to.deep.equal(originalOutput)
       }),
       180_000,
     )

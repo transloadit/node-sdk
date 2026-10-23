@@ -10,6 +10,7 @@ import {
   rm,
   stat,
   symlink,
+  unlink,
   utimes,
   writeFile,
 } from 'node:fs/promises'
@@ -316,10 +317,27 @@ it('reserves concurrent linked downloads together when input stems match', async
 })
 
 it.each([
-  { existing: false, expectedName: 'result.png', expectedFiles: ['result.png'] },
-  { existing: true, expectedName: 'result__1.png', expectedFiles: ['result.png', 'result__1.png'] },
-])('refreshes its owned watch result (preexisting output: $existing)', async ({
+  {
+    existing: false,
+    removeConflict: false,
+    expectedName: 'result.png',
+    expectedFiles: ['result.png'],
+  },
+  {
+    existing: true,
+    removeConflict: false,
+    expectedName: 'result__1.png',
+    expectedFiles: ['result.png', 'result__1.png'],
+  },
+  {
+    existing: true,
+    removeConflict: true,
+    expectedName: 'result__1.png',
+    expectedFiles: ['result__1.png'],
+  },
+])('refreshes its owned watch result (existing: $existing, removed: $removeConflict)', async ({
   existing,
+  removeConflict,
   expectedName,
   expectedFiles,
 }) => {
@@ -340,11 +358,15 @@ it.each([
   vi.resetModules()
   const { create } = await import('../../../src/cli/commands/assemblies.ts')
   let completions = 0
+  let resolveFirstCompletion: (() => void) | undefined
+  const firstCompletion = new Promise<void>((resolve) => {
+    resolveFirstCompletion = resolve
+  })
   const output = new OutputCtl()
   vi.spyOn(output, 'debug').mockImplementation((message) => {
     if (!String(message).startsWith('COMPLETED')) return
     completions += 1
-    if (completions === 1) watcher.emit('change', 'update', inputPath)
+    if (completions === 1) resolveFirstCompletion?.()
     else watcher.close()
   })
   nock('https://downloads.test')
@@ -353,19 +375,83 @@ it.each([
     .get('/result')
     .reply(200, 'updated result')
 
-  const result = await create(output, new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
+  const processing = create(output, new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
     inputs: [inputPath],
     output: `${outputDir}/`,
     watch: true,
     stepsData: { resized: { robot: '/image/resize', use: ':original', width: 16 } },
   })
+  await firstCompletion
+  if (removeConflict) await unlink(path.join(outputDir, 'result.png'))
+  watcher.emit('change', 'update', inputPath)
+  const result = await processing
 
   expect(result.hasFailures).toBe(false)
   expect(completions).toBe(2)
   expect(await readdir(outputDir)).toEqual(expectedFiles)
   expect(await readFile(path.join(outputDir, expectedName), 'utf8')).toBe('updated result')
-  if (existing)
+  if (existing && !removeConflict)
     expect(await readFile(path.join(outputDir, 'result.png'), 'utf8')).toBe('unrelated file')
+})
+
+it('keeps a watched HLS Step in its selected folder after the original conflict disappears', async () => {
+  const { inputPath, outputDir } = await fixture({
+    adaptive: [
+      { name: 'master.m3u8', url: 'https://downloads.test/master', meta: { relative_path: '' } },
+      {
+        name: 'segment.ts',
+        url: 'https://downloads.test/segment',
+        meta: { relative_path: 'video' },
+      },
+    ],
+  })
+  await mkdir(outputDir)
+  await writeFile(path.join(outputDir, 'master.m3u8'), 'unrelated file')
+  class FakeWatcher extends EventEmitter {
+    close(): void {
+      this.emit('close')
+    }
+  }
+  const watcher = new FakeWatcher()
+  vi.doMock('node-watch', () => ({ default: () => watcher }))
+  vi.resetModules()
+  const { create } = await import('../../../src/cli/commands/assemblies.ts')
+  let resolveFirstCompletion: (() => void) | undefined
+  const firstCompletion = new Promise<void>((resolve) => {
+    resolveFirstCompletion = resolve
+  })
+  let completions = 0
+  const output = new OutputCtl()
+  vi.spyOn(output, 'debug').mockImplementation((message) => {
+    if (!String(message).startsWith('COMPLETED')) return
+    if (++completions === 1) resolveFirstCompletion?.()
+    else watcher.close()
+  })
+  nock('https://downloads.test')
+    .get('/master')
+    .twice()
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/segment')
+    .reply(200, 'old segment')
+    .get('/segment')
+    .reply(200, 'new segment')
+
+  const processing = create(output, new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
+    inputs: [inputPath],
+    output: `${outputDir}/`,
+    watch: true,
+    stepsData: { adaptive: { robot: '/video/adaptive', use: ':original' } },
+  })
+  await firstCompletion
+  await unlink(path.join(outputDir, 'master.m3u8'))
+  watcher.emit('change', 'update', inputPath)
+
+  expect((await processing).hasFailures).toBe(false)
+  expect(completions).toBe(2)
+  expect(await readdir(outputDir)).toEqual(['adaptive'])
+  expect(await readFile(path.join(outputDir, 'adaptive', 'video', 'segment.ts'), 'utf8')).toBe(
+    'new segment',
+  )
 })
 
 it('accepts a standalone input and a directory containing the same basename', async () => {
