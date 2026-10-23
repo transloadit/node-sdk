@@ -637,23 +637,34 @@ function sanitizeResultName(value: string, fallback?: string): string {
   return name
 }
 
-interface DownloadPathReservations {
+interface OutputNameSensitivity {
+  caseSensitive: boolean
+  normalizationSensitive: boolean
+}
+
+interface DownloadPathReservations extends OutputNameSensitivity {
   allocations: PQueue
   bundleCommits: PQueue
-  caseSensitive: boolean
   directories: Set<string>
   ownersByPath: Map<string, string>
   pathsByOwner: Map<string, string>
 }
 
-async function outputNamesAreCaseSensitive(root: string): Promise<boolean> {
+async function outputNameSensitivity(root: string): Promise<OutputNameSensitivity> {
   await fsp.mkdir(root, { recursive: true })
-  const probe = await fsp.mkdtemp(path.join(root, '.transloadit-case-'))
-  try {
-    await fsp.writeFile(path.join(probe, 'case'), '')
-    const [error] = await tryCatch(fsp.lstat(path.join(probe, 'CASE')))
+  const probe = await fsp.mkdtemp(path.join(root, '.transloadit-names-'))
+  async function distinguishesNames(first: string, second: string): Promise<boolean> {
+    await fsp.writeFile(path.join(probe, first), '')
+    const [error] = await tryCatch(fsp.lstat(path.join(probe, second)))
     if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
     return error != null
+  }
+  try {
+    // Assume this tree shares the root's naming rules; nested filesystems are tracked in #615.
+    return {
+      caseSensitive: await distinguishesNames('case', 'CASE'),
+      normalizationSensitive: await distinguishesNames('\u00e9', 'e\u0301'),
+    }
   } finally {
     await fsp.rm(probe, { recursive: true, force: true })
   }
@@ -661,7 +672,8 @@ async function outputNamesAreCaseSensitive(root: string): Promise<boolean> {
 
 function downloadPathKey(target: string, reservedPaths: DownloadPathReservations): string {
   const absolutePath = path.resolve(target)
-  return reservedPaths.caseSensitive ? absolutePath : absolutePath.normalize('NFC').toLowerCase()
+  const folded = reservedPaths.caseSensitive ? absolutePath : absolutePath.toLowerCase()
+  return reservedPaths.normalizationSensitive ? folded : folded.normalize('NFC')
 }
 
 function hasReservedFileAncestor(target: string, reservedPaths: DownloadPathReservations): boolean {
@@ -911,11 +923,8 @@ function groupDirectoryResults(allFiles: NormalizedAssemblyResultFile[]): Direct
       const sourceId = JSON.stringify(source?.original_id ?? null)
       const name = source?.original_name ?? source?.original_basename ?? null
       const group = sources.get(sourceId) ?? {
-        // A path and a fallback name with identical text still describe different sources.
-        identity: JSON.stringify([
-          source?.original_path ?? null,
-          source?.original_path == null ? name : null,
-        ]),
+        // original_path can be a shared directory, so the source filename is also required.
+        identity: JSON.stringify([source?.original_path ?? null, name]),
         name,
         files: [],
       }
@@ -937,8 +946,8 @@ function groupDirectoryResults(allFiles: NormalizedAssemblyResultFile[]): Direct
               ? sanitizeResultName(path.parse(name ?? stepName).name, stepName)
               : null,
           files: groupFiles,
-          // Upload IDs change between watch runs. Original paths distinguish same-named sources
-          // even when results arrive in a different order; names are the metadata fallback.
+          // Upload IDs change between watch runs. Paths and names keep source ownership stable
+          // even when results arrive in a different order.
           ownerKey: JSON.stringify([identity, occurrence, linked]),
           stepName,
         })
@@ -1889,10 +1898,10 @@ async function createWithLocalInputs(
   hasFailures: boolean
 }> {
   const { effectiveStepsData, hasDirectoryInput, outstat, resolvedOutput } = preparedOptions
-  const caseSensitive =
+  const nameSensitivity =
     resolvedOutput != null && outstat?.isDirectory()
-      ? await outputNamesAreCaseSensitive(resolvedOutput)
-      : true
+      ? await outputNameSensitivity(resolvedOutput)
+      : { caseSensitive: true, normalizationSensitive: true }
 
   return new Promise((resolve, reject) => {
     const params: CreateAssemblyParams = (
@@ -1931,7 +1940,7 @@ async function createWithLocalInputs(
     const reservedResultPaths: DownloadPathReservations = {
       allocations: new PQueue({ concurrency: 1 }),
       bundleCommits: new PQueue({ concurrency: 1 }),
-      caseSensitive,
+      ...nameSensitivity,
       directories: new Set(),
       ownersByPath: new Map(),
       pathsByOwner: new Map(),

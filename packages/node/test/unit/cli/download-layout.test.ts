@@ -308,7 +308,11 @@ it.each([
     ],
   }
   vi.mocked(Transloadit.prototype.awaitAssemblyCompletion)
-    .mockResolvedValueOnce({ ok: 'ASSEMBLY_COMPLETED', results: fileFirst ? single : multi })
+    .mockImplementationOnce(async () => {
+      // Finish the second job first unless the CLI is explicitly asked to run serially.
+      await new Promise((resolve) => setTimeout(resolve, 60))
+      return { ok: 'ASSEMBLY_COMPLETED', results: fileFirst ? single : multi }
+    })
     .mockResolvedValueOnce({ ok: 'ASSEMBLY_COMPLETED', results: fileFirst ? multi : single })
   nock('https://downloads.test')
     .get('/pdf')
@@ -324,6 +328,8 @@ it.each([
       fileFirst ? singleInput : multiInput,
       '-i',
       fileFirst ? multiInput : singleInput,
+      '--concurrency',
+      '1',
     ]),
   ).toBe(0)
   expect(
@@ -454,35 +460,69 @@ it('stages HLS files on their destination filesystem', async () => {
   expect(await readFile(path.join(outputDir, 'video', 'segment.ts'), 'utf8')).toBe('stream bytes')
 })
 
-it('keeps concurrent case-only result names separate on case-insensitive filesystems', async () => {
+it.each([
+  {
+    firstName: 'Photo.jpg',
+    secondName: 'photo.jpg',
+    caseSensitive: false,
+    normalizationSensitive: true,
+  },
+  {
+    firstName: '\u0390.jpg',
+    secondName: '\u03aa\u0301.jpg',
+    caseSensitive: false,
+    normalizationSensitive: false,
+  },
+  {
+    firstName: '\u00e9.jpg',
+    secondName: 'e\u0301.jpg',
+    caseSensitive: true,
+    normalizationSensitive: false,
+  },
+])('keeps concurrent equivalent result names separate ($firstName, $secondName)', async ({
+  firstName,
+  secondName,
+  caseSensitive,
+  normalizationSensitive,
+}) => {
   const { inputPath, outputDir, run } = await fixture({})
   const secondInput = path.join(path.dirname(inputPath), 'second.png')
   await writeFile(secondInput, 'second input')
   vi.mocked(Transloadit.prototype.awaitAssemblyCompletion)
     .mockResolvedValueOnce({
       ok: 'ASSEMBLY_COMPLETED',
-      results: { resized: [{ name: 'Photo.jpg', url: 'https://downloads.test/first' }] },
+      results: { resized: [{ name: firstName, url: 'https://downloads.test/first' }] },
     })
     .mockResolvedValueOnce({
       ok: 'ASSEMBLY_COMPLETED',
-      results: { resized: [{ name: 'photo.jpg', url: 'https://downloads.test/second' }] },
+      results: { resized: [{ name: secondName, url: 'https://downloads.test/second' }] },
     })
-  async function resolveCaseInsensitivePath(value: fs.PathLike): Promise<fs.PathLike> {
+  function filenameKey(name: string): string {
+    const folded = caseSensitive ? name : name.toLowerCase()
+    return normalizationSensitive ? folded : folded.normalize('NFC')
+  }
+  async function resolveEquivalentPath(
+    value: fs.PathLike,
+    requireExisting = false,
+  ): Promise<fs.PathLike> {
     if (typeof value !== 'string') return value
     const [error, siblings] = await tryCatch(readdir(path.dirname(value)))
     if (error) {
       if ('code' in error && error.code === 'ENOENT') return value
       throw error
     }
-    const match = siblings.find((name) => name.toLowerCase() === path.basename(value).toLowerCase())
+    const match = siblings.find((name) => filenameKey(name) === filenameKey(path.basename(value)))
+    if (match == null && requireExisting) {
+      throw Object.assign(new Error('No equivalent filename'), { code: 'ENOENT' })
+    }
     return match == null ? value : path.join(path.dirname(value), match)
   }
   const { lstat, rename } = fs.promises
   vi.spyOn(fs.promises, 'lstat').mockImplementation(
-    async (target, ...args) => await lstat(await resolveCaseInsensitivePath(target), ...args),
+    async (target, ...args) => await lstat(await resolveEquivalentPath(target, true), ...args),
   )
   vi.spyOn(fs.promises, 'rename').mockImplementation(
-    async (source, target) => await rename(source, await resolveCaseInsensitivePath(target)),
+    async (source, target) => await rename(source, await resolveEquivalentPath(target)),
   )
   nock('https://downloads.test')
     .get('/first')
@@ -493,9 +533,13 @@ it('keeps concurrent case-only result names separate on case-insensitive filesys
     .reply(200, 'second result')
 
   expect(await run(['-i', inputPath, '-i', secondInput, '--concurrency', '2'])).toBe(0)
-  expect(await readdir(outputDir)).toEqual(['Photo.jpg', 'photo__1.jpg'])
-  expect(await readFile(path.join(outputDir, 'Photo.jpg'), 'utf8')).toBe('first result')
-  expect(await readFile(path.join(outputDir, 'photo__1.jpg'), 'utf8')).toBe('second result')
+  const { name, ext } = path.parse(secondName)
+  const secondOutput = `${name}__1${ext}`
+  expect((await readdir(outputDir)).map((value) => value.normalize('NFC')).sort()).toEqual(
+    [firstName, secondOutput].map((value) => value.normalize('NFC')).sort(),
+  )
+  expect(await readFile(path.join(outputDir, firstName), 'utf8')).toBe('first result')
+  expect(await readFile(path.join(outputDir, secondOutput), 'utf8')).toBe('second result')
 })
 
 it.each([
@@ -945,15 +989,41 @@ it('keeps a watched HLS Step in its selected folder after the original conflict 
 })
 
 it.each([
-  { firstPath: 'first/clip.mp4', secondPath: 'second/clip.mp4' },
-  { firstPath: 'clip.mp4', secondPath: undefined },
+  {
+    firstPath: 'first/clip.mp4',
+    secondPath: 'second/clip.mp4',
+    firstName: 'clip.mp4',
+    secondName: 'clip.mp4',
+    firstDir: 'clip',
+    secondDir: 'clip__1',
+  },
+  {
+    firstPath: 'clip.mp4',
+    secondPath: undefined,
+    firstName: 'clip.mp4',
+    secondName: 'clip.mp4',
+    firstDir: 'clip',
+    secondDir: 'clip__1',
+  },
+  {
+    firstPath: '/',
+    secondPath: '/',
+    firstName: 'first.mp4',
+    secondName: 'second.mp4',
+    firstDir: 'first',
+    secondDir: 'second',
+  },
 ])('keeps watched HLS source paths attached to their folders (paths: $firstPath, $secondPath)', async ({
   firstPath,
   secondPath,
+  firstName,
+  secondName,
+  firstDir,
+  secondDir,
 }) => {
   const firstMaster = {
     original_id: 'first-old',
-    original_name: 'clip.mp4',
+    original_name: firstName,
     original_path: firstPath,
     name: 'master.m3u8',
     url: 'https://downloads.test/first-master',
@@ -968,12 +1038,14 @@ it.each([
   const secondMaster = {
     ...firstMaster,
     original_id: 'second-old',
+    original_name: secondName,
     original_path: secondPath,
     url: 'https://downloads.test/second-master',
   }
   const secondSegment = {
     ...firstSegment,
     original_id: 'second-old',
+    original_name: secondName,
     original_path: secondPath,
     url: 'https://downloads.test/second-segment',
   }
@@ -1036,10 +1108,10 @@ it.each([
   })
   expect(result.hasFailures).toBe(false)
   expect(completions).toBe(2)
-  expect(await readFile(path.join(outputDir, 'clip', 'video', 'segment.ts'), 'utf8')).toBe(
+  expect(await readFile(path.join(outputDir, firstDir, 'video', 'segment.ts'), 'utf8')).toBe(
     'first updated',
   )
-  expect(await readFile(path.join(outputDir, 'clip__1', 'video', 'segment.ts'), 'utf8')).toBe(
+  expect(await readFile(path.join(outputDir, secondDir, 'video', 'segment.ts'), 'utf8')).toBe(
     'second updated',
   )
 })
