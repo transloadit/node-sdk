@@ -627,10 +627,11 @@ async function downloadResultToStdout(resultUrl: string, signal: AbortSignal): P
   await pipeline(got.stream(resultUrl, { signal }), stdoutStream)
 }
 
-function sanitizeResultName(value: string): string {
+function sanitizeResultName(value: string, fallback?: string): string {
   const base = path.basename(value)
   const name = base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
   if (name === '' || name === '.' || name === '..') {
+    if (fallback != null) return sanitizeResultName(fallback)
     throw new Error('Assembly result has an unsafe name')
   }
   return name
@@ -826,6 +827,18 @@ async function isDownloadPathTaken(
   return error == null
 }
 
+async function prepareDownloadDirectory(
+  root: string,
+  target: string,
+  reservedPaths: DownloadPathReservations,
+): Promise<void> {
+  await assertNoOutputSymlinks(root, target)
+  if (hasReservedFileAncestor(target, reservedPaths)) {
+    throw new Error('Output directory conflicts with a result file')
+  }
+  await fsp.mkdir(target, { recursive: true })
+}
+
 const STALE_OUTPUT_GRACE_MS = 1000
 
 function isMeaningfullyNewer(newer: Date, older: Date): boolean {
@@ -884,7 +897,7 @@ function groupDirectoryResults(allFiles: NormalizedAssemblyResultFile[]): Direct
       nameOccurrences.set(name, occurrence + 1)
       groups.push({
         directoryName:
-          sources.size > 1 ? sanitizeResultName(path.parse(name ?? stepName).name) : null,
+          sources.size > 1 ? sanitizeResultName(path.parse(name ?? stepName).name, stepName) : null,
         files,
         // Upload IDs change between watch runs; source names retain logical ownership.
         ownerKey: JSON.stringify([name, occurrence]),
@@ -910,11 +923,7 @@ async function buildDirectoryDownloadTargets({
   outputRoot: string
   reservedPaths: DownloadPathReservations
 }): Promise<AssemblyDownloadTarget[]> {
-  await assertNoOutputSymlinks(outputRoot, baseDir)
-  if (hasReservedFileAncestor(baseDir, reservedPaths)) {
-    throw new Error('Output directory conflicts with a result file')
-  }
-  await fsp.mkdir(baseDir, { recursive: true })
+  await prepareDownloadDirectory(outputRoot, baseDir, reservedPaths)
 
   const targets: AssemblyDownloadTarget[] = []
   for (const { directoryName, files, ownerKey, stepName } of groupDirectoryResults(allFiles)) {
@@ -941,6 +950,10 @@ async function buildDirectoryDownloadTargets({
     }
 
     if (linked) {
+      // Source folders share this parent, so changing their suffix cannot fix a blocked parent.
+      if (directoryName != null) {
+        await prepareDownloadDirectory(outputRoot, path.dirname(targetDir), reservedPaths)
+      }
       const initialDir = targetDir
       // Selection and reservation share the same lock as ordinary result paths. A bundle must
       // move together on collisions, while later watch updates reuse its owned destinations.
@@ -983,10 +996,7 @@ async function buildDirectoryDownloadTargets({
       })
     }
 
-    if (hasReservedFileAncestor(targetDir, reservedPaths)) {
-      throw new Error('Output directory conflicts with a result file')
-    }
-    await fsp.mkdir(targetDir, { recursive: true })
+    await prepareDownloadDirectory(outputRoot, targetDir, reservedPaths)
     const nameOccurrences = new Map<string, number>()
     for (const [index, { file }] of files.entries()) {
       const name = names[index]
@@ -1762,30 +1772,44 @@ export async function create(
   options: AssembliesCreateOptions,
 ): ReturnType<typeof createWithLocalInputs> {
   const preparedOptions = await prepareCreateOptions(outputctl, options)
-  const urlInputs = options.inputs.filter(isUrlInput)
-  if (urlInputs.length === 0)
+  if (!options.inputs.some(isUrlInput))
     return await createWithLocalInputs(outputctl, client, options, preparedOptions)
   if (options.watch) throw new Error('--watch requires local inputs')
 
-  const prepared = await prepareInputFiles({
-    inputFiles: urlInputs.map((url, index) => ({ kind: 'url', field: String(index), url })),
-    allowPrivateUrls: false,
-    // Uploading the bytes preserves :original and Template upload semantics, just as Intents do.
-    urlStrategy: 'download',
-  })
-  const localPaths = new Map(urlInputs.map((url, index) => [url, prepared.files[String(index)]]))
+  const preparedInputs: Array<Awaited<ReturnType<typeof prepareInputFiles>>> = []
+  const localInputs: string[] = []
   try {
+    for (const [index, input] of options.inputs.entries()) {
+      if (!isUrlInput(input)) {
+        localInputs.push(input)
+        continue
+      }
+      const field = String(index)
+      // Separate staging roots protect case-only filenames and repeated URLs from aliasing.
+      const prepared = await prepareInputFiles({
+        inputFiles: [{ kind: 'url', field, url: input }],
+        allowPrivateUrls: false,
+        // Uploading preserves :original and Template semantics, just as Intents do.
+        urlStrategy: 'download',
+      })
+      preparedInputs.push(prepared)
+      const localPath = prepared.files[field]
+      if (localPath == null) throw new Error('URL input could not be prepared')
+      localInputs.push(localPath)
+    }
     return await createWithLocalInputs(
       outputctl,
       client,
       {
         ...options,
-        inputs: options.inputs.map((input) => localPaths.get(input) ?? input),
+        inputs: localInputs,
       },
       preparedOptions,
     )
   } finally {
-    await Promise.all(prepared.cleanup.map((cleanup) => cleanup()))
+    await Promise.all(
+      preparedInputs.flatMap((prepared) => prepared.cleanup.map((cleanup) => cleanup())),
+    )
   }
 }
 
