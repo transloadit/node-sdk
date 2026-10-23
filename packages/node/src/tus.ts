@@ -1,16 +1,17 @@
 import type { Readable } from 'node:stream'
 
-import type { OnSuccessPayload, UploadOptions } from 'tus-js-client'
+import type { FileSource, OnSuccessPayload, SliceResult, UploadOptions } from 'tus-js-client'
 
 import type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 import type { UploadProgress } from './Transloadit.ts'
 
+import { ReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 
 import debug from 'debug'
 import pMap from 'p-map'
-import { Upload } from 'tus-js-client'
+import { defaultOptions, Upload } from 'tus-js-client'
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
@@ -31,6 +32,7 @@ interface SendTusRequestOptions {
   signal?: AbortSignal
   uploadUrls?: Record<string, string>
   uploadBehavior?: UploadBehavior
+  onFileStreamOpened?: (stream: ReadStream) => void
 }
 
 export async function sendTusRequest({
@@ -42,6 +44,7 @@ export async function sendTusRequest({
   signal,
   uploadUrls,
   uploadBehavior = 'await',
+  onFileStreamOpened,
 }: SendTusRequestOptions) {
   const streamLabels = Object.keys(streamsMap)
 
@@ -217,6 +220,28 @@ export async function sendTusRequest({
             resolveCompletion()
           }
         },
+      }
+      if (path && onFileStreamOpened) {
+        // tus opens a separate ReadStream for each chunk; abort() leaves those streams open.
+        tusOptions.fileReader = {
+          async openFile(input: unknown, chunkSize: number): Promise<FileSource> {
+            const source = await defaultOptions.fileReader.openFile(input, chunkSize)
+            return {
+              size: source.size,
+              async slice(start: number, end: number): Promise<SliceResult> {
+                if (signal?.aborted) throw new Error('Upload aborted')
+                const chunk = await source.slice(start, end)
+                // tus-js-client declares platform-specific chunk values as any.
+                const value: unknown = chunk.value
+                if (value instanceof ReadStream) onFileStreamOpened(value)
+                return chunk
+              },
+              close() {
+                source.close()
+              },
+            }
+          },
+        }
       }
       // tus-js-client doesn't like undefined/null
       if (size != null) tusOptions.uploadSize = size

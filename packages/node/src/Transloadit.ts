@@ -245,13 +245,13 @@ const toReadableUpload = (label: string, value: Readable | IntoStreamInput): Rea
 
 const buildStreamsMap = (
   descriptors: UploadDescriptor[],
-  openedFileStreams?: ReadStream[],
+  onFileStreamOpened?: (stream: ReadStream) => void,
 ): Record<string, Stream> =>
   Object.fromEntries(
     descriptors.map((descriptor) => {
       if (descriptor.path) {
         const stream = createReadStream(descriptor.path)
-        openedFileStreams?.push(stream)
+        onFileStreamOpened?.(stream)
         return [descriptor.label, { stream, path: descriptor.path }]
       }
 
@@ -711,7 +711,7 @@ export class Transloadit {
       assemblyId,
       expectedUploads,
       onAssemblyCreated,
-      signal,
+      signal: callerSignal,
       uploadBehavior = 'await',
     } = opts
 
@@ -728,7 +728,15 @@ export class Transloadit {
       effectiveAssemblyId = randomUUID().replace(/-/g, '')
     }
     const urlSuffix = `/assemblies/${effectiveAssemblyId}`
-    const openedFileStreams: ReadStream[] = []
+    const uploadAbort = new AbortController()
+    const signal = callerSignal
+      ? AbortSignal.any([callerSignal, uploadAbort.signal])
+      : uploadAbort.signal
+    const openedFileStreams = new Set<ReadStream>()
+    const onFileStreamOpened = (stream: ReadStream): void => {
+      openedFileStreams.add(stream)
+      stream.once('close', () => openedFileStreams.delete(stream))
+    }
 
     // We want to be able to return the promise immediately with custom data
     const promise = (async () => {
@@ -753,7 +761,7 @@ export class Transloadit {
         })),
       ]
 
-      const allStreamsMap = buildStreamsMap(descriptors, openedFileStreams)
+      const allStreamsMap = buildStreamsMap(descriptors, onFileStreamOpened)
 
       const allStreams = Object.values(allStreamsMap)
 
@@ -794,6 +802,7 @@ export class Transloadit {
             uploadConcurrency,
             signal,
             uploadBehavior,
+            onFileStreamOpened,
           })
           if (uploadBehavior !== 'await' && Object.keys(uploadUrls).length > 0) {
             result.upload_urls = uploadUrls
@@ -820,15 +829,18 @@ export class Transloadit {
 
       return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
     })().catch(async (error: unknown) => {
+      uploadAbort.abort()
       // File descriptors must be closed before callers can remove their temporary files.
       // Destroyed, unread streams reject finished(); cleanup must preserve the creation error.
-      await Promise.allSettled(
-        openedFileStreams.map((stream) => {
-          const closed = finished(stream, { cleanup: true })
-          stream.destroy()
-          return closed
-        }),
-      )
+      while (openedFileStreams.size > 0) {
+        await Promise.allSettled(
+          [...openedFileStreams].map((stream) => {
+            const closed = finished(stream, { cleanup: true })
+            stream.destroy()
+            return closed
+          }),
+        )
+      }
       throw error
     })
 

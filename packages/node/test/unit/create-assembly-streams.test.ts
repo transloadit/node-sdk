@@ -1,5 +1,6 @@
 import type { ReadStream } from 'node:fs'
 
+import fs from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -22,7 +23,7 @@ vi.mock('node:fs', async (importOriginal) => {
   }
 })
 
-const openedStreams: ReadStream[] = []
+const openedStreams = vi.hoisted((): ReadStream[] => [])
 const endpoint = 'http://assembly.test'
 
 describe('createAssembly file stream cleanup', () => {
@@ -45,6 +46,7 @@ describe('createAssembly file stream cleanup', () => {
       openedStreams.map((stream) => new Promise<void>((resolve) => stream.close(() => resolve()))),
     )
     await rm(directory, { recursive: true, force: true })
+    vi.restoreAllMocks()
   })
 
   it('closes every local file stream before a failed creation settles', async () => {
@@ -90,6 +92,43 @@ describe('createAssembly file stream cleanup', () => {
     expect(openedStreams).toHaveLength(2)
     expect(openedStreams.map((stream) => stream.closed)).toEqual([true, true])
     invalidUpload.destroy()
+  })
+
+  it('closes tus chunk streams before an upload abort settles', async () => {
+    const createReadStream = fs.createReadStream
+    vi.spyOn(fs, 'createReadStream').mockImplementation((...args) => {
+      const stream = createReadStream(...args)
+      openedStreams.push(stream)
+      return stream
+    })
+    await writeFile(join(directory, 'first.txt'), Buffer.alloc(4 * 1024 * 1024))
+    const controller = new AbortController()
+    const creation = nock(endpoint)
+      .post(/\/assemblies\/[a-f\d]{32}$/)
+      .reply(200, {
+        ok: 'ASSEMBLY_UPLOADING',
+        assembly_url: `${endpoint}/assemblies/test`,
+        assembly_ssl_url: `${endpoint}/assemblies/test`,
+        tus_url: `${endpoint}/tus/`,
+      })
+    nock(endpoint)
+      .post('/tus/')
+      .reply(201, '', { Location: `${endpoint}/tus/file` })
+      .patch('/tus/file')
+      .reply(204, '', { 'Upload-Offset': String(4 * 1024 * 1024) })
+
+    await expect(
+      client.createAssembly({
+        files,
+        signal: controller.signal,
+        uploadConcurrency: 1,
+        onUploadProgress: () => controller.abort(),
+      }),
+    ).rejects.toThrow(/aborted/i)
+
+    creation.done()
+    expect(openedStreams).toHaveLength(3)
+    expect(openedStreams.map((stream) => stream.closed)).toEqual([true, true, true])
   })
 
   it('closes files overwritten by an upload label while preserving caller-owned streams', async () => {
