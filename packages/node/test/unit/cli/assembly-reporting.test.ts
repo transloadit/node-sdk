@@ -139,6 +139,47 @@ describe('Assembly reporting', () => {
     })
   })
 
+  it('limits ignored-error JSON to diagnostic fields and safe structured errors', async () => {
+    mockAssembly()
+    vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      ignored_errors: [
+        {
+          step: 'stored',
+          phase: 'export',
+          error: 'ACCESS_DENIED',
+          message: 'Storage refused access.',
+          request: { headers: { authorization: 'credential' } },
+        },
+        {
+          step: 'imported',
+          error: {
+            code: 'FETCH_ERROR',
+            message: 'Could not fetch the input.',
+            params: { auth: { secret: 'credential' } },
+          },
+        },
+        { phase: 'meta', error: [{ secret: 'credential' }] },
+      ],
+      results: {},
+    })
+
+    const result = await run(['--template', 'template', '-j'])
+
+    expect(result.code).toBe(0)
+    expect(JSON.parse(result.stdout)).toMatchObject({ ignored_error_count: 3 })
+    expect(JSON.parse(result.stdout).ignored_errors).toEqual([
+      {
+        step: 'stored',
+        phase: 'export',
+        error: 'ACCESS_DENIED',
+        message: 'Storage refused access.',
+      },
+      { step: 'imported', error: { code: 'FETCH_ERROR', message: 'Could not fetch the input.' } },
+      { phase: 'meta' },
+    ])
+  })
+
   it('uses the error list length when no ignored error count is supplied', async () => {
     mockAssembly()
     vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({

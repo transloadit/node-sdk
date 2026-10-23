@@ -51,7 +51,7 @@ import { formatAPIError, readCliInput } from '../helpers.ts'
 import { normalizeAssemblyResults } from '../resultFiles.ts'
 import { collectNormalizedResultUrlRows, printResultUrls } from '../resultUrls.ts'
 import { parseStepsInputJson, readStepsInputFile } from '../stepsInput.ts'
-import { ensureError, isErrnoException } from '../types.ts'
+import { ensureError, ignoredErrorDetailsSchema, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
 // --- From assemblies.ts: Schemas and interfaces ---
@@ -1534,7 +1534,12 @@ export async function create(
         throw new Error(`${message} (${assemblyReference})`, { cause: error })
       }
 
-      const ignoredErrors = assembly.ignored_errors ?? []
+      const ignoredErrors = (assembly.ignored_errors ?? []).map((ignored) => ({
+        step: ignored.step,
+        phase: ignored.phase,
+        error: ignoredErrorDetailsSchema.parse(ignored.error),
+        message: ignored.message,
+      }))
       const ignoredErrorCount = Math.max(assembly.ignored_error_count ?? 0, ignoredErrors.length)
       const summary: AssemblySummary = {
         assembly_id: assemblyId,

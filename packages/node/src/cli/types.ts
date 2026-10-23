@@ -3,6 +3,18 @@ import type { Steps } from '../alphalib/types/template.ts'
 
 import { z } from 'zod'
 
+/** Ignored-error values permitted in CLI diagnostics, excluding request metadata. */
+export const ignoredErrorDetailsSchema = z
+  .union([z.string(), z.object({ code: z.string().optional(), message: z.string().optional() })])
+  .optional()
+  .catch(undefined)
+
+/** An ignored-error diagnostic with request metadata omitted. */
+export type IgnoredErrorSummary = Pick<
+  NonNullable<AssemblyStatus['ignored_errors']>[number],
+  'step' | 'phase' | 'message'
+> & { error?: z.infer<typeof ignoredErrorDetailsSchema> }
+
 /** Public diagnostics from one Assembly, excluding instructions and request internals. */
 export type AssemblySummary = Pick<
   AssemblyStatus,
@@ -12,9 +24,8 @@ export type AssemblySummary = Pick<
   | 'ok'
   | 'error'
   | 'message'
-  | 'ignored_errors'
   | 'ignored_error_count'
->
+> & { ignored_errors?: IgnoredErrorSummary[] }
 
 // Zod schemas for runtime validation
 const APIErrorSchema = z.object({
