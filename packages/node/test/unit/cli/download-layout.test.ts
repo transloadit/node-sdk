@@ -122,12 +122,21 @@ it('keeps every HLS playlist reference reachable from its downloaded playlist', 
   )
 })
 
-it('separates independent HLS bundles with identical paths in one Assembly Step', async () => {
+it.each([
+  { firstName: 'first.mp4', secondName: 'second.mp4', firstDir: 'first', secondDir: 'second' },
+  { firstName: 'clip.mp4', secondName: 'clip.mp4', firstDir: 'clip', secondDir: 'clip__1' },
+  { firstName: '...', secondName: '...', firstDir: 'adaptive', secondDir: 'adaptive__1' },
+])('separates independent HLS bundles (sources: $firstName, $secondName)', async ({
+  firstName,
+  secondName,
+  firstDir,
+  secondDir,
+}) => {
   const firstMaster = {
     name: 'master.m3u8',
     url: 'https://downloads.test/first-master',
     original_id: 'first-source',
-    original_name: 'first.mp4',
+    original_name: firstName,
     meta: { relative_path: '' },
   }
   const firstSegment = {
@@ -140,7 +149,7 @@ it('separates independent HLS bundles with identical paths in one Assembly Step'
     ...firstMaster,
     url: 'https://downloads.test/second-master',
     original_id: 'second-source',
-    original_name: 'second.mp4',
+    original_name: secondName,
   }
   const secondSegment = {
     ...secondMaster,
@@ -164,19 +173,80 @@ it('separates independent HLS bundles with identical paths in one Assembly Step'
     .reply(200, 'second stream')
 
   expect(await run(['--single-assembly', '-i', inputPath, '-i', secondInput])).toBe(0)
-  expect(await readdir(outputDir)).toEqual(['first', 'second'])
-  expect(await readFile(path.join(outputDir, 'first', 'master.m3u8'), 'utf8')).toBe(
+  expect(await readdir(outputDir)).toEqual([firstDir, secondDir])
+  expect(await readFile(path.join(outputDir, firstDir, 'master.m3u8'), 'utf8')).toBe(
     '#EXTM3U\nvideo/segment.ts\n',
   )
-  expect(await readFile(path.join(outputDir, 'first', 'video', 'segment.ts'), 'utf8')).toBe(
+  expect(await readFile(path.join(outputDir, firstDir, 'video', 'segment.ts'), 'utf8')).toBe(
     'first stream',
   )
-  expect(await readFile(path.join(outputDir, 'second', 'master.m3u8'), 'utf8')).toBe(
+  expect(await readFile(path.join(outputDir, secondDir, 'master.m3u8'), 'utf8')).toBe(
     '#EXTM3U\nvideo/segment.ts\n',
   )
-  expect(await readFile(path.join(outputDir, 'second', 'video', 'segment.ts'), 'utf8')).toBe(
+  expect(await readFile(path.join(outputDir, secondDir, 'video', 'segment.ts'), 'utf8')).toBe(
     'second stream',
   )
+})
+
+it('fails promptly when a file blocks the parent of grouped HLS source folders', async () => {
+  const first = {
+    name: 'master.m3u8',
+    url: 'https://downloads.test/master',
+    original_id: 'first',
+    original_name: 'first.mp4',
+    meta: { relative_path: '' },
+  }
+  const second = { ...first, original_id: 'second', original_name: 'second.mp4' }
+  const { outputDir, run } = await fixture({ adaptive: [first, second] })
+  await mkdir(outputDir)
+  await writeFile(path.join(outputDir, 'adaptive'), 'existing file')
+  const lstat = fs.promises.lstat
+  let probes = 0
+  vi.spyOn(fs.promises, 'lstat').mockImplementation(async (...args) => {
+    probes += 1
+    if (probes > 40) throw new Error('Filesystem probe budget exceeded')
+    return await lstat(...args)
+  })
+
+  expect(await run(['--single-assembly'])).toBe(1)
+  expect(probes).toBeLessThan(20)
+  expect(await readFile(path.join(outputDir, 'adaptive'), 'utf8')).toBe('existing file')
+})
+
+it.each([
+  'photo.png',
+  'Photo.png',
+])('keeps URL uploads separate (second filename: %s)', async (secondName) => {
+  const { run } = await fixture({})
+  const uploadPaths: string[] = []
+  const uploadBytes: string[] = []
+  vi.mocked(Transloadit.prototype.createAssembly).mockImplementation(async ({ files }) => {
+    const uploadedPath = Object.values(files ?? {})[0]
+    if (uploadedPath == null) throw new Error('Missing upload path')
+    uploadPaths.push(uploadedPath)
+    uploadBytes.push(await readFile(uploadedPath, 'utf8'))
+    return { assembly_id: 'url-upload' }
+  })
+  nock('https://source.invalid')
+    .get('/Photo.png')
+    .reply(200, 'first input')
+    .get(`/${secondName}`)
+    .reply(200, 'second input')
+
+  expect(
+    await run([
+      '-i',
+      'https://source.invalid/Photo.png',
+      '-i',
+      `https://source.invalid/${secondName}`,
+    ]),
+  ).toBe(0)
+  expect(uploadPaths).toHaveLength(2)
+  expect(new Set(uploadPaths.map((file) => file.normalize('NFC').toLowerCase())).size).toBe(2)
+  expect(uploadBytes.sort()).toEqual(['first input', 'second input'])
+  for (const uploadedPath of uploadPaths) {
+    await expect(stat(uploadedPath)).rejects.toHaveProperty('code', 'ENOENT')
+  }
 })
 
 it('rejects duplicate paths within a single HLS bundle', async () => {
