@@ -520,6 +520,8 @@ async function createExistingPathOutputPlan(outputPath: string | undefined): Pro
 }
 
 function dirProvider(output: string): OutputPlanProvider {
+  const namesByInput = new Map<string, string>()
+  const usedNames = new Set<string>()
   return async (inpath, indir) => {
     if (inpath == null) {
       return await createExistingPathOutputPlan(output)
@@ -528,7 +530,18 @@ function dirProvider(output: string): OutputPlanProvider {
       throw new Error('You must provide an input to output to a directory')
     }
 
-    const relpath = indir == null ? path.basename(inpath) : path.relative(indir, inpath)
+    let relpath = indir == null ? namesByInput.get(inpath) : path.relative(indir, inpath)
+    if (relpath == null) {
+      const parsed = path.parse(inpath)
+      relpath = await ensureUniqueCounterValue({
+        initialValue: parsed.base,
+        isTaken: (candidate) => usedNames.has(candidate),
+        reserve: (candidate) => usedNames.add(candidate),
+        nextValue: (counter) => `${parsed.name}__${counter}${parsed.ext}`,
+        scope: usedNames,
+      })
+      namesByInput.set(inpath, relpath)
+    }
     const outpath = path.join(output, relpath)
     return await createExistingPathOutputPlan(outpath)
   }
@@ -617,13 +630,19 @@ function sanitizeResultName(value: string): string {
   return name
 }
 
-async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>): Promise<string> {
+async function ensureUniquePath(
+  targetPath: string,
+  reservedPaths: Map<string, string>,
+  owner: string,
+  overwriteExisting: boolean,
+): Promise<string> {
   const parsed = path.parse(targetPath)
   return await ensureUniqueCounterValue({
     initialValue: targetPath,
-    isTaken: async (candidate) => await isDownloadPathTaken(candidate, reservedPaths),
+    isTaken: async (candidate) =>
+      await isDownloadPathTaken(candidate, reservedPaths, owner, overwriteExisting),
     reserve: (candidate) => {
-      reservedPaths.add(candidate)
+      reservedPaths.set(candidate, owner)
     },
     nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
     scope: reservedPaths,
@@ -663,6 +682,8 @@ interface AssemblyDownloadTarget {
 
 async function assertNoOutputSymlinks(root: string, target: string): Promise<void> {
   const relativePath = path.relative(root, target)
+  // The caller explicitly selected the root; only descendants come from result/input metadata.
+  if (relativePath === '') return
   if (
     relativePath.startsWith(`..${path.sep}`) ||
     relativePath === '..' ||
@@ -676,7 +697,7 @@ async function assertNoOutputSymlinks(root: string, target: string): Promise<voi
     current = path.join(current, part)
     const [error, stats] = await tryCatch(fsp.lstat(current))
     if (error) {
-      if (isErrnoException(error) && error.code === 'ENOENT') return
+      if (isErrnoException(error) && (error.code === 'ENOENT' || error.code === 'ENOTDIR')) return
       throw error
     }
     if (stats.isSymbolicLink()) {
@@ -685,9 +706,17 @@ async function assertNoOutputSymlinks(root: string, target: string): Promise<voi
   }
 }
 
-async function isDownloadPathTaken(target: string, reservedPaths: Set<string>): Promise<boolean> {
-  if (reservedPaths.has(target)) return true
+async function isDownloadPathTaken(
+  target: string,
+  reservedPaths: Map<string, string>,
+  owner: string,
+  overwriteExisting = false,
+): Promise<boolean> {
+  const existingOwner = reservedPaths.get(target)
+  if (existingOwner != null) return existingOwner !== owner
+  if (overwriteExisting) return false
   const [error] = await tryCatch(fsp.lstat(target))
+  if (isErrnoException(error) && error.code === 'ENOTDIR') return true
   if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
   return error == null
 }
@@ -702,14 +731,18 @@ async function buildDirectoryDownloadTargets({
   allFiles,
   baseDir,
   groupByStep,
+  owner,
+  overwriteExisting,
   outputRoot,
   reservedPaths,
 }: {
   allFiles: NormalizedAssemblyResultFile[]
   baseDir: string
   groupByStep: boolean
+  owner: string
+  overwriteExisting: boolean
   outputRoot: string
-  reservedPaths: Set<string>
+  reservedPaths: Map<string, string>
 }): Promise<AssemblyDownloadTarget[]> {
   await assertNoOutputSymlinks(outputRoot, baseDir)
   await fsp.mkdir(baseDir, { recursive: true })
@@ -741,24 +774,61 @@ async function buildDirectoryDownloadTargets({
     }
 
     if (linked) {
-      const collisions = await Promise.all(
-        names.map((name) => isDownloadPathTaken(path.join(targetDir, name), reservedPaths)),
-      )
-      if (collisions.some(Boolean)) {
-        // Playlist references must keep their names; move the whole Step together on a rerun.
-        targetDir = await ensureUniquePath(path.join(baseDir, safeStepName), reservedPaths)
-      }
+      const initialDir = targetDir
+      const groupOwner = JSON.stringify([owner, stepName])
+      // Selection and reservation share the same lock as ordinary result paths. A Step must
+      // move together on collisions, while later watch updates reuse its owned destinations.
+      targetDir = await ensureUniqueCounterValue({
+        initialValue: initialDir,
+        isTaken: async (candidate) => {
+          if (
+            candidate !== initialDir &&
+            (await isDownloadPathTaken(candidate, reservedPaths, groupOwner))
+          )
+            return true
+          const collisions = await Promise.all(
+            names.map((name) =>
+              isDownloadPathTaken(
+                path.join(candidate, name),
+                reservedPaths,
+                groupOwner,
+                overwriteExisting,
+              ),
+            ),
+          )
+          return collisions.some(Boolean)
+        },
+        reserve: (candidate) => {
+          if (candidate !== initialDir) reservedPaths.set(candidate, groupOwner)
+          for (const name of names) reservedPaths.set(path.join(candidate, name), groupOwner)
+        },
+        nextValue: (counter) =>
+          path.join(
+            baseDir,
+            groupByStep
+              ? `${safeStepName}__${counter}`
+              : counter === 1
+                ? safeStepName
+                : `${safeStepName}__${counter - 1}`,
+          ),
+        scope: reservedPaths,
+      })
     }
 
     for (const [index, { file }] of files.entries()) {
       const targetPath = path.join(targetDir, names[index])
-      await assertNoOutputSymlinks(outputRoot, targetPath)
-      if (linked) {
-        reservedPaths.add(targetPath)
-      }
+      const selectedPath = linked
+        ? targetPath
+        : await ensureUniquePath(
+            targetPath,
+            reservedPaths,
+            JSON.stringify([owner, stepName, index]),
+            overwriteExisting,
+          )
+      await assertNoOutputSymlinks(outputRoot, selectedPath)
       targets.push({
         resultUrl: file.url,
-        targetPath: linked ? targetPath : await ensureUniquePath(targetPath, reservedPaths),
+        targetPath: selectedPath,
       })
     }
   }
@@ -784,6 +854,7 @@ async function resolveResultDownloadTargets({
   inPath,
   inputs,
   normalizedResults,
+  overwriteExisting,
   outputPath,
   outputRoot,
   outputRootIsDirectory,
@@ -794,15 +865,19 @@ async function resolveResultDownloadTargets({
   inPath: string | null
   inputs: string[]
   normalizedResults: NormalizedAssemblyResults
+  overwriteExisting: boolean
   outputPath: string | null
   outputRoot: string
   outputRootIsDirectory: boolean
-  reservedPaths: Set<string>
+  reservedPaths: Map<string, string>
   singleAssembly?: boolean
 }): Promise<AssemblyDownloadTarget[]> {
   const { allFiles, entries } = normalizedResults
   const shouldGroupByInput =
-    !singleAssembly && inPath != null && (hasDirectoryInput || inputs.length > 1)
+    !singleAssembly &&
+    inPath != null &&
+    (hasDirectoryInput || (inputs.length > 1 && allFiles.length > 1))
+  const owner = JSON.stringify([inPath, singleAssembly ? inputs : []])
 
   const resolveDirectoryBaseDir = (): string => {
     if (hasDirectoryInput && outputPath != null) {
@@ -815,7 +890,7 @@ async function resolveResultDownloadTargets({
       return outputRoot
     }
 
-    return path.join(outputRoot, path.parse(path.basename(inPath)).name)
+    return path.join(outputRoot, path.parse(path.basename(outputPath ?? inPath)).name)
   }
 
   if (!outputRootIsDirectory) {
@@ -837,6 +912,8 @@ async function resolveResultDownloadTargets({
       allFiles,
       baseDir: outputRoot,
       groupByStep: inputs.length === 0,
+      owner,
+      overwriteExisting,
       outputRoot,
       reservedPaths,
     })
@@ -846,6 +923,8 @@ async function resolveResultDownloadTargets({
     allFiles,
     baseDir: resolveDirectoryBaseDir(),
     groupByStep: inPath == null || entries.length > 1,
+    owner,
+    overwriteExisting,
     outputRoot,
     reservedPaths,
   })
@@ -917,6 +996,7 @@ async function materializeAssemblyResults({
   inPath,
   inputs,
   normalizedResults,
+  overwriteExisting,
   outputPath,
   outputRoot,
   outputRootIsDirectory,
@@ -929,11 +1009,12 @@ async function materializeAssemblyResults({
   inPath: string | null
   inputs: string[]
   normalizedResults: NormalizedAssemblyResults
+  overwriteExisting: boolean
   outputPath: string | null
   outputRoot: string | null
   outputRootIsDirectory: boolean
   outputctl: IOutputCtl
-  reservedPaths: Set<string>
+  reservedPaths: Map<string, string>
   singleAssembly?: boolean
 }): Promise<void> {
   if (outputRoot == null) {
@@ -945,6 +1026,7 @@ async function materializeAssemblyResults({
     inPath,
     inputs,
     normalizedResults,
+    overwriteExisting,
     outputPath,
     outputRoot,
     outputRootIsDirectory,
@@ -1412,6 +1494,7 @@ export async function create(
   const prepared = await prepareInputFiles({
     inputFiles: urlInputs.map((url, index) => ({ kind: 'url', field: String(index), url })),
     allowPrivateUrls: false,
+    // Uploading the bytes preserves :original and Template upload semantics, just as Intents do.
     urlStrategy: 'download',
   })
   const localPaths = new Map(urlInputs.map((url, index) => [url, prepared.files[String(index)]]))
@@ -1520,14 +1603,17 @@ async function createWithLocalInputs(
       recursive,
       watch: watchOption,
       singleAssembly,
-      reprocessStale,
+      // Directory plans use upload names before the Assembly's result names are known.
+      // Inferring freshness from those names can skip unrelated results. File outputs retain
+      // mtime-based skipping; directory caching would require a persistent result manifest.
+      reprocessStale: reprocessStale || outstat?.isDirectory(),
     })
 
     // Use p-queue for concurrency management
     const queue = new PQueue({ concurrency })
     const results: unknown[] = []
     const resultUrls: ResultUrlRow[] = []
-    const reservedResultPaths = new Set<string>()
+    const reservedResultPaths = new Map<string, string>()
     const latestWatchJobTokenByOutputPath = new Map<string, number>()
     let hasFailures = false
     let nextWatchJobToken = 0
@@ -1656,6 +1742,7 @@ async function createWithLocalInputs(
         inPath,
         inputs: singleAssemblyMode ? inputPaths : inputs,
         normalizedResults,
+        overwriteExisting: Boolean(watchOption),
         outputPath: outputPlan?.path ?? null,
         outputRoot: resolvedOutput ?? null,
         outputRootIsDirectory,
