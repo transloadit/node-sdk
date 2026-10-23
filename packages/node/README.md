@@ -1502,7 +1502,14 @@ The `assemblies create` command additionally supports:
   Without uploads (for example, `/vimeo/import`, `/http/import`, or prompt-only `/image/generate`
   Steps), results are saved as `<dir>/<step>/<result name>`, with no input folder, including with
   `--single-assembly`.
-- `--input, -i` - Provide a local upload, or use `-i -` to read stdin explicitly. When `--steps`
+  With one local input, filenames come from the Assembly results. Multiple result Steps get their
+  own folders; the input’s parent folders are omitted. Directory inputs retain subfolders relative
+  to that directory. HLS results retain the directories in `meta.relative_path`, so playlists can
+  find their renditions and segments. If those paths already exist, the whole result Step is saved
+  in a new Step folder together, preserving playlist references.
+- `--input, -i` - Provide a local upload or an HTTP(S) URL, or use `-i -` to read stdin explicitly.
+  URLs are downloaded to temporary files for upload and cleaned up after processing; `--watch`
+  requires local inputs. When `--steps`
   is used without `-i`, stdin is read only when it is a pipe or a redirected file. Other non-TTY
   stdin (such as an agent shell or `/dev/null`) runs the Assembly without uploads. With `--template`,
   stdin always requires `-i -`.
