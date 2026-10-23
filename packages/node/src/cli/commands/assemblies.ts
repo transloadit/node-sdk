@@ -1524,8 +1524,8 @@ export async function create(
       }
       // Preserve stdout file bytes. URL mode combines all summaries with its existing JSON object.
       if (resolvedOutput !== '-') {
-        assemblies.push(summary)
-        if (!printUrls) outputctl.print(undefined, summary)
+        if (printUrls) assemblies.push(summary)
+        else outputctl.print(undefined, summary)
       }
       if (ignoredErrorCount > 0) {
         const details = ignoredErrors.slice(0, 5).map((ignored) => {

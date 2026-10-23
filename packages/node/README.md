@@ -266,10 +266,13 @@ npx -y transloadit auth token --aud mcp --scope assemblies:write,templates:read
 ### Processing Media
 
 Assembly runs print their ID and status URL to stderr, including when processing fails.
-`--json` emits one summary per Assembly on stdout with its reference, final status, and
-`ignored_errors`. Ignored errors also produce a warning with their count and up to five details.
+`--json` writes newline-delimited JSON summaries for terminal Assembly statuses, with their
+reference, final status, and `ignored_errors`. Ignored errors also produce a warning with their
+count and up to five details.
+If polling fails before a terminal status is retrieved, the error and known Assembly reference
+are reported on stderr.
 With `--print-urls`, JSON remains a single object containing `urls` and `assemblies`.
-With `--output -`, stdout contains only file bytes and the Assembly reference stays on stderr.
+`--output -` keeps Assembly summaries off stdout; the reference stays on stderr.
 Validation and API failures print a short diagnostic and exit with a nonzero status.
 
 For common one-off tasks, prefer the intent-first commands:
