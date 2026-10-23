@@ -275,8 +275,8 @@ With `--print-urls`, JSON remains a single object containing `urls` and `assembl
 This document is written after the batch finishes; an input or watch error that aborts the batch
 can prevent it from being written.
 `--output -` keeps Assembly summaries off stdout; the reference stays on stderr.
-Invalid Robot parameters and API failures in Assembly runs produce a short diagnostic and a nonzero
-exit status.
+When creating Assemblies, invalid Robot parameters and API failures produce a short diagnostic and
+a nonzero exit status.
 
 For common one-off tasks, prefer the intent-first commands:
 

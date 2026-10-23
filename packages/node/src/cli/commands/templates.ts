@@ -56,8 +56,8 @@ export interface TemplateSyncOptions {
   recursive?: boolean
 }
 
-async function readTemplateInput(file: string): Promise<Buffer> {
-  const [error, content] = await tryCatch(streamToBuffer(createReadStream(file)))
+async function readTemplateInput<T>(input: Promise<T>): Promise<T> {
+  const [error, content] = await tryCatch(input)
   if (error) {
     throw new CliInputError(`Cannot read Template input: ${error.message}`, { cause: error })
   }
@@ -69,7 +69,7 @@ export async function create(
   client: Transloadit,
   { name, file }: TemplateCreateOptions,
 ): Promise<unknown> {
-  const buf = await readTemplateInput(file)
+  const buf = await readTemplateInput(streamToBuffer(createReadStream(file)))
 
   const steps = parseStepsInputJson(buf.toString(), output)
 
@@ -100,7 +100,7 @@ export async function modify(
   client: Transloadit,
   { template, name, file }: TemplateModifyOptions,
 ): Promise<void> {
-  const buf = await readTemplateInput(file)
+  const buf = await readTemplateInput(streamToBuffer(createReadStream(file)))
 
   let steps: TemplateContent['steps'] | null = null
   let newName = name
@@ -288,7 +288,7 @@ export async function sync(
 
       if (!template.data.transloadit_template_id) return upload(template)
 
-      const stats = await fsp.stat(template.file)
+      const stats = await readTemplateInput(fsp.stat(template.file))
       const fileModified = stats.mtime
 
       let templateModified: Date

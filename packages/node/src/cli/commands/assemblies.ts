@@ -1496,10 +1496,20 @@ export async function create(
         outputctl.notice(assemblyReference)
       }
 
-      const [creationError, result] = await tryCatch(
-        client.createAssembly({ ...createOptions, onAssemblyCreated: reportCreatedAssembly }),
-      )
+      const creation = client.createAssembly({
+        ...createOptions,
+        onAssemblyCreated: reportCreatedAssembly,
+      })
+      const [creationError, result] = await tryCatch(creation)
       if (creationError) {
+        if (!assemblyReference && creationError instanceof RequestError && creation.assemblyId) {
+          const requestUrl = creationError.options.url
+          assemblyReference = formatAssemblyReference({
+            assemblyId: creation.assemblyId,
+            assemblyUrl:
+              requestUrl instanceof URL ? `${requestUrl.origin}${requestUrl.pathname}` : null,
+          })
+        }
         if (!assemblyReference) throw creationError
         throw new Error(`${formatAPIError(creationError)} (${assemblyReference})`, {
           cause: creationError,

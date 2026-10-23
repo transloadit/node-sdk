@@ -348,6 +348,20 @@ describe('Assembly reporting', () => {
     expect(result.stderr).toBe(`err     Template file has no id and no steps: ${file}`)
   })
 
+  it('keeps a sync input filesystem error on stderr after the initial scan', async () => {
+    const file = path.join(tempDir, 'template.json')
+    await writeFile(file, JSON.stringify({ transloadit_template_id: 'template', steps: {} }))
+    vi.spyOn(fs.promises, 'stat')
+      .mockResolvedValueOnce(await stat(file))
+      .mockRejectedValueOnce(new Error('Template input disappeared'))
+
+    const result = await runCommand(['templates', 'sync', file])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe('err     Cannot read Template input: Template input disappeared')
+  })
+
   it.each([
     { status: 403, error: 'TEMPLATE_NOT_FOUND' },
     { status: 404, error: 'SERVER_404' },
@@ -526,6 +540,29 @@ describe('Assembly reporting', () => {
     expect(result.stdout).toBe('')
     expect(result.stderr).toContain(`Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl}`)
     expect(result.stderr.split('\n')).toHaveLength(1)
+  })
+
+  it.each([
+    { args: [] },
+    { args: ['--single-assembly'] },
+  ])('preserves the attempted Assembly reference on a creation reset: %j', async ({ args }) => {
+    const error = new RequestError(
+      'Connection reset by peer',
+      { code: 'ECONNRESET' },
+      new Options(assemblyUrl),
+    )
+    const create = vi
+      .spyOn(Transloadit.prototype, 'createAssembly')
+      .mockImplementation(() => Object.assign(Promise.reject(error), { assemblyId }))
+
+    const result = await run(['--template', 'template', '-l', 'err', ...args])
+
+    expect(create).toHaveBeenCalledOnce()
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe(
+      `err     ECONNRESET: Connection reset by peer (Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl})`,
+    )
   })
 
   it.each([
