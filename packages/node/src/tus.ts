@@ -226,7 +226,11 @@ export async function sendTusRequest({
             const send = request.send.bind(request)
             request.send = (body: unknown): Promise<HttpResponse> => {
               // tus awaits pre-request hooks, so queued aborts must be checked at send itself.
-              if (signal?.aborted) return Promise.reject(new Error('Upload aborted'))
+              if (signal?.aborted) {
+                // File setup can finish after abort() and reset tus's aborted state.
+                tusUpload.abort()
+                return Promise.reject(new Error('Upload aborted'))
+              }
               return send(body)
             }
             return request

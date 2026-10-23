@@ -744,6 +744,7 @@ export class Transloadit {
     const openedFileStreams = new Set<ReadStream>()
     const pendingFileSlices = new Set<Promise<unknown>>()
     const onFileStreamOpened = (stream: ReadStream): void => {
+      // Register before I/O can emit close, so cleanup cannot miss that event.
       openedFileStreams.add(stream)
       stream.once('close', () => openedFileStreams.delete(stream))
     }

@@ -12,7 +12,7 @@ import { PassThrough } from 'node:stream'
 import { setImmediate } from 'node:timers/promises'
 
 import nock from 'nock'
-import { defaultOptions } from 'tus-js-client'
+import { defaultOptions, Upload } from 'tus-js-client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Transloadit } from '../../src/Transloadit.ts'
@@ -257,6 +257,49 @@ describe('createAssembly file stream cleanup', () => {
       expect(openedStreams.map((stream) => stream.closed)).toEqual([true, true, true, true])
     } finally {
       await Promise.all(requests.map((request) => request.abort()))
+    }
+  })
+
+  it('does not retry after cancellation while tus opens its file source', async () => {
+    await mockTusUpload(directory)
+    const controller = new AbortController()
+    const openFile = defaultOptions.fileReader.openFile.bind(defaultOptions.fileReader)
+    let releaseSource: () => void = () => {}
+    let markSourceOpened: () => void = () => {}
+    const sourceGate = new Promise<void>((resolve) => {
+      releaseSource = resolve
+    })
+    const sourceOpened = new Promise<void>((resolve) => {
+      markSourceOpened = resolve
+    })
+    vi.spyOn(defaultOptions.fileReader, 'openFile').mockImplementation(async (input, chunkSize) => {
+      const source = await openFile(input, chunkSize)
+      markSourceOpened()
+      await sourceGate
+      return source
+    })
+    const start = Upload.prototype.start
+    const starts = vi.spyOn(Upload.prototype, 'start').mockImplementation(function (this: Upload) {
+      // Count unexpected retries without letting a failing test start more work.
+      if (!controller.signal.aborted) start.call(this)
+    })
+    const rejected = expect(
+      client.createAssembly({ files, signal: controller.signal, uploadConcurrency: 1 }),
+    ).rejects.toThrow(/aborted/i)
+
+    await sourceOpened
+    controller.abort()
+    await rejected
+    expect(openedStreams.map((stream) => stream.closed)).toEqual([true, true])
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      releaseSource()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(starts).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
     }
   })
 
