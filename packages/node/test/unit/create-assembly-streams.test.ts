@@ -2,7 +2,7 @@ import type { ReadStream } from 'node:fs'
 
 import type { HttpRequest } from 'tus-js-client'
 
-import { getEventListeners } from 'node:events'
+import { getEventListeners, setMaxListeners } from 'node:events'
 import fs from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { ClientRequest } from 'node:http'
@@ -300,6 +300,49 @@ describe('createAssembly file stream cleanup', () => {
     } finally {
       vi.clearAllTimers()
       vi.useRealTimers()
+    }
+  })
+
+  it('does not warn at default upload concurrency on legacy abort signals', async () => {
+    nock(endpoint)
+      .post(/\/assemblies\/[a-f\d]{32}$/)
+      .reply(200, {
+        ok: 'ASSEMBLY_UPLOADING',
+        assembly_ssl_url: `${endpoint}/assemblies/test`,
+        tus_url: `${endpoint}/tus/`,
+      })
+    nock(endpoint)
+      .post('/tus/')
+      .times(10)
+      .reply(201, '', { Location: `${endpoint}/tus/file` })
+      .patch('/tus/file')
+      .times(10)
+      .reply(204, '', { 'Upload-Offset': String('upload contents'.length) })
+    const warnings: Error[] = []
+    const onWarning = (warning: Error): void => {
+      if (warning.name === 'MaxListenersExceededWarning') warnings.push(warning)
+    }
+    class LegacyAbortController extends AbortController {
+      constructor() {
+        super()
+        // Node 20.10 applies this limit; newer releases default AbortSignals to unlimited.
+        setMaxListeners(10, this.signal)
+      }
+    }
+    vi.stubGlobal('AbortController', LegacyAbortController)
+    process.on('warning', onWarning)
+    try {
+      await client.createAssembly({
+        files: Object.fromEntries(
+          Array.from({ length: 10 }, (_, index) => [`file${index}`, join(directory, 'first.txt')]),
+        ),
+      })
+      await setImmediate()
+
+      expect(warnings).toEqual([])
+    } finally {
+      process.off('warning', onWarning)
+      vi.unstubAllGlobals()
     }
   })
 

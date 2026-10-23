@@ -73,7 +73,7 @@ import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
 import { randomUUID } from 'node:crypto'
-import { addAbortListener } from 'node:events'
+import { addAbortListener, setMaxListeners } from 'node:events'
 import { constants, createReadStream } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
 import { basename } from 'node:path'
@@ -731,6 +731,8 @@ export class Transloadit {
     const urlSuffix = `/assemblies/${effectiveAssemblyId}`
     const uploadAbort = new AbortController()
     const signal = uploadAbort.signal
+    // This private signal coordinates every concurrent upload and its queue.
+    setMaxListeners(0, signal)
     if (callerSignal?.aborted) uploadAbort.abort(callerSignal.reason)
     // Older supported Node releases retain AbortSignal.any() dependencies indefinitely.
     const callerAbort =
