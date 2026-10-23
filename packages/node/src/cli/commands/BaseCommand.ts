@@ -57,6 +57,7 @@ abstract class BaseCommand extends Command {
 
   protected abstract run(): Promise<number | undefined>
 
+  /** Report expected failures once at the command boundary; helpers let them propagate. */
   protected async runWithErrorReporting(): Promise<number | undefined> {
     const [error, result] = await tryCatch(this.run())
     if (!error) return result

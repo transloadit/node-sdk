@@ -10,6 +10,11 @@ import nock from 'nock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AssembliesCreateCommand } from '../../../src/cli/commands/assemblies.ts'
+import {
+  TemplatesCreateCommand,
+  TemplatesGetCommand,
+  TemplatesSyncCommand,
+} from '../../../src/cli/commands/templates.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
 
 const assemblyId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -34,11 +39,22 @@ afterEach(async () => {
   await rm(tempDir, { recursive: true, force: true })
 })
 
-async function run(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+function run(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+  return runCommand(['assemblies', 'create', ...args])
+}
+
+async function runCommand(
+  args: string[],
+): Promise<{ code: number; stdout: string; stderr: string }> {
   const stdout = vi.spyOn(console, 'log').mockImplementation(() => {})
   const stderr = vi.spyOn(console, 'error').mockImplementation(() => {})
   let parserOutput = ''
-  const code = await Cli.from([AssembliesCreateCommand]).run(['assemblies', 'create', ...args], {
+  const code = await Cli.from([
+    AssembliesCreateCommand,
+    TemplatesCreateCommand,
+    TemplatesGetCommand,
+    TemplatesSyncCommand,
+  ]).run(args, {
     stdout: new Writable({
       write(chunk, _encoding, callback) {
         parserOutput += chunk.toString()
@@ -173,6 +189,50 @@ describe('Assembly reporting', () => {
       'err     Invalid steps format: shot.wait_until: Expected one of: domcontentloaded, load, networkidle, commit',
     )
     expect(create).not.toHaveBeenCalled()
+  })
+
+  it('reports a template API failure once at the command boundary', async () => {
+    const api = nock('https://api2.transloadit.com')
+      .get('/templates/missing-template')
+      .query(true)
+      .reply(403, { error: 'TEMPLATE_NOT_FOUND', message: 'There was no Template found.' })
+
+    const result = await runCommand(['templates', 'get', 'missing-template'])
+
+    expect(api.isDone()).toBe(true)
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe(
+      'err     API error (HTTP 403) TEMPLATE_NOT_FOUND: There was no Template found.',
+    )
+  })
+
+  it('reports invalid template JSON once at the command boundary', async () => {
+    const file = path.join(tempDir, 'invalid.json')
+    await writeFile(file, '{')
+
+    const result = await runCommand(['templates', 'create', 'name', file])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe('err     Invalid steps format: expected valid JSON')
+  })
+
+  it('reports template sync API failures without inspecting the request object', async () => {
+    const file = path.join(tempDir, 'template.json')
+    await writeFile(file, JSON.stringify({ transloadit_template_id: '', steps: {} }))
+    const api = nock('https://api2.transloadit.com')
+      .post('/templates')
+      .reply(403, { error: 'AUTH_DENIED', message: 'This key cannot create Templates.' })
+
+    const result = await runCommand(['templates', 'sync', file])
+
+    expect(api.isDone()).toBe(true)
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe(
+      'err     API error (HTTP 403) AUTH_DENIED: This key cannot create Templates.',
+    )
   })
 
   it.each([

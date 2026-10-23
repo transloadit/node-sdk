@@ -195,11 +195,7 @@ export async function get(
 ): Promise<void> {
   for (const assembly of assemblies) {
     await delay(1000)
-    const [err, result] = await tryCatch(client.getAssembly(assembly))
-    if (err) {
-      output.error(formatAPIError(err))
-      throw ensureError(err)
-    }
+    const result = await client.getAssembly(assembly)
     output.print(result, result)
   }
 }

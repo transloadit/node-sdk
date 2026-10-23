@@ -11,11 +11,10 @@ import { Command, Option } from 'clipanion'
 import rreaddir from 'recursive-readdir'
 import { z } from 'zod'
 
-import { tryCatch } from '../../alphalib/tryCatch.ts'
 import { createReadStream, formatAPIError, streamToBuffer } from '../helpers.ts'
 import { createCliStepsSchema, parseStepsInputJson } from '../stepsInput.ts'
 import ModifiedLookup from '../template-last-modified.ts'
-import { ensureError, isTransloaditAPIError } from '../types.ts'
+import { isTransloaditAPIError } from '../types.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 
 const rreaddirAsync = promisify(rreaddir)
@@ -59,22 +58,16 @@ export async function create(
   client: Transloadit,
   { name, file }: TemplateCreateOptions,
 ): Promise<unknown> {
-  try {
-    const buf = await streamToBuffer(createReadStream(file))
+  const buf = await streamToBuffer(createReadStream(file))
 
-    const steps = parseStepsInputJson(buf.toString(), output)
+  const steps = parseStepsInputJson(buf.toString(), output)
 
-    const result = await client.createTemplate({
-      name,
-      template: { steps } as TemplateContent,
-    })
-    output.print(result.id, result)
-    return result
-  } catch (err) {
-    const error = ensureError(err)
-    output.error(error.message)
-    throw err
-  }
+  const result = await client.createTemplate({
+    name,
+    template: { steps } as TemplateContent,
+  })
+  output.print(result.id, result)
+  return result
 }
 
 export async function get(
@@ -84,11 +77,7 @@ export async function get(
 ): Promise<void> {
   const requests = templates.map((template) => client.getTemplate(template))
 
-  const [err, results] = await tryCatch(Promise.all(requests))
-  if (err) {
-    output.error(formatAPIError(err))
-    throw err
-  }
+  const results = await Promise.all(requests)
 
   for (const result of results) {
     output.print(result, result)
@@ -100,53 +89,40 @@ export async function modify(
   client: Transloadit,
   { template, name, file }: TemplateModifyOptions,
 ): Promise<void> {
-  try {
-    const buf = await streamToBuffer(createReadStream(file))
+  const buf = await streamToBuffer(createReadStream(file))
 
-    let steps: TemplateContent['steps'] | null = null
-    let newName = name
+  let steps: TemplateContent['steps'] | null = null
+  let newName = name
 
-    if (buf.length > 0) {
-      steps = parseStepsInputJson(buf.toString(), output) as TemplateContent['steps']
-    }
-
-    if (!name || buf.length === 0) {
-      const tpl = await client.getTemplate(template)
-      if (!name) newName = tpl.name
-      if (buf.length === 0 && tpl.content.steps) {
-        steps = tpl.content.steps as TemplateContent['steps']
-      }
-    }
-
-    if (steps === null) {
-      throw new Error('No steps to update template with')
-    }
-
-    await client.editTemplate(template, {
-      name: newName,
-      // Steps (validated) is assignable to StepsInput at runtime; cast for TS
-      template: { steps } as TemplateContent,
-    })
-  } catch (err) {
-    output.error(formatAPIError(err))
-    throw err
+  if (buf.length > 0) {
+    steps = parseStepsInputJson(buf.toString(), output) as TemplateContent['steps']
   }
+
+  if (!name || buf.length === 0) {
+    const tpl = await client.getTemplate(template)
+    if (!name) newName = tpl.name
+    if (buf.length === 0 && tpl.content.steps) {
+      steps = tpl.content.steps as TemplateContent['steps']
+    }
+  }
+
+  if (steps === null) {
+    throw new Error('No steps to update template with')
+  }
+
+  await client.editTemplate(template, {
+    name: newName,
+    // Steps (validated) is assignable to StepsInput at runtime; cast for TS
+    template: { steps } as TemplateContent,
+  })
 }
 
 async function deleteTemplates(
-  output: IOutputCtl,
+  _output: IOutputCtl,
   client: Transloadit,
   { templates }: TemplateDeleteOptions,
 ): Promise<void> {
-  await Promise.all(
-    templates.map(async (template) => {
-      const [err] = await tryCatch(client.deleteTemplate(template))
-      if (err) {
-        output.error(formatAPIError(err))
-        throw err
-      }
-    }),
-  )
+  await Promise.all(templates.map((template) => client.deleteTemplate(template)))
 }
 
 // Export with `delete` alias for external consumers
@@ -281,54 +257,48 @@ export async function sync(
 
   const modified = new ModifiedLookup(client)
 
-  const [err] = await tryCatch(
-    Promise.all(
-      templates.map(async (template) => {
-        if (!('steps' in template.data)) {
-          if (!template.data.transloadit_template_id) {
-            throw new Error(`Template file has no id and no steps: ${template.file}`)
-          }
-          return download(template)
+  await Promise.all(
+    templates.map(async (template) => {
+      if (!('steps' in template.data)) {
+        if (!template.data.transloadit_template_id) {
+          throw new Error(`Template file has no id and no steps: ${template.file}`)
         }
-
-        if (!template.data.transloadit_template_id) return upload(template)
-
-        const stats = await fsp.stat(template.file)
-        const fileModified = stats.mtime
-
-        let templateModified: Date
-        const templateId = template.data.transloadit_template_id
-        try {
-          await client.getTemplate(templateId)
-          templateModified = await new Promise<Date>((resolve, reject) =>
-            modified.byId(templateId, (err, res) => {
-              if (err) {
-                reject(err)
-              } else if (res) {
-                resolve(res)
-              } else {
-                reject(new Error('No date returned'))
-              }
-            }),
-          )
-        } catch (err) {
-          if (isTransloaditAPIError(err)) {
-            if (err.code === 'SERVER_404' || (err.response && err.response.statusCode === 404)) {
-              throw new Error(`Template file references nonexistent template: ${template.file}`)
-            }
-          }
-          throw err
-        }
-
-        if (fileModified > templateModified) return upload(template)
         return download(template)
-      }),
-    ),
+      }
+
+      if (!template.data.transloadit_template_id) return upload(template)
+
+      const stats = await fsp.stat(template.file)
+      const fileModified = stats.mtime
+
+      let templateModified: Date
+      const templateId = template.data.transloadit_template_id
+      try {
+        await client.getTemplate(templateId)
+        templateModified = await new Promise<Date>((resolve, reject) =>
+          modified.byId(templateId, (err, res) => {
+            if (err) {
+              reject(err)
+            } else if (res) {
+              resolve(res)
+            } else {
+              reject(new Error('No date returned'))
+            }
+          }),
+        )
+      } catch (err) {
+        if (isTransloaditAPIError(err)) {
+          if (err.code === 'SERVER_404' || (err.response && err.response.statusCode === 404)) {
+            throw new Error(`Template file references nonexistent template: ${template.file}`)
+          }
+        }
+        throw err
+      }
+
+      if (fileModified > templateModified) return upload(template)
+      return download(template)
+    }),
   )
-  if (err) {
-    output.error(err)
-    throw err
-  }
 
   async function upload(template: TemplateFile): Promise<void> {
     const params = {
