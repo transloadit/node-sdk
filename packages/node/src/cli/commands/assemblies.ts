@@ -991,6 +991,8 @@ async function buildDirectoryDownloadTargets({
       new Set(names.map((name) => downloadPathKey(path.join(targetDir, name), reservedPaths)))
         .size !== names.length
     ) {
+      // Merged Steps can hide distinct bundles sharing one upload (#619). Reject ambiguous
+      // linked paths rather than guessing bundle boundaries and overwriting their contents.
       throw new Error('Assembly results have duplicate relative paths')
     }
 
