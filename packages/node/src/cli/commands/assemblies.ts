@@ -530,17 +530,19 @@ function dirProvider(output: string): OutputPlanProvider {
       throw new Error('You must provide an input to output to a directory')
     }
 
-    let relpath = indir == null ? namesByInput.get(inpath) : path.relative(indir, inpath)
+    const inputKey = path.resolve(inpath)
+    let relpath = namesByInput.get(inputKey)
     if (relpath == null) {
-      const parsed = path.parse(inpath)
+      const requestedPath = indir == null ? path.basename(inpath) : path.relative(indir, inpath)
+      const parsed = path.parse(requestedPath)
       relpath = await ensureUniqueCounterValue({
-        initialValue: parsed.base,
+        initialValue: requestedPath,
         isTaken: (candidate) => usedNames.has(candidate),
         reserve: (candidate) => usedNames.add(candidate),
-        nextValue: (counter) => `${parsed.name}__${counter}${parsed.ext}`,
+        nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
         scope: usedNames,
       })
-      namesByInput.set(inpath, relpath)
+      namesByInput.set(inputKey, relpath)
     }
     const outpath = path.join(output, relpath)
     return await createExistingPathOutputPlan(outpath)
@@ -565,6 +567,7 @@ async function downloadResultToFile(
   resultUrl: string,
   outPath: string,
   signal: AbortSignal,
+  isCurrent: () => boolean,
 ): Promise<void> {
   await fsp.mkdir(path.dirname(outPath), { recursive: true })
 
@@ -581,6 +584,10 @@ async function downloadResultToFile(
     throw dlErr
   }
 
+  if (!isCurrent()) {
+    await fsp.rm(tempPath, { force: true })
+    return
+  }
   await fsp.rename(tempPath, outPath)
 }
 
@@ -634,13 +641,11 @@ async function ensureUniquePath(
   targetPath: string,
   reservedPaths: Map<string, string>,
   owner: string,
-  overwriteExisting: boolean,
 ): Promise<string> {
   const parsed = path.parse(targetPath)
   return await ensureUniqueCounterValue({
     initialValue: targetPath,
-    isTaken: async (candidate) =>
-      await isDownloadPathTaken(candidate, reservedPaths, owner, overwriteExisting),
+    isTaken: async (candidate) => await isDownloadPathTaken(candidate, reservedPaths, owner),
     reserve: (candidate) => {
       reservedPaths.set(candidate, owner)
     },
@@ -681,6 +686,7 @@ interface AssemblyDownloadTarget {
 }
 
 async function assertNoOutputSymlinks(root: string, target: string): Promise<void> {
+  // Reject preexisting descendant symlinks; another process can still race filesystem checks.
   const relativePath = path.relative(root, target)
   // The caller explicitly selected the root; only descendants come from result/input metadata.
   if (relativePath === '') return
@@ -710,11 +716,9 @@ async function isDownloadPathTaken(
   target: string,
   reservedPaths: Map<string, string>,
   owner: string,
-  overwriteExisting = false,
 ): Promise<boolean> {
   const existingOwner = reservedPaths.get(target)
   if (existingOwner != null) return existingOwner !== owner
-  if (overwriteExisting) return false
   const [error] = await tryCatch(fsp.lstat(target))
   if (isErrnoException(error) && error.code === 'ENOTDIR') return true
   if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
@@ -732,7 +736,6 @@ async function buildDirectoryDownloadTargets({
   baseDir,
   groupByStep,
   owner,
-  overwriteExisting,
   outputRoot,
   reservedPaths,
 }: {
@@ -740,7 +743,6 @@ async function buildDirectoryDownloadTargets({
   baseDir: string
   groupByStep: boolean
   owner: string
-  overwriteExisting: boolean
   outputRoot: string
   reservedPaths: Map<string, string>
 }): Promise<AssemblyDownloadTarget[]> {
@@ -788,12 +790,7 @@ async function buildDirectoryDownloadTargets({
             return true
           const collisions = await Promise.all(
             names.map((name) =>
-              isDownloadPathTaken(
-                path.join(candidate, name),
-                reservedPaths,
-                groupOwner,
-                overwriteExisting,
-              ),
+              isDownloadPathTaken(path.join(candidate, name), reservedPaths, groupOwner),
             ),
           )
           return collisions.some(Boolean)
@@ -802,28 +799,27 @@ async function buildDirectoryDownloadTargets({
           if (candidate !== initialDir) reservedPaths.set(candidate, groupOwner)
           for (const name of names) reservedPaths.set(path.join(candidate, name), groupOwner)
         },
-        nextValue: (counter) =>
-          path.join(
-            baseDir,
-            groupByStep
-              ? `${safeStepName}__${counter}`
-              : counter === 1
-                ? safeStepName
-                : `${safeStepName}__${counter - 1}`,
-          ),
+        nextValue: (counter) => {
+          const suffix = groupByStep ? counter : counter - 1
+          return path.join(baseDir, suffix === 0 ? safeStepName : `${safeStepName}__${suffix}`)
+        },
         scope: reservedPaths,
       })
     }
 
+    await fsp.mkdir(targetDir, { recursive: true })
+    const nameOccurrences = new Map<string, number>()
     for (const [index, { file }] of files.entries()) {
-      const targetPath = path.join(targetDir, names[index])
+      const name = names[index]
+      const occurrence = nameOccurrences.get(name) ?? 0
+      nameOccurrences.set(name, occurrence + 1)
+      const targetPath = path.join(targetDir, name)
       const selectedPath = linked
         ? targetPath
         : await ensureUniquePath(
             targetPath,
             reservedPaths,
-            JSON.stringify([owner, stepName, index]),
-            overwriteExisting,
+            JSON.stringify([owner, stepName, name, occurrence]),
           )
       await assertNoOutputSymlinks(outputRoot, selectedPath)
       targets.push({
@@ -854,7 +850,6 @@ async function resolveResultDownloadTargets({
   inPath,
   inputs,
   normalizedResults,
-  overwriteExisting,
   outputPath,
   outputRoot,
   outputRootIsDirectory,
@@ -865,7 +860,6 @@ async function resolveResultDownloadTargets({
   inPath: string | null
   inputs: string[]
   normalizedResults: NormalizedAssemblyResults
-  overwriteExisting: boolean
   outputPath: string | null
   outputRoot: string
   outputRootIsDirectory: boolean
@@ -873,6 +867,8 @@ async function resolveResultDownloadTargets({
   singleAssembly?: boolean
 }): Promise<AssemblyDownloadTarget[]> {
   const { allFiles, entries } = normalizedResults
+  // Keep single-result jobs flat for multi-file CLI compatibility. Input groups are only
+  // needed for multi-file results; reservations distinguish colliding result names.
   const shouldGroupByInput =
     !singleAssembly &&
     inPath != null &&
@@ -913,7 +909,6 @@ async function resolveResultDownloadTargets({
       baseDir: outputRoot,
       groupByStep: inputs.length === 0,
       owner,
-      overwriteExisting,
       outputRoot,
       reservedPaths,
     })
@@ -924,7 +919,6 @@ async function resolveResultDownloadTargets({
     baseDir: resolveDirectoryBaseDir(),
     groupByStep: inPath == null || entries.length > 1,
     owner,
-    overwriteExisting,
     outputRoot,
     reservedPaths,
   })
@@ -994,9 +988,9 @@ async function materializeAssemblyResults({
   abortSignal,
   hasDirectoryInput,
   inPath,
+  isCurrent,
   inputs,
   normalizedResults,
-  overwriteExisting,
   outputPath,
   outputRoot,
   outputRootIsDirectory,
@@ -1007,9 +1001,9 @@ async function materializeAssemblyResults({
   abortSignal: AbortSignal
   hasDirectoryInput: boolean
   inPath: string | null
+  isCurrent: () => boolean
   inputs: string[]
   normalizedResults: NormalizedAssemblyResults
-  overwriteExisting: boolean
   outputPath: string | null
   outputRoot: string | null
   outputRootIsDirectory: boolean
@@ -1026,7 +1020,6 @@ async function materializeAssemblyResults({
     inPath,
     inputs,
     normalizedResults,
-    overwriteExisting,
     outputPath,
     outputRoot,
     outputRootIsDirectory,
@@ -1039,7 +1032,7 @@ async function materializeAssemblyResults({
     const [dlErr] = await tryCatch(
       targetPath == null
         ? downloadResultToStdout(resultUrl, abortSignal)
-        : downloadResultToFile(resultUrl, targetPath, abortSignal),
+        : downloadResultToFile(resultUrl, targetPath, abortSignal, isCurrent),
     )
     if (dlErr) {
       if (dlErr.name === 'AbortError') {
@@ -1740,9 +1733,9 @@ async function createWithLocalInputs(
         abortSignal: abortController.signal,
         hasDirectoryInput: singleAssemblyMode ? false : hasDirectoryInput,
         inPath,
+        isCurrent: () => !isSupersededWatchJob(outputPlan?.path ?? null, outputToken),
         inputs: singleAssemblyMode ? inputPaths : inputs,
         normalizedResults,
-        overwriteExisting: Boolean(watchOption),
         outputPath: outputPlan?.path ?? null,
         outputRoot: resolvedOutput ?? null,
         outputRootIsDirectory,
@@ -1751,6 +1744,7 @@ async function createWithLocalInputs(
         singleAssembly: singleAssemblyMode,
       })
 
+      if (isSupersededWatchJob(outputPlan?.path ?? null, outputToken)) return assembly
       outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
 
       if (del) {
