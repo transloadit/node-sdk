@@ -1,31 +1,41 @@
-import type { AssemblyStatus } from '../alphalib/types/assemblyStatus.ts'
 import type { Steps } from '../alphalib/types/template.ts'
 
 import { z } from 'zod'
 
-/** Ignored-error values permitted in CLI diagnostics, excluding request metadata. */
-export const ignoredErrorDetailsSchema = z
-  .union([z.string(), z.object({ code: z.string().optional(), message: z.string().optional() })])
+const ignoredErrorDetailsSchema = z
+  .union([
+    z.string(),
+    z.object({
+      code: z.string().optional().catch(undefined),
+      message: z.string().optional().catch(undefined),
+    }),
+  ])
   .optional()
   .catch(undefined)
 
-/** An ignored-error diagnostic with request metadata omitted. */
-export type IgnoredErrorSummary = Pick<
-  NonNullable<AssemblyStatus['ignored_errors']>[number],
-  'step' | 'phase' | 'message'
-> & { error?: z.infer<typeof ignoredErrorDetailsSchema> }
+const ignoredErrorSummarySchema = z
+  .object({
+    step: z.string().nullable().optional().catch(undefined),
+    phase: z.string().optional().catch(undefined),
+    error: ignoredErrorDetailsSchema,
+    message: z.string().optional().catch(undefined),
+  })
+  .catch({})
+
+/** Project unchecked API responses to CLI diagnostics without nested request metadata. */
+export const assemblySummarySchema = z.object({
+  assembly_id: z.string().optional().catch(undefined),
+  assembly_url: z.string().nullable().optional().catch(undefined),
+  assembly_ssl_url: z.string().nullable().optional().catch(undefined),
+  ok: z.string().nullable().optional().catch(undefined),
+  error: z.string().optional().catch(undefined),
+  message: z.string().optional().catch(undefined),
+  ignored_error_count: z.number().finite().int().nonnegative().default(0).catch(0),
+  ignored_errors: z.array(ignoredErrorSummarySchema).default([]).catch([]),
+})
 
 /** Public diagnostics from one Assembly, excluding instructions and request internals. */
-export type AssemblySummary = Pick<
-  AssemblyStatus,
-  | 'assembly_id'
-  | 'assembly_url'
-  | 'assembly_ssl_url'
-  | 'ok'
-  | 'error'
-  | 'message'
-  | 'ignored_error_count'
-> & { ignored_errors?: IgnoredErrorSummary[] }
+export type AssemblySummary = z.infer<typeof assemblySummarySchema>
 
 // Zod schemas for runtime validation
 const APIErrorSchema = z.object({

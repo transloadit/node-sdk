@@ -51,7 +51,7 @@ import { formatAPIError, readCliInput } from '../helpers.ts'
 import { normalizeAssemblyResults } from '../resultFiles.ts'
 import { collectNormalizedResultUrlRows, printResultUrls } from '../resultUrls.ts'
 import { parseStepsInputJson, readStepsInputFile } from '../stepsInput.ts'
-import { ensureError, ignoredErrorDetailsSchema, isErrnoException } from '../types.ts'
+import { assemblySummarySchema, ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
 // --- From assemblies.ts: Schemas and interfaces ---
@@ -1487,7 +1487,8 @@ export async function create(
       assemblyId: string
     }> {
       let assemblyReference: string | undefined
-      function reportCreatedAssembly(assembly: AssemblyStatus): void {
+      function reportCreatedAssembly(rawAssembly: AssemblyStatus): void {
+        const assembly = assemblySummarySchema.parse(rawAssembly)
         if (assemblyReference || !assembly.assembly_id) return
         assemblyReference = formatAssemblyReference({
           assemblyId: assembly.assembly_id,
@@ -1516,7 +1517,8 @@ export async function create(
         })
       }
       reportCreatedAssembly(result)
-      const assemblyId = result.assembly_id
+      const createdSummary = assemblySummarySchema.parse(result)
+      const assemblyId = createdSummary.assembly_id
       if (!assemblyId || !assemblyReference) throw new Error('No assembly_id in result')
 
       let assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
@@ -1525,7 +1527,8 @@ export async function create(
           signal: abortController.signal,
           onPoll: () => true,
           onAssemblyProgress: (status) => {
-            outputctl.debug(`Assembly status: ${status.ok}`)
+            const summary = assemblySummarySchema.parse(status)
+            outputctl.debug(`Assembly status: ${summary.ok ?? 'unknown'}`)
           },
         })
       } catch (err) {
@@ -1534,23 +1537,13 @@ export async function create(
         throw new Error(`${message} (${assemblyReference})`, { cause: error })
       }
 
-      const ignoredErrors = (assembly.ignored_errors ?? []).map((ignored) => ({
-        step: ignored.step,
-        phase: ignored.phase,
-        error: ignoredErrorDetailsSchema.parse(ignored.error),
-        message: ignored.message,
-      }))
-      const ignoredErrorCount = Math.max(assembly.ignored_error_count ?? 0, ignoredErrors.length)
-      const summary: AssemblySummary = {
-        assembly_id: assemblyId,
-        assembly_url: assembly.assembly_url ?? result.assembly_url,
-        assembly_ssl_url: assembly.assembly_ssl_url ?? result.assembly_ssl_url,
-        ok: assembly.ok,
-        error: assembly.error,
-        message: assembly.message,
-        ignored_error_count: ignoredErrorCount,
-        ignored_errors: ignoredErrors,
-      }
+      const summary = assemblySummarySchema.parse(assembly)
+      summary.assembly_id = assemblyId
+      summary.assembly_url ??= createdSummary.assembly_url
+      summary.assembly_ssl_url ??= createdSummary.assembly_ssl_url
+      const ignoredErrors = summary.ignored_errors
+      const ignoredErrorCount = Math.max(summary.ignored_error_count, ignoredErrors.length)
+      summary.ignored_error_count = ignoredErrorCount
       // Preserve stdout file bytes. URL mode combines all summaries with its existing JSON object.
       if (resolvedOutput !== '-') {
         if (printUrls) assemblies.push(summary)
@@ -1569,8 +1562,11 @@ export async function create(
         )
       }
 
+      // Malformed error fields still signal failure, but only sanitized values enter the message.
       if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
-        const details = [assembly.error ?? assembly.ok, assembly.message].filter(Boolean).join(': ')
+        const details =
+          [summary.error ?? summary.ok, summary.message].filter(Boolean).join(': ') ||
+          'Unknown Assembly error'
         const msg = `Assembly failed: ${details} (${assemblyReference})`
         throw new Error(msg)
       }

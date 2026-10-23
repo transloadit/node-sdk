@@ -180,6 +180,77 @@ describe('Assembly reporting', () => {
     ])
   })
 
+  it.each([
+    {
+      diagnostics: {
+        error: { request: 'credential' },
+        message: { request: 'credential' },
+        ignored_errors: [
+          {
+            step: { request: 'credential' },
+            phase: { request: 'credential' },
+            message: { request: 'credential' },
+            error: { code: { request: 'credential' }, message: 'Storage refused access.' },
+          },
+        ],
+      },
+      expected: {
+        ignored_error_count: 1,
+        ignored_errors: [{ error: { message: 'Storage refused access.' } }],
+      },
+      failure: 'Unknown Assembly error',
+    },
+    {
+      diagnostics: {
+        error: 'S3_STORE_ACCESS_DENIED',
+        message: 'Storage refused access.',
+        ignored_errors: { request: 'credential' },
+      },
+      expected: {
+        error: 'S3_STORE_ACCESS_DENIED',
+        message: 'Storage refused access.',
+        ignored_error_count: 0,
+        ignored_errors: [],
+      },
+      failure: 'S3_STORE_ACCESS_DENIED: Storage refused access.',
+    },
+  ])('sanitizes malformed API diagnostics before reporting: $failure', async ({
+    diagnostics,
+    expected,
+    failure,
+  }) => {
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
+      ok: 'ASSEMBLY_UPLOADING',
+      assembly_id: assemblyId,
+      assembly_ssl_url: assemblyUrl,
+    })
+    const api = nock('https://api2.transloadit.com')
+      .get(`/assemblies/${assemblyId}`)
+      .query(true)
+      .reply(200, {
+        assembly_id: { request: 'credential' },
+        assembly_url: { request: 'credential' },
+        assembly_ssl_url: { request: 'credential' },
+        ok: { request: 'credential' },
+        ignored_error_count: { request: 'credential' },
+        ...diagnostics,
+      })
+
+    const result = await run(['--template', 'template', '-j'])
+
+    expect(api.isDone()).toBe(true)
+    expect(result.code).toBe(1)
+    expect(result.stdout).toContain(assemblyId)
+    expect(JSON.parse(result.stdout)).toEqual({
+      assembly_id: assemblyId,
+      assembly_ssl_url: assemblyUrl,
+      ...expected,
+    })
+    expect(result.stderr.split('\n').find((line) => line.startsWith('err '))).toBe(
+      `err     Assembly failed: ${failure} (Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl})`,
+    )
+  })
+
   it('uses the error list length when no ignored error count is supplied', async () => {
     mockAssembly()
     vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
