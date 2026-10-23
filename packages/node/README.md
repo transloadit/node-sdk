@@ -273,7 +273,8 @@ If polling fails before a terminal status is retrieved, the error and known Asse
 are reported on stderr.
 With `--print-urls`, JSON remains a single object containing `urls` and `assemblies`.
 `--output -` keeps Assembly summaries off stdout; the reference stays on stderr.
-Assembly runs print a short diagnostic and exit with a nonzero status for validation and API failures.
+Invalid Robot parameters and API failures in Assembly runs produce a short diagnostic and a nonzero
+exit status.
 
 For common one-off tasks, prefer the intent-first commands:
 

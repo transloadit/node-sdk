@@ -5,6 +5,7 @@ import fsp from 'node:fs/promises'
 
 import { z } from 'zod'
 
+import { tryCatch } from '../alphalib/tryCatch.ts'
 import { robotsSchema } from '../alphalib/types/robots/_index.ts'
 import { refineDocumentExtractOcr } from '../alphalib/types/robots/document-extract.ts'
 import { refineTransloaditImportSelector } from '../alphalib/types/robots/transloadit-import.ts'
@@ -83,6 +84,9 @@ export async function readStepsInputFile(
   filePath: string,
   output: Pick<IOutputCtl, 'warn'> = console,
 ): Promise<StepsInput> {
-  const content = await fsp.readFile(filePath, 'utf8')
+  const [error, content] = await tryCatch(fsp.readFile(filePath, 'utf8'))
+  if (error) {
+    throw new CliInputError(`Cannot read steps input: ${error.message}`, { cause: error })
+  }
   return parseStepsInputJson(content, output)
 }

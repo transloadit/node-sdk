@@ -11,6 +11,7 @@ import { Command, Option } from 'clipanion'
 import rreaddir from 'recursive-readdir'
 import { z } from 'zod'
 
+import { ApiError } from '../../ApiError.ts'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
 import { CliInputError } from '../errors.ts'
 import { createReadStream, formatAPIError, streamToBuffer } from '../helpers.ts'
@@ -306,15 +307,16 @@ export async function sync(
           }),
         )
       } catch (err) {
-        if (isTransloaditAPIError(err)) {
-          if (err.code === 'SERVER_404' || (err.response && err.response.statusCode === 404)) {
-            throw new CliInputError(
-              `Template file references nonexistent template: ${template.file}`,
-              {
-                cause: err,
-              },
-            )
-          }
+        if (
+          (err instanceof ApiError &&
+            (err.code === 'TEMPLATE_NOT_FOUND' || err.cause?.response?.statusCode === 404)) ||
+          (isTransloaditAPIError(err) &&
+            (err.code === 'SERVER_404' || err.response?.statusCode === 404))
+        ) {
+          throw new CliInputError(
+            `Template file references nonexistent template: ${template.file}`,
+            { cause: err },
+          )
         }
         throw err
       }

@@ -313,13 +313,16 @@ describe('Assembly reporting', () => {
     expect(result.stderr).toBe(`err     Template file has no id and no steps: ${file}`)
   })
 
-  it('explains a nonexistent Template referenced by a sync file', async () => {
+  it.each([
+    { status: 403, error: 'TEMPLATE_NOT_FOUND' },
+    { status: 404, error: 'SERVER_404' },
+  ])('explains a nonexistent Template referenced by a sync file: %j', async ({ status, error }) => {
     const file = path.join(tempDir, 'missing.json')
     await writeFile(file, JSON.stringify({ transloadit_template_id: 'missing', steps: {} }))
     const api = nock('https://api2.transloadit.com')
       .get('/templates/missing')
       .query(true)
-      .reply(404, { error: 'SERVER_404', message: 'Template not found.' })
+      .reply(status, { error, message: 'Template not found.' })
 
     const result = await runCommand(['templates', 'sync', file])
 
@@ -327,6 +330,18 @@ describe('Assembly reporting', () => {
     expect(result.code).toBe(1)
     expect(result.stdout).toBe('')
     expect(result.stderr).toBe(`err     Template file references nonexistent template: ${file}`)
+  })
+
+  it('explains a missing steps input file on stderr', async () => {
+    const file = path.join(tempDir, 'missing.json')
+
+    const result = await run(['--steps', file])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toContain('err     Cannot read steps input: ENOENT:')
+    expect(result.stderr).toContain(file)
+    expect(result.stderr.split('\n')).toHaveLength(1)
   })
 
   it.each([
