@@ -272,6 +272,8 @@ count and up to five details.
 If polling fails before a terminal status is retrieved, the error and known Assembly reference
 are reported on stderr.
 With `--print-urls`, JSON remains a single object containing `urls` and `assemblies`.
+This document is written after the batch finishes; an input or watch error that aborts the batch
+can prevent it from being written.
 `--output -` keeps Assembly summaries off stdout; the reference stays on stderr.
 Invalid Robot parameters and API failures in Assembly runs produce a short diagnostic and a nonzero
 exit status.

@@ -99,6 +99,7 @@ describe('assemblies create command', () => {
     expect(exitCode).toBe(0)
     expect(createAssembly).toHaveBeenCalledExactlyOnceWith({
       params: { steps, fields: {} },
+      onAssemblyCreated: expect.any(Function),
       signal: expect.any(AbortSignal),
     })
     expect(await readdir(outputDir)).toEqual(['imported'])
@@ -128,6 +129,7 @@ describe('assemblies create command', () => {
     ).toBe(0)
     expect(createAssembly).toHaveBeenCalledExactlyOnceWith({
       params: { steps: expect.any(Object), fields: {} },
+      onAssemblyCreated: expect.any(Function),
       signal: expect.any(AbortSignal),
     })
     expect(fs.createReadStream).not.toHaveBeenCalled()
@@ -156,6 +158,7 @@ describe('assemblies create command', () => {
     expect(createAssembly).toHaveBeenCalledExactlyOnceWith({
       params: { steps: expect.any(Object), fields: {} },
       uploads: { in: process.stdin },
+      onAssemblyCreated: expect.any(Function),
       signal: expect.any(AbortSignal),
     })
     expect(fs.createReadStream).not.toHaveBeenCalled()
@@ -182,6 +185,7 @@ describe('assemblies create command', () => {
     expect(createAssembly).toHaveBeenCalledExactlyOnceWith({
       params: { steps: expect.any(Object), fields: {} },
       files: { in: inputPath },
+      onAssemblyCreated: expect.any(Function),
       signal: expect.any(AbortSignal),
     })
   })

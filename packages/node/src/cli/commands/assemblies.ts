@@ -1,5 +1,6 @@
 import type { Readable } from 'node:stream'
 
+import type { AssemblyStatus } from '../../alphalib/types/assemblyStatus.ts'
 import type { StepsInput } from '../../alphalib/types/template.ts'
 import type { CreateAssemblyParams, ReplayAssemblyParams } from '../../apiTypes.ts'
 import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
@@ -25,7 +26,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { promisify } from 'node:util'
 
 import { Command, Option } from 'clipanion'
-import got from 'got'
+import got, { RequestError } from 'got'
 import PQueue from 'p-queue'
 import * as t from 'typanion'
 import { z } from 'zod'
@@ -1485,12 +1486,28 @@ export async function create(
       assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
       assemblyId: string
     }> {
-      const result = await client.createAssembly(createOptions)
+      let assemblyReference: string | undefined
+      function reportCreatedAssembly(assembly: AssemblyStatus): void {
+        if (assemblyReference || !assembly.assembly_id) return
+        assemblyReference = formatAssemblyReference({
+          assemblyId: assembly.assembly_id,
+          assemblyUrl: assembly.assembly_ssl_url ?? assembly.assembly_url ?? null,
+        })
+        outputctl.notice(assemblyReference)
+      }
+
+      const [creationError, result] = await tryCatch(
+        client.createAssembly({ ...createOptions, onAssemblyCreated: reportCreatedAssembly }),
+      )
+      if (creationError) {
+        if (!assemblyReference) throw creationError
+        throw new Error(`${formatAPIError(creationError)} (${assemblyReference})`, {
+          cause: creationError,
+        })
+      }
+      reportCreatedAssembly(result)
       const assemblyId = result.assembly_id
-      if (!assemblyId) throw new Error('No assembly_id in result')
-      const assemblyUrl = result.assembly_ssl_url ?? result.assembly_url ?? null
-      const assemblyReference = formatAssemblyReference({ assemblyId, assemblyUrl })
-      outputctl.notice(assemblyReference)
+      if (!assemblyId || !assemblyReference) throw new Error('No assembly_id in result')
 
       let assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
       try {
@@ -1503,7 +1520,8 @@ export async function create(
         })
       } catch (err) {
         const error = ensureError(err)
-        throw new Error(`${error.message} (${assemblyReference})`, { cause: error })
+        const message = error instanceof RequestError ? formatAPIError(error) : error.message
+        throw new Error(`${message} (${assemblyReference})`, { cause: error })
       }
 
       const ignoredErrors = assembly.ignored_errors ?? []

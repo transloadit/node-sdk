@@ -68,6 +68,7 @@ describe('run command', () => {
     expect(process.exitCode).toBeUndefined()
     expect(createAssembly).toHaveBeenCalledExactlyOnceWith({
       params: { steps: instructions.steps, fields: {} },
+      onAssemblyCreated: expect.any(Function),
       signal: expect.any(AbortSignal),
     })
     expect(fs.createReadStream).not.toHaveBeenCalled()

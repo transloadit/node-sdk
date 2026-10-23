@@ -196,6 +196,27 @@ describe('Assembly reporting', () => {
     expect(create).not.toHaveBeenCalled()
   })
 
+  it('uses singular wording when one validation error is omitted', async () => {
+    const file = path.join(tempDir, 'steps.json')
+    await writeFile(
+      file,
+      JSON.stringify(
+        Object.fromEntries(
+          Array.from({ length: 11 }, (_, index) => [
+            `shot${index}`,
+            { robot: '/html/convert', url: 'https://example.com/', wait_until: 'bogus' },
+          ]),
+        ),
+      ),
+    )
+
+    const result = await run(['--steps', file])
+
+    expect(result.code).toBe(1)
+    expect(result.stderr.split('; ')).toHaveLength(11)
+    expect(result.stderr).toMatch(/; 1 more validation error$/)
+  })
+
   it('reports a template API failure once at the command boundary', async () => {
     const api = nock('https://api2.transloadit.com')
       .get('/templates/missing-template')
@@ -254,6 +275,20 @@ describe('Assembly reporting', () => {
     expect(result.code).toBe(1)
     expect(result.stdout).toBe('')
     expect(result.stderr).toBe('err     ECONNRESET: Connection reset by peer')
+  })
+
+  it('reports an invalid JSON API response without the signed request URL', async () => {
+    const api = nock('https://api2.transloadit.com')
+      .get('/templates/template')
+      .query(true)
+      .reply(200, 'invalid JSON')
+
+    const result = await runCommand(['templates', 'get', 'template'])
+
+    expect(api.isDone()).toBe(true)
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe('err     ERR_BODY_PARSE_FAILURE: The API returned invalid JSON.')
   })
 
   it('reports every failed Template deletion once with its ID', async () => {
@@ -444,6 +479,53 @@ describe('Assembly reporting', () => {
     const diagnostic = result.stderr.split('\n').find((line) => line.startsWith('err ')) ?? ''
     expect(diagnostic).toContain('ASSEMBLY_NOT_FOUND: The Assembly could not be accessed.')
     expect(diagnostic.split(assemblyUrl)).toHaveLength(2)
+  })
+
+  it('redacts invalid JSON polling responses while preserving the Assembly reference', async () => {
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
+      ok: 'ASSEMBLY_UPLOADING',
+      assembly_id: assemblyId,
+      assembly_ssl_url: assemblyUrl,
+    })
+    const api = nock('https://api2.transloadit.com')
+      .get(`/assemblies/${assemblyId}`)
+      .query(true)
+      .reply(200, 'invalid JSON')
+
+    const result = await run(['--template', 'template', '-l', 'err'])
+
+    expect(api.isDone()).toBe(true)
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe(
+      `err     ERR_BODY_PARSE_FAILURE: The API returned invalid JSON. (Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl})`,
+    )
+  })
+
+  it.each([
+    { args: [] },
+    { args: ['--single-assembly'] },
+  ])('preserves the accepted Assembly reference when uploading fails: %j', async ({ args }) => {
+    const file = path.join(tempDir, 'input.txt')
+    await writeFile(file, 'input')
+    const api = nock('https://api2.transloadit.com')
+      .post(/\/assemblies\/[a-f\d]{32}$/)
+      .reply(200, {
+        ok: 'ASSEMBLY_UPLOADING',
+        assembly_id: assemblyId,
+        assembly_ssl_url: assemblyUrl,
+        tus_url: 'https://uploads.test/files',
+      })
+    const upload = nock('https://uploads.test').post('/files').reply(403, 'Access denied.')
+
+    const result = await run(['--template', 'template', '-i', file, '-l', 'err', ...args])
+
+    expect(api.isDone()).toBe(true)
+    expect(upload.isDone()).toBe(true)
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toContain(`Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl}`)
+    expect(result.stderr.split('\n')).toHaveLength(1)
   })
 
   it.each([

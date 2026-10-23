@@ -29,6 +29,6 @@ export function formatSchemaIssues(issues: ZodIssue[]): string {
   const remaining = descriptions.length - 10
   return [
     ...descriptions.slice(0, 10),
-    ...(remaining > 0 ? [`${remaining} more validation errors`] : []),
+    ...(remaining > 0 ? [`${remaining} more validation error${remaining === 1 ? '' : 's'}`] : []),
   ].join('; ')
 }

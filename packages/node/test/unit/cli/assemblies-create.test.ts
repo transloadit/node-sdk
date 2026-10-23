@@ -545,6 +545,7 @@ describe('assemblies create', () => {
 
     expect(client.createAssembly).toHaveBeenCalledExactlyOnceWith({
       params: { steps: expect.any(Object) },
+      onAssemblyCreated: expect.any(Function),
       signal: expect.any(AbortSignal),
     })
     expect(await collectRelativeFiles(outputDir)).toEqual([path.join('generated', 'generated.png')])

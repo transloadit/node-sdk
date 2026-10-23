@@ -67,7 +67,7 @@ abstract class BaseCommand extends Command {
       return 1
     }
     if (error instanceof RequestError) {
-      this.output.error(`${error.code}: ${error.message}`)
+      this.output.error(formatAPIError(error))
       return 1
     }
     if (error instanceof CliInputError || error instanceof ApiError) {
