@@ -712,6 +712,7 @@ async function ensureUniquePath(
   reservedPaths: DownloadPathReservations,
   owner: string,
   directory = false,
+  overwriteExistingFile = false,
 ): Promise<string> {
   const selectedPath = reservedPaths.pathsByOwner.get(owner)
   if (selectedPath != null) return selectedPath
@@ -719,7 +720,13 @@ async function ensureUniquePath(
   return await ensureUniqueCounterValue({
     initialValue: targetPath,
     isTaken: async (candidate) =>
-      await isDownloadPathTaken(candidate, reservedPaths, owner, directory),
+      await isDownloadPathTaken(
+        candidate,
+        reservedPaths,
+        owner,
+        directory,
+        overwriteExistingFile && candidate === targetPath,
+      ),
     reserve: (candidate) => {
       reserveDownloadPath(candidate, owner, reservedPaths, directory)
       reservedPaths.pathsByOwner.set(owner, candidate)
@@ -849,6 +856,7 @@ async function isDownloadPathTaken(
   reservedPaths: DownloadPathReservations,
   owner: string,
   directory = false,
+  overwriteExistingFile = false,
 ): Promise<boolean> {
   const key = downloadPathKey(target, reservedPaths)
   if (directory && reservedPaths.directories.has(key)) return false
@@ -860,7 +868,9 @@ async function isDownloadPathTaken(
   const [error, stats] = await tryCatch(fsp.lstat(target))
   if (isErrnoException(error) && error.code === 'ENOTDIR') return true
   if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
-  return error == null && (!directory || !stats?.isDirectory())
+  if (error != null) return false
+  if (directory) return !stats?.isDirectory()
+  return !overwriteExistingFile || !stats?.isFile()
 }
 
 async function prepareDownloadDirectory(
@@ -965,6 +975,7 @@ async function buildDirectoryDownloadTargets({
   groupByStep,
   owner,
   outputRoot,
+  overwritePath,
   reservedPaths,
 }: {
   allFiles: NormalizedAssemblyResultFile[]
@@ -972,6 +983,7 @@ async function buildDirectoryDownloadTargets({
   groupByStep: boolean
   owner: string
   outputRoot: string
+  overwritePath?: string
   reservedPaths: DownloadPathReservations
 }): Promise<AssemblyDownloadTarget[]> {
   await prepareDownloadDirectory(outputRoot, baseDir, reservedPaths)
@@ -1062,6 +1074,8 @@ async function buildDirectoryDownloadTargets({
             targetPath,
             reservedPaths,
             JSON.stringify([groupOwner, name, occurrence]),
+            false,
+            overwritePath != null && path.resolve(targetPath) === path.resolve(overwritePath),
           )
       await assertNoOutputSymlinks(outputRoot, selectedPath)
       targets.push({
@@ -1183,6 +1197,10 @@ async function resolveResultDownloadTargets({
     groupByStep: keepInputStepLayout || inPath == null || entries.length > 1,
     owner,
     outputRoot,
+    // The mapped single-file destination is also the historical freshness marker. Updating it
+    // lets an unchanged rerun skip processing; differently named results retain collision suffixes.
+    overwritePath:
+      inPath != null && allFiles.length === 1 && !linked ? (outputPath ?? undefined) : undefined,
     reservedPaths,
   })
 }

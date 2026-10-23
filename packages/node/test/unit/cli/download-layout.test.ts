@@ -119,6 +119,39 @@ it.each([
 })
 
 it.each([
+  false,
+  true,
+])('refreshes mapped outputs and resumes skipping after an input change (directory input: %s)', async (directoryInput) => {
+  const { inputPath, outputDir, run } = await fixture({
+    resized: [{ name: 'logo.png', url: 'https://downloads.test/result' }],
+  })
+  const args = ['-i', directoryInput ? path.dirname(inputPath) : inputPath]
+  const outputPath = directoryInput
+    ? path.join(outputDir, 'logo.png')
+    : mappedOutputPath(outputDir, inputPath)
+  nock('https://downloads.test')
+    .get('/result')
+    .reply(200, 'original result')
+    .get('/result')
+    .twice()
+    .reply(200, 'updated result')
+  expect(await run(args)).toBe(0)
+  const outputTime = new Date(Date.now() - 60_000)
+  await utimes(outputPath, outputTime, outputTime)
+  await writeFile(inputPath, 'changed input')
+  const inputTime = new Date(Date.now() - 30_000)
+  await utimes(inputPath, inputTime, inputTime)
+
+  expect(await run(args)).toBe(0)
+  expect(await run(args)).toBe(0)
+  expect(Transloadit.prototype.createAssembly).toHaveBeenCalledTimes(2)
+  expect(await readFile(outputPath, 'utf8')).toBe('updated result')
+  expect(await run([...args, '--reprocess-stale'])).toBe(0)
+  expect(Transloadit.prototype.createAssembly).toHaveBeenCalledTimes(3)
+  expect(await readdir(path.dirname(outputPath))).toEqual(['logo.png'])
+})
+
+it.each([
   { name: 'frame.jpg', bytes: 'JPEG bytes' },
   { name: 'clip.json', bytes: '{"words":[]}' },
 ])('saves converted video results with their own extension ($name)', async ({ name, bytes }) => {
