@@ -133,6 +133,28 @@ describe('Assembly reporting', () => {
     expect(result.stderr).toContain('resized')
   })
 
+  it('omits empty ignored-error details while preserving their count and JSON', async () => {
+    mockAssembly()
+    const ignoredErrors = [
+      { error: { code: 'UNKNOWN_ERROR' } },
+      { step: 'resized', error: 'INVALID_FILE' },
+    ]
+    vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      ignored_errors: ignoredErrors,
+      results: {},
+    })
+
+    const result = await run(['--template', 'template', '-j'])
+
+    expect(result.code).toBe(0)
+    const warning = result.stderr.split('\n').find((line) => line.startsWith('warn '))
+    expect(warning).toBe(
+      `warn    2 ignored errors (Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl}): resized: INVALID_FILE`,
+    )
+    expect(JSON.parse(result.stdout).ignored_errors).toEqual(ignoredErrors)
+  })
+
   it('reports invalid html wait_until once with its path and allowed values', async () => {
     const create = vi.spyOn(Transloadit.prototype, 'createAssembly')
     const stepsPath = path.join(tempDir, 'steps.json')
@@ -147,9 +169,9 @@ describe('Assembly reporting', () => {
 
     expect(result.code).toBe(1)
     expect(result.stdout).toBe('')
-    expect(result.stderr.split('\n')).toHaveLength(1)
-    expect(result.stderr).toContain('shot.wait_until:')
-    expect(result.stderr).toContain('domcontentloaded, load, networkidle, commit')
+    expect(result.stderr).toBe(
+      'err     Invalid steps format: shot.wait_until: Expected one of: domcontentloaded, load, networkidle, commit',
+    )
     expect(create).not.toHaveBeenCalled()
   })
 

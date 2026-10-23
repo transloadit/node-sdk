@@ -1528,10 +1528,13 @@ export async function create(
         else outputctl.print(undefined, summary)
       }
       if (ignoredErrorCount > 0) {
-        const details = ignoredErrors.slice(0, 5).map((ignored) => {
-          const code = typeof ignored.error === 'string' ? ignored.error : undefined
-          return [ignored.step, code, ignored.message].filter(Boolean).join(': ')
-        })
+        const details = ignoredErrors
+          .map((ignored) => {
+            const code = typeof ignored.error === 'string' ? ignored.error : undefined
+            return [ignored.step, code, ignored.message].filter(Boolean).join(': ')
+          })
+          .filter(Boolean)
+          .slice(0, 5)
         outputctl.warn(
           `${ignoredErrorCount} ignored error${ignoredErrorCount === 1 ? '' : 's'} (${assemblyReference})${details.length > 0 ? `: ${details.join('; ')}` : ''}`,
         )
