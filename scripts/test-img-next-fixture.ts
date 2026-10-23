@@ -9,6 +9,7 @@ import { brotliCompressSync, gzipSync } from 'node:zlib'
 import { execa } from 'execa'
 
 import { fixtureStorageIdentity } from './fixtures/img-next/storage-fixtures.ts'
+import { installFixtureBrowsers } from './install-fixture-browsers.ts'
 import { withProcess } from './withProcess.ts'
 
 const fixtureSecret = 'fixture-secret-must-never-reach-the-browser'
@@ -341,18 +342,7 @@ async function main(): Promise<void> {
     )
     assert(cliHelp.stdout.includes('--receipts'), 'The packed CLI must expose storage store')
     const playwright = resolve(fixtureDir, 'node_modules/@playwright/test/cli.js')
-    await execa(
-      process.execPath,
-      [
-        playwright,
-        'install',
-        ...(process.env.CI && process.platform === 'linux' ? ['--with-deps'] : []),
-        'chromium',
-        'firefox',
-        'webkit',
-      ],
-      { cwd: fixtureDir, stdio: 'inherit' },
-    )
+    await installFixtureBrowsers(playwright, fixtureDir)
     for (const cacheComponents of ['enabled', 'omitted']) {
       console.log(`Secretless public-only build: cacheComponents ${cacheComponents}`)
       // Reuse the installed tree without doubling disk usage or requiring a nonstandard

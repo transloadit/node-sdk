@@ -13,9 +13,46 @@ import {
   ScriptKind,
   ScriptTarget,
 } from 'typescript'
-import { expect, onTestFinished, test } from 'vitest'
+import { expect, onTestFinished, test, vi } from 'vitest'
 
 import { storageImagePage } from '../packages/node/src/cli/storageSnippets.ts'
+import { installFixtureBrowsers } from './install-fixture-browsers.ts'
+
+test('preinstalled fixture browsers never run the installer', async () => {
+  vi.stubEnv('IMG_FIXTURE_BROWSERS_PREINSTALLED', '1')
+  vi.stubEnv('CI', 'true')
+  onTestFinished(() => vi.unstubAllEnvs())
+
+  // A nonexistent CLI makes any attempted browser or apt installation fail.
+  await installFixtureBrowsers('must-not-run-playwright.ts', import.meta.dirname)
+})
+
+test.each([
+  ['true', undefined],
+  ['true', '0'],
+  ['', undefined],
+])('provisions all browsers with CI=%s and preinstalled=%s', async (ci, preinstalled) => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'img-browser-install-test-'))
+  onTestFinished(() => rm(directory, { recursive: true, force: true }))
+  vi.stubEnv('CI', ci)
+  vi.stubEnv('IMG_FIXTURE_BROWSERS_PREINSTALLED', preinstalled)
+  onTestFinished(() => vi.unstubAllEnvs())
+  const playwright = resolve(directory, 'playwright.ts')
+  await writeFile(
+    playwright,
+    "import { writeFile } from 'node:fs/promises'\nawait writeFile('args.json', JSON.stringify(process.argv.slice(2)))\n",
+  )
+
+  await installFixtureBrowsers(playwright, directory)
+
+  expect(JSON.parse(await readFile(resolve(directory, 'args.json'), 'utf8'))).toEqual([
+    'install',
+    ...(ci && process.platform === 'linux' ? ['--with-deps'] : []),
+    'chromium',
+    'firefox',
+    'webkit',
+  ])
+})
 
 test('scaffold helpers load in a cold checkout without built workspace packages', async () => {
   const source = pathToFileURL(
