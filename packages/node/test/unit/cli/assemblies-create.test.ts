@@ -21,10 +21,6 @@ async function createTempDir(prefix: string): Promise<string> {
   return tempDir
 }
 
-function getLegacyRelativeInputPath(inputPath: string): string {
-  return path.relative(process.cwd(), inputPath).replace(/^(\.\.\/)+/, '')
-}
-
 async function collectRelativeFiles(rootDir: string, currentDir = rootDir): Promise<string[]> {
   const entries = await readdir(currentDir, { withFileTypes: true })
   const files: string[] = []
@@ -322,22 +318,20 @@ describe('assemblies create', () => {
         },
       }),
     )
-    const legacyRelative = getLegacyRelativeInputPath(inputPath)
-    const baseDir = path.join(path.dirname(legacyRelative), path.parse(legacyRelative).name)
     expect(await collectRelativeFiles(outputDir)).toEqual([
-      path.join(baseDir, 'captioned', 'video.mp4'),
-      path.join(baseDir, 'transcript', 'video.srt'),
-      path.join(baseDir, 'transcription', 'video.json'),
+      path.join('captioned', 'video.mp4'),
+      path.join('transcript', 'video.srt'),
+      path.join('transcription', 'video.json'),
     ])
-    expect(await readFile(path.join(outputDir, baseDir, 'captioned', 'video.mp4'), 'utf8')).toBe(
+    expect(await readFile(path.join(outputDir, 'captioned', 'video.mp4'), 'utf8')).toBe(
       'captioned video',
     )
-    expect(await readFile(path.join(outputDir, baseDir, 'transcript', 'video.srt'), 'utf8')).toBe(
+    expect(await readFile(path.join(outputDir, 'transcript', 'video.srt'), 'utf8')).toBe(
       'subtitle text',
     )
-    expect(
-      await readFile(path.join(outputDir, baseDir, 'transcription', 'video.json'), 'utf8'),
-    ).toBe('{"words":[]}')
+    expect(await readFile(path.join(outputDir, 'transcription', 'video.json'), 'utf8')).toBe(
+      '{"words":[]}',
+    )
     expect(downloads.isDone()).toBe(true)
   })
 
@@ -1508,7 +1502,7 @@ describe('assemblies create', () => {
     expect(await readFile(path.join(outputDir, 'thumb__1.jpg'), 'utf8')).toBe('second-thumb')
   })
 
-  it('preserves legacy step-directory layout for generic directory outputs', async () => {
+  it('uses result filenames directly for single-step directory outputs', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const tempDir = await createTempDir('transloadit-legacy-outdir-')
@@ -1551,13 +1545,7 @@ describe('assemblies create', () => {
       } as never,
     )
 
-    const legacyRelative = getLegacyRelativeInputPath(inputPath)
-    const legacyBaseDir = path.join(path.dirname(legacyRelative), path.parse(legacyRelative).name)
-
-    expect(await collectRelativeFiles(outputDir)).toEqual([
-      path.join(legacyBaseDir, 'thumbs', 'one.jpg'),
-      path.join(legacyBaseDir, 'thumbs', 'two.jpg'),
-    ])
+    expect(await collectRelativeFiles(outputDir)).toEqual(['one.jpg', 'two.jpg'])
   })
 
   it('uses the actual result filename for single-result directory outputs', async () => {
@@ -1605,7 +1593,7 @@ describe('assemblies create', () => {
     expect(await readFile(path.join(outputDir, 'input.txt'), 'utf8')).toBe('hello')
   })
 
-  it('preserves mapped out paths for legacy single-result directory outputs', async () => {
+  it('uses result names for directory outputs without an explicit output mode', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const tempDir = await createTempDir('transloadit-legacy-single-result-')
@@ -1640,7 +1628,7 @@ describe('assemblies create', () => {
       },
     })
 
-    expect(await collectRelativeFiles(outputDir)).toEqual([getLegacyRelativeInputPath(inputPath)])
+    expect(await collectRelativeFiles(outputDir)).toEqual(['input.txt'])
   })
 
   it('does not create an empty output file when assembly creation fails', async () => {

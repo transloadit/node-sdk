@@ -34,6 +34,7 @@ import { z } from 'zod'
 import { formatLintIssue } from '../../alphalib/assembly-linter.lang.en.ts'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
 import { ensureUniqueCounterValue } from '../../ensureUniqueCounter.ts'
+import { prepareInputFiles } from '../../inputFiles.ts'
 import { lintAssemblyInstructions } from '../../lintAssemblyInstructions.ts'
 import { lintingExamples } from '../docs/assemblyLintingExamples.ts'
 import {
@@ -517,7 +518,7 @@ async function createExistingPathOutputPlan(outputPath: string | undefined): Pro
 }
 
 function dirProvider(output: string): OutputPlanProvider {
-  return async (inpath, indir = process.cwd()) => {
+  return async (inpath, indir) => {
     if (inpath == null) {
       return await createExistingPathOutputPlan(output)
     }
@@ -525,8 +526,7 @@ function dirProvider(output: string): OutputPlanProvider {
       throw new Error('You must provide an input to output to a directory')
     }
 
-    let relpath = path.relative(indir, inpath)
-    relpath = relpath.replace(/^(\.\.\/)+/, '')
+    const relpath = indir == null ? path.basename(inpath) : path.relative(indir, inpath)
     const outpath = path.join(output, relpath)
     return await createExistingPathOutputPlan(outpath)
   }
@@ -608,21 +608,18 @@ async function downloadResultToStdout(resultUrl: string, signal: AbortSignal): P
 
 function sanitizeResultName(value: string): string {
   const base = path.basename(value)
-  return base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
+  const name = base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
+  if (name === '' || name === '.' || name === '..') {
+    throw new Error('Assembly result has an unsafe name')
+  }
+  return name
 }
 
 async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>): Promise<string> {
   const parsed = path.parse(targetPath)
   return await ensureUniqueCounterValue({
     initialValue: targetPath,
-    isTaken: async (candidate) => {
-      if (reservedPaths.has(candidate)) {
-        return true
-      }
-
-      const [statErr] = await tryCatch(fsp.stat(candidate))
-      return statErr == null
-    },
+    isTaken: async (candidate) => await isDownloadPathTaken(candidate, reservedPaths),
     reserve: (candidate) => {
       reservedPaths.add(candidate)
     },
@@ -631,13 +628,66 @@ async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>):
   })
 }
 
-function getResultFileName(file: NormalizedAssemblyResultFile): string {
-  return sanitizeResultName(file.name)
+const resultPathSchema = z.object({
+  meta: z.object({ relative_path: z.string().nullish() }).nullish(),
+})
+
+function getResultRelativePath(file: NormalizedAssemblyResultFile): string | null {
+  const parsed = resultPathSchema.safeParse(file.file)
+  if (!parsed.success) throw new Error('Assembly result has invalid relative path metadata')
+  const relativePath = parsed.data.meta?.relative_path
+  if (relativePath == null) return null
+  const name = sanitizeResultName(file.name)
+  // Adaptive video results use an empty directory for the master playlist.
+  if (relativePath === '') return name
+
+  const normalizedPath = relativePath.replaceAll('\\', '/')
+  if (
+    normalizedPath.includes('\u0000') ||
+    path.win32.isAbsolute(normalizedPath) ||
+    /^[a-z]:/i.test(normalizedPath) ||
+    normalizedPath.split('/').some((part) => part === '' || part === '.' || part === '..')
+  ) {
+    throw new Error('Assembly result has an unsafe relative path')
+  }
+
+  return path.join(normalizedPath, name)
 }
 
 interface AssemblyDownloadTarget {
   resultUrl: string
   targetPath: string | null
+}
+
+async function assertNoOutputSymlinks(root: string, target: string): Promise<void> {
+  const relativePath = path.relative(root, target)
+  if (
+    relativePath.startsWith(`..${path.sep}`) ||
+    relativePath === '..' ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error('Assembly result path escapes the output directory')
+  }
+
+  let current = root
+  for (const part of relativePath.split(path.sep)) {
+    current = path.join(current, part)
+    const [error, stats] = await tryCatch(fsp.lstat(current))
+    if (error) {
+      if (isErrnoException(error) && error.code === 'ENOENT') return
+      throw error
+    }
+    if (stats.isSymbolicLink()) {
+      throw new Error('Assembly result path contains a symbolic link')
+    }
+  }
+}
+
+async function isDownloadPathTaken(target: string, reservedPaths: Set<string>): Promise<boolean> {
+  if (reservedPaths.has(target)) return true
+  const [error] = await tryCatch(fsp.lstat(target))
+  if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
+  return error == null
 }
 
 const STALE_OUTPUT_GRACE_MS = 1000
@@ -650,27 +700,65 @@ async function buildDirectoryDownloadTargets({
   allFiles,
   baseDir,
   groupByStep,
+  outputRoot,
   reservedPaths,
 }: {
   allFiles: NormalizedAssemblyResultFile[]
   baseDir: string
   groupByStep: boolean
+  outputRoot: string
   reservedPaths: Set<string>
 }): Promise<AssemblyDownloadTarget[]> {
+  await assertNoOutputSymlinks(outputRoot, baseDir)
   await fsp.mkdir(baseDir, { recursive: true })
 
   const targets: AssemblyDownloadTarget[] = []
+  const steps = new Map<
+    string,
+    Array<{ file: NormalizedAssemblyResultFile; relativePath: string | null }>
+  >()
   for (const resultFile of allFiles) {
-    const targetDir = groupByStep ? path.join(baseDir, resultFile.stepName) : baseDir
-    await fsp.mkdir(targetDir, { recursive: true })
+    const files = steps.get(resultFile.stepName) ?? []
+    files.push({ file: resultFile, relativePath: getResultRelativePath(resultFile) })
+    steps.set(resultFile.stepName, files)
+  }
 
-    targets.push({
-      resultUrl: resultFile.url,
-      targetPath: await ensureUniquePath(
-        path.join(targetDir, getResultFileName(resultFile)),
-        reservedPaths,
-      ),
-    })
+  for (const [stepName, files] of steps) {
+    const safeStepName = sanitizeResultName(stepName)
+    let targetDir = groupByStep ? path.join(baseDir, safeStepName) : baseDir
+    const linked = files.some((file) => file.relativePath != null)
+    const names = files.map(
+      ({ file, relativePath }) => relativePath ?? sanitizeResultName(file.name),
+    )
+    if (linked && new Set(names).size !== names.length) {
+      throw new Error('Assembly results have duplicate relative paths')
+    }
+
+    for (const name of names) {
+      await assertNoOutputSymlinks(outputRoot, path.join(targetDir, name))
+    }
+
+    if (linked) {
+      const collisions = await Promise.all(
+        names.map((name) => isDownloadPathTaken(path.join(targetDir, name), reservedPaths)),
+      )
+      if (collisions.some(Boolean)) {
+        // Playlist references must keep their names; move the whole Step together on a rerun.
+        targetDir = await ensureUniquePath(path.join(baseDir, safeStepName), reservedPaths)
+      }
+    }
+
+    for (const [index, { file }] of files.entries()) {
+      const targetPath = path.join(targetDir, names[index])
+      await assertNoOutputSymlinks(outputRoot, targetPath)
+      if (linked) {
+        reservedPaths.add(targetPath)
+      }
+      targets.push({
+        resultUrl: file.url,
+        targetPath: linked ? targetPath : await ensureUniquePath(targetPath, reservedPaths),
+      })
+    }
   }
 
   return targets
@@ -694,7 +782,6 @@ async function resolveResultDownloadTargets({
   inPath,
   inputs,
   normalizedResults,
-  outputMode,
   outputPath,
   outputRoot,
   outputRootIsDirectory,
@@ -705,7 +792,6 @@ async function resolveResultDownloadTargets({
   inPath: string | null
   inputs: string[]
   normalizedResults: NormalizedAssemblyResults
-  outputMode?: 'directory' | 'file'
   outputPath: string | null
   outputRoot: string
   outputRootIsDirectory: boolean
@@ -717,15 +803,14 @@ async function resolveResultDownloadTargets({
     !singleAssembly && inPath != null && (hasDirectoryInput || inputs.length > 1)
 
   const resolveDirectoryBaseDir = (): string => {
-    if (!shouldGroupByInput || inPath == null) {
-      return outputRoot
+    if (hasDirectoryInput && outputPath != null) {
+      return allFiles.length === 1 && entries.length === 1
+        ? path.dirname(outputPath)
+        : path.join(path.dirname(outputPath), path.parse(outputPath).name)
     }
 
-    if (hasDirectoryInput && outputPath != null) {
-      const mappedRelative = path.relative(outputRoot, outputPath)
-      const mappedDir = path.dirname(mappedRelative)
-      const mappedStem = path.parse(mappedRelative).name
-      return path.join(outputRoot, mappedDir === '.' ? '' : mappedDir, mappedStem)
+    if (!shouldGroupByInput || inPath == null) {
+      return outputRoot
     }
 
     return path.join(outputRoot, path.parse(path.basename(inPath)).name)
@@ -750,27 +835,16 @@ async function resolveResultDownloadTargets({
       allFiles,
       baseDir: outputRoot,
       groupByStep: inputs.length === 0,
+      outputRoot,
       reservedPaths,
     })
-  }
-
-  if (outputMode === 'directory' || outputPath == null || inPath == null) {
-    return await buildDirectoryDownloadTargets({
-      allFiles,
-      baseDir: resolveDirectoryBaseDir(),
-      groupByStep: inPath == null || entries.length > 1,
-      reservedPaths,
-    })
-  }
-
-  if (allFiles.length === 1) {
-    return getSingleResultDownloadTarget(allFiles, outputPath)
   }
 
   return await buildDirectoryDownloadTargets({
     allFiles,
-    baseDir: path.join(path.dirname(outputPath), path.parse(outputPath).name),
-    groupByStep: true,
+    baseDir: resolveDirectoryBaseDir(),
+    groupByStep: inPath == null || entries.length > 1,
+    outputRoot,
     reservedPaths,
   })
 }
@@ -841,7 +915,6 @@ async function materializeAssemblyResults({
   inPath,
   inputs,
   normalizedResults,
-  outputMode,
   outputPath,
   outputRoot,
   outputRootIsDirectory,
@@ -854,7 +927,6 @@ async function materializeAssemblyResults({
   inPath: string | null
   inputs: string[]
   normalizedResults: NormalizedAssemblyResults
-  outputMode?: 'directory' | 'file'
   outputPath: string | null
   outputRoot: string | null
   outputRootIsDirectory: boolean
@@ -871,7 +943,6 @@ async function materializeAssemblyResults({
     inPath,
     inputs,
     normalizedResults,
-    outputMode,
     outputPath,
     outputRoot,
     outputRootIsDirectory,
@@ -1327,7 +1398,33 @@ export interface AssembliesCreateOptions {
 const DEFAULT_CONCURRENCY = 5
 
 // --- Main assembly create function ---
+/** Create Assemblies after materializing URL inputs as temporary local uploads. */
 export async function create(
+  outputctl: IOutputCtl,
+  client: Transloadit,
+  options: AssembliesCreateOptions,
+): ReturnType<typeof createWithLocalInputs> {
+  const urlInputs = options.inputs.filter((input) => /^https?:\/\//i.test(input))
+  if (urlInputs.length === 0) return await createWithLocalInputs(outputctl, client, options)
+  if (options.watch) throw new Error('--watch requires local inputs')
+
+  const prepared = await prepareInputFiles({
+    inputFiles: urlInputs.map((url, index) => ({ kind: 'url', field: String(index), url })),
+    allowPrivateUrls: false,
+    urlStrategy: 'download',
+  })
+  const localPaths = new Map(urlInputs.map((url, index) => [url, prepared.files[String(index)]]))
+  try {
+    return await createWithLocalInputs(outputctl, client, {
+      ...options,
+      inputs: options.inputs.map((input) => localPaths.get(input) ?? input),
+    })
+  } finally {
+    await Promise.all(prepared.cleanup.map((cleanup) => cleanup()))
+  }
+}
+
+async function createWithLocalInputs(
   outputctl: IOutputCtl,
   client: Transloadit,
   {
@@ -1626,9 +1723,8 @@ export async function create(
         abortSignal: abortController.signal,
         hasDirectoryInput: singleAssemblyMode ? false : hasDirectoryInput,
         inPath,
-        inputs: inputPaths,
+        inputs: singleAssemblyMode ? inputPaths : inputs,
         normalizedResults,
-        outputMode,
         outputPath: outputPlan?.path ?? null,
         outputRoot: resolvedOutput ?? null,
         outputRootIsDirectory,
