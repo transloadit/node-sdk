@@ -5,8 +5,10 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
+import { setImmediate } from 'node:timers/promises'
 
 import nock from 'nock'
+import { defaultOptions } from 'tus-js-client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Transloadit } from '../../src/Transloadit.ts'
@@ -152,6 +154,50 @@ describe('createAssembly file stream cleanup', () => {
     const chunks = openedStreams.filter((stream) => stream !== upload)
     expect(chunks).toHaveLength(1)
     expect(chunks.map((stream) => stream.closed)).toEqual([true])
+  })
+
+  it('waits for a file slice pending when creation fails', async () => {
+    await mockTusUpload(directory)
+    const openFile = defaultOptions.fileReader.openFile.bind(defaultOptions.fileReader)
+    let releaseSlice: () => void = () => {}
+    let markSliceCreated: () => void = () => {}
+    const sliceGate = new Promise<void>((resolve) => {
+      releaseSlice = resolve
+    })
+    const sliceCreated = new Promise<void>((resolve) => {
+      markSliceCreated = resolve
+    })
+    vi.spyOn(defaultOptions.fileReader, 'openFile').mockImplementation(async (input, chunkSize) => {
+      const source = await openFile(input, chunkSize)
+      return {
+        size: source.size,
+        async slice(start: number, end: number) {
+          const chunk = await source.slice(start, end)
+          markSliceCreated()
+          await sliceGate
+          return chunk
+        },
+        close() {
+          source.close()
+        },
+      }
+    })
+    const upload = fs.createReadStream(join(directory, 'first.txt'))
+    const failure = new Error('Upload source failed')
+    const result = client.createAssembly({ uploads: { file: upload } }).catch((error: unknown) => ({
+      error,
+      chunksClosed: openedStreams
+        .filter((stream) => stream !== upload)
+        .map((stream) => stream.closed),
+    }))
+
+    await sliceCreated
+    upload.emit('error', failure)
+    await setImmediate()
+    releaseSlice()
+
+    expect(await result).toEqual({ error: failure, chunksClosed: [true] })
+    expect(upload.destroyed).toBe(false)
   })
 
   it('closes files overwritten by an upload label while preserving caller-owned streams', async () => {

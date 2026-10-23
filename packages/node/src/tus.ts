@@ -33,6 +33,7 @@ interface SendTusRequestOptions {
   uploadUrls?: Record<string, string>
   uploadBehavior?: UploadBehavior
   onFileStreamOpened?: (stream: ReadStream) => void
+  onFileSliceStarted?: (slice: Promise<unknown>) => void
 }
 
 export async function sendTusRequest({
@@ -45,6 +46,7 @@ export async function sendTusRequest({
   uploadUrls,
   uploadBehavior = 'await',
   onFileStreamOpened,
+  onFileSliceStarted,
 }: SendTusRequestOptions) {
   const streamLabels = Object.keys(streamsMap)
 
@@ -231,11 +233,18 @@ export async function sendTusRequest({
               size: source.size,
               async slice(start: number, end: number): Promise<SliceResult> {
                 if (signal?.aborted) throw new Error('Upload aborted')
-                const chunk = await source.slice(start, end)
-                // tus-js-client declares platform-specific chunk values as any.
-                const value: unknown = chunk.value
-                if (value instanceof ReadStream) onFileStreamOpened(value)
-                return chunk
+                const reading = source.slice(start, end).then((chunk) => {
+                  // tus-js-client declares platform-specific chunk values as any.
+                  const value: unknown = chunk.value
+                  if (value instanceof ReadStream) onFileStreamOpened(value)
+                  if (signal?.aborted) throw new Error('Upload aborted')
+                  return chunk
+                })
+                // A file slice can open its stream before the promise resolves.
+                if (input instanceof ReadStream && input.path != null) {
+                  onFileSliceStarted?.(reading)
+                }
+                return await reading
               },
               close() {
                 source.close()

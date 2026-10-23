@@ -733,9 +733,17 @@ export class Transloadit {
       ? AbortSignal.any([callerSignal, uploadAbort.signal])
       : uploadAbort.signal
     const openedFileStreams = new Set<ReadStream>()
+    const pendingFileSlices = new Set<Promise<unknown>>()
     const onFileStreamOpened = (stream: ReadStream): void => {
       openedFileStreams.add(stream)
       stream.once('close', () => openedFileStreams.delete(stream))
+    }
+    const onFileSliceStarted = (slice: Promise<unknown>): void => {
+      pendingFileSlices.add(slice)
+      const remove = (): void => {
+        pendingFileSlices.delete(slice)
+      }
+      slice.then(remove, remove)
     }
 
     // We want to be able to return the promise immediately with custom data
@@ -803,6 +811,7 @@ export class Transloadit {
             signal,
             uploadBehavior,
             onFileStreamOpened,
+            onFileSliceStarted,
           })
           if (uploadBehavior !== 'await' && Object.keys(uploadUrls).length > 0) {
             result.upload_urls = uploadUrls
@@ -832,7 +841,8 @@ export class Transloadit {
       uploadAbort.abort()
       // File descriptors must be closed before callers can remove their temporary files.
       // Destroyed, unread streams reject finished(); cleanup must preserve the creation error.
-      while (openedFileStreams.size > 0) {
+      while (openedFileStreams.size > 0 || pendingFileSlices.size > 0) {
+        await Promise.allSettled(pendingFileSlices)
         await Promise.allSettled(
           [...openedFileStreams].map((stream) => {
             const closed = finished(stream, { cleanup: true })
