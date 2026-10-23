@@ -1,6 +1,5 @@
 import type { AssemblyResultEntryLike } from '../../../src/cli/resultFiles.ts'
 
-import dns from 'node:dns/promises'
 import { EventEmitter } from 'node:events'
 import fs from 'node:fs'
 import {
@@ -24,6 +23,10 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { AssembliesCreateCommand } from '../../../src/cli/commands/assemblies.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
+
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]),
+}))
 
 const tempDirs: string[] = []
 
@@ -71,7 +74,6 @@ beforeEach(async () => {
   vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
   vi.spyOn(console, 'error').mockImplementation(() => {})
   vi.spyOn(fs, 'fstatSync').mockReturnValue(await stat('/dev/null'))
-  vi.spyOn(dns, 'lookup').mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
 })
 
 afterEach(async () => {
@@ -160,13 +162,13 @@ it.each([
     expect(await readFile(uploadedPath, 'utf8')).toBe('remote input')
     return { assembly_id: 'url-upload' }
   })
-  nock('https://example.com').get('/remote.png?signature=example').reply(200, 'remote input')
+  nock('https://source.invalid').get('/remote.png?signature=example').reply(200, 'remote input')
   nock('https://downloads.test').get('/result').reply(200, 'processed bytes')
 
   expect(
     await run([
       '-i',
-      'https://example.com/remote.png?signature=example',
+      'https://source.invalid/remote.png?signature=example',
       ...(single ? ['--single-assembly'] : []),
     ]),
   ).toBe(0)
@@ -313,10 +315,21 @@ it('reserves concurrent linked downloads together when input stems match', async
   ).toBe('stream bytes')
 })
 
-it('refreshes a watched result in place after the input changes', async () => {
+it.each([
+  { existing: false, expectedName: 'result.png', expectedFiles: ['result.png'] },
+  { existing: true, expectedName: 'result__1.png', expectedFiles: ['result.png', 'result__1.png'] },
+])('refreshes its owned watch result (preexisting output: $existing)', async ({
+  existing,
+  expectedName,
+  expectedFiles,
+}) => {
   const { inputPath, outputDir } = await fixture({
     resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
   })
+  if (existing) {
+    await mkdir(outputDir)
+    await writeFile(path.join(outputDir, 'result.png'), 'unrelated file')
+  }
   class FakeWatcher extends EventEmitter {
     close(): void {
       this.emit('close')
@@ -349,8 +362,105 @@ it('refreshes a watched result in place after the input changes', async () => {
 
   expect(result.hasFailures).toBe(false)
   expect(completions).toBe(2)
-  expect(await readdir(outputDir)).toEqual(['result.png'])
-  expect(await readFile(path.join(outputDir, 'result.png'), 'utf8')).toBe('updated result')
+  expect(await readdir(outputDir)).toEqual(expectedFiles)
+  expect(await readFile(path.join(outputDir, expectedName), 'utf8')).toBe('updated result')
+  if (existing)
+    expect(await readFile(path.join(outputDir, 'result.png'), 'utf8')).toBe('unrelated file')
+})
+
+it('accepts a standalone input and a directory containing the same basename', async () => {
+  const { inputPath, outputDir, run, tempDir } = await fixture({
+    resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
+  })
+  const directoryInput = path.join(tempDir, 'pictures')
+  await mkdir(directoryInput)
+  await writeFile(path.join(directoryInput, 'logo.png'), 'second input')
+  nock('https://downloads.test').get('/result').twice().reply(200, 'result bytes')
+
+  expect(await run(['-i', inputPath, '-i', directoryInput])).toBe(0)
+  expect(await readdir(outputDir)).toEqual(['result.png', 'result__1.png'])
+})
+
+it('fails promptly when a regular file blocks an ordinary Step directory', async () => {
+  const { inputPath, outputDir, run } = await fixture({
+    thumbs: [{ name: 'result.png', url: 'https://downloads.test/image' }],
+    text: [{ name: 'result.txt', url: 'https://downloads.test/text' }],
+  })
+  await mkdir(outputDir)
+  await writeFile(path.join(outputDir, 'thumbs'), 'existing file')
+  const lstat = fs.promises.lstat
+  let probes = 0
+  vi.spyOn(fs.promises, 'lstat').mockImplementation(async (...args) => {
+    probes += 1
+    // Bound the broken implementation so a failed regression does not hang the test worker.
+    if (probes > 30) throw new Error('Filesystem probe budget exceeded')
+    return await lstat(...args)
+  })
+
+  expect(await run(['-i', inputPath])).toBe(1)
+  expect(probes).toBeLessThan(15)
+  expect(await readFile(path.join(outputDir, 'thumbs'), 'utf8')).toBe('existing file')
+})
+
+it('discards a slow watch download when a newer result has already been saved', async () => {
+  const { inputPath, outputDir } = await fixture({})
+  class FakeWatcher extends EventEmitter {
+    close(): void {
+      this.emit('close')
+    }
+  }
+  const watcher = new FakeWatcher()
+  let resolveWatcherReady: (() => void) | undefined
+  const watcherReady = new Promise<void>((resolve) => {
+    resolveWatcherReady = resolve
+  })
+  vi.doMock('node-watch', () => ({
+    default: () => {
+      resolveWatcherReady?.()
+      return watcher
+    },
+  }))
+  vi.resetModules()
+  const { create } = await import('../../../src/cli/commands/assemblies.ts')
+  let count = 0
+  vi.mocked(Transloadit.prototype.createAssembly).mockImplementation(async () => ({
+    assembly_id: String(++count),
+  }))
+  vi.mocked(Transloadit.prototype.awaitAssemblyCompletion).mockImplementation(async (id) => ({
+    ok: 'ASSEMBLY_COMPLETED',
+    results: { resized: [{ name: 'result.png', url: `https://downloads.test/${id}` }] },
+  }))
+  let resolveDownloadStarted: (() => void) | undefined
+  const downloadStarted = new Promise<void>((resolve) => {
+    resolveDownloadStarted = resolve
+  })
+  nock('https://downloads.test')
+    .get('/1')
+    .delayBody(120)
+    .reply(200, () => {
+      resolveDownloadStarted?.()
+      return 'older result'
+    })
+    .get('/2')
+    .reply(200, 'newer result')
+  const output = new OutputCtl()
+  vi.spyOn(output, 'debug').mockImplementation((message) => {
+    if (String(message).startsWith('COMPLETED')) watcher.close()
+  })
+
+  const processing = create(output, new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
+    inputs: [inputPath],
+    output: `${outputDir}/`,
+    watch: true,
+    stepsData: { resized: { robot: '/image/resize', use: ':original', width: 16 } },
+  })
+  await watcherReady
+  await downloadStarted
+  watcher.emit('change', 'update', inputPath)
+
+  expect((await processing).hasFailures).toBe(false)
+  expect(count).toBe(2)
+  expect(await readFile(path.join(outputDir, 'result.png'), 'utf8')).toBe('newer result')
 })
 
 it('moves a linked Step together when an existing file occupies a rendition directory', async () => {
@@ -377,4 +487,50 @@ it('moves a linked Step together when an existing file occupies a rendition dire
     'stream bytes',
   )
   expect(await readFile(path.join(outputDir, 'video'), 'utf8')).toBe('existing file')
+})
+
+it('reuses watched filenames when the Assembly returns its results in a different order', async () => {
+  const { inputPath, outputDir } = await fixture({})
+  class FakeWatcher extends EventEmitter {
+    close(): void {
+      this.emit('close')
+    }
+  }
+  const watcher = new FakeWatcher()
+  vi.doMock('node-watch', () => ({ default: () => watcher }))
+  vi.resetModules()
+  const { create } = await import('../../../src/cli/commands/assemblies.ts')
+  const a = { name: 'a.png', url: 'https://downloads.test/a' }
+  const b = { name: 'b.png', url: 'https://downloads.test/b' }
+  vi.mocked(Transloadit.prototype.awaitAssemblyCompletion)
+    .mockResolvedValueOnce({ ok: 'ASSEMBLY_COMPLETED', results: { resized: [a, b] } })
+    .mockResolvedValueOnce({ ok: 'ASSEMBLY_COMPLETED', results: { resized: [b, a] } })
+  const output = new OutputCtl()
+  let completions = 0
+  vi.spyOn(output, 'debug').mockImplementation((message) => {
+    if (!String(message).startsWith('COMPLETED')) return
+    if (++completions === 1) watcher.emit('change', 'update', inputPath)
+    else watcher.close()
+  })
+  nock('https://downloads.test')
+    .get('/a')
+    .reply(200, 'old a')
+    .get('/b')
+    .reply(200, 'old b')
+    .get('/b')
+    .reply(200, 'new b')
+    .get('/a')
+    .reply(200, 'new a')
+
+  const result = await create(output, new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
+    inputs: [inputPath],
+    output: `${outputDir}/`,
+    watch: true,
+    stepsData: { resized: { robot: '/image/resize', use: ':original', width: 16 } },
+  })
+
+  expect(result.hasFailures).toBe(false)
+  expect(await readdir(outputDir)).toEqual(['a.png', 'b.png'])
+  expect(await readFile(path.join(outputDir, 'a.png'), 'utf8')).toBe('new a')
+  expect(await readFile(path.join(outputDir, 'b.png'), 'utf8')).toBe('new b')
 })

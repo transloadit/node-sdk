@@ -234,7 +234,7 @@ describeLive('assemblies', { retry: 1 }, () => {
     )
 
     it(
-      'should detect outdir conflicts',
+      'should disambiguate colliding input names in directory outputs',
       testCase(async (client) => {
         await fsp.mkdir('in')
         await Promise.all(['1.jpg', 'in/1.jpg'].map(imgPromise))
@@ -242,24 +242,12 @@ describeLive('assemblies', { retry: 1 }, () => {
         const steps = await stepsPromise()
 
         const output = new OutputCtl()
-        try {
-          await assembliesCreate(output, client, {
-            steps,
-            inputs: ['1.jpg', 'in'],
-            output: 'out',
-          })
-          throw new Error('assembliesCreate didnt err; should have')
-        } catch (_err) {
-          const result = output.get() as OutputEntry[]
-          expect(result[result.length - 1])
-            .to.have.property('type')
-            .that.equals('error')
-          expect(result[result.length - 1])
-            .to.have.property('msg')
-            .that.equals("Output collision between 'in/1.jpg' and '1.jpg'")
-        }
-        // Small delay to allow abort signals to propagate and streams to close
-        await new Promise((resolve) => setTimeout(resolve, 50))
+        await assembliesCreate(output, client, {
+          steps,
+          inputs: ['1.jpg', 'in'],
+          output: 'out',
+        })
+        expect(await fsp.readdir('out')).to.deep.equal(['1.jpg', '1__1.jpg'])
       }),
     )
 
