@@ -1,7 +1,19 @@
 import type { AssemblyResultEntryLike } from '../../../src/cli/resultFiles.ts'
 
+import dns from 'node:dns/promises'
+import { EventEmitter } from 'node:events'
 import fs from 'node:fs'
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  utimes,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -10,6 +22,7 @@ import nock from 'nock'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { AssembliesCreateCommand } from '../../../src/cli/commands/assemblies.ts'
+import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
 
 const tempDirs: string[] = []
@@ -17,7 +30,7 @@ const tempDirs: string[] = []
 async function fixture(results: Record<string, AssemblyResultEntryLike[]>): Promise<{
   inputPath: string
   outputDir: string
-  run: (args?: string[]) => Promise<number>
+  run: (args?: string[], output?: string) => Promise<number>
   tempDir: string
 }> {
   const tempDir = await mkdtemp(path.join(tmpdir(), 'transloadit-download-layout-'))
@@ -40,14 +53,14 @@ async function fixture(results: Record<string, AssemblyResultEntryLike[]>): Prom
     inputPath,
     outputDir,
     tempDir,
-    run: async (args = []) =>
+    run: async (args = [], output = `${outputDir}/`) =>
       await Cli.from([AssembliesCreateCommand]).run([
         'assemblies',
         'create',
         '--steps',
         stepsPath,
         '-o',
-        `${outputDir}/`,
+        output,
         ...args,
       ]),
   }
@@ -58,11 +71,13 @@ beforeEach(async () => {
   vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
   vi.spyOn(console, 'error').mockImplementation(() => {})
   vi.spyOn(fs, 'fstatSync').mockReturnValue(await stat('/dev/null'))
+  vi.spyOn(dns, 'lookup').mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
 })
 
 afterEach(async () => {
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
+  vi.doUnmock('node-watch')
   nock.cleanAll()
   nock.abortPendingRequests()
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
@@ -214,4 +229,152 @@ it('rejects a relative result path through a symlink outside the output director
 
   expect(await run(['-i', inputPath])).toBe(1)
   expect(await readdir(outside)).toEqual([])
+})
+
+it('keeps single-result downloads flat for multiple standalone inputs', async () => {
+  const { inputPath, outputDir, run, tempDir } = await fixture({
+    resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
+  })
+  const secondInput = path.join(tempDir, 'second.png')
+  await writeFile(secondInput, 'second input')
+  nock('https://downloads.test').get('/result').twice().reply(200, 'result bytes')
+
+  expect(await run(['-i', inputPath, '-i', secondInput])).toBe(0)
+  expect(await readdir(outputDir)).toEqual(['result.png', 'result__1.png'])
+})
+
+it('accepts inputs with the same basename in different folders', async () => {
+  const { inputPath, outputDir, run, tempDir } = await fixture({
+    resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
+  })
+  const secondInput = path.join(tempDir, 'logo.png')
+  await writeFile(secondInput, 'second input')
+  nock('https://downloads.test').get('/result').twice().reply(200, 'result bytes')
+
+  expect(await run(['-i', inputPath, '-i', secondInput])).toBe(0)
+  expect(await readdir(outputDir)).toEqual(['result.png', 'result__1.png'])
+})
+
+it('does not mistake an input-named file for a current result with a different filename', async () => {
+  const { inputPath, outputDir, run } = await fixture({
+    bundled: [{ name: 'archive.zip', url: 'https://downloads.test/result' }],
+  })
+  await mkdir(outputDir)
+  await writeFile(path.join(outputDir, 'logo.png'), 'unrelated file')
+  await utimes(path.join(outputDir, 'logo.png'), new Date(), new Date(Date.now() + 10_000))
+  nock('https://downloads.test').get('/result').reply(200, 'result bytes')
+
+  expect(await run(['-i', inputPath])).toBe(0)
+  expect(await readFile(path.join(outputDir, 'archive.zip'), 'utf8')).toBe('result bytes')
+})
+
+it('allows an explicitly selected output root that is a symlink', async () => {
+  const { inputPath, outputDir, run, tempDir } = await fixture({
+    resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
+  })
+  const destination = path.join(tempDir, 'destination')
+  await mkdir(destination)
+  await symlink(destination, outputDir)
+  nock('https://downloads.test').get('/result').reply(200, 'result bytes')
+
+  expect(await run(['-i', inputPath], outputDir)).toBe(0)
+  expect(await readFile(path.join(destination, 'result.png'), 'utf8')).toBe('result bytes')
+})
+
+it('reserves concurrent linked downloads together when input stems match', async () => {
+  const { inputPath, outputDir, run } = await fixture({
+    adaptive: [
+      { name: 'master.m3u8', url: 'https://downloads.test/master', meta: { relative_path: '' } },
+      {
+        name: 'segment.ts',
+        url: 'https://downloads.test/segment',
+        meta: { relative_path: 'video' },
+      },
+    ],
+  })
+  await writeFile(path.join(path.dirname(inputPath), 'logo.jpg'), 'second input')
+  nock('https://downloads.test')
+    .get('/master')
+    .twice()
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/segment')
+    .twice()
+    .reply(200, 'stream bytes')
+
+  expect(await run(['-i', path.dirname(inputPath), '--concurrency', '2'])).toBe(0)
+  expect(await readFile(path.join(outputDir, 'logo', 'master.m3u8'), 'utf8')).toBe(
+    '#EXTM3U\nvideo/segment.ts\n',
+  )
+  expect(await readFile(path.join(outputDir, 'logo', 'adaptive', 'master.m3u8'), 'utf8')).toBe(
+    '#EXTM3U\nvideo/segment.ts\n',
+  )
+  expect(
+    await readFile(path.join(outputDir, 'logo', 'adaptive', 'video', 'segment.ts'), 'utf8'),
+  ).toBe('stream bytes')
+})
+
+it('refreshes a watched result in place after the input changes', async () => {
+  const { inputPath, outputDir } = await fixture({
+    resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
+  })
+  class FakeWatcher extends EventEmitter {
+    close(): void {
+      this.emit('close')
+    }
+  }
+  const watcher = new FakeWatcher()
+  vi.doMock('node-watch', () => ({ default: () => watcher }))
+  vi.resetModules()
+  const { create } = await import('../../../src/cli/commands/assemblies.ts')
+  let completions = 0
+  const output = new OutputCtl()
+  vi.spyOn(output, 'debug').mockImplementation((message) => {
+    if (!String(message).startsWith('COMPLETED')) return
+    completions += 1
+    if (completions === 1) watcher.emit('change', 'update', inputPath)
+    else watcher.close()
+  })
+  nock('https://downloads.test')
+    .get('/result')
+    .reply(200, 'first result')
+    .get('/result')
+    .reply(200, 'updated result')
+
+  const result = await create(output, new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
+    inputs: [inputPath],
+    output: `${outputDir}/`,
+    watch: true,
+    stepsData: { resized: { robot: '/image/resize', use: ':original', width: 16 } },
+  })
+
+  expect(result.hasFailures).toBe(false)
+  expect(completions).toBe(2)
+  expect(await readdir(outputDir)).toEqual(['result.png'])
+  expect(await readFile(path.join(outputDir, 'result.png'), 'utf8')).toBe('updated result')
+})
+
+it('moves a linked Step together when an existing file occupies a rendition directory', async () => {
+  const { inputPath, outputDir, run } = await fixture({
+    adaptive: [
+      { name: 'master.m3u8', url: 'https://downloads.test/master', meta: { relative_path: '' } },
+      {
+        name: 'segment.ts',
+        url: 'https://downloads.test/segment',
+        meta: { relative_path: 'video' },
+      },
+    ],
+  })
+  await mkdir(outputDir)
+  await writeFile(path.join(outputDir, 'video'), 'existing file')
+  nock('https://downloads.test')
+    .get('/master')
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/segment')
+    .reply(200, 'stream bytes')
+
+  expect(await run(['-i', inputPath])).toBe(0)
+  expect(await readFile(path.join(outputDir, 'adaptive', 'video', 'segment.ts'), 'utf8')).toBe(
+    'stream bytes',
+  )
+  expect(await readFile(path.join(outputDir, 'video'), 'utf8')).toBe('existing file')
 })
