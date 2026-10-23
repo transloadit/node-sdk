@@ -752,24 +752,34 @@ interface BundleDownloadTarget {
   targetPath: string
 }
 
+interface StagedBundleDownloadTarget extends BundleDownloadTarget {
+  stagingPath: string
+}
+
 async function downloadResultBundle(
-  root: string,
   targets: BundleDownloadTarget[],
   signal: AbortSignal,
   isCurrent: () => boolean,
   commits: PQueue,
   onDownload: () => void,
 ): Promise<void> {
-  const stagingDir = await fsp.mkdtemp(path.join(root, '.transloadit-bundle-'))
-  const staged = targets.map((target, index) => ({
-    ...target,
-    stagingPath: path.join(stagingDir, String(index)),
-  }))
+  const stagingDirs = new Map<string, string>()
+  const staged: StagedBundleDownloadTarget[] = []
   try {
-    for (const { resultUrl, stagingPath } of staged) {
+    for (const [index, target] of targets.entries()) {
       if (!isCurrent()) return
+      const parent = path.dirname(target.targetPath)
+      await fsp.mkdir(parent, { recursive: true })
+      let stagingDir = stagingDirs.get(parent)
+      if (stagingDir == null) {
+        // Stage beside each destination so publication also works across nested filesystems.
+        stagingDir = await fsp.mkdtemp(path.join(parent, '.transloadit-bundle-'))
+        stagingDirs.set(parent, stagingDir)
+      }
+      const stagingPath = path.join(stagingDir, String(index))
+      staged.push({ ...target, stagingPath })
       onDownload()
-      await downloadResultToFile(resultUrl, stagingPath, signal, () => true)
+      await downloadResultToFile(target.resultUrl, stagingPath, signal, () => true)
     }
     await commits.add(async () => {
       if (!isCurrent()) return
@@ -781,7 +791,11 @@ async function downloadResultBundle(
       }
     })
   } finally {
-    await fsp.rm(stagingDir, { recursive: true, force: true })
+    await Promise.all(
+      [...stagingDirs.values()].map(
+        async (dir) => await fsp.rm(dir, { recursive: true, force: true }),
+      ),
+    )
   }
 }
 
@@ -1010,7 +1024,7 @@ async function buildDirectoryDownloadTargets({
         : await ensureUniquePath(
             targetPath,
             reservedPaths,
-            JSON.stringify([owner, stepName, name, occurrence]),
+            JSON.stringify([groupOwner, name, occurrence]),
           )
       await assertNoOutputSymlinks(outputRoot, selectedPath)
       targets.push({
@@ -1045,6 +1059,7 @@ async function resolveResultDownloadTargets({
   outputPath,
   outputRoot,
   outputRootIsDirectory,
+  owner,
   reservedPaths,
   singleAssembly,
 }: {
@@ -1055,6 +1070,7 @@ async function resolveResultDownloadTargets({
   outputPath: string | null
   outputRoot: string
   outputRootIsDirectory: boolean
+  owner: string
   reservedPaths: DownloadPathReservations
   singleAssembly?: boolean
 }): Promise<AssemblyDownloadTarget[]> {
@@ -1065,7 +1081,6 @@ async function resolveResultDownloadTargets({
     !singleAssembly &&
     inPath != null &&
     (hasDirectoryInput || (inputs.length > 1 && allFiles.length > 1))
-  const owner = JSON.stringify([inPath, singleAssembly ? inputs : []])
 
   const resolveDirectoryBaseDir = (): string => {
     if (hasDirectoryInput && outputPath != null) {
@@ -1187,6 +1202,7 @@ async function materializeAssemblyResults({
   outputRoot,
   outputRootIsDirectory,
   outputctl,
+  owner,
   reservedPaths,
   singleAssembly,
 }: {
@@ -1200,6 +1216,7 @@ async function materializeAssemblyResults({
   outputRoot: string | null
   outputRootIsDirectory: boolean
   outputctl: IOutputCtl
+  owner: string
   reservedPaths: DownloadPathReservations
   singleAssembly?: boolean
 }): Promise<void> {
@@ -1218,6 +1235,7 @@ async function materializeAssemblyResults({
         outputPath,
         outputRoot,
         outputRootIsDirectory,
+        owner,
         reservedPaths,
         singleAssembly,
       }),
@@ -1238,16 +1256,11 @@ async function materializeAssemblyResults({
       else await downloadResultToFile(resultUrl, targetPath, abortSignal, isCurrent)
     })
   }
-  for (const [root, files] of bundles) {
+  for (const files of bundles.values()) {
     downloads.push(
       async () =>
-        await downloadResultBundle(
-          root,
-          files,
-          abortSignal,
-          isCurrent,
-          reservedPaths.bundleCommits,
-          () => outputctl.debug('DOWNLOADING'),
+        await downloadResultBundle(files, abortSignal, isCurrent, reservedPaths.bundleCommits, () =>
+          outputctl.debug('DOWNLOADING'),
         ),
     )
   }
@@ -2010,6 +2023,12 @@ async function createWithLocalInputs(
         outputRoot: resolvedOutput ?? null,
         outputRootIsDirectory,
         outputctl,
+        // Only watch updates reuse destinations; independent Assemblies retain every result.
+        owner: JSON.stringify([
+          inPath,
+          singleAssemblyMode ? inputPaths : [],
+          watchOption ? null : assemblyId,
+        ]),
         reservedPaths: reservedResultPaths,
         singleAssembly: singleAssemblyMode,
       })

@@ -263,6 +263,126 @@ it('rejects duplicate paths within a single HLS bundle', async () => {
   expect(await readdir(outputDir)).toEqual([])
 })
 
+it('retains ordinary results from different source groups in a Step containing HLS', async () => {
+  const master = {
+    name: 'master.m3u8',
+    url: 'https://downloads.test/master',
+    original_id: 'video',
+    original_name: 'clip.mp4',
+    meta: { relative_path: '' },
+  }
+  const segment = {
+    ...master,
+    name: 'segment.ts',
+    url: 'https://downloads.test/segment',
+    meta: { relative_path: 'video' },
+  }
+  const firstCover = {
+    name: 'cover.jpg',
+    url: 'https://downloads.test/first-cover',
+    original_id: 'first-cover',
+    original_name: 'same.png',
+  }
+  const secondCover = {
+    ...firstCover,
+    original_id: 'second-cover',
+    url: 'https://downloads.test/second-cover',
+  }
+  const { inputPath, outputDir, run } = await fixture({
+    adaptive: [master, segment, firstCover, secondCover],
+  })
+  nock('https://downloads.test')
+    .get('/master')
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/segment')
+    .reply(200, 'stream bytes')
+    .get('/first-cover')
+    .reply(200, 'first cover')
+    .get('/second-cover')
+    .reply(200, 'second cover')
+
+  expect(await run(['--single-assembly', '-i', inputPath])).toBe(0)
+  expect(await readdir(path.join(outputDir, 'same'))).toEqual(['cover.jpg', 'cover__1.jpg'])
+  expect(await readFile(path.join(outputDir, 'same', 'cover.jpg'), 'utf8')).toBe('first cover')
+  expect(await readFile(path.join(outputDir, 'same', 'cover__1.jpg'), 'utf8')).toBe('second cover')
+  expect(await readFile(path.join(outputDir, 'clip', 'video', 'segment.ts'), 'utf8')).toBe(
+    'stream bytes',
+  )
+})
+
+it('preserves every independent Assembly result when file and directory inputs overlap', async () => {
+  const { inputPath, outputDir, run } = await fixture({})
+  let count = 0
+  vi.mocked(Transloadit.prototype.createAssembly).mockImplementation(async () => ({
+    assembly_id: String(++count),
+  }))
+  vi.mocked(Transloadit.prototype.awaitAssemblyCompletion).mockImplementation(async (id) => ({
+    ok: 'ASSEMBLY_COMPLETED',
+    results: {
+      images: [
+        { name: 'a.png', url: `https://downloads.test/${id}/a` },
+        { name: 'b.png', url: `https://downloads.test/${id}/b` },
+      ],
+    },
+  }))
+  nock('https://downloads.test')
+    .get('/1/a')
+    .reply(200, 'a1')
+    .get('/1/b')
+    .reply(200, 'b1')
+    .get('/2/a')
+    .reply(200, 'a2')
+    .get('/2/b')
+    .reply(200, 'b2')
+
+  expect(await run(['-i', inputPath, '-i', path.dirname(inputPath)])).toBe(0)
+  expect(count).toBe(2)
+  const files = await readdir(path.join(outputDir, 'logo'))
+  expect(files).toEqual(['a.png', 'a__1.png', 'b.png', 'b__1.png'])
+  expect(
+    (
+      await Promise.all(
+        files.map(async (file) => await readFile(path.join(outputDir, 'logo', file), 'utf8')),
+      )
+    ).sort(),
+  ).toEqual(['a1', 'a2', 'b1', 'b2'])
+})
+
+it('stages HLS files on their destination filesystem', async () => {
+  const { inputPath, outputDir, run } = await fixture({
+    adaptive: [
+      { name: 'master.m3u8', url: 'https://downloads.test/master', meta: { relative_path: '' } },
+      {
+        name: 'segment.ts',
+        url: 'https://downloads.test/segment',
+        meta: { relative_path: 'video' },
+      },
+    ],
+  })
+  const rename = fs.promises.rename
+  let crossDeviceAttempts = 0
+  vi.spyOn(fs.promises, 'rename').mockImplementation(async (source, target) => {
+    const onRenditionDevice = (file: fs.PathLike): boolean =>
+      String(file).includes(`${path.sep}video${path.sep}`)
+    if (onRenditionDevice(source) !== onRenditionDevice(target)) {
+      crossDeviceAttempts += 1
+      throw Object.assign(new Error('Cross-device rename'), { code: 'EXDEV' })
+    }
+    await rename(source, target)
+  })
+  nock('https://downloads.test')
+    .get('/master')
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/segment')
+    .reply(200, 'stream bytes')
+
+  expect(await run(['-i', inputPath])).toBe(0)
+  expect(crossDeviceAttempts).toBe(0)
+  expect(await readdir(outputDir)).toEqual(['master.m3u8', 'video'])
+  expect(await readdir(path.join(outputDir, 'video'))).toEqual(['segment.ts'])
+  expect(await readFile(path.join(outputDir, 'video', 'segment.ts'), 'utf8')).toBe('stream bytes')
+})
+
 it('keeps concurrent case-only result names separate on case-insensitive filesystems', async () => {
   const { inputPath, outputDir, run } = await fixture({})
   const secondInput = path.join(path.dirname(inputPath), 'second.png')
