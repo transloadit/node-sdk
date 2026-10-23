@@ -60,6 +60,7 @@ export interface IOutputCtl {
   info(msg: unknown): void
   debug(msg: unknown): void
   trace(msg: unknown): void
+  /** An undefined simple value emits JSON only, preserving binary or URL stdout in text mode. */
   print(simple: unknown, json: unknown): void
 }
 
@@ -110,6 +111,6 @@ export default class OutputCtl implements IOutputCtl {
   print(simple: unknown, json: unknown): void {
     if (this.json) console.log(JSON.stringify(json))
     else if (typeof simple === 'string') console.log(simple)
-    else console.dir(simple, { depth: null })
+    else if (simple !== undefined) console.dir(simple, { depth: null })
   }
 }

@@ -267,11 +267,7 @@ describe('assemblies create', () => {
     )
 
     await expect(stat(outputPath)).rejects.toThrow()
-    expect(outputError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringContaining('use -o <dir>/'),
-      }),
-    )
+    expect(outputError).toHaveBeenCalledWith(expect.stringContaining('use -o <dir>/'))
   })
 
   it.each([
@@ -1726,14 +1722,11 @@ describe('assemblies create', () => {
     const loggedError = consoleError.mock.calls.find(
       ([prefix, value]) =>
         prefix === 'err    ' &&
-        value instanceof Error &&
-        value.message.includes(
-          'Assembly URL: https://api2.transloadit.com/assemblies/assembly-timeout',
-        ),
+        typeof value === 'string' &&
+        value.includes('Assembly URL: https://api2.transloadit.com/assemblies/assembly-timeout'),
     )?.[1]
 
-    expect(loggedError).toBeInstanceOf(Error)
-    expect((loggedError as Error).message).toContain('Polling timed out')
+    expect(loggedError).toContain('Polling timed out')
   })
 
   it('does not report another assembly URL when concurrent polling times out', async () => {
@@ -1794,13 +1787,11 @@ describe('assemblies create', () => {
     const loggedError = consoleError.mock.calls.find(
       ([prefix, value]) =>
         prefix === 'err    ' &&
-        value instanceof Error &&
-        value.message.includes('Assembly ID: assembly-one'),
+        typeof value === 'string' &&
+        value.includes('Assembly ID: assembly-one'),
     )?.[1]
 
-    expect(loggedError).toBeInstanceOf(Error)
-    expect((loggedError as Error).message).not.toContain(
-      'https://api2.transloadit.com/assemblies/assembly-two',
-    )
+    expect(loggedError).toEqual(expect.any(String))
+    expect(loggedError).not.toContain('https://api2.transloadit.com/assemblies/assembly-two')
   })
 })

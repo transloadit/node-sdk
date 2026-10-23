@@ -1,6 +1,20 @@
+import type { AssemblyStatus } from '../alphalib/types/assemblyStatus.ts'
 import type { Steps } from '../alphalib/types/template.ts'
 
 import { z } from 'zod'
+
+/** Public diagnostics from one Assembly, excluding instructions and request internals. */
+export type AssemblySummary = Pick<
+  AssemblyStatus,
+  | 'assembly_id'
+  | 'assembly_url'
+  | 'assembly_ssl_url'
+  | 'ok'
+  | 'error'
+  | 'message'
+  | 'ignored_errors'
+  | 'ignored_error_count'
+>
 
 // Zod schemas for runtime validation
 const APIErrorSchema = z.object({
