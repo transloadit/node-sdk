@@ -146,7 +146,8 @@ npx -y @transloadit/node run "extract a waveform image from this audio" --input 
 ```
 
 Repeat `--input` for multiple files, or pass a directory. Use `--single-assembly` to process the
-inputs together. `run` also supports `--watch`, `--recursive`, and `--concurrency`.
+inputs together. `run` also supports `--watch`, `--recursive`, `--concurrency`, and
+`--url-download-timeout` (milliseconds per URL input, default: `300000`).
 
 ### Compile Assembly Instructions
 
@@ -1516,6 +1517,8 @@ The `assemblies create` command additionally supports:
   or a redirected file. Other non-TTY stdin (such as an agent shell or `/dev/null`) runs the Assembly
   without uploads. With `--template`, stdin always requires `-i -`.
 - `--single-assembly` - Pass all input files to a single assembly instead of one assembly per file
+- `--url-download-timeout` - Limit each URL input download to this many milliseconds (default:
+  `300000`, or five minutes). DNS checks and redirects share the same deadline.
 
 #### Log Levels
 
