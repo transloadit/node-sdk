@@ -1717,9 +1717,7 @@ export const createTransloaditMcpServer = (
               const known = await settleWithin(Promise.race([created, work]), statusReadTimeoutMs)
               if (known === deadlineReached) {
                 // Without the request, nothing can create this Assembly later, so a status check
-                // that finds no Assembly makes creating it again safe. The SDK keeps the read
-                // streams it opened for the files until they are collected, as on any failed
-                // creation; closing them needs an SDK change.
+                // that finds no Assembly makes creating it again safe.
                 creationAbort.abort()
                 return creationAssemblyId
                   ? buildCreationPending(

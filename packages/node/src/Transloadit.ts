@@ -1,3 +1,4 @@
+import type { ReadStream } from 'node:fs'
 import type { Readable } from 'node:stream'
 
 import type {
@@ -75,6 +76,7 @@ import { randomUUID } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
 import { basename } from 'node:path'
+import { finished } from 'node:stream/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import { compileAssemblyInstructionsFromPrompt } from '@transloadit/utils'
@@ -241,11 +243,15 @@ const toReadableUpload = (label: string, value: Readable | IntoStreamInput): Rea
   return readable ? value : intoStream(value)
 }
 
-const buildStreamsMap = (descriptors: UploadDescriptor[]): Record<string, Stream> =>
+const buildStreamsMap = (
+  descriptors: UploadDescriptor[],
+  openedFileStreams?: ReadStream[],
+): Record<string, Stream> =>
   Object.fromEntries(
     descriptors.map((descriptor) => {
       if (descriptor.path) {
         const stream = createReadStream(descriptor.path)
+        openedFileStreams?.push(stream)
         return [descriptor.label, { stream, path: descriptor.path }]
       }
 
@@ -722,6 +728,7 @@ export class Transloadit {
       effectiveAssemblyId = randomUUID().replace(/-/g, '')
     }
     const urlSuffix = `/assemblies/${effectiveAssemblyId}`
+    const openedFileStreams: ReadStream[] = []
 
     // We want to be able to return the promise immediately with custom data
     const promise = (async () => {
@@ -746,7 +753,7 @@ export class Transloadit {
         })),
       ]
 
-      const allStreamsMap = buildStreamsMap(descriptors)
+      const allStreamsMap = buildStreamsMap(descriptors, openedFileStreams)
 
       const allStreams = Object.values(allStreamsMap)
 
@@ -812,7 +819,18 @@ export class Transloadit {
       }
 
       return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
-    })()
+    })().catch(async (error: unknown) => {
+      // File descriptors must be closed before callers can remove their temporary files.
+      // Destroyed, unread streams reject finished(); cleanup must preserve the creation error.
+      await Promise.allSettled(
+        openedFileStreams.map((stream) => {
+          const closed = finished(stream, { cleanup: true })
+          stream.destroy()
+          return closed
+        }),
+      )
+      throw error
+    })
 
     // This allows the user to use or log the assemblyId even before it has been created for easier debugging
     return Object.assign(promise, { assemblyId: effectiveAssemblyId })
