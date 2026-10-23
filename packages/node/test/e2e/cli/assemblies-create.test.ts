@@ -400,7 +400,7 @@ describeLive('assemblies', { retry: 1 }, () => {
     )
 
     it(
-      'should reprocess directory outputs to discover result filenames',
+      'should not reprocess inputs that are older than their directory output',
       testCase(async (client) => {
         const infiles = await Promise.all(['in1.jpg', 'in2.jpg', 'in3.jpg'].map(imgPromise))
         const steps = await stepsPromise()
@@ -413,19 +413,16 @@ describeLive('assemblies', { retry: 1 }, () => {
           output: 'out',
         })
 
+        const inputTime = new Date(Date.now() - 60_000)
+        await fsp.utimes(infiles[0] as string, inputTime, inputTime)
         const output2 = new OutputCtl()
         const { results } = await assembliesCreate(output2, client, {
           steps,
           inputs: infiles,
           output: 'out',
         })
-        expect(results).to.have.lengthOf(3)
-        expect(await fsp.readdir('out')).to.deep.equal([
-          'in1.jpg',
-          'in1__1.jpg',
-          'in2.jpg',
-          'in3.jpg',
-        ])
+        expect(results).to.have.lengthOf(2)
+        expect(await fsp.readdir('out')).to.deep.equal(['in1.jpg', 'in2.jpg', 'in3.jpg'])
       }),
       180_000,
     )

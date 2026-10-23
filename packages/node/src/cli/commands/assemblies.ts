@@ -518,7 +518,7 @@ async function createExistingPathOutputPlan(outputPath: string | undefined): Pro
   return createOutputPlan(outputPath, stats?.mtime ?? new Date(0))
 }
 
-function dirProvider(output: string): OutputPlanProvider {
+function dirProvider(output: string, urlInputPaths?: Set<string>): OutputPlanProvider {
   const namesByInput = new Map<string, string>()
   const usedNames = new Set<string>()
   return async (inpath, indir) => {
@@ -532,7 +532,9 @@ function dirProvider(output: string): OutputPlanProvider {
     const inputKey = path.resolve(inpath)
     let relpath = namesByInput.get(inputKey)
     if (relpath == null) {
-      const requestedPath = indir == null ? path.basename(inpath) : path.relative(indir, inpath)
+      const requestedPath = urlInputPaths?.has(inputKey)
+        ? path.basename(inpath)
+        : path.relative(indir ?? process.cwd(), inpath).replace(/^(\.\.\/)+/, '')
       const parsed = path.parse(requestedPath)
       relpath = await ensureUniqueCounterValue({
         initialValue: requestedPath,
@@ -1091,6 +1093,7 @@ async function resolveResultDownloadTargets({
   inPath,
   inputs,
   normalizedResults,
+  outputMode,
   outputPath,
   outputRoot,
   outputRootIsDirectory,
@@ -1102,6 +1105,7 @@ async function resolveResultDownloadTargets({
   inPath: string | null
   inputs: string[]
   normalizedResults: NormalizedAssemblyResults
+  outputMode?: 'directory' | 'file'
   outputPath: string | null
   outputRoot: string
   outputRootIsDirectory: boolean
@@ -1110,24 +1114,27 @@ async function resolveResultDownloadTargets({
   singleAssembly?: boolean
 }): Promise<AssemblyDownloadTarget[]> {
   const { allFiles, entries } = normalizedResults
-  // Keep single-result jobs flat for multi-file CLI compatibility. Input groups are only
-  // needed for multi-file results; reservations distinguish colliding result names.
+  const linked = allFiles.some((file) => getResultRelativePath(file) != null)
+  // Ordinary CLI outputs retain their input/Step layout. HLS uses linked result paths so
+  // playlist references remain reachable; moving those formerly broken outputs is intentional.
+  const keepInputStepLayout =
+    outputMode !== 'directory' && inPath != null && allFiles.length > 1 && !linked
   const shouldGroupByInput =
     !singleAssembly &&
     inPath != null &&
-    (hasDirectoryInput || (inputs.length > 1 && allFiles.length > 1))
+    (hasDirectoryInput ||
+      (inputs.length > 1 && (allFiles.length > 1 || outputMode === 'directory')))
 
   const resolveDirectoryBaseDir = (): string => {
-    if (hasDirectoryInput && outputPath != null) {
-      return allFiles.length === 1 && entries.length === 1
+    if (outputPath != null && (keepInputStepLayout || hasDirectoryInput)) {
+      return allFiles.length === 1 && outputMode !== 'directory'
         ? path.dirname(outputPath)
         : path.join(path.dirname(outputPath), path.parse(outputPath).name)
     }
-
-    if (!shouldGroupByInput || inPath == null) {
-      return outputRoot
+    if (!linked && outputMode !== 'directory' && inPath != null && outputPath != null) {
+      return path.dirname(outputPath)
     }
-
+    if (!shouldGroupByInput || inPath == null) return outputRoot
     return path.join(outputRoot, path.parse(path.basename(outputPath ?? inPath)).name)
   }
 
@@ -1173,7 +1180,7 @@ async function resolveResultDownloadTargets({
   return await buildDirectoryDownloadTargets({
     allFiles,
     baseDir,
-    groupByStep: inPath == null || entries.length > 1,
+    groupByStep: keepInputStepLayout || inPath == null || entries.length > 1,
     owner,
     outputRoot,
     reservedPaths,
@@ -1247,6 +1254,7 @@ async function materializeAssemblyResults({
   isCurrent,
   inputs,
   normalizedResults,
+  outputMode,
   outputPath,
   outputRoot,
   outputRootIsDirectory,
@@ -1261,6 +1269,7 @@ async function materializeAssemblyResults({
   isCurrent: () => boolean
   inputs: string[]
   normalizedResults: NormalizedAssemblyResults
+  outputMode?: 'directory' | 'file'
   outputPath: string | null
   outputRoot: string | null
   outputRootIsDirectory: boolean
@@ -1281,6 +1290,7 @@ async function materializeAssemblyResults({
         inPath,
         inputs,
         normalizedResults,
+        outputMode,
         outputPath,
         outputRoot,
         outputRootIsDirectory,
@@ -1759,6 +1769,7 @@ const DEFAULT_CONCURRENCY = 5
 const DEFAULT_URL_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000
 
 interface PreparedCreateOptions {
+  urlInputPaths?: Set<string>
   effectiveStepsData: StepsInput | undefined
   hasDirectoryInput: boolean
   outstat: StatLike | undefined
@@ -1847,6 +1858,7 @@ export async function create(
 
   const preparedInputs: Array<Awaited<ReturnType<typeof prepareInputFiles>>> = []
   const localInputs: string[] = []
+  const urlInputPaths = new Set<string>()
   try {
     for (const [index, input] of options.inputs.entries()) {
       if (!isUrlInput(input)) {
@@ -1866,6 +1878,7 @@ export async function create(
       const localPath = prepared.files[field]
       if (localPath == null) throw new Error('URL input could not be prepared')
       localInputs.push(localPath)
+      urlInputPaths.add(path.resolve(localPath))
     }
     return await createWithLocalInputs(
       outputctl,
@@ -1874,7 +1887,7 @@ export async function create(
         ...options,
         inputs: localInputs,
       },
-      preparedOptions,
+      { ...preparedOptions, urlInputPaths },
     )
   } finally {
     await Promise.all(
@@ -1889,6 +1902,7 @@ async function createWithLocalInputs(
   {
     template,
     fields,
+    outputMode,
     watch: watchOption,
     recursive,
     inputs,
@@ -1925,7 +1939,7 @@ async function createWithLocalInputs(
       resolvedOutput == null
         ? nullProvider()
         : outstat?.isDirectory()
-          ? dirProvider(resolvedOutput)
+          ? dirProvider(resolvedOutput, preparedOptions.urlInputPaths)
           : fileProvider(resolvedOutput)
 
     const emitter = makeJobEmitter(inputs, {
@@ -1934,10 +1948,7 @@ async function createWithLocalInputs(
       recursive,
       watch: watchOption,
       singleAssembly,
-      // Directory plans use upload names before the Assembly's result names are known.
-      // Inferring freshness from those names can skip unrelated results. File outputs retain
-      // mtime-based skipping; directory caching would require a persistent result manifest.
-      reprocessStale: reprocessStale || outstat?.isDirectory(),
+      reprocessStale,
     })
 
     // Use p-queue for concurrency management
@@ -2143,8 +2154,9 @@ async function createWithLocalInputs(
         hasDirectoryInput: singleAssemblyMode ? false : hasDirectoryInput,
         inPath,
         isCurrent: () => !isSupersededWatchJob(outputPlan?.path ?? null, outputToken),
-        inputs: singleAssemblyMode ? inputPaths : inputs,
+        inputs: singleAssemblyMode || outputMode === 'directory' ? inputPaths : inputs,
         normalizedResults,
+        outputMode,
         outputPath: outputPlan?.path ?? null,
         outputRoot: resolvedOutput ?? null,
         outputRootIsDirectory,

@@ -1516,14 +1516,14 @@ The `assemblies create` command additionally supports:
   Without uploads (for example, `/vimeo/import`, `/http/import`, or prompt-only `/image/generate`
   Steps), results are saved as `<dir>/<step>/<result name>`, with no input folder, including with
   `--single-assembly`.
-  With one local input, filenames come from the Assembly results. Multiple result Steps get their
-  own folders; the input’s parent folders are omitted. Directory inputs retain subfolders relative
-  to that directory. HLS results retain the directories in `meta.relative_path`, so playlists can
-  find their renditions and segments. Multiple HLS bundles in one Step get separate folders named
-  after their sources. On collisions, a linked bundle moves together to a new folder, preserving
-  playlist references.
-  Watch updates refresh their existing result files. Other directory runs process the inputs again,
-  since result filenames are unknown before processing; file outputs keep mtime-based skipping.
+  Downloaded filenames come from the Assembly results, including their extensions. Ordinary
+  downloads retain the existing input-relative directories and `<input>/<step>/…` layout for
+  multiple results. Directory inputs retain subfolders relative to that directory. Existing
+  time-based checks skip inputs with newer outputs; use `--reprocess-stale` to process them again.
+  HLS results retain the directories in `meta.relative_path`, so playlists can find their
+  renditions and segments. Multiple HLS bundles in one Step get separate source folders. On
+  collisions, a linked bundle moves together to a new folder, preserving playlist references.
+  Watch updates refresh their existing result files.
 - `--input, -i` - Provide a local upload or a public HTTP(S) URL, or use `-i -` to read stdin explicitly.
   URLs are downloaded to temporary files for upload and cleaned up after processing; `--watch`
   requires local inputs. When `--steps` is used without `-i`, stdin is read only when it is a pipe

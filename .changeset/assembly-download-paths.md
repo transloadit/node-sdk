@@ -1,17 +1,11 @@
 ---
-'@transloadit/node': major
+'@transloadit/node': minor
 '@transloadit/mcp-server': patch
-'transloadit': major
+'transloadit': minor
 ---
 
-Keep CLI download filenames and HLS directories aligned with Assembly results, omit input parent folders from output paths, and support HTTP(S) URL inputs for Assembly and prompt commands.
+Fix CLI downloads to use Assembly result names and extensions, including bundled outputs and type-changing Steps. Preserve the existing input-relative directories and `<input>/<step>/…` layout for ordinary multi-result downloads, along with time-based skipping for directory reruns. Use `--reprocess-stale` to process unchanged inputs again.
 
-SDK-breaking: CLI directory downloads use Assembly result names and omit input parent folders. Directory reruns process inputs again and preserve existing files with collision suffixes. Update scripts to use the result paths; use an explicit output file when mtime-based skipping is required.
+Fix HLS downloads by retaining the result directories referenced by playlists, keeping independent source bundles separate, and publishing linked watch updates together. Reserve download paths using the destination root’s case and Unicode naming rules, and avoid file/directory collisions and descendant symlinks.
 
-Independent HLS bundles returned by the same Step get separate source folders so their playlist and segment paths can coexist.
-
-Reserve result paths with filesystem case sensitivity and file/directory conflicts in mind. Stage linked watch downloads before publishing them together, and validate local steps and output options before fetching URL inputs.
-
-Directory runs process inputs again to discover the result filenames instead of guessing freshness from upload names. Watch updates reuse their own result paths, while existing unrelated files and outputs from other inputs remain separate.
-
-URL input downloads have a five-minute deadline per input, configurable in milliseconds with `--url-download-timeout` on `assemblies create` and `run`.
+Add public HTTP(S) URL inputs to `assemblies create` and `run` using temporary uploads that are cleaned up afterward. Each download has a five-minute deadline, configurable in milliseconds with `--url-download-timeout`. Watch mode requires local inputs.

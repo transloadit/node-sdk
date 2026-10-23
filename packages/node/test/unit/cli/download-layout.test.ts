@@ -32,6 +32,10 @@ vi.mock('node:dns/promises', () => ({
 
 const tempDirs: string[] = []
 
+function mappedOutputPath(outputDir: string, inputPath: string): string {
+  return path.join(outputDir, path.relative(process.cwd(), inputPath).replace(/^(\.\.\/)+/, ''))
+}
+
 async function fixture(results: Record<string, AssemblyResultEntryLike[]>): Promise<{
   inputPath: string
   outputDir: string
@@ -85,6 +89,69 @@ afterEach(async () => {
   nock.cleanAll()
   nock.abortPendingRequests()
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
+})
+
+it.each([
+  false,
+  true,
+])('skips newer directory outputs before starting an Assembly (directory input: %s)', async (directoryInput) => {
+  const { inputPath, outputDir, run } = await fixture({
+    resized: [{ name: 'logo.png', url: 'https://downloads.test/result' }],
+  })
+  const inputTime = new Date(Date.now() - 60_000)
+  await utimes(inputPath, inputTime, inputTime)
+  const args = ['-i', directoryInput ? path.dirname(inputPath) : inputPath]
+  nock('https://downloads.test').get('/result').twice().reply(200, 'existing result')
+  expect(await run(args)).toBe(0)
+  vi.mocked(Transloadit.prototype.createAssembly).mockClear()
+
+  expect(await run(args)).toBe(0)
+  expect(Transloadit.prototype.createAssembly).not.toHaveBeenCalled()
+  expect(
+    await readFile(
+      directoryInput ? path.join(outputDir, 'logo.png') : mappedOutputPath(outputDir, inputPath),
+      'utf8',
+    ),
+  ).toBe('existing result')
+  expect(await run([...args, '--reprocess-stale'])).toBe(0)
+  expect(Transloadit.prototype.createAssembly).toHaveBeenCalledTimes(1)
+})
+
+it.each([
+  { name: 'frame.jpg', bytes: 'JPEG bytes' },
+  { name: 'clip.json', bytes: '{"words":[]}' },
+])('saves converted video results with their own extension ($name)', async ({ name, bytes }) => {
+  const { outputDir, run, tempDir } = await fixture({
+    converted: [{ name, url: 'https://downloads.test/result' }],
+  })
+  const inputPath = path.join(tempDir, 'inputs', 'clip.mp4')
+  await writeFile(inputPath, 'video bytes')
+  nock('https://downloads.test').get('/result').reply(200, bytes)
+
+  expect(await run(['-i', inputPath])).toBe(0)
+  const mappedInput = mappedOutputPath(outputDir, inputPath)
+  expect(await readFile(path.join(path.dirname(mappedInput), name), 'utf8')).toBe(bytes)
+  await expect(stat(mappedInput)).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+it('keeps input and Step folders for type-changing multi-result downloads', async () => {
+  const { outputDir, run, tempDir } = await fixture({
+    thumbs: [{ name: 'frame.jpg', url: 'https://downloads.test/thumb' }],
+    transcript: [{ name: 'clip.json', url: 'https://downloads.test/json' }],
+  })
+  const inputPath = path.join(tempDir, 'inputs', 'clip.mp4')
+  await writeFile(inputPath, 'video bytes')
+  nock('https://downloads.test')
+    .get('/thumb')
+    .reply(200, 'JPEG bytes')
+    .get('/json')
+    .reply(200, '{"words":[]}')
+
+  expect(await run(['-i', inputPath])).toBe(0)
+  const inputOutput = mappedOutputPath(outputDir, inputPath)
+  const baseDir = path.join(path.dirname(inputOutput), 'clip')
+  expect(await readFile(path.join(baseDir, 'thumbs', 'frame.jpg'), 'utf8')).toBe('JPEG bytes')
+  expect(await readFile(path.join(baseDir, 'transcript', 'clip.json'), 'utf8')).toBe('{"words":[]}')
 })
 
 it('keeps every HLS playlist reference reachable from its downloaded playlist', async () => {
@@ -300,10 +367,11 @@ it.each([
   const multiInput = path.join(path.dirname(inputPath), 'report.pdf.docx')
   await writeFile(singleInput, 'single-result input')
   await writeFile(multiInput, 'multi-result input')
+  const resultDir = path.dirname(mappedOutputPath(outputDir, inputPath))
   const { stat: originalStat } = fs.promises
   vi.spyOn(fs.promises, 'stat').mockImplementation(async (target, ...args) => {
     // Input discovery can queue jobs in a different order from the CLI arguments.
-    if (target === path.join(outputDir, path.basename(fileFirst ? singleInput : multiInput))) {
+    if (target === mappedOutputPath(outputDir, fileFirst ? singleInput : multiInput)) {
       await new Promise((resolve) => setTimeout(resolve, 60))
     }
     return await originalStat(target, ...args)
@@ -342,12 +410,12 @@ it.each([
       '1',
     ]),
   ).toBe(0)
-  const fileWasFirst = (await stat(path.join(outputDir, 'report.pdf'))).isFile()
+  const fileWasFirst = (await stat(path.join(resultDir, 'report.pdf'))).isFile()
   expect(fileWasFirst).toBe(!fileFirst)
   expect(
-    await readFile(path.join(outputDir, fileWasFirst ? 'report.pdf' : 'report__1.pdf'), 'utf8'),
+    await readFile(path.join(resultDir, fileWasFirst ? 'report.pdf' : 'report__1.pdf'), 'utf8'),
   ).toBe('pdf bytes')
-  const inputDir = path.join(outputDir, fileWasFirst ? 'report.pdf__1' : 'report.pdf')
+  const inputDir = path.join(resultDir, fileWasFirst ? 'report.pdf__1' : 'report.pdf', 'output')
   expect(await readFile(path.join(inputDir, 'page1.jpg'), 'utf8')).toBe('first page')
   expect(await readFile(path.join(inputDir, 'page2.jpg'), 'utf8')).toBe('second page')
 })
@@ -426,12 +494,17 @@ it('preserves every independent Assembly result when file and directory inputs o
 
   expect(await run(['-i', inputPath, '-i', path.dirname(inputPath)])).toBe(0)
   expect(count).toBe(2)
-  const files = await readdir(path.join(outputDir, 'logo'))
+  const resultDir = path.join(
+    path.dirname(mappedOutputPath(outputDir, inputPath)),
+    'logo',
+    'images',
+  )
+  const files = await readdir(resultDir)
   expect(files).toEqual(['a.png', 'a__1.png', 'b.png', 'b__1.png'])
   expect(
     (
       await Promise.all(
-        files.map(async (file) => await readFile(path.join(outputDir, 'logo', file), 'utf8')),
+        files.map(async (file) => await readFile(path.join(resultDir, file), 'utf8')),
       )
     ).sort(),
   ).toEqual(['a1', 'a2', 'b1', 'b2'])
@@ -498,6 +571,7 @@ it.each([
   normalizationSensitive,
 }) => {
   const { inputPath, outputDir, run } = await fixture({})
+  const resultDir = path.dirname(mappedOutputPath(outputDir, inputPath))
   const secondInput = path.join(path.dirname(inputPath), 'second.png')
   await writeFile(secondInput, 'second input')
   vi.mocked(Transloadit.prototype.awaitAssemblyCompletion)
@@ -547,11 +621,11 @@ it.each([
   expect(await run(['-i', inputPath, '-i', secondInput, '--concurrency', '2'])).toBe(0)
   const { name, ext } = path.parse(secondName)
   const secondOutput = `${name}__1${ext}`
-  expect((await readdir(outputDir)).map((value) => value.normalize('NFC')).sort()).toEqual(
+  expect((await readdir(resultDir)).map((value) => value.normalize('NFC')).sort()).toEqual(
     [firstName, secondOutput].map((value) => value.normalize('NFC')).sort(),
   )
-  expect(await readFile(path.join(outputDir, firstName), 'utf8')).toBe('first result')
-  expect(await readFile(path.join(outputDir, secondOutput), 'utf8')).toBe('second result')
+  expect(await readFile(path.join(resultDir, firstName), 'utf8')).toBe('first result')
+  expect(await readFile(path.join(resultDir, secondOutput), 'utf8')).toBe('second result')
 })
 
 it.each([
@@ -671,14 +745,15 @@ it.each([false, true])('uses the bundle result name (single Assembly: %s)', asyn
   const { inputPath, outputDir, run } = await fixture({
     bundled: [{ name: 'archive.zip', url: 'https://downloads.test/archive' }],
   })
+  const resultDir = single ? outputDir : path.dirname(mappedOutputPath(outputDir, inputPath))
   nock('https://downloads.test').get('/archive').reply(200, 'archive bytes')
 
   expect(await run(['-i', inputPath, ...(single ? ['--single-assembly'] : [])])).toBe(0)
-  expect(await readdir(outputDir)).toEqual(['archive.zip'])
-  expect(await readFile(path.join(outputDir, 'archive.zip'), 'utf8')).toBe('archive bytes')
+  expect(await readdir(resultDir)).toEqual(['archive.zip'])
+  expect(await readFile(path.join(resultDir, 'archive.zip'), 'utf8')).toBe('archive bytes')
 })
 
-it('leaves the input folders out of a multi-step download', async () => {
+it('keeps existing parent and input folders for a multi-step download', async () => {
   const { inputPath, outputDir, run } = await fixture({
     image: [{ name: 'result.png', url: 'https://downloads.test/image' }],
     text: [{ name: 'result.txt', url: 'https://downloads.test/text' }],
@@ -690,9 +765,10 @@ it('leaves the input folders out of a multi-step download', async () => {
     .reply(200, 'text bytes')
 
   expect(await run(['-i', inputPath])).toBe(0)
-  expect(await readdir(outputDir)).toEqual(['image', 'text'])
-  expect(await readFile(path.join(outputDir, 'image', 'result.png'), 'utf8')).toBe('image bytes')
-  expect(await readFile(path.join(outputDir, 'text', 'result.txt'), 'utf8')).toBe('text bytes')
+  const resultDir = path.join(path.dirname(mappedOutputPath(outputDir, inputPath)), 'logo')
+  expect(await readdir(resultDir)).toEqual(['image', 'text'])
+  expect(await readFile(path.join(resultDir, 'image', 'result.png'), 'utf8')).toBe('image bytes')
+  expect(await readFile(path.join(resultDir, 'text', 'result.txt'), 'utf8')).toBe('text bytes')
 })
 
 it.each([
@@ -813,16 +889,19 @@ it('rejects a relative result path through a symlink outside the output director
   expect(await readdir(outside)).toEqual([])
 })
 
-it('keeps single-result downloads flat for multiple standalone inputs', async () => {
-  const { inputPath, outputDir, run, tempDir } = await fixture({
+it('keeps single-result downloads in their mapped parent for multiple standalone inputs', async () => {
+  const { inputPath, outputDir, run } = await fixture({
     resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
   })
-  const secondInput = path.join(tempDir, 'second.png')
+  const secondInput = path.join(path.dirname(inputPath), 'second.png')
   await writeFile(secondInput, 'second input')
   nock('https://downloads.test').get('/result').twice().reply(200, 'result bytes')
 
   expect(await run(['-i', inputPath, '-i', secondInput])).toBe(0)
-  expect(await readdir(outputDir)).toEqual(['result.png', 'result__1.png'])
+  expect(await readdir(path.dirname(mappedOutputPath(outputDir, inputPath)))).toEqual([
+    'result.png',
+    'result__1.png',
+  ])
 })
 
 it('accepts inputs with the same basename in different folders', async () => {
@@ -834,10 +913,21 @@ it('accepts inputs with the same basename in different folders', async () => {
   nock('https://downloads.test').get('/result').twice().reply(200, 'result bytes')
 
   expect(await run(['-i', inputPath, '-i', secondInput])).toBe(0)
-  expect(await readdir(outputDir)).toEqual(['result.png', 'result__1.png'])
+  expect(
+    await readFile(
+      path.join(path.dirname(mappedOutputPath(outputDir, inputPath)), 'result.png'),
+      'utf8',
+    ),
+  ).toBe('result bytes')
+  expect(
+    await readFile(
+      path.join(path.dirname(mappedOutputPath(outputDir, secondInput)), 'result.png'),
+      'utf8',
+    ),
+  ).toBe('result bytes')
 })
 
-it('does not mistake an input-named file for a current result with a different filename', async () => {
+it('does not skip inputs for unrelated files outside their mapped output folder', async () => {
   const { inputPath, outputDir, run } = await fixture({
     bundled: [{ name: 'archive.zip', url: 'https://downloads.test/result' }],
   })
@@ -847,20 +937,31 @@ it('does not mistake an input-named file for a current result with a different f
   nock('https://downloads.test').get('/result').reply(200, 'result bytes')
 
   expect(await run(['-i', inputPath])).toBe(0)
-  expect(await readFile(path.join(outputDir, 'archive.zip'), 'utf8')).toBe('result bytes')
+  expect(
+    await readFile(
+      path.join(path.dirname(mappedOutputPath(outputDir, inputPath)), 'archive.zip'),
+      'utf8',
+    ),
+  ).toBe('result bytes')
 })
 
 it('allows an explicitly selected output root that is a symlink', async () => {
   const { inputPath, outputDir, run, tempDir } = await fixture({
     resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
   })
+  const resultDir = path.dirname(mappedOutputPath(outputDir, inputPath))
   const destination = path.join(tempDir, 'destination')
   await mkdir(destination)
   await symlink(destination, outputDir)
   nock('https://downloads.test').get('/result').reply(200, 'result bytes')
 
   expect(await run(['-i', inputPath], outputDir)).toBe(0)
-  expect(await readFile(path.join(destination, 'result.png'), 'utf8')).toBe('result bytes')
+  expect(
+    await readFile(
+      path.join(destination, path.relative(outputDir, resultDir), 'result.png'),
+      'utf8',
+    ),
+  ).toBe('result bytes')
 })
 
 it('reserves concurrent linked downloads together when input stems match', async () => {
@@ -923,9 +1024,10 @@ it.each([
   const { inputPath, outputDir } = await fixture({
     resized: [{ name: 'result.png', url: 'https://downloads.test/result' }],
   })
+  const resultDir = path.dirname(mappedOutputPath(outputDir, inputPath))
   if (existing) {
-    await mkdir(outputDir)
-    await writeFile(path.join(outputDir, 'result.png'), 'unrelated file')
+    await mkdir(resultDir, { recursive: true })
+    await writeFile(path.join(resultDir, 'result.png'), 'unrelated file')
   }
   class FakeWatcher extends EventEmitter {
     close(): void {
@@ -961,16 +1063,16 @@ it.each([
     stepsData: { resized: { robot: '/image/resize', use: ':original', width: 16 } },
   })
   await firstCompletion
-  if (removeConflict) await unlink(path.join(outputDir, 'result.png'))
+  if (removeConflict) await unlink(path.join(resultDir, 'result.png'))
   watcher.emit('change', 'update', inputPath)
   const result = await processing
 
   expect(result.hasFailures).toBe(false)
   expect(completions).toBe(2)
-  expect(await readdir(outputDir)).toEqual(expectedFiles)
-  expect(await readFile(path.join(outputDir, expectedName), 'utf8')).toBe('updated result')
+  expect(await readdir(resultDir)).toEqual(expectedFiles)
+  expect(await readFile(path.join(resultDir, expectedName), 'utf8')).toBe('updated result')
   if (existing && !removeConflict)
-    expect(await readFile(path.join(outputDir, 'result.png'), 'utf8')).toBe('unrelated file')
+    expect(await readFile(path.join(resultDir, 'result.png'), 'utf8')).toBe('unrelated file')
 })
 
 it('keeps a watched HLS Step in its selected folder after the original conflict disappears', async () => {
@@ -1171,7 +1273,13 @@ it('accepts a standalone input and a directory containing the same basename', as
   nock('https://downloads.test').get('/result').twice().reply(200, 'result bytes')
 
   expect(await run(['-i', inputPath, '-i', directoryInput])).toBe(0)
-  expect(await readdir(outputDir)).toEqual(['result.png', 'result__1.png'])
+  expect(await readFile(path.join(outputDir, 'result.png'), 'utf8')).toBe('result bytes')
+  expect(
+    await readFile(
+      path.join(path.dirname(mappedOutputPath(outputDir, inputPath)), 'result.png'),
+      'utf8',
+    ),
+  ).toBe('result bytes')
 })
 
 it('fails promptly when a regular file blocks an ordinary Step directory', async () => {
@@ -1179,12 +1287,13 @@ it('fails promptly when a regular file blocks an ordinary Step directory', async
     thumbs: [{ name: 'result.png', url: 'https://downloads.test/image' }],
     text: [{ name: 'result.txt', url: 'https://downloads.test/text' }],
   })
-  await mkdir(outputDir)
-  await writeFile(path.join(outputDir, 'thumbs'), 'existing file')
+  const resultDir = path.join(path.dirname(mappedOutputPath(outputDir, inputPath)), 'logo')
+  await mkdir(resultDir, { recursive: true })
+  await writeFile(path.join(resultDir, 'thumbs'), 'existing file')
   const lstat = fs.promises.lstat
   let probes = 0
   vi.spyOn(fs.promises, 'lstat').mockImplementation(async (...args) => {
-    probes += 1
+    if (String(args[0]).startsWith(resultDir)) probes += 1
     // Bound the broken implementation so a failed regression does not hang the test worker.
     if (probes > 30) throw new Error('Filesystem probe budget exceeded')
     return await lstat(...args)
@@ -1192,11 +1301,12 @@ it('fails promptly when a regular file blocks an ordinary Step directory', async
 
   expect(await run(['-i', inputPath])).toBe(1)
   expect(probes).toBeLessThan(15)
-  expect(await readFile(path.join(outputDir, 'thumbs'), 'utf8')).toBe('existing file')
+  expect(await readFile(path.join(resultDir, 'thumbs'), 'utf8')).toBe('existing file')
 })
 
 it('discards a slow watch download when a newer result has already been saved', async () => {
   const { inputPath, outputDir } = await fixture({})
+  const resultDir = path.dirname(mappedOutputPath(outputDir, inputPath))
   class FakeWatcher extends EventEmitter {
     close(): void {
       this.emit('close')
@@ -1253,7 +1363,7 @@ it('discards a slow watch download when a newer result has already been saved', 
 
   expect((await processing).hasFailures).toBe(false)
   expect(count).toBe(2)
-  expect(await readFile(path.join(outputDir, 'result.png'), 'utf8')).toBe('newer result')
+  expect(await readFile(path.join(resultDir, 'result.png'), 'utf8')).toBe('newer result')
 })
 
 it('moves a linked Step together when an existing file occupies a rendition directory', async () => {
@@ -1284,6 +1394,11 @@ it('moves a linked Step together when an existing file occupies a rendition dire
 
 it('reuses watched filenames when the Assembly returns its results in a different order', async () => {
   const { inputPath, outputDir } = await fixture({})
+  const resultDir = path.join(
+    path.dirname(mappedOutputPath(outputDir, inputPath)),
+    'logo',
+    'resized',
+  )
   class FakeWatcher extends EventEmitter {
     close(): void {
       this.emit('close')
@@ -1323,7 +1438,7 @@ it('reuses watched filenames when the Assembly returns its results in a differen
   })
 
   expect(result.hasFailures).toBe(false)
-  expect(await readdir(outputDir)).toEqual(['a.png', 'b.png'])
-  expect(await readFile(path.join(outputDir, 'a.png'), 'utf8')).toBe('new a')
-  expect(await readFile(path.join(outputDir, 'b.png'), 'utf8')).toBe('new b')
+  expect(await readdir(resultDir)).toEqual(['a.png', 'b.png'])
+  expect(await readFile(path.join(resultDir, 'a.png'), 'utf8')).toBe('new a')
+  expect(await readFile(path.join(resultDir, 'b.png'), 'utf8')).toBe('new b')
 })
