@@ -121,6 +121,77 @@ it('keeps every HLS playlist reference reachable from its downloaded playlist', 
   )
 })
 
+it('separates independent HLS bundles with identical paths in one Assembly Step', async () => {
+  const firstMaster = {
+    name: 'master.m3u8',
+    url: 'https://downloads.test/first-master',
+    original_id: 'first-source',
+    original_name: 'first.mp4',
+    meta: { relative_path: '' },
+  }
+  const firstSegment = {
+    ...firstMaster,
+    name: 'segment.ts',
+    url: 'https://downloads.test/first-segment',
+    meta: { relative_path: 'video' },
+  }
+  const secondMaster = {
+    ...firstMaster,
+    url: 'https://downloads.test/second-master',
+    original_id: 'second-source',
+    original_name: 'second.mp4',
+  }
+  const secondSegment = {
+    ...secondMaster,
+    name: 'segment.ts',
+    url: 'https://downloads.test/second-segment',
+    meta: { relative_path: 'video' },
+  }
+  const { inputPath, outputDir, run } = await fixture({
+    adaptive: [firstMaster, secondMaster, firstSegment, secondSegment],
+  })
+  const secondInput = path.join(path.dirname(inputPath), 'second.mp4')
+  await writeFile(secondInput, 'second input')
+  nock('https://downloads.test')
+    .get('/first-master')
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/second-master')
+    .reply(200, '#EXTM3U\nvideo/segment.ts\n')
+    .get('/first-segment')
+    .reply(200, 'first stream')
+    .get('/second-segment')
+    .reply(200, 'second stream')
+
+  expect(await run(['--single-assembly', '-i', inputPath, '-i', secondInput])).toBe(0)
+  expect(await readdir(outputDir)).toEqual(['first', 'second'])
+  expect(await readFile(path.join(outputDir, 'first', 'master.m3u8'), 'utf8')).toBe(
+    '#EXTM3U\nvideo/segment.ts\n',
+  )
+  expect(await readFile(path.join(outputDir, 'first', 'video', 'segment.ts'), 'utf8')).toBe(
+    'first stream',
+  )
+  expect(await readFile(path.join(outputDir, 'second', 'master.m3u8'), 'utf8')).toBe(
+    '#EXTM3U\nvideo/segment.ts\n',
+  )
+  expect(await readFile(path.join(outputDir, 'second', 'video', 'segment.ts'), 'utf8')).toBe(
+    'second stream',
+  )
+})
+
+it('rejects duplicate paths within a single HLS bundle', async () => {
+  const segment = {
+    name: 'segment.ts',
+    url: 'https://downloads.test/segment',
+    original_id: 'same-source',
+    original_name: 'source.mp4',
+    meta: { relative_path: 'video' },
+  }
+  const { inputPath, outputDir, run } = await fixture({ adaptive: [segment, segment] })
+
+  expect(await run(['-i', inputPath])).toBe(1)
+  expect(await readdir(outputDir)).toEqual([])
+})
+
 it.each([false, true])('uses the bundle result name (single Assembly: %s)', async (single) => {
   const { inputPath, outputDir, run } = await fixture({
     bundled: [{ name: 'archive.zip', url: 'https://downloads.test/archive' }],

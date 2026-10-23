@@ -33,6 +33,7 @@ import { z } from 'zod'
 
 import { formatLintIssue } from '../../alphalib/assembly-linter.lang.en.ts'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
+import { assemblyStatusResultSchema } from '../../alphalib/types/assemblyStatus.ts'
 import { ensureUniqueCounterValue } from '../../ensureUniqueCounter.ts'
 import { prepareInputFiles } from '../../inputFiles.ts'
 import { lintAssemblyInstructions } from '../../lintAssemblyInstructions.ts'
@@ -737,6 +738,69 @@ function isMeaningfullyNewer(newer: Date, older: Date): boolean {
   return newer.getTime() - older.getTime() > STALE_OUTPUT_GRACE_MS
 }
 
+interface DirectoryResultFile {
+  file: NormalizedAssemblyResultFile
+  relativePath: string | null
+}
+
+interface DirectoryResultGroup {
+  directoryName: string | null
+  files: DirectoryResultFile[]
+  ownerKey: string | null
+  stepName: string
+}
+
+const resultSourceSchema = assemblyStatusResultSchema.pick({
+  original_basename: true,
+  original_id: true,
+  original_name: true,
+})
+
+function groupDirectoryResults(allFiles: NormalizedAssemblyResultFile[]): DirectoryResultGroup[] {
+  const steps = new Map<string, DirectoryResultFile[]>()
+  for (const file of allFiles) {
+    const files = steps.get(file.stepName) ?? []
+    files.push({ file, relativePath: getResultRelativePath(file) })
+    steps.set(file.stepName, files)
+  }
+
+  const groups: DirectoryResultGroup[] = []
+  for (const [stepName, stepFiles] of steps) {
+    if (!stepFiles.some((file) => file.relativePath != null)) {
+      groups.push({ directoryName: null, files: stepFiles, ownerKey: null, stepName })
+      continue
+    }
+
+    const sources = new Map<string, { name: string | null; files: DirectoryResultFile[] }>()
+    for (const file of stepFiles) {
+      const parsed = resultSourceSchema.safeParse(file.file.file)
+      const source = parsed.success ? parsed.data : undefined
+      const sourceId = JSON.stringify(source?.original_id ?? null)
+      const group = sources.get(sourceId) ?? {
+        name: source?.original_name ?? source?.original_basename ?? null,
+        files: [],
+      }
+      group.files.push(file)
+      sources.set(sourceId, group)
+    }
+
+    const nameOccurrences = new Map<string | null, number>()
+    for (const { name, files } of sources.values()) {
+      const occurrence = nameOccurrences.get(name) ?? 0
+      nameOccurrences.set(name, occurrence + 1)
+      groups.push({
+        directoryName:
+          sources.size > 1 ? sanitizeResultName(path.parse(name ?? stepName).name) : null,
+        files,
+        // Upload IDs change between watch runs; source names retain logical ownership.
+        ownerKey: JSON.stringify([name, occurrence]),
+        stepName,
+      })
+    }
+  }
+  return groups
+}
+
 async function buildDirectoryDownloadTargets({
   allFiles,
   baseDir,
@@ -756,21 +820,12 @@ async function buildDirectoryDownloadTargets({
   await fsp.mkdir(baseDir, { recursive: true })
 
   const targets: AssemblyDownloadTarget[] = []
-  const steps = new Map<
-    string,
-    Array<{ file: NormalizedAssemblyResultFile; relativePath: string | null }>
-  >()
-  for (const resultFile of allFiles) {
-    const files = steps.get(resultFile.stepName) ?? []
-    files.push({ file: resultFile, relativePath: getResultRelativePath(resultFile) })
-    steps.set(resultFile.stepName, files)
-  }
-
-  for (const [stepName, files] of steps) {
+  for (const { directoryName, files, ownerKey, stepName } of groupDirectoryResults(allFiles)) {
     const safeStepName = sanitizeResultName(stepName)
     let targetDir = groupByStep ? path.join(baseDir, safeStepName) : baseDir
+    if (directoryName != null) targetDir = path.join(targetDir, directoryName)
     const linked = files.some((file) => file.relativePath != null)
-    const groupOwner = JSON.stringify([owner, stepName])
+    const groupOwner = JSON.stringify([owner, stepName, ownerKey])
     const selectedGroupDir = linked ? reservedPaths.pathsByOwner.get(groupOwner) : undefined
     if (selectedGroupDir != null) targetDir = selectedGroupDir
     const names = files.map(
@@ -786,7 +841,7 @@ async function buildDirectoryDownloadTargets({
 
     if (linked) {
       const initialDir = targetDir
-      // Selection and reservation share the same lock as ordinary result paths. A Step must
+      // Selection and reservation share the same lock as ordinary result paths. A bundle must
       // move together on collisions, while later watch updates reuse its owned destinations.
       targetDir = await ensureUniqueCounterValue({
         initialValue: initialDir,
@@ -802,7 +857,7 @@ async function buildDirectoryDownloadTargets({
             ),
           )
           const collides = collisions.some(Boolean)
-          // Moving an already downloaded Step would leave its previous playlist stale.
+          // Moving an already downloaded bundle would leave its previous playlist stale.
           if (collides && selectedGroupDir != null) {
             throw new Error('Assembly result path conflicts with an existing download')
           }
@@ -816,6 +871,9 @@ async function buildDirectoryDownloadTargets({
           reservedPaths.pathsByOwner.set(groupOwner, candidate)
         },
         nextValue: (counter) => {
+          if (directoryName != null) {
+            return path.join(path.dirname(initialDir), `${directoryName}__${counter}`)
+          }
           const suffix = groupByStep ? counter : counter - 1
           return path.join(baseDir, suffix === 0 ? safeStepName : `${safeStepName}__${suffix}`)
         },
