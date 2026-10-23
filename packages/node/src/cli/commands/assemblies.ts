@@ -518,7 +518,7 @@ async function createExistingPathOutputPlan(outputPath: string | undefined): Pro
   return createOutputPlan(outputPath, stats?.mtime ?? new Date(0))
 }
 
-function dirProvider(output: string, urlInputPaths?: Set<string>): OutputPlanProvider {
+function dirProvider(output: string, transientInputPaths?: Set<string>): OutputPlanProvider {
   const namesByInput = new Map<string, string>()
   const usedNames = new Set<string>()
   return async (inpath, indir) => {
@@ -532,7 +532,7 @@ function dirProvider(output: string, urlInputPaths?: Set<string>): OutputPlanPro
     const inputKey = path.resolve(inpath)
     let relpath = namesByInput.get(inputKey)
     if (relpath == null) {
-      const requestedPath = urlInputPaths?.has(inputKey)
+      const requestedPath = transientInputPaths?.has(inputKey)
         ? path.basename(inpath)
         : path.relative(indir ?? process.cwd(), inpath).replace(/^(\.\.\/)+/, '')
       const parsed = path.parse(requestedPath)
@@ -1628,7 +1628,8 @@ function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
   jobEmitter.on('end', () => Promise.all(pendingChecks).then(() => emitter.emit('end')))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
   jobEmitter.on('job', (job: Job) => {
-    if (job.inputPath == null || job.out == null) {
+    // An older download can finish after a watch change and have a misleading newer mtime.
+    if (job.watchEvent || job.inputPath == null || job.out == null) {
       emitter.emit('job', job)
       return
     }
@@ -1756,6 +1757,8 @@ export interface AssembliesCreateOptions {
   watch?: boolean
   recursive?: boolean
   inputs: string[]
+  /** Prepared URL/base64 uploads whose temporary parent paths must not enter the output layout. */
+  transientInputPaths?: string[]
   output?: string | null
   del?: boolean
   reprocessStale?: boolean
@@ -1769,7 +1772,7 @@ const DEFAULT_CONCURRENCY = 5
 const DEFAULT_URL_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000
 
 interface PreparedCreateOptions {
-  urlInputPaths?: Set<string>
+  transientInputPaths?: Set<string>
   effectiveStepsData: StepsInput | undefined
   hasDirectoryInput: boolean
   outstat: StatLike | undefined
@@ -1782,7 +1785,15 @@ function isUrlInput(input: string): boolean {
 
 async function prepareCreateOptions(
   outputctl: IOutputCtl,
-  { steps, stepsData, outputMode, output, inputs, singleAssembly }: AssembliesCreateOptions,
+  {
+    steps,
+    stepsData,
+    outputMode,
+    output,
+    inputs,
+    singleAssembly,
+    transientInputPaths,
+  }: AssembliesCreateOptions,
 ): Promise<PreparedCreateOptions> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
   // Only default to stdout when output is undefined (not provided), not when explicitly null
@@ -1838,7 +1849,16 @@ async function prepareCreateOptions(
     }),
   )
   const hasDirectoryInput = inputStats.some((stat) => stat?.isDirectory() === true)
-  return { effectiveStepsData, hasDirectoryInput, outstat, resolvedOutput }
+  return {
+    effectiveStepsData,
+    hasDirectoryInput,
+    outstat,
+    resolvedOutput,
+    transientInputPaths:
+      transientInputPaths == null
+        ? undefined
+        : new Set(transientInputPaths.map((inputPath) => path.resolve(inputPath))),
+  }
 }
 
 // --- Main assembly create function ---
@@ -1858,7 +1878,7 @@ export async function create(
 
   const preparedInputs: Array<Awaited<ReturnType<typeof prepareInputFiles>>> = []
   const localInputs: string[] = []
-  const urlInputPaths = new Set<string>()
+  const transientInputPaths = preparedOptions.transientInputPaths ?? new Set<string>()
   try {
     for (const [index, input] of options.inputs.entries()) {
       if (!isUrlInput(input)) {
@@ -1878,7 +1898,7 @@ export async function create(
       const localPath = prepared.files[field]
       if (localPath == null) throw new Error('URL input could not be prepared')
       localInputs.push(localPath)
-      urlInputPaths.add(path.resolve(localPath))
+      transientInputPaths.add(path.resolve(localPath))
     }
     return await createWithLocalInputs(
       outputctl,
@@ -1887,7 +1907,7 @@ export async function create(
         ...options,
         inputs: localInputs,
       },
-      { ...preparedOptions, urlInputPaths },
+      { ...preparedOptions, transientInputPaths },
     )
   } finally {
     await Promise.all(
@@ -1939,7 +1959,7 @@ async function createWithLocalInputs(
       resolvedOutput == null
         ? nullProvider()
         : outstat?.isDirectory()
-          ? dirProvider(resolvedOutput, preparedOptions.urlInputPaths)
+          ? dirProvider(resolvedOutput, preparedOptions.transientInputPaths)
           : fileProvider(resolvedOutput)
 
     const emitter = makeJobEmitter(inputs, {
@@ -2154,7 +2174,7 @@ async function createWithLocalInputs(
         hasDirectoryInput: singleAssemblyMode ? false : hasDirectoryInput,
         inPath,
         isCurrent: () => !isSupersededWatchJob(outputPlan?.path ?? null, outputToken),
-        inputs: singleAssemblyMode || outputMode === 'directory' ? inputPaths : inputs,
+        inputs: singleAssemblyMode ? inputPaths : inputs,
         normalizedResults,
         outputMode,
         outputPath: outputPlan?.path ?? null,

@@ -23,6 +23,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { tryCatch } from '../../../src/alphalib/tryCatch.ts'
 import { AssembliesCreateCommand } from '../../../src/cli/commands/assemblies.ts'
+import { intentCommands } from '../../../src/cli/intentCommands.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
 
@@ -152,6 +153,125 @@ it('keeps input and Step folders for type-changing multi-result downloads', asyn
   const baseDir = path.join(path.dirname(inputOutput), 'clip')
   expect(await readFile(path.join(baseDir, 'thumbs', 'frame.jpg'), 'utf8')).toBe('JPEG bytes')
   expect(await readFile(path.join(baseDir, 'transcript', 'clip.json'), 'utf8')).toBe('{"words":[]}')
+})
+
+it('keeps per-input folders for multiple video thumbs inputs', async () => {
+  const { inputPath, outputDir } = await fixture({
+    thumbs: [{ name: 'frame.jpg', url: 'https://downloads.test/frame' }],
+  })
+  const secondInput = path.join(path.dirname(inputPath), 'second.mp4')
+  await writeFile(secondInput, 'second video')
+  nock('https://downloads.test').get('/frame').twice().reply(200, 'JPEG bytes')
+
+  expect(
+    await Cli.from(intentCommands).run([
+      'video',
+      'thumbs',
+      '-i',
+      inputPath,
+      '-i',
+      secondInput,
+      '-o',
+      `${outputDir}/`,
+    ]),
+  ).toBe(0)
+  expect(await readFile(path.join(outputDir, 'logo', 'frame.jpg'), 'utf8')).toBe('JPEG bytes')
+  expect(await readFile(path.join(outputDir, 'second', 'frame.jpg'), 'utf8')).toBe('JPEG bytes')
+})
+
+it.each(['URL', 'base64'])('omits staging folders from %s intent downloads', async (kind) => {
+  const { outputDir } = await fixture({
+    preview: [{ name: 'preview.png', url: 'https://downloads.test/preview' }],
+  })
+  const args =
+    kind === 'URL'
+      ? ['-i', 'https://inputs.test/source.pdf']
+      : ['--input-base64', Buffer.from('PDF bytes').toString('base64')]
+  if (kind === 'URL') nock('https://inputs.test').get('/source.pdf').reply(200, 'PDF bytes')
+  nock('https://downloads.test').get('/preview').reply(200, 'PNG bytes')
+
+  expect(
+    await Cli.from(intentCommands).run(['preview', 'generate', ...args, '-o', `${outputDir}/`]),
+  ).toBe(0)
+  expect(await readdir(outputDir)).toEqual(['preview.png'])
+  expect(await readFile(path.join(outputDir, 'preview.png'), 'utf8')).toBe('PNG bytes')
+})
+
+it('processes a watch change when an older download finishes during its output check', async () => {
+  const { inputPath, outputDir } = await fixture({
+    resized: [{ name: 'logo.png', url: 'https://downloads.test/result' }],
+  })
+  class FakeWatcher extends EventEmitter {
+    close(): void {
+      this.emit('close')
+    }
+  }
+  const watcher = new FakeWatcher()
+  let resolveWatcherReady: (() => void) | undefined
+  const watcherReady = new Promise<void>((resolve) => {
+    resolveWatcherReady = resolve
+  })
+  vi.doMock('node-watch', () => ({
+    default: () => {
+      resolveWatcherReady?.()
+      return watcher
+    },
+  }))
+  vi.resetModules()
+  const { create } = await import('../../../src/cli/commands/assemblies.ts')
+  let finishDownload: (() => void) | undefined
+  const downloadBody = new Promise<string>((resolve) => {
+    finishDownload = () => resolve('older result')
+  })
+  let resolveDownloadStarted: (() => void) | undefined
+  const downloadStarted = new Promise<void>((resolve) => {
+    resolveDownloadStarted = resolve
+  })
+  nock('https://downloads.test')
+    .get('/result')
+    .reply(200, async () => {
+      resolveDownloadStarted?.()
+      return await downloadBody
+    })
+    .get('/result')
+    .reply(200, 'newer result')
+  let resolveFirstCompletion: (() => void) | undefined
+  const firstCompletion = new Promise<void>((resolve) => {
+    resolveFirstCompletion = resolve
+  })
+  const output = new OutputCtl()
+  vi.spyOn(output, 'debug').mockImplementation((message) => {
+    if (String(message).startsWith('COMPLETED')) resolveFirstCompletion?.()
+  })
+  const originalStat = fs.promises.stat
+  let changed = false
+  vi.spyOn(fs.promises, 'stat').mockImplementation(async (target, ...args) => {
+    const checkingChangedOutput = changed && target === mappedOutputPath(outputDir, inputPath)
+    if (checkingChangedOutput) {
+      finishDownload?.()
+      await firstCompletion
+    }
+    const stats = await originalStat(target, ...args)
+    if (checkingChangedOutput) setImmediate(() => watcher.close())
+    return stats
+  })
+
+  const processing = create(output, new Transloadit({ authKey: 'key', authSecret: 'secret' }), {
+    inputs: [inputPath],
+    output: `${outputDir}/`,
+    watch: true,
+    stepsData: { resized: { robot: '/image/resize', use: ':original', width: 16 } },
+  })
+  await Promise.all([watcherReady, downloadStarted])
+  await writeFile(inputPath, 'changed input')
+  const inputTime = new Date(Date.now() - 30_000)
+  await utimes(inputPath, inputTime, inputTime)
+  changed = true
+  watcher.emit('change', 'update', inputPath)
+
+  expect((await processing).hasFailures).toBe(false)
+  expect(Transloadit.prototype.createAssembly).toHaveBeenCalledTimes(2)
+  expect(await readFile(mappedOutputPath(outputDir, inputPath), 'utf8')).toBe('newer result')
 })
 
 it('keeps every HLS playlist reference reachable from its downloaded playlist', async () => {
