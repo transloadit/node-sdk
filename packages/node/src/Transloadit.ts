@@ -1,3 +1,4 @@
+import type { ReadStream } from 'node:fs'
 import type { Readable } from 'node:stream'
 
 import type {
@@ -72,9 +73,11 @@ import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
 import { randomUUID } from 'node:crypto'
+import { addAbortListener, setMaxListeners } from 'node:events'
 import { constants, createReadStream } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
 import { basename } from 'node:path'
+import { finished } from 'node:stream/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import { compileAssemblyInstructionsFromPrompt } from '@transloadit/utils'
@@ -241,11 +244,15 @@ const toReadableUpload = (label: string, value: Readable | IntoStreamInput): Rea
   return readable ? value : intoStream(value)
 }
 
-const buildStreamsMap = (descriptors: UploadDescriptor[]): Record<string, Stream> =>
+const buildStreamsMap = (
+  descriptors: UploadDescriptor[],
+  onFileStreamOpened?: (stream: ReadStream) => void,
+): Record<string, Stream> =>
   Object.fromEntries(
     descriptors.map((descriptor) => {
       if (descriptor.path) {
         const stream = createReadStream(descriptor.path)
+        onFileStreamOpened?.(stream)
         return [descriptor.label, { stream, path: descriptor.path }]
       }
 
@@ -705,7 +712,7 @@ export class Transloadit {
       assemblyId,
       expectedUploads,
       onAssemblyCreated,
-      signal,
+      signal: callerSignal,
       uploadBehavior = 'await',
     } = opts
 
@@ -722,6 +729,34 @@ export class Transloadit {
       effectiveAssemblyId = randomUUID().replace(/-/g, '')
     }
     const urlSuffix = `/assemblies/${effectiveAssemblyId}`
+    const uploadAbort = new AbortController()
+    const signal = uploadAbort.signal
+    // This private signal coordinates every concurrent upload and its queue.
+    setMaxListeners(0, signal)
+    if (callerSignal?.aborted) uploadAbort.abort(callerSignal.reason)
+    // Older supported Node releases retain AbortSignal.any() dependencies indefinitely.
+    const callerAbort =
+      callerSignal && !callerSignal.aborted
+        ? addAbortListener(callerSignal, () => uploadAbort.abort(callerSignal.reason))
+        : undefined
+    const detachCallerAbort = (): void => {
+      callerAbort?.[Symbol.dispose]()
+    }
+    let backgroundUploadsComplete: Promise<unknown> | undefined
+    const openedFileStreams = new Set<ReadStream>()
+    const pendingFileSlices = new Set<Promise<unknown>>()
+    const onFileStreamOpened = (stream: ReadStream): void => {
+      // Register before I/O can emit close, so cleanup cannot miss that event.
+      openedFileStreams.add(stream)
+      stream.once('close', () => openedFileStreams.delete(stream))
+    }
+    const onFileSliceStarted = (slice: Promise<unknown>): void => {
+      pendingFileSlices.add(slice)
+      const remove = (): void => {
+        pendingFileSlices.delete(slice)
+      }
+      slice.then(remove, remove)
+    }
 
     // We want to be able to return the promise immediately with custom data
     const promise = (async () => {
@@ -746,7 +781,7 @@ export class Transloadit {
         })),
       ]
 
-      const allStreamsMap = buildStreamsMap(descriptors)
+      const allStreamsMap = buildStreamsMap(descriptors, onFileStreamOpened)
 
       const allStreams = Object.values(allStreamsMap)
 
@@ -779,7 +814,7 @@ export class Transloadit {
         onAssemblyCreated?.(result)
 
         if (Object.keys(allStreamsMap).length > 0) {
-          const { uploadUrls } = await sendTusRequest({
+          const { uploadUrls, uploadsComplete } = await sendTusRequest({
             streamsMap: allStreamsMap,
             assembly: result,
             onProgress: onUploadProgress,
@@ -787,7 +822,10 @@ export class Transloadit {
             uploadConcurrency,
             signal,
             uploadBehavior,
+            onFileStreamOpened,
+            onFileSliceStarted,
           })
+          if (uploadBehavior === 'background') backgroundUploadsComplete = uploadsComplete
           if (uploadBehavior !== 'await' && Object.keys(uploadUrls).length > 0) {
             result.upload_urls = uploadUrls
           }
@@ -813,6 +851,29 @@ export class Transloadit {
 
       return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
     })()
+      .catch(async (error: unknown) => {
+        uploadAbort.abort()
+        // File descriptors must be closed before callers can remove their temporary files.
+        // Destroyed, unread streams reject finished(); cleanup must preserve the creation error.
+        while (openedFileStreams.size > 0 || pendingFileSlices.size > 0) {
+          await Promise.allSettled(pendingFileSlices)
+          await Promise.allSettled(
+            [...openedFileStreams].map((stream) => {
+              const closed = finished(stream, { cleanup: true })
+              stream.destroy()
+              return closed
+            }),
+          )
+        }
+        throw error
+      })
+      .finally(() => {
+        if (backgroundUploadsComplete && !signal.aborted) {
+          backgroundUploadsComplete.then(detachCallerAbort, detachCallerAbort)
+          return
+        }
+        detachCallerAbort()
+      })
 
     // This allows the user to use or log the assemblyId even before it has been created for easier debugging
     return Object.assign(promise, { assemblyId: effectiveAssemblyId })

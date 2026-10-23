@@ -1,16 +1,24 @@
 import type { Readable } from 'node:stream'
 
-import type { OnSuccessPayload, UploadOptions } from 'tus-js-client'
+import type {
+  FileSource,
+  HttpRequest,
+  HttpResponse,
+  OnSuccessPayload,
+  SliceResult,
+  UploadOptions,
+} from 'tus-js-client'
 
 import type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 import type { UploadProgress } from './Transloadit.ts'
 
+import { ReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 
 import debug from 'debug'
 import pMap from 'p-map'
-import { Upload } from 'tus-js-client'
+import { defaultOptions, Upload } from 'tus-js-client'
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
@@ -31,6 +39,13 @@ interface SendTusRequestOptions {
   signal?: AbortSignal
   uploadUrls?: Record<string, string>
   uploadBehavior?: UploadBehavior
+  onFileStreamOpened?: (stream: ReadStream) => void
+  onFileSliceStarted?: (slice: Promise<unknown>) => void
+}
+
+interface SendTusRequestResult {
+  uploadUrls: Record<string, string>
+  uploadsComplete?: Promise<unknown>
 }
 
 export async function sendTusRequest({
@@ -42,7 +57,9 @@ export async function sendTusRequest({
   signal,
   uploadUrls,
   uploadBehavior = 'await',
-}: SendTusRequestOptions) {
+  onFileStreamOpened,
+  onFileSliceStarted,
+}: SendTusRequestOptions): Promise<SendTusRequestResult> {
   const streamLabels = Object.keys(streamsMap)
 
   let totalBytes = 0
@@ -203,6 +220,25 @@ export async function sendTusRequest({
           fieldname: label,
           filename,
         },
+        httpStack: {
+          createRequest(method: string, url: string): HttpRequest {
+            const request = defaultOptions.httpStack.createRequest(method, url)
+            const send = request.send.bind(request)
+            request.send = (body: unknown): Promise<HttpResponse> => {
+              // tus awaits pre-request hooks, so queued aborts must be checked at send itself.
+              if (signal?.aborted) {
+                // File setup can finish after abort() and reset tus's aborted state.
+                tusUpload.abort()
+                return Promise.reject(new Error('Upload aborted'))
+              }
+              return send(body)
+            }
+            return request
+          },
+          getName(): string {
+            return defaultOptions.httpStack.getName()
+          },
+        },
         onError: reject,
         onProgress: onTusProgress,
         onSuccess: resolve,
@@ -217,6 +253,36 @@ export async function sendTusRequest({
             resolveCompletion()
           }
         },
+      }
+      if (onFileStreamOpened) {
+        // tus opens a separate ReadStream for each chunk; abort() leaves those streams open.
+        // Track those chunks even when the original file stream belongs to the caller.
+        tusOptions.fileReader = {
+          async openFile(input: unknown, chunkSize: number): Promise<FileSource> {
+            const source = await defaultOptions.fileReader.openFile(input, chunkSize)
+            return {
+              size: source.size,
+              async slice(start: number, end: number): Promise<SliceResult> {
+                if (signal?.aborted) throw new Error('Upload aborted')
+                const reading = source.slice(start, end).then((chunk) => {
+                  // tus-js-client declares platform-specific chunk values as any.
+                  const value: unknown = chunk.value
+                  if (value instanceof ReadStream) onFileStreamOpened(value)
+                  if (signal?.aborted) throw new Error('Upload aborted')
+                  return chunk
+                })
+                // A file slice can open its stream before the promise resolves.
+                if (input instanceof ReadStream && input.path != null) {
+                  onFileSliceStarted?.(reading)
+                }
+                return await reading
+              },
+              close() {
+                source.close()
+              },
+            }
+          },
+        }
       }
       // tus-js-client doesn't like undefined/null
       if (size != null) tusOptions.uploadSize = size
@@ -255,13 +321,14 @@ export async function sendTusRequest({
 
   await Promise.all(uploadUrlPromises)
 
+  const uploadsComplete = Promise.allSettled(completionPromises)
   if (uploadBehavior === 'await') {
     await Promise.all(completionPromises)
   } else {
-    Promise.allSettled(completionPromises).catch((err) => {
+    uploadsComplete.catch((err) => {
       logWarn('Background upload failed', err)
     })
   }
 
-  return { uploadUrls: uploadUrlsResult }
+  return { uploadUrls: uploadUrlsResult, uploadsComplete }
 }
