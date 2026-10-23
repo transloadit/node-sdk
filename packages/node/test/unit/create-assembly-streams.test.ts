@@ -219,18 +219,51 @@ describe('createAssembly file stream cleanup', () => {
     const controller = new AbortController()
     const abortUpload =
       mode === 'queued' ? () => queueMicrotask(() => controller.abort()) : () => controller.abort()
-    const sentMethods: string[] = []
+    let retrying = false
+    let markRetrySendAttempted: () => void = () => {}
+    const retrySendAttempted = new Promise<void>((resolve) => {
+      markRetrySendAttempted = resolve
+    })
+    const sentAfterCancellation: string[] = []
     const requests: HttpRequest[] = []
+    const startedRequests: ClientRequest[] = []
+    const requestClosures: Promise<void>[] = []
     const createRequest = defaultOptions.httpStack.createRequest.bind(defaultOptions.httpStack)
     vi.spyOn(defaultOptions.httpStack, 'createRequest').mockImplementation((method, url) => {
       const request = createRequest(method, url)
       requests.push(request)
       const send = request.send.bind(request)
       request.send = (body: unknown) => {
-        sentMethods.push(method)
-        return send(body)
+        if (controller.signal.aborted) sentAfterCancellation.push(method)
+        const response = send(body)
+        const underlyingRequest: unknown = request.getUnderlyingObject()
+        if (underlyingRequest instanceof ClientRequest) {
+          startedRequests.push(underlyingRequest)
+          requestClosures.push(
+            new Promise<void>((resolve) => underlyingRequest.once('close', resolve)),
+          )
+        }
+        return response.then((result) => {
+          if (result.getStatus() === 500) retrying = true
+          return result
+        })
       }
       return request
+    })
+    const start = Upload.prototype.start
+    vi.spyOn(Upload.prototype, 'start').mockImplementation(function (this: Upload) {
+      this.options.onBeforeRequest = (request) => {
+        if (!retrying || request.getMethod() !== 'PATCH') return
+        // Cancel at a retry boundary, independent of throttled progress and HEAD ordering.
+        const send = request.send.bind(request)
+        request.send = (body: unknown) => {
+          const response = send(body)
+          markRetrySendAttempted()
+          return response
+        }
+        abortUpload()
+      }
+      start.call(this)
     })
 
     try {
@@ -239,22 +272,15 @@ describe('createAssembly file stream cleanup', () => {
           files,
           signal: controller.signal,
           uploadConcurrency: 1,
-          onUploadProgress: ({ uploadedBytes }) => {
-            if (uploadedBytes !== undefined && uploadedBytes >= 128 * 1024) abortUpload()
-          },
         }),
       ).rejects.toThrow(/aborted/i)
-      await setImmediate()
+      await retrySendAttempted
 
-      expect(sentMethods.slice(0, 3)).toEqual(['POST', 'PATCH', 'HEAD'])
-      const startedRequests: unknown[] = requests
-        .map((request) => request.getUnderlyingObject())
-        .filter(Boolean)
-      expect(startedRequests.length).toBeGreaterThanOrEqual(3)
-      expect(
-        startedRequests.every((request) => request instanceof ClientRequest && request.destroyed),
-      ).toBe(true)
-      expect(openedStreams.map((stream) => stream.closed)).toEqual([true, true, true, true])
+      expect(sentAfterCancellation).toEqual([])
+      expect(openedStreams.length).toBeGreaterThan(2)
+      expect(openedStreams.every((stream) => stream.destroyed && stream.closed)).toBe(true)
+      await Promise.all(requestClosures)
+      expect(startedRequests.every((request) => request.destroyed)).toBe(true)
     } finally {
       await Promise.all(requests.map((request) => request.abort()))
     }
