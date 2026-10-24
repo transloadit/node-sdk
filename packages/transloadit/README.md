@@ -146,7 +146,8 @@ npx -y @transloadit/node run "extract a waveform image from this audio" --input 
 ```
 
 Repeat `--input` for multiple files, or pass a directory. Use `--single-assembly` to process the
-inputs together. `run` also supports `--watch`, `--recursive`, and `--concurrency`.
+inputs together. `run` also supports `--watch`, `--recursive`, `--concurrency`, and
+`--url-download-timeout` (milliseconds per URL input, default: `300000`).
 
 ### Compile Assembly Instructions
 
@@ -1515,11 +1516,22 @@ The `assemblies create` command additionally supports:
   Without uploads (for example, `/vimeo/import`, `/http/import`, or prompt-only `/image/generate`
   Steps), results are saved as `<dir>/<step>/<result name>`, with no input folder, including with
   `--single-assembly`.
-- `--input, -i` - Provide a local upload, or use `-i -` to read stdin explicitly. When `--steps`
-  is used without `-i`, stdin is read only when it is a pipe or a redirected file. Other non-TTY
-  stdin (such as an agent shell or `/dev/null`) runs the Assembly without uploads. With `--template`,
-  stdin always requires `-i -`.
+  Downloaded filenames come from the Assembly results, including their extensions. Ordinary
+  downloads retain the existing input-relative directories and `<input>/<step>/…` layout for
+  multiple results. Directory inputs retain subfolders relative to that directory. Existing
+  time-based checks skip inputs with newer outputs; use `--reprocess-stale` to process them again.
+  HLS results retain the directories in `meta.relative_path`, so playlists can find their
+  renditions and segments. Multiple HLS bundles in one Step get separate source folders. On
+  collisions, a linked bundle moves together to a new folder, preserving playlist references.
+  Watch updates refresh their existing result files.
+- `--input, -i` - Provide a local upload or a public HTTP(S) URL, or use `-i -` to read stdin explicitly.
+  URLs are downloaded to temporary files for upload and cleaned up after processing; `--watch`
+  requires local inputs. When `--steps` is used without `-i`, stdin is read only when it is a pipe
+  or a redirected file. Other non-TTY stdin (such as an agent shell or `/dev/null`) runs the Assembly
+  without uploads. With `--template`, stdin always requires `-i -`.
 - `--single-assembly` - Pass all input files to a single assembly instead of one assembly per file
+- `--url-download-timeout` - Limit each URL input download to this many milliseconds (default:
+  `300000`, or five minutes). DNS checks and redirects share the same deadline.
 
 #### Log Levels
 

@@ -322,8 +322,8 @@ describe('assemblies create', () => {
         },
       }),
     )
-    const legacyRelative = getLegacyRelativeInputPath(inputPath)
-    const baseDir = path.join(path.dirname(legacyRelative), path.parse(legacyRelative).name)
+    const mappedInput = getLegacyRelativeInputPath(inputPath)
+    const baseDir = path.join(path.dirname(mappedInput), 'video')
     expect(await collectRelativeFiles(outputDir)).toEqual([
       path.join(baseDir, 'captioned', 'video.mp4'),
       path.join(baseDir, 'transcript', 'video.srt'),
@@ -1508,7 +1508,7 @@ describe('assemblies create', () => {
     expect(await readFile(path.join(outputDir, 'thumb__1.jpg'), 'utf8')).toBe('second-thumb')
   })
 
-  it('preserves legacy step-directory layout for generic directory outputs', async () => {
+  it('preserves input and Step folders for generic multi-result directory outputs', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const tempDir = await createTempDir('transloadit-legacy-outdir-')
@@ -1551,12 +1551,11 @@ describe('assemblies create', () => {
       } as never,
     )
 
-    const legacyRelative = getLegacyRelativeInputPath(inputPath)
-    const legacyBaseDir = path.join(path.dirname(legacyRelative), path.parse(legacyRelative).name)
-
+    const mappedInput = getLegacyRelativeInputPath(inputPath)
+    const baseDir = path.join(path.dirname(mappedInput), 'clip')
     expect(await collectRelativeFiles(outputDir)).toEqual([
-      path.join(legacyBaseDir, 'thumbs', 'one.jpg'),
-      path.join(legacyBaseDir, 'thumbs', 'two.jpg'),
+      path.join(baseDir, 'thumbs', 'one.jpg'),
+      path.join(baseDir, 'thumbs', 'two.jpg'),
     ])
   })
 
@@ -1605,7 +1604,7 @@ describe('assemblies create', () => {
     expect(await readFile(path.join(outputDir, 'input.txt'), 'utf8')).toBe('hello')
   })
 
-  it('preserves mapped out paths for legacy single-result directory outputs', async () => {
+  it('uses result names for directory outputs without an explicit output mode', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const tempDir = await createTempDir('transloadit-legacy-single-result-')
@@ -1640,7 +1639,9 @@ describe('assemblies create', () => {
       },
     })
 
-    expect(await collectRelativeFiles(outputDir)).toEqual([getLegacyRelativeInputPath(inputPath)])
+    expect(await collectRelativeFiles(outputDir)).toEqual([
+      path.join(path.dirname(getLegacyRelativeInputPath(inputPath)), 'input.txt'),
+    ])
   })
 
   it('does not create an empty output file when assembly creation fails', async () => {

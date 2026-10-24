@@ -33,6 +33,7 @@ export interface PreparedIntentInputs {
   cleanup: Array<() => Promise<void>>
   hasTransientInputs: boolean
   inputs: string[]
+  transientInputPaths?: string[]
 }
 
 export interface IntentSingleStepExecutionDefinition {
@@ -252,6 +253,7 @@ export async function prepareIntentInputs({
     cleanup: prepared.cleanup,
     hasTransientInputs: true,
     inputs,
+    transientInputPaths: Object.values(prepared.files),
   }
 }
 
@@ -767,9 +769,13 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     }
 
     const effectiveOutputPath = this.getEffectiveOutputPath(rawValues)
+    const createOptions = this.getCreateOptions(effectivePreparedInputs.inputs)
+    if (effectivePreparedInputs.transientInputPaths != null) {
+      createOptions.transientInputPaths = effectivePreparedInputs.transientInputPaths
+    }
     return await executeIntentCommand({
       client: this.client,
-      createOptions: this.getCreateOptions(effectivePreparedInputs.inputs),
+      createOptions,
       definition: this.getIntentDefinition(),
       output: this.output,
       outputMode: this.getEffectiveOutputMode(rawValues, effectiveOutputPath),
