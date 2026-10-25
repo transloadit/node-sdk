@@ -381,6 +381,47 @@ describe('server card', () => {
   })
 })
 
+// Claude's connector directory requires tool descriptions without instructions about other tools.
+const otherToolNames = (tool: { name: unknown; description?: unknown }): string[] =>
+  [...String(tool.description).matchAll(/transloadit_[a-z_]+/g)]
+    .map(([match]) => match)
+    .filter((match) => match !== tool.name)
+
+describe('tool descriptions', () => {
+  it('never name another tool, live or on the server card', async () => {
+    const options = { authKey: 'key', authSecret: 'secret' }
+    vi.mocked(Transloadit.prototype.listTemplates).mockRejectedValue(new Error('offline'))
+    const listed = await listRawTools(options)
+    const { tools } = buildServerCard('/mcp', options)
+
+    expect(listed).toHaveLength(toolNames.length + builtinShortcuts.length)
+    for (const tool of [...listed, ...tools]) {
+      expect(typeof tool.description, String(tool.name)).toBe('string')
+      expect(otherToolNames(tool), String(tool.name)).toEqual([])
+    }
+  })
+
+  it('leave the cross-tool workflow to the server instructions', async () => {
+    const server = createTransloaditMcpServer({})
+    const client = await connectInMemory(server)
+    const instructions = client.getInstructions() ?? ''
+    await client.close()
+    await server.close()
+
+    for (const name of [
+      'transloadit_create_assembly',
+      'transloadit_wait_for_assembly',
+      'transloadit_get_assembly_status',
+      'transloadit_list_templates',
+      ...builtinShortcuts.map(({ name }) => name),
+    ]) {
+      expect(instructions).toContain(name)
+    }
+    // A caller's catalog can leave some shortcuts unlisted; calling those fails.
+    expect(instructions).toMatch(/Builtin shortcut tool when tools\/list includes one/)
+  })
+})
+
 describe('tools registered after creation', () => {
   it('stay discoverable, with their own securitySchemes mirrored to the top level', async () => {
     const server = createTransloaditMcpServer({})

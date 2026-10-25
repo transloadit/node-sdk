@@ -103,7 +103,7 @@ const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
   transloadit_create_assembly: {
     title: 'Create or resume an Assembly',
     description:
-      'Create or resume an Assembly, optionally uploading files and waiting for completion. Files attached in the chat arrive under attachments; public URLs and small base64 payloads go under files. If a file exists only locally or in your sandbox, set expected_uploads, run each upload_instructions curl command there (it needs outbound HTTPS to Transloadit), then call transloadit_wait_for_assembly. Waiting stops after a server budget (45 seconds by default); a result with running: true is still processing, so follow it with transloadit_wait_for_assembly instead of creating it again.',
+      'Create an Assembly from instructions (Steps or a template_id), or resume one by assembly_url, optionally uploading files and waiting for completion. Files attached in the chat arrive under attachments; public URLs and small base64 payloads go under files. If a file exists only locally or in your sandbox, set expected_uploads and run each returned upload_instructions curl command there (it needs outbound HTTPS to Transloadit). Waiting stops after a server budget (45 seconds by default). Returns the Assembly with its result files; running: true means it is still processing, and next_steps say how to follow it instead of creating it again.',
     annotations: {
       readOnlyHint: false,
       // Export Robots (/s3/store, /google/store, …) can overwrite files at the destination, so
@@ -125,7 +125,8 @@ const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
   },
   transloadit_get_assembly_status: {
     title: 'Get Assembly status',
-    description: 'Fetch the latest Assembly status by URL or ID.',
+    description:
+      'Fetch the current status and result files of an Assembly by assembly_url or assembly_id, without waiting.',
     annotations: readOnly,
     access: 'account',
     scopes: [mcpScopes.assembliesRead],
@@ -153,14 +154,16 @@ const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
   },
   transloadit_list_robots: {
     title: 'List Transloadit Robots',
-    description: 'Returns a filtered list of Robots with short summaries.',
+    description:
+      'List Transloadit Robots, the processing units used in Assembly Steps, with short summaries. Filter by category or search text; page with cursor.',
     annotations: readOnly,
     access: 'public',
     scopes: [],
   },
   transloadit_get_robot_help: {
     title: 'Get Robot parameter help',
-    description: 'Returns a Robot summary and parameter details.',
+    description:
+      'Returns the summary, required and optional parameters and examples for one Robot (robot_name) or several (robot_names), for writing Assembly Steps.',
     annotations: readOnly,
     access: 'public',
     scopes: [],
@@ -209,6 +212,20 @@ export const toolMetadata: Record<ToolName, ToolMetadata> = {
     ]),
   ),
 }
+
+/**
+ * Cross-tool workflow guidance, sent once as the MCP initialize `instructions`. Tool descriptions
+ * stay self-contained (Claude's directory requires that they never instruct about other tools),
+ * so how the tools fit together lives here and in result next_steps.
+ */
+export const serverInstructions = [
+  'Transloadit processes media and documents in Assemblies: encoding video, manipulating images, converting documents, transcribing speech and more.',
+  `For a common outcome, prefer a Builtin shortcut tool when tools/list includes one (${builtinShortcuts.map(({ name }) => name).join(', ')}; the connected Workspace may not offer all of them). transloadit_list_templates with include_builtin: "exclusively-latest" lists every Builtin Template.`,
+  'For a custom workflow, find Robots with transloadit_list_robots, read their parameters with transloadit_get_robot_help, check the Steps with transloadit_lint_assembly_instructions, then run them with transloadit_create_assembly.',
+  'Files shared in the chat go under attachments; public URLs and small base64 payloads go under files. For files that exist only locally or in a sandbox, set expected_uploads, run each returned upload_instructions curl command where the file lives, then call transloadit_wait_for_assembly.',
+  'When a result has running: true, the Assembly is still processing: follow it with transloadit_wait_for_assembly or transloadit_get_assembly_status instead of creating it again, and follow any next_steps in the result.',
+  'transloadit_get_profile identifies the connected Transloadit Workspace.',
+].join('\n\n')
 
 /** `_meta` for `tools/list`: carries `securitySchemes` for hosts that only read `_meta`. */
 export const buildToolMeta = (

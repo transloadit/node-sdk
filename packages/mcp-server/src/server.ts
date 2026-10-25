@@ -45,6 +45,7 @@ import {
   buildToolMeta,
   resolveSecuritySchemes,
   resolveToolAuthMode,
+  serverInstructions,
   toolMetadata,
 } from './tool-metadata.ts'
 import {
@@ -1258,10 +1259,13 @@ export const createTransloaditMcpServer = (
   assertServerOptions(options)
   const logger = (options.logger ?? getDiagnosticsLogger()).nest('assemblies')
   const redactError = buildRedactor([options.authSecret, options.upstreamSecret, options.mcpToken])
-  const server = new McpServer({
-    name: options.serverName ?? 'Transloadit MCP',
-    version: options.serverVersion ?? packageJson.version,
-  })
+  const server = new McpServer(
+    {
+      name: options.serverName ?? 'Transloadit MCP',
+      version: options.serverVersion ?? packageJson.version,
+    },
+    { instructions: serverInstructions },
+  )
 
   const authMode = resolveToolAuthMode(options)
   const ownTools = new Map<ToolName, RegisteredTool>()

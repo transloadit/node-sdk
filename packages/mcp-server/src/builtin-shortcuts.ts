@@ -20,9 +20,13 @@ export const builtinShortcuts = Object.keys(mcpBuiltinTemplateManifest).map((id)
   return { id, name, title: slug.charAt(0).toUpperCase() + slug.slice(1).replaceAll('-', ' ') }
 })
 
-/** Catalog descriptions supply the outcome wording; this suffix describes the MCP adapter. */
+/**
+ * Catalog descriptions supply the outcome wording; the suffix describes this tool's own inputs and
+ * outputs. Tool descriptions never refer to other tools: directories such as Claude's require that,
+ * so cross-tool workflow lives in the server instructions and in result next_steps.
+ */
 export const describeBuiltinShortcut = (description = 'Run a reviewed Builtin Template.'): string =>
-  `${description} Supply parameters under fields. Accepts the same files, attachments, expected_uploads and wait options as transloadit_create_assembly.`
+  `${description} Pass the Builtin’s parameters under fields. Provide inputs as attachments (files shared in the chat), files (public URLs or small base64 payloads) or expected_uploads (files that exist only locally or in a sandbox; the result returns an upload_instructions curl command per file). Set wait_for_completion to wait up to a server budget (45 seconds by default). Returns the Assembly with its result files; running: true means it is still processing.`
 
 type BuiltinFieldsContract = Pick<
   z.input<typeof builtinTemplateCatalogItemSchema>,
@@ -261,7 +265,8 @@ export const applyBuiltinCatalog = (
     return [
       {
         ...tool,
-        description: describeBuiltinShortcut(template.description),
+        // A blank catalog description would leave only the input guidance.
+        description: describeBuiltinShortcut(template.description?.trim() || undefined),
         inputSchema: fields
           ? {
               ...tool.inputSchema,

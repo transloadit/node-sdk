@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   builtinShortcuts,
   deriveShortcutFieldsSchema,
+  describeBuiltinShortcut,
   validateBuiltinFields,
 } from '../../src/builtin-shortcuts.ts'
 import { createTransloaditMcpServer } from '../../src/server.ts'
@@ -218,6 +219,12 @@ describe('Builtin shortcut protocol', () => {
         ui: { resourceUri: 'ui://transloadit/assembly-result' },
       },
     })
+    // Catalog wording keeps the self-contained suffix: no other tool is named.
+    expect(
+      [...(tool?.description ?? '').matchAll(/transloadit_[a-z_]+/g)].filter(
+        ([match]) => match !== name,
+      ),
+    ).toEqual([])
     expect(tool?.inputSchema.properties?.fields).toEqual(deriveShortcutFieldsSchema(entry))
     expect(tool?.inputSchema.properties).toHaveProperty('attachments')
     expect(tool?.inputSchema.properties).not.toHaveProperty('instructions')
@@ -233,6 +240,17 @@ describe('Builtin shortcut protocol', () => {
       fields: { ...entry.content.fields, strip: false },
     })
     expect(http.params()).not.toHaveProperty('steps')
+  })
+
+  it.each([
+    undefined,
+    '',
+    '  ',
+  ])('keeps the fallback wording for catalog description %j', async (description) => {
+    catalog([{ ...template, description }])
+    const tools = (await (await connect()).listTools()).tools
+    const listed = tools.find(({ name }) => name === shortcut.name)?.description
+    expect(listed).toBe(describeBuiltinShortcut())
   })
 
   it('marks fields required only when required properties lack defaults', async () => {
