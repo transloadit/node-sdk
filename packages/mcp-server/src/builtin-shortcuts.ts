@@ -298,7 +298,8 @@ export const applyBuiltinCatalog = (
     return [
       {
         ...tool,
-        description: describeBuiltinShortcut(template.description ?? shortcut.summary),
+        // A blank catalog description would leave only the input guidance.
+        description: describeBuiltinShortcut(template.description?.trim() || shortcut.summary),
         inputSchema: fields
           ? {
               ...tool.inputSchema,

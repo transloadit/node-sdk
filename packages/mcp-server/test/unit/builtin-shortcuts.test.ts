@@ -241,6 +241,17 @@ describe('Builtin shortcut protocol', () => {
     expect(http.params()).not.toHaveProperty('steps')
   })
 
+  it.each([
+    undefined,
+    '',
+    '  ',
+  ])('keeps the static summary for catalog description %j', async (description) => {
+    catalog([{ ...template, description }])
+    const tools = (await (await connect()).listTools()).tools
+    const listed = tools.find(({ name }) => name === shortcut.name)?.description
+    expect(listed?.startsWith(`${shortcut.summary} Pass`), listed).toBe(true)
+  })
+
   it('marks fields required only when required properties lack defaults', async () => {
     catalog([{ ...template, content: { ...template.content, fields: { strip: true } } }])
     const tools = (await (await connect()).listTools()).tools
