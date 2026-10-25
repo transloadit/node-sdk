@@ -5,6 +5,7 @@ import { createServer } from 'node:http'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { Transloadit } from '@transloadit/node'
+import { mcpBuiltinTemplateSummaries } from '@transloadit/zod/v4/builtinTemplates'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
@@ -399,6 +400,30 @@ describe('tool descriptions', () => {
       expect(typeof tool.description, String(tool.name)).toBe('string')
       expect(otherToolNames(tool), String(tool.name)).toEqual([])
     }
+  })
+
+  it('give every Builtin shortcut its own API2 summary, live and on the server card', async () => {
+    const options = { authKey: 'key', authSecret: 'secret' }
+    vi.mocked(Transloadit.prototype.listTemplates).mockRejectedValue(new Error('offline'))
+    const listed = await listRawTools(options)
+    const { tools } = buildServerCard('/mcp', options)
+
+    for (const source of [listed, tools]) {
+      const descriptions = builtinShortcuts.map(
+        ({ name }) => source.find((tool) => tool.name === name)?.description,
+      )
+      expect(new Set(descriptions).size).toBe(builtinShortcuts.length)
+      for (const [index, { id }] of builtinShortcuts.entries()) {
+        const summary = mcpBuiltinTemplateSummaries[id]
+        expect(summary, id).toMatch(/\S/)
+        expect(descriptions[index], id).toMatch(/^\S/)
+        expect(String(descriptions[index]).startsWith(`${summary} Pass`), id).toBe(true)
+        expect(descriptions[index], id).not.toMatch(/^Run a reviewed Builtin Template\./)
+      }
+    }
+    expect(findListed(listed, 'transloadit_caption_video')?.description).toMatch(
+      /^Transcribe the speech in videos and burn plain captions/,
+    )
   })
 
   it('leave the cross-tool workflow to the server instructions', async () => {

@@ -6,6 +6,7 @@ import {
   builtinTemplateCatalogItemSchema,
   mcpBuiltinInputUrlMaxCounts,
   mcpBuiltinTemplateManifest,
+  mcpBuiltinTemplateSummaries,
 } from '@transloadit/zod/v4/builtinTemplates'
 import { Ajv } from 'ajv'
 import formatsPlugin from 'ajv-formats'
@@ -21,12 +22,20 @@ export const builtinShortcuts = Object.keys(mcpBuiltinTemplateManifest).map((id)
 })
 
 /**
- * Catalog descriptions supply the outcome wording; the suffix describes this tool's own inputs and
- * outputs. Tool descriptions never refer to other tools: directories such as Claude's require that,
- * so cross-tool workflow lives in the server instructions and in result next_steps.
+ * API2 authors each Builtin's tool-ready summary: the catalog serves it per credential, and the
+ * synced static copy covers server cards and tool lists before the catalog is read. A Builtin
+ * approved in a newer manifest without a summary yet keeps neutral wording. The suffix describes
+ * this tool's own inputs and outputs. Tool descriptions never refer to other tools: directories
+ * such as Claude's require that, so cross-tool workflow lives in the server instructions and in
+ * result next_steps.
  */
-export const describeBuiltinShortcut = (description = 'Run a reviewed Builtin Template.'): string =>
-  `${description} Pass the Builtin’s parameters under fields. Provide inputs as attachments (files shared in the chat), files (public URLs or small base64 payloads) or expected_uploads (files that exist only locally or in a sandbox; the result returns an upload_instructions curl command per file). Set wait_for_completion to wait up to a server budget (45 seconds by default). Returns the Assembly with its result files; running: true means it is still processing.`
+export const describeBuiltinShortcut = (id: string, catalogSummary?: string): string => {
+  const summary =
+    catalogSummary?.trim() ||
+    mcpBuiltinTemplateSummaries[id]?.trim() ||
+    'Run a reviewed Builtin Template.'
+  return `${summary} Pass the Builtin’s parameters under fields. Provide inputs as attachments (files shared in the chat), files (public URLs or small base64 payloads) or expected_uploads (files that exist only locally or in a sandbox; the result returns an upload_instructions curl command per file). Set wait_for_completion to wait up to a server budget (45 seconds by default). Returns the Assembly with its result files; running: true means it is still processing.`
+}
 
 type BuiltinFieldsContract = Pick<
   z.input<typeof builtinTemplateCatalogItemSchema>,
@@ -265,8 +274,7 @@ export const applyBuiltinCatalog = (
     return [
       {
         ...tool,
-        // A blank catalog description would leave only the input guidance.
-        description: describeBuiltinShortcut(template.description?.trim() || undefined),
+        description: describeBuiltinShortcut(shortcut.id, template.summary),
         inputSchema: fields
           ? {
               ...tool.inputSchema,
