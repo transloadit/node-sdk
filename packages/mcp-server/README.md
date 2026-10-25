@@ -380,8 +380,11 @@ titles from those IDs and consumes the catalog schema through `@transloadit/zod/
 An alphalib sync carries approved additions, renames, removals and gate changes without another
 MCP registry.
 
-Descriptions, standalone draft-07 `fields_schema` and `content.fields` defaults come from API2’s
-Template catalog. Defaults merge before validation, preserving JSON types; conservative schema
+Each shortcut’s description starts with the tool-ready `summary` API2 authors beside the Builtin
+definition: the credential’s catalog summary once read, and otherwise the synced
+`mcpBuiltinTemplateSummaries`, which the server card and pre-catalog `tools/list` use. The long
+catalog `description` is not tool text. Standalone draft-07 `fields_schema` and `content.fields`
+defaults come from API2’s Template catalog. Defaults merge before validation, preserving JSON types; conservative schema
 annotations leave runtime cross-field validation authoritative. A null or absent contract makes
 that shortcut unavailable. Generic tools keep their existing behavior.
 
