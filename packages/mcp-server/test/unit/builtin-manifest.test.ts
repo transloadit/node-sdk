@@ -21,11 +21,13 @@ describe('synced MCP Builtin manifest', () => {
         id: 'builtin/renamed-workflow@0.0.2',
         name: 'transloadit_renamed_workflow',
         title: 'Renamed workflow',
+        summary: 'Run the renamed-workflow Builtin Template.',
       },
       {
         id: 'builtin/new-workflow@0.0.1',
         name: 'transloadit_new_workflow',
         title: 'New workflow',
+        summary: 'Run the new-workflow Builtin Template.',
       },
     ])
   })

@@ -218,6 +218,12 @@ describe('Builtin shortcut protocol', () => {
         ui: { resourceUri: 'ui://transloadit/assembly-result' },
       },
     })
+    // Catalog wording keeps the self-contained suffix: no other tool is named.
+    expect(
+      [...(tool?.description ?? '').matchAll(/transloadit_[a-z_]+/g)].filter(
+        ([match]) => match !== name,
+      ),
+    ).toEqual([])
     expect(tool?.inputSchema.properties?.fields).toEqual(deriveShortcutFieldsSchema(entry))
     expect(tool?.inputSchema.properties).toHaveProperty('attachments')
     expect(tool?.inputSchema.properties).not.toHaveProperty('instructions')

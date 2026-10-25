@@ -267,6 +267,38 @@ Notes:
 - If this was a pre-release, remember to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
   - `npm dist-tag add transloadit@X.Y.Z latest`
 
+### Publishing `@transloadit/mcp-server` to the MCP Registry
+
+npm publication does not update the [MCP Registry](https://registry.modelcontextprotocol.io)
+entry; a maintainer publishes it after each `@transloadit/mcp-server` release.
+
+1. The Version Packages PR runs `scripts/sync-mcp-server-json.ts` after `changeset version`, so
+   `packages/mcp-server/server.json` already names the released version in its top-level `version`
+   and in the npm package entry. A unit test fails if `server.json` and
+   `packages/mcp-server/package.json` disagree. If you ever bump by hand, run
+   `node scripts/sync-mcp-server-json.ts`, which keeps the file's formatting.
+2. Once npm serves the new version, validate and publish from the package directory (the publisher
+   reads `server.json` from the current directory):
+
+   ```sh
+   cd packages/mcp-server
+   mcp-publisher validate server.json
+   mcp-publisher login github --token "$(gh auth token)"
+   mcp-publisher publish
+   ```
+
+3. Verify the listing:
+
+   ```sh
+   curl "https://registry.modelcontextprotocol.io/v0/servers?search=transloadit&version=latest"
+   ```
+
+The hosted endpoint at `https://api2.transloadit.com/mcp` runs the version API2 depends on, so
+bump `@transloadit/mcp-server` in API2 to ship a release there. Directories pick changes up
+differently: Smithery reads the server card, ChatGPT apps need **Refresh tools** in their
+settings, and the Claude and OpenAI directory listings snapshot the tools at review, so changed
+tool names or descriptions need a resubmission there.
+
 ### Release FAQ
 
 - **Independent versions:** Changesets are not fixed to a single version. Only packages listed in a changeset bump; internal dependency changes auto-bump dependents (patch) via `updateInternalDependencies`.
