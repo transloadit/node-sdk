@@ -401,20 +401,6 @@ describe('tool descriptions', () => {
     }
   })
 
-  it('give every Builtin shortcut its own outcome description', async () => {
-    vi.mocked(Transloadit.prototype.listTemplates).mockRejectedValue(new Error('offline'))
-    const listed = await listRawTools({ authKey: 'key', authSecret: 'secret' })
-    const descriptions = builtinShortcuts.map(({ name }) => findListed(listed, name)?.description)
-
-    expect(new Set(descriptions).size).toBe(builtinShortcuts.length)
-    for (const [index, { id }] of builtinShortcuts.entries()) {
-      expect(descriptions[index], id).not.toMatch(/^Run the .* Builtin Template\./)
-    }
-    expect(findListed(listed, 'transloadit_caption_video')?.description).toMatch(
-      /^Transcribe the speech in a video and burn plain captions/,
-    )
-  })
-
   it('leave the cross-tool workflow to the server instructions', async () => {
     const server = createTransloaditMcpServer({})
     const client = await connectInMemory(server)

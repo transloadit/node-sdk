@@ -13,52 +13,19 @@ import { z } from 'zod'
 
 import { isRecord } from './json.ts'
 
-/**
- * What each approved Builtin does, condensed from API2's catalog descriptions. Tools list these
- * before a credential-scoped catalog read replaces them, and so does the static server card that
- * directories snapshot, so each must stand on its own and stay accurate to the API2 definition.
- */
-const builtinSummaries: Readonly<Record<string, string>> = {
-  'builtin/caption-video@0.0.1':
-    'Transcribe the speech in a video and burn plain captions into the original video. Returns the captioned video and its SRT cues. Subtitle size, position, text and border colors are configurable; language fields describe the spoken language, never a translation.',
-  'builtin/capture-webpage@0.0.1':
-    'Capture a public HTTP(S) webpage or uploaded HTML as a PNG, JPEG or PDF. Defaults to a full-page PNG 1024 pixels wide; set fullpage to false for a fixed viewport. A URL takes precedence over uploaded HTML, and no custom headers, browser actions or credentials are sent.',
-  'builtin/convert-to-pdf@0.0.1':
-    'Convert Office documents, HTML, Markdown and plain text to PDF. Paper size, margins and background printing apply to HTML and Markdown; Office and text files keep the converter’s native layout.',
-  'builtin/encode-video@0.0.1':
-    'Encode videos for web playback with a web video preset. Defaults to 720p MP4 with turbo encoding; a supplied width or height overrides that preset dimension. Output size depends on the source and preset.',
-  'builtin/extract-text@0.0.1':
-    'Extract readable text or JSON from images, PDFs and Office documents. Images use OCR; documents try native text extraction before OCR by default. Passwords, page ranges and per-page grouping need native extraction, and unsupported formats are skipped.',
-  'builtin/prepare-image@0.0.1':
-    'Prepare images for a website: auto-orient, fit within 1600×1600, encode as WebP at quality 75, strip metadata and keep transparency. Size, format, quality, resize strategy, background and metadata stripping are configurable; JPEG output needs an opaque background.',
-  'builtin/remove-background@0.0.1':
-    'Remove the background from photos and return the foreground as a transparent PNG.',
-  'builtin/transcribe@0.0.1':
-    'Transcribe audio or video speech into timestamped JSON, plain text, SRT or WebVTT, with automatic provider selection. Language fields describe the spoken language, never a translation.',
-  'builtin/video-covers@0.0.1':
-    'Extract cover images from a video at regular intervals or exact offsets, optionally choosing strong frames with AI scoring. Image dimensions default to those of the video.',
-}
-
 /** Shortcut names and titles follow the reviewed manifest delivered by alphalib sync. */
 export const builtinShortcuts = Object.keys(mcpBuiltinTemplateManifest).map((id) => {
   const slug = id.slice('builtin/'.length).split('@')[0] ?? ''
   const name: `transloadit_${string}` = `transloadit_${slug.replaceAll('-', '_')}`
-  return {
-    id,
-    name,
-    title: slug.charAt(0).toUpperCase() + slug.slice(1).replaceAll('-', ' '),
-    // A Builtin approved in a newer @transloadit/zod still lists, with neutral wording.
-    summary: builtinSummaries[id] ?? `Run the ${slug} Builtin Template.`,
-  }
+  return { id, name, title: slug.charAt(0).toUpperCase() + slug.slice(1).replaceAll('-', ' ') }
 })
 
 /**
- * The outcome wording comes first, from the catalog or the static summary; the suffix describes
- * this tool's own inputs and outputs. Tool descriptions never refer to other tools: directories
- * such as Claude's require that, so cross-tool workflow lives in the server instructions and in
- * result next_steps.
+ * Catalog descriptions supply the outcome wording; the suffix describes this tool's own inputs and
+ * outputs. Tool descriptions never refer to other tools: directories such as Claude's require that,
+ * so cross-tool workflow lives in the server instructions and in result next_steps.
  */
-export const describeBuiltinShortcut = (description: string): string =>
+export const describeBuiltinShortcut = (description = 'Run a reviewed Builtin Template.'): string =>
   `${description} Pass the Builtin’s parameters under fields. Provide inputs as attachments (files shared in the chat), files (public URLs or small base64 payloads) or expected_uploads (files that exist only locally or in a sandbox; the result returns an upload_instructions curl command per file). Set wait_for_completion to wait up to a server budget (45 seconds by default). Returns the Assembly with its result files; running: true means it is still processing.`
 
 type BuiltinFieldsContract = Pick<
@@ -299,7 +266,7 @@ export const applyBuiltinCatalog = (
       {
         ...tool,
         // A blank catalog description would leave only the input guidance.
-        description: describeBuiltinShortcut(template.description?.trim() || shortcut.summary),
+        description: describeBuiltinShortcut(template.description?.trim() || undefined),
         inputSchema: fields
           ? {
               ...tool.inputSchema,

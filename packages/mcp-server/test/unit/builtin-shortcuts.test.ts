@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   builtinShortcuts,
   deriveShortcutFieldsSchema,
+  describeBuiltinShortcut,
   validateBuiltinFields,
 } from '../../src/builtin-shortcuts.ts'
 import { createTransloaditMcpServer } from '../../src/server.ts'
@@ -245,11 +246,11 @@ describe('Builtin shortcut protocol', () => {
     undefined,
     '',
     '  ',
-  ])('keeps the static summary for catalog description %j', async (description) => {
+  ])('keeps the fallback wording for catalog description %j', async (description) => {
     catalog([{ ...template, description }])
     const tools = (await (await connect()).listTools()).tools
     const listed = tools.find(({ name }) => name === shortcut.name)?.description
-    expect(listed?.startsWith(`${shortcut.summary} Pass`), listed).toBe(true)
+    expect(listed).toBe(describeBuiltinShortcut())
   })
 
   it('marks fields required only when required properties lack defaults', async () => {
