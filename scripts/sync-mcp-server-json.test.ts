@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
 import { expect, it } from 'vitest'
@@ -22,7 +23,7 @@ it('carries the package version into server.json without reformatting it', async
     )
     const before = await readFile(join(directory, 'server.json'), 'utf8')
 
-    await execFileAsync(process.execPath, [script.pathname, directory])
+    await execFileAsync(process.execPath, [fileURLToPath(script), directory])
 
     expect(await readFile(join(directory, 'server.json'), 'utf8')).toBe(
       before.replaceAll(`"version": "${version}"`, '"version": "9.8.7"'),

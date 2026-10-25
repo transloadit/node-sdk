@@ -220,7 +220,7 @@ export const toolMetadata: Record<ToolName, ToolMetadata> = {
  */
 export const serverInstructions = [
   'Transloadit processes media and documents in Assemblies: encoding video, manipulating images, converting documents, transcribing speech and more.',
-  `For a common outcome, prefer a Builtin shortcut tool (${builtinShortcuts.map(({ name }) => name).join(', ')}); transloadit_list_templates with include_builtin: "exclusively-latest" lists every Builtin Template.`,
+  `For a common outcome, prefer a Builtin shortcut tool when tools/list includes one (${builtinShortcuts.map(({ name }) => name).join(', ')}; the connected Workspace may not offer all of them). transloadit_list_templates with include_builtin: "exclusively-latest" lists every Builtin Template.`,
   'For a custom workflow, find Robots with transloadit_list_robots, read their parameters with transloadit_get_robot_help, check the Steps with transloadit_lint_assembly_instructions, then run them with transloadit_create_assembly.',
   'Files shared in the chat go under attachments; public URLs and small base64 payloads go under files. For files that exist only locally or in a sandbox, set expected_uploads, run each returned upload_instructions curl command where the file lives, then call transloadit_wait_for_assembly.',
   'When a result has running: true, the Assembly is still processing: follow it with transloadit_wait_for_assembly or transloadit_get_assembly_status instead of creating it again, and follow any next_steps in the result.',

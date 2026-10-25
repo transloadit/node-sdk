@@ -431,6 +431,8 @@ describe('tool descriptions', () => {
     ]) {
       expect(instructions).toContain(name)
     }
+    // A caller's catalog can leave some shortcuts unlisted; calling those fails.
+    expect(instructions).toMatch(/Builtin shortcut tool when tools\/list includes one/)
   })
 })
 
