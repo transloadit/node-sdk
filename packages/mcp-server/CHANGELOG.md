@@ -1,5 +1,32 @@
 # @transloadit/mcp-server
 
+## 0.8.1
+
+### Patch Changes
+
+- 3675b8a: Fix CLI downloads to use Assembly result names and extensions, including bundled outputs and type-changing Steps. Preserve the existing input-relative directories and `<input>/<step>/…` layout for ordinary multi-result downloads, along with time-based skipping for directory reruns. Use `--reprocess-stale` to process unchanged inputs again.
+
+  Fix HLS downloads by retaining the result directories referenced by playlists, keeping independent source bundles separate, and publishing linked watch updates together. Reserve download paths using the destination root’s case and Unicode naming rules, and avoid file/directory collisions and descendant symlinks.
+
+  Add public HTTP(S) URL inputs to `assemblies create` and `run` using temporary uploads that are cleaned up afterward. Each download has a five-minute deadline, configurable in milliseconds with `--url-download-timeout`. Watch mode requires local inputs.
+
+- aa02b8d: Builtin shortcut tools describe their outcome with the summary API2 publishes for each Builtin
+  Template: the credential's catalog summary once read, and the synced summary on the server card
+  and before the catalog is read, instead of the long catalog description or generic wording.
+- 86a708f: Report Assembly IDs and URLs in CLI diagnostics and JSON summaries, warn about ignored errors,
+  and show concise validation and API errors with the reason for failed Assemblies.
+  Validate diagnostic fields before printing them, excluding nested request metadata.
+- 4fbd847: Close SDK-opened upload file streams before a failed or aborted `createAssembly()` rejects, so callers can immediately remove temporary files without leaking file handles.
+- cecb942: Tool descriptions no longer refer to other tools, as Claude's connector directory requires. Each
+  tool describes only its own inputs and outputs, and the workflow across tools moved to the server
+  instructions sent on initialize.
+- Updated dependencies [3675b8a]
+- Updated dependencies [aa02b8d]
+- Updated dependencies [86a708f]
+- Updated dependencies [4fbd847]
+  - @transloadit/node@6.5.0
+  - @transloadit/zod@7.4.0
+
 ## 0.8.0
 
 ### Minor Changes
