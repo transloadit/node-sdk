@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { mcpBuiltinTemplateSummaries } from '@transloadit/zod/v4/builtinTemplates'
 import { Ajv } from 'ajv'
 import nock from 'nock'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -20,7 +21,8 @@ const encoding = builtinShortcuts.find(({ id }) => id.includes('/encode-video@')
 if (!shortcut || !encoding) throw new Error('Missing reviewed test shortcuts')
 const template = {
   id: shortcut.id,
-  description: 'Catalog outcome description',
+  description: 'Long catalog description that stays out of the tool text.',
+  summary: 'Catalog outcome summary.',
   fields_schema: {
     $schema: 'http://json-schema.org/draft-07/schema#',
     type: 'object',
@@ -203,7 +205,7 @@ describe('Builtin shortcut protocol', () => {
     name,
     title,
   }) => {
-    const entry = { ...template, id, description: `Catalog description for ${name}` }
+    const entry = { ...template, id, summary: `Catalog summary for ${name}.` }
     const discovery = catalog([entry])
     const mcp = await connect()
     const { tools } = await mcp.listTools()
@@ -211,7 +213,7 @@ describe('Builtin shortcut protocol', () => {
     expect(discovery.isDone()).toBe(true)
     expect(tool).toMatchObject({
       title,
-      description: expect.stringContaining(entry.description),
+      description: describeBuiltinShortcut(id, entry.summary),
       annotations: { readOnlyHint: false, destructiveHint: false },
       _meta: {
         'openai/fileParams': ['attachments'],
@@ -219,6 +221,8 @@ describe('Builtin shortcut protocol', () => {
         ui: { resourceUri: 'ui://transloadit/assembly-result' },
       },
     })
+    expect(tool?.description?.startsWith(`${entry.summary} Pass`)).toBe(true)
+    expect(tool?.description).not.toContain(entry.description)
     // Catalog wording keeps the self-contained suffix: no other tool is named.
     expect(
       [...(tool?.description ?? '').matchAll(/transloadit_[a-z_]+/g)].filter(
@@ -246,11 +250,14 @@ describe('Builtin shortcut protocol', () => {
     undefined,
     '',
     '  ',
-  ])('keeps the fallback wording for catalog description %j', async (description) => {
-    catalog([{ ...template, description }])
+  ])('keeps the static summary for catalog summary %j', async (summary) => {
+    catalog([{ ...template, summary }])
     const tools = (await (await connect()).listTools()).tools
     const listed = tools.find(({ name }) => name === shortcut.name)?.description
-    expect(listed).toBe(describeBuiltinShortcut())
+    const staticSummary = mcpBuiltinTemplateSummaries[shortcut.id]
+    if (!staticSummary) throw new Error(`Missing static summary for ${shortcut.id}`)
+    expect(listed?.startsWith(`${staticSummary} Pass`), listed).toBe(true)
+    expect(listed).toBe(describeBuiltinShortcut(shortcut.id))
   })
 
   it('marks fields required only when required properties lack defaults', async () => {

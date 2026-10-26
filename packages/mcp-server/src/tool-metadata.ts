@@ -198,12 +198,12 @@ const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
 export const toolMetadata: Record<ToolName, ToolMetadata> = {
   ...genericToolMetadata,
   ...Object.fromEntries(
-    builtinShortcuts.map(({ name, title }) => [
+    builtinShortcuts.map(({ id, name, title }) => [
       name,
       {
         ...genericToolMetadata.transloadit_create_assembly,
         title,
-        description: describeBuiltinShortcut(),
+        description: describeBuiltinShortcut(id),
         annotations: {
           ...genericToolMetadata.transloadit_create_assembly.annotations,
           destructiveHint: false,
