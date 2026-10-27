@@ -279,6 +279,7 @@ describe('waiting within the host tool-call budget', () => {
       status: 'ok',
       running: true,
       assembly: { assembly_id: assemblyId, ok: 'ASSEMBLY_EXECUTING' },
+      next_steps: ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status'],
       warnings: [{ code: 'mcp_assembly_still_running' }],
     })
     expect(signal?.aborted).toBe(true)
@@ -594,6 +595,7 @@ describe('waiting within the host tool-call budget', () => {
       status: 'ok',
       running: true,
       assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
+      next_steps: ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status'],
       warnings: [{ code: 'mcp_assembly_still_running' }],
     })
   })

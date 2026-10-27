@@ -26,8 +26,8 @@ export const builtinShortcuts = Object.keys(mcpBuiltinTemplateManifest).map((id)
  * synced static copy covers server cards and tool lists before the catalog is read. A Builtin
  * approved in a newer manifest without a summary yet keeps neutral wording. The suffix describes
  * this tool's own inputs and outputs. Tool descriptions never refer to other tools: directories
- * such as Claude's require that, so cross-tool workflow lives in the server instructions and in
- * result next_steps.
+ * such as Claude's require that, and OpenAI's review flags server instructions that script tool
+ * chains, so cross-tool workflow lives in result next_steps.
  */
 export const describeBuiltinShortcut = (id: string, catalogSummary?: string): string => {
   const summary =

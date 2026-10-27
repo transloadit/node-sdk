@@ -426,24 +426,43 @@ describe('tool descriptions', () => {
     )
   })
 
-  it('leave the cross-tool workflow to the server instructions', async () => {
+  it('leave the cross-tool workflow to result next_steps', async () => {
+    const server = createTransloaditMcpServer({})
+    const client = await connectInMemory(server)
+    const call = async (name: string, args: JsonRecord): Promise<unknown> =>
+      (await client.callTool({ name, arguments: args })).structuredContent
+    const robots = await call('transloadit_list_robots', { limit: 1 })
+    const noRobots = await call('transloadit_list_robots', { search: 'no-such-robot-anywhere' })
+    const help = await call('transloadit_get_robot_help', { robot_name: '/image/resize' })
+    const lint = await call('transloadit_lint_assembly_instructions', {
+      instructions: { steps: { resized: { robot: '/image/resize', use: ':original' } } },
+    })
+    await client.close()
+    await server.close()
+
+    expect(robots).toMatchObject({ next_steps: ['transloadit_get_robot_help'] })
+    // Without a Robot name there is nothing to ask help for.
+    expect(noRobots).toMatchObject({ robots: [], next_steps: undefined })
+    expect(help).toMatchObject({ next_steps: ['transloadit_lint_assembly_instructions'] })
+    expect(lint).toMatchObject({ status: 'ok', next_steps: ['transloadit_create_assembly'] })
+  })
+})
+
+// OpenAI's app review flags server instructions that script operations across tools.
+describe('server instructions', () => {
+  it('stay short and neutral, naming no tool or tool chain', async () => {
     const server = createTransloaditMcpServer({})
     const client = await connectInMemory(server)
     const instructions = client.getInstructions() ?? ''
     await client.close()
     await server.close()
 
-    for (const name of [
-      'transloadit_create_assembly',
-      'transloadit_wait_for_assembly',
-      'transloadit_get_assembly_status',
-      'transloadit_list_templates',
-      ...builtinShortcuts.map(({ name }) => name),
-    ]) {
-      expect(instructions).toContain(name)
-    }
-    // A caller's catalog can leave some shortcuts unlisted; calling those fails.
-    expect(instructions).toMatch(/Builtin shortcut tool when tools\/list includes one/)
+    expect(instructions.length).toBeGreaterThan(0)
+    expect(instructions.length).toBeLessThan(600)
+    expect(instructions).not.toMatch(/transloadit_[a-z_]+/)
+    expect(instructions).not.toMatch(/→|->|\bthen\b|^\s*\d+\./im)
+    expect(instructions).toMatch(/prefer it over writing Assembly Steps/)
+    expect(instructions).toMatch(/running: true/)
   })
 })
 

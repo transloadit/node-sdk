@@ -27,7 +27,11 @@ describe('transloadit_lint_assembly_instructions', () => {
         },
       })
 
-      expect(parseToolPayload(result)).toEqual({ status: 'ok', linting_issues: [] })
+      expect(parseToolPayload(result)).toEqual({
+        status: 'ok',
+        linting_issues: [],
+        next_steps: ['transloadit_create_assembly'],
+      })
     } finally {
       await client.close()
       await server.close()

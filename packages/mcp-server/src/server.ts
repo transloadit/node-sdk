@@ -191,6 +191,7 @@ const listRobotsOutputSchema = z.object({
     }),
   ),
   next_cursor: z.string().optional(),
+  next_steps: z.array(z.string()).optional(),
 })
 
 const robotParamSchema = z.object({
@@ -228,6 +229,7 @@ const getRobotHelpOutputSchema = z
     robot: robotHelpOutputSchema.optional(),
     robots: z.array(robotHelpOutputSchema).optional(),
     not_found: z.array(z.string()).optional(),
+    next_steps: z.array(z.string()).optional(),
   })
   .refine((value) => value.status !== 'ok' || value.robot || value.robots, {
     message: 'Expected robot or robots for ok status.',
@@ -323,6 +325,7 @@ const waitForAssemblyOutputSchema = z.object({
   assembly: z.unknown().optional(),
   running: z.boolean().optional(),
   waited_ms: z.number().int().nonnegative().optional(),
+  next_steps: z.array(z.string()).optional(),
   errors: z.array(toolMessageSchema).optional(),
   warnings: z.array(toolMessageSchema).optional(),
 })
@@ -366,6 +369,7 @@ const lintAssemblyOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   linting_issues: z.array(lintIssueSchema),
   normalized_instructions: z.unknown().optional(),
+  next_steps: z.array(z.string()).optional(),
 })
 
 const getProfileInputSchema = z.object({}).strict()
@@ -1001,6 +1005,12 @@ const readAssemblyStatus = async (
   return status === deadlineReached ? undefined : status
 }
 
+/** Tools that follow an Assembly that is still running, without creating it again. */
+const followRunningAssemblySteps = [
+  'transloadit_wait_for_assembly',
+  'transloadit_get_assembly_status',
+]
+
 /** Answers a call that returned early when not even the Assembly's status arrived in time. */
 const buildStatusPendingResponse = (
   reference: AssemblyReference,
@@ -1320,6 +1330,10 @@ export const createTransloaditMcpServer = (
 
       if (return_fixed && result.fixedInstructions) {
         payload.normalized_instructions = safeJsonParse(result.fixedInstructions)
+      }
+      // Clean instructions are ready to run; with issues, the caller fixes and lints again.
+      if (result.success) {
+        payload.next_steps = ['transloadit_create_assembly']
       }
 
       return buildToolResponse(payload)
@@ -1707,10 +1721,7 @@ export const createTransloaditMcpServer = (
                       status: uploadBehavior === 'none' || totalFiles === 0 ? 'none' : 'uploading',
                       resumed: true,
                     },
-                    next_steps: [
-                      'transloadit_wait_for_assembly',
-                      'transloadit_get_assembly_status',
-                    ],
+                    next_steps: followRunningAssemblySteps,
                   },
                   recovery,
                 )
@@ -1838,7 +1849,7 @@ export const createTransloaditMcpServer = (
           ? ['transloadit_wait_for_assembly']
           : waitForCompletion && !running
             ? []
-            : ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status']
+            : followRunningAssemblySteps
 
         return buildToolResponse(
           {
@@ -2023,7 +2034,7 @@ export const createTransloaditMcpServer = (
                 assemblyId: access.assemblyId,
                 assemblyUrl: access.assemblyUrl ?? defaultAssemblyUrl(options, access.assemblyId),
               },
-              { waited_ms: Date.now() - start },
+              { waited_ms: Date.now() - start, next_steps: followRunningAssemblySteps },
             )
           }
           assembly = status
@@ -2053,6 +2064,7 @@ export const createTransloaditMcpServer = (
           assembly,
           running,
           waited_ms,
+          next_steps: running ? followRunningAssemblySteps : undefined,
           warnings:
             returnedEarly && running
               ? [buildStillRunningNotice(assembly, access.assemblyUrl)]
@@ -2074,6 +2086,8 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         robots: result.robots,
         next_cursor: result.nextCursor,
+        // Only listed Robots give a name to ask help for.
+        next_steps: result.robots.length > 0 ? ['transloadit_get_robot_help'] : undefined,
       })
     },
   )
@@ -2131,11 +2145,15 @@ export const createTransloaditMcpServer = (
         })
       }
 
+      // Steps written from this help are linted before they run.
+      const robotHelpNextSteps =
+        robots.length > 0 ? ['transloadit_lint_assembly_instructions'] : undefined
       if (prefersSingle) {
         return buildToolResponse({
           status: 'ok',
           robot: robots[0],
           not_found: notFound.length > 0 ? notFound : undefined,
+          next_steps: robotHelpNextSteps,
         })
       }
 
@@ -2143,6 +2161,7 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         robots,
         not_found: notFound.length > 0 ? notFound : undefined,
+        next_steps: robotHelpNextSteps,
       })
     },
   )
