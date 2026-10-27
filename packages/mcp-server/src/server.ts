@@ -191,6 +191,7 @@ const listRobotsOutputSchema = z.object({
     }),
   ),
   next_cursor: z.string().optional(),
+  next_steps: z.array(z.string()).optional(),
 })
 
 const robotParamSchema = z.object({
@@ -228,6 +229,7 @@ const getRobotHelpOutputSchema = z
     robot: robotHelpOutputSchema.optional(),
     robots: z.array(robotHelpOutputSchema).optional(),
     not_found: z.array(z.string()).optional(),
+    next_steps: z.array(z.string()).optional(),
   })
   .refine((value) => value.status !== 'ok' || value.robot || value.robots, {
     message: 'Expected robot or robots for ok status.',
@@ -366,6 +368,7 @@ const lintAssemblyOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   linting_issues: z.array(lintIssueSchema),
   normalized_instructions: z.unknown().optional(),
+  next_steps: z.array(z.string()).optional(),
 })
 
 const getProfileInputSchema = z.object({}).strict()
@@ -1321,6 +1324,10 @@ export const createTransloaditMcpServer = (
       if (return_fixed && result.fixedInstructions) {
         payload.normalized_instructions = safeJsonParse(result.fixedInstructions)
       }
+      // Clean instructions are ready to run; with issues, the caller fixes and lints again.
+      if (result.success) {
+        payload.next_steps = ['transloadit_create_assembly']
+      }
 
       return buildToolResponse(payload)
     },
@@ -2074,6 +2081,7 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         robots: result.robots,
         next_cursor: result.nextCursor,
+        next_steps: ['transloadit_get_robot_help'],
       })
     },
   )
@@ -2131,11 +2139,15 @@ export const createTransloaditMcpServer = (
         })
       }
 
+      // Steps written from this help are linted before they run.
+      const robotHelpNextSteps =
+        robots.length > 0 ? ['transloadit_lint_assembly_instructions'] : undefined
       if (prefersSingle) {
         return buildToolResponse({
           status: 'ok',
           robot: robots[0],
           not_found: notFound.length > 0 ? notFound : undefined,
+          next_steps: robotHelpNextSteps,
         })
       }
 
@@ -2143,6 +2155,7 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         robots,
         not_found: notFound.length > 0 ? notFound : undefined,
+        next_steps: robotHelpNextSteps,
       })
     },
   )
