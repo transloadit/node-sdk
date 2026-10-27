@@ -3,7 +3,7 @@
   "name": "io.github.transloadit/mcp-server",
   "title": "Transloadit Media Processing",
   "description": "Process video, audio, images and documents with Transloadit Robots. Connect by URL with OAuth.",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "websiteUrl": "https://transloadit.com/docs/sdks/mcp-server/",
   "icons": [
     {
@@ -21,7 +21,7 @@
     {
       "registryType": "npm",
       "identifier": "@transloadit/mcp-server",
-      "version": "0.8.1",
+      "version": "0.8.2",
       "runtimeHint": "npx",
       "packageArguments": [
         {
