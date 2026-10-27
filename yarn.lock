@@ -1706,7 +1706,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@transloadit/utils@npm:^4.10.0, @transloadit/utils@npm:^4.3.0, @transloadit/utils@npm:^4.9.0, @transloadit/utils@workspace:packages/utils":
+"@transloadit/utils@npm:^4.10.0, @transloadit/utils@npm:^4.10.1, @transloadit/utils@npm:^4.3.0, @transloadit/utils@workspace:packages/utils":
   version: 0.0.0-use.local
   resolution: "@transloadit/utils@workspace:packages/utils"
   dependencies:
@@ -1719,7 +1719,7 @@ __metadata:
   resolution: "@transloadit/viewer@workspace:packages/img"
   dependencies:
     "@noble/ciphers": "npm:^1.3.0"
-    "@transloadit/utils": "npm:^4.9.0"
+    "@transloadit/utils": "npm:^4.10.1"
     "@types/react": "npm:^19.2.14"
     "@types/react-dom": "npm:^19.2.3"
     esbuild: "npm:^0.28.2"
