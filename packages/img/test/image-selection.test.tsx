@@ -100,7 +100,7 @@ test('Image storage takes its workspace and dimensions from the catalog', async 
   )
   const parsed = parseSmartCdnUrl(source(html))
   expect(parsed.workspace).toBe('catalog-shop')
-  expect(parsed.template).toBe('builtin/public-preview@0.0.2')
+  expect(parsed.template).toBe('builtin/public-preview@0.0.3')
   expect(parsed.auth).toBeUndefined()
   expect(html).toContain('height="640"')
 })

@@ -82,7 +82,7 @@ describe('createTransloaditImageModel', () => {
     )
     expect(requests).toHaveLength(7)
     expect(requests.map(({ template }) => template)).toEqual(
-      Array(7).fill('builtin/storage-preview@0.0.3'),
+      Array(7).fill('builtin/storage-preview@0.0.4'),
     )
     expect(requests.slice(0, -1).map(({ urlParams }) => urlParams.bg)).toEqual(
       Array(6).fill('#00000000'),
@@ -233,7 +233,7 @@ describe('createTransloaditImageModel', () => {
       {
         expiresAt,
         input: storageReference.asset_id,
-        template: 'builtin/storage-preview@0.0.3',
+        template: 'builtin/storage-preview@0.0.4',
         urlParams: {
           v: storageReference.version_id,
           bg: '#00000000',
@@ -247,7 +247,7 @@ describe('createTransloaditImageModel', () => {
       {
         expiresAt,
         input: storageReference.asset_id,
-        template: 'builtin/storage-preview@0.0.3',
+        template: 'builtin/storage-preview@0.0.4',
         urlParams: {
           v: storageReference.version_id,
           bg: '#00000000',
@@ -261,7 +261,7 @@ describe('createTransloaditImageModel', () => {
       {
         expiresAt,
         input: storageReference.asset_id,
-        template: 'builtin/storage-preview@0.0.3',
+        template: 'builtin/storage-preview@0.0.4',
         urlParams: {
           v: storageReference.version_id,
           bg: '#ffffff',

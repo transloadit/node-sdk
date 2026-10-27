@@ -1248,7 +1248,7 @@ describe('createImages', () => {
     const location = response.headers.get('location')
     if (location === null) throw new Error('Expected compatible delivery Location')
     const parsed = parseSmartCdnUrl(location, { baseUrl: baseConfiguration.baseUrl })
-    expect(parsed.template).toBe('builtin/storage-preview@0.0.3')
+    expect(parsed.template).toBe('builtin/storage-preview@0.0.4')
     expect(parsed.auth).toBeDefined()
     expect(parsed.urlParams).toMatchObject({
       w: String(width),
@@ -1776,7 +1776,7 @@ describe('createImages', () => {
     const firstFallback = new URL(firstDocument.querySelector('img')?.getAttribute('src') ?? '')
 
     expect(connection).toHaveBeenCalledOnce()
-    expect(firstSource.pathname).toContain('/builtin%2Fstorage-preview%400.0.3/')
+    expect(firstSource.pathname).toContain('/builtin%2Fstorage-preview%400.0.4/')
     expect(firstSource.searchParams.get('f')).toBe('webp')
     expect(firstSource.searchParams.get('h')).toBe('150')
     expect(firstSource.searchParams.get('q')).toBe('61')
@@ -1957,9 +1957,9 @@ describe('createImages', () => {
       path: 'documents/report.pdf',
       request,
       workspace: 'my-app',
-      template: 'builtin/storage-preview@0.0.3',
+      template: 'builtin/storage-preview@0.0.4',
     })
-    expect(target.template).toBe('builtin/storage-preview@0.0.3')
+    expect(target.template).toBe('builtin/storage-preview@0.0.4')
     expect(target.input).toBe(storageReference.asset_id)
     expect(target.urlParams).toEqual({
       bg: '#00000000',

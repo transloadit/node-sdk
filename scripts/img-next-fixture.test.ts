@@ -375,13 +375,13 @@ test.each([
 
 test('documents the pinned alpha pipeline, public cache policy and combined credential contract', async () => {
   const readme = await imageDocumentation()
-  expect(readme).toContain('builtin/storage-preview@0.0.3')
+  expect(readme).toContain('builtin/storage-preview@0.0.4')
   expect(readme).toContain('fallbackBackground')
   expect(readme).toContain('#00000000')
   expect(readme).toContain('Production Smart CDN uses Bunny')
   expect(readme).toContain('whole query string')
   expect(readme).not.toContain('NoCacheSigExp')
-  expect(readme).toContain('builtin/public-preview@0.0.2')
+  expect(readme).toContain('builtin/public-preview@0.0.3')
   expect(readme).toContain('immutable')
   expect(readme).toContain('TRANSLOADIT_KEY')
   expect(readme).toContain('TRANSLOADIT_SMART_CDN_KEY/SECRET')

@@ -168,7 +168,7 @@ test.each([
   })
   expect(parseSmartCdnUrl(response.headers.get('location') ?? '')).toMatchObject({
     workspace: 'album',
-    template: 'builtin/storage-preview@0.0.3',
+    template: 'builtin/storage-preview@0.0.4',
     input: receipt.asset_id,
     urlParams: {
       v: receipt.version_id,

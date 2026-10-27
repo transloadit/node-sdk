@@ -17,16 +17,28 @@ export type { SignSmartCdnImageRequest, SmartCdnImageSignRequest } from '@transl
 export type { TransloaditImageSource } from './imageSource.ts'
 
 /** Signed Built-in used by default for Transloadit Storage previews. */
-export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.3'
+export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.4'
 /** Unsigned Built-in, served only under a server-declared public Storage prefix. */
-export const transloaditPublicStoragePreviewTemplate = 'builtin/public-preview@0.0.2'
+export const transloaditPublicStoragePreviewTemplate = 'builtin/public-preview@0.0.3'
 
-/** Only these pinned Built-ins accept an asset ID and a real version ID. */
+/** Storage Built-ins supported by this Viewer version use immutable asset/version inputs. */
 export function isVersionedStorageTemplate(template: string): boolean {
   return (
     template === transloaditStoragePreviewTemplate ||
     template === transloaditPublicStoragePreviewTemplate
   )
+}
+
+/** Reject unsupported Storage pins instead of treating them as path-based customer Templates. */
+export function assertSupportedStoragePreviewTemplate(template: string): void {
+  if (
+    /^builtin\/(?:storage|public)-preview(?:@|$)/.test(template) &&
+    !isVersionedStorageTemplate(template)
+  ) {
+    throw new TypeError(
+      'Remove the Storage preview template override to use the current Viewer default',
+    )
+  }
 }
 
 /** A rendition resolver receives the snapshotted source as context for authorization routes. */
@@ -83,7 +95,7 @@ interface TransloaditImageModelConfiguration<Expiry extends number | undefined =
   formats?: StoragePreviewFormats
   /** Maximum candidate width, additionally bounded by the source and backend dimensions. */
   maximumWidth?: number
-  /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.3`. */
+  /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.4`. */
   template?: string
   /** Requested intrinsic candidate widths. Defaults to a conservative ladder up to the source. */
   widths?: readonly number[]
@@ -109,6 +121,7 @@ function validateTemplate(template: string): void {
   if (typeof template !== 'string' || template === '' || template.trim() !== template) {
     throw new TypeError('template must be a non-empty string without surrounding whitespace')
   }
+  assertSupportedStoragePreviewTemplate(template)
 }
 
 function validateQuality(quality: number, name: string, maximum = 100): void {
