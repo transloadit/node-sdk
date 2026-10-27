@@ -325,6 +325,7 @@ const waitForAssemblyOutputSchema = z.object({
   assembly: z.unknown().optional(),
   running: z.boolean().optional(),
   waited_ms: z.number().int().nonnegative().optional(),
+  next_steps: z.array(z.string()).optional(),
   errors: z.array(toolMessageSchema).optional(),
   warnings: z.array(toolMessageSchema).optional(),
 })
@@ -1003,6 +1004,12 @@ const readAssemblyStatus = async (
   )
   return status === deadlineReached ? undefined : status
 }
+
+/** Tools that follow an Assembly that is still running, without creating it again. */
+const followRunningAssemblySteps = [
+  'transloadit_wait_for_assembly',
+  'transloadit_get_assembly_status',
+]
 
 /** Answers a call that returned early when not even the Assembly's status arrived in time. */
 const buildStatusPendingResponse = (
@@ -1714,10 +1721,7 @@ export const createTransloaditMcpServer = (
                       status: uploadBehavior === 'none' || totalFiles === 0 ? 'none' : 'uploading',
                       resumed: true,
                     },
-                    next_steps: [
-                      'transloadit_wait_for_assembly',
-                      'transloadit_get_assembly_status',
-                    ],
+                    next_steps: followRunningAssemblySteps,
                   },
                   recovery,
                 )
@@ -1845,7 +1849,7 @@ export const createTransloaditMcpServer = (
           ? ['transloadit_wait_for_assembly']
           : waitForCompletion && !running
             ? []
-            : ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status']
+            : followRunningAssemblySteps
 
         return buildToolResponse(
           {
@@ -2030,7 +2034,7 @@ export const createTransloaditMcpServer = (
                 assemblyId: access.assemblyId,
                 assemblyUrl: access.assemblyUrl ?? defaultAssemblyUrl(options, access.assemblyId),
               },
-              { waited_ms: Date.now() - start },
+              { waited_ms: Date.now() - start, next_steps: followRunningAssemblySteps },
             )
           }
           assembly = status
@@ -2060,6 +2064,7 @@ export const createTransloaditMcpServer = (
           assembly,
           running,
           waited_ms,
+          next_steps: running ? followRunningAssemblySteps : undefined,
           warnings:
             returnedEarly && running
               ? [buildStillRunningNotice(assembly, access.assemblyUrl)]
@@ -2081,7 +2086,8 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         robots: result.robots,
         next_cursor: result.nextCursor,
-        next_steps: ['transloadit_get_robot_help'],
+        // Only listed Robots give a name to ask help for.
+        next_steps: result.robots.length > 0 ? ['transloadit_get_robot_help'] : undefined,
       })
     },
   )

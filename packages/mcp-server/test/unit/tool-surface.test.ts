@@ -432,6 +432,7 @@ describe('tool descriptions', () => {
     const call = async (name: string, args: JsonRecord): Promise<unknown> =>
       (await client.callTool({ name, arguments: args })).structuredContent
     const robots = await call('transloadit_list_robots', { limit: 1 })
+    const noRobots = await call('transloadit_list_robots', { search: 'no-such-robot-anywhere' })
     const help = await call('transloadit_get_robot_help', { robot_name: '/image/resize' })
     const lint = await call('transloadit_lint_assembly_instructions', {
       instructions: { steps: { resized: { robot: '/image/resize', use: ':original' } } },
@@ -440,6 +441,8 @@ describe('tool descriptions', () => {
     await server.close()
 
     expect(robots).toMatchObject({ next_steps: ['transloadit_get_robot_help'] })
+    // Without a Robot name there is nothing to ask help for.
+    expect(noRobots).toMatchObject({ robots: [], next_steps: undefined })
     expect(help).toMatchObject({ next_steps: ['transloadit_lint_assembly_instructions'] })
     expect(lint).toMatchObject({ status: 'ok', next_steps: ['transloadit_create_assembly'] })
   })
