@@ -35,15 +35,15 @@ is for verifying unreleased changes and does not establish registry or productio
 
 This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app. The
 workspace must have Transloadit Storage writes enabled; package installation does not enable them.
-Private delivery requires `builtin/storage-preview@0.0.3`. Public delivery additionally requires
-`builtin/public-preview@0.0.2` and server-declared public prefixes. These versions take an asset ID
+Private delivery requires `builtin/storage-preview@0.0.4`. Public delivery additionally requires
+`builtin/public-preview@0.0.3` and server-declared public prefixes. These versions take an asset ID
 and real version ID; recover older catalogs with `storage receipts sync` against their original API
 environment and rebuild the app to regenerate private capability-v2 URLs. Browser login and combined
 credentials require the matching API2 #9057 and Console changes; the older canary revisions
 below predate these additions. Later owned devdock checks verified actual public delivery and
 device login with scripted signed approval. They did not test the Console UI or production Bunny.
-Private preview 0.0.1 stays unchanged and flattens transparency;
-0.0.2 accepts `bg` for alpha-preserving candidates and the opaque JPEG fallback.
+Deploy the matching API2 workers and FileInfoReader daemons before uploaders and this Viewer
+release. Remove overrides for older Storage preview Built-ins; this alpha does not adapt them.
 
 The server entry point needs the **Node.js runtime**, not Edge: it uses `node:crypto` and `Buffer`.
 The examples use root `app/` and `lib/` directories; adjust their relative imports for `src/app/`.

@@ -730,9 +730,12 @@ a catalog or prefix is not an authorization decision. `authorize` adds `imageRou
 
 ### Format, width and lifetime policy
 
-Private delivery pins `builtin/storage-preview@0.0.3`; public delivery pins
-`builtin/public-preview@0.0.2`, which wraps `builtin/storage-preview@0.0.3`: the public URL pins
-its transformation pipeline version too. AVIF quality 45 and WebP quality
+Private delivery pins `builtin/storage-preview@0.0.4`; public delivery pins
+`builtin/public-preview@0.0.3`, which wraps `builtin/storage-preview@0.0.4`: the public URL pins
+its transformation pipeline version too. These direct-encode Built-ins require the corresponding
+API2 worker/FileInfoReader and uploader rollout before adoption. This alpha replaces the previous
+preview pins rather than adapting older versions; remove old Storage preview overrides when upgrading.
+AVIF quality 45 and WebP quality
 75 precede a JPEG quality 75 fallback. Formats use separate URLs, not unkeyed Accept negotiation.
 Candidate widths follow 320, 640, 960, 1280, 1920, 2560, 3840 plus intrinsic width, bounded by the
 source and backend dimensions. `widths` overrides the ladder; the JPEG fallback is no larger than

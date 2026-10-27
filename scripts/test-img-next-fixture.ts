@@ -374,7 +374,7 @@ async function main(): Promise<void> {
         'utf8',
       )
       assert(
-        generatedPublicHtml.includes('builtin%2Fpublic-preview%400.0.2'),
+        generatedPublicHtml.includes('builtin%2Fpublic-preview%400.0.3'),
         'The secretless app must prerender actual public URLs',
       )
       assert(
@@ -416,7 +416,7 @@ async function main(): Promise<void> {
       )
       const publicHtml = await readFile(resolve(appOutput, 'public-image.html'), 'utf8')
       assert(
-        publicHtml.includes('builtin%2Fpublic-preview%400.0.2'),
+        publicHtml.includes('builtin%2Fpublic-preview%400.0.3'),
         'Public HTML must already contain unsigned direct URLs',
       )
       assert(
@@ -468,7 +468,7 @@ async function main(): Promise<void> {
         )
         assert(storageShell.includes('height:48px;width:48px'), 'Avatar CSS box is absent')
         assert(
-          !storageShell.includes('builtin%2Fstorage-preview%400.0.3'),
+          !storageShell.includes('builtin%2Fstorage-preview%400.0.4'),
           'A signed Storage URL leaked into the prerendered shell',
         )
       }
@@ -494,7 +494,7 @@ async function main(): Promise<void> {
         )
         assert(imagePreloads[0]?.includes('imageSrcSet='), 'Responsive preload srcset is absent')
         assert(
-          storageHtml.includes('builtin%2Fstorage-preview%400.0.3'),
+          storageHtml.includes('builtin%2Fstorage-preview%400.0.4'),
           'Storage Built-in is absent',
         )
         const directCandidate = getFirstPictureCandidates(storageHtml)[0]
@@ -513,7 +513,7 @@ async function main(): Promise<void> {
           'Authorized Storage route is absent',
         )
         assert(
-          !redirectHtml.includes('builtin%2Fstorage-preview%400.0.3'),
+          !redirectHtml.includes('builtin%2Fstorage-preview%400.0.4'),
           'Redirect markup contains a direct signed Storage URL',
         )
         assert(!storageHtml.includes(fixtureSecret), 'Secret leaked into Storage output')

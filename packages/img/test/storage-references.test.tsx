@@ -39,9 +39,38 @@ test('the framework-neutral model sends the actual immutable reference', () => {
   createTransloaditImageModel({ src: original, expiresAt: undefined }, sign)
   expect(sign.mock.calls[0]?.[0]).toMatchObject({
     input: original.asset_id,
-    template: 'builtin/storage-preview@0.0.3',
+    template: 'builtin/storage-preview@0.0.4',
     urlParams: { v: original.version_id },
   })
+})
+
+test.each([
+  'builtin/storage-preview',
+  'builtin/storage-preview@latest',
+  'builtin/storage-preview@0.0.3',
+  'builtin/public-preview',
+  'builtin/public-preview@latest',
+  'builtin/public-preview@0.0.2',
+])('rejects an unsupported Storage Built-in override before signing: %s', (template) => {
+  const sign = vi.fn(() => '/preview.jpg')
+  expect(() =>
+    createTransloaditImageModel({ src: original, expiresAt: undefined, template }, sign),
+  ).toThrow(/Remove the Storage preview template override/)
+  expect(sign).not.toHaveBeenCalled()
+})
+
+test.each([
+  { template: 'builtin/storage-preview@0.0.3' },
+  { publicTemplate: 'builtin/public-preview@0.0.2' },
+])('rejects unsupported Storage overrides when creating the integration: %j', (overrides) => {
+  expect(() =>
+    createImages({
+      workspace: 'my-app',
+      public: ['website/'],
+      allowedPathPrefixes: ['website/'],
+      ...overrides,
+    }),
+  ).toThrow(/Remove the Storage preview template override/)
 })
 
 test('a public receipt keeps the exact same URL after rename and changes only on a new version', () => {
@@ -56,7 +85,7 @@ test('a public receipt keeps the exact same URL after rename and changes only on
   expect(after).toBe(before)
   expect(parseSmartCdnUrl(before)).toMatchObject({
     input: original.asset_id,
-    template: 'builtin/public-preview@0.0.2',
+    template: 'builtin/public-preview@0.0.3',
     urlParams: { v: original.version_id },
   })
   const updated = source(

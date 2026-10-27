@@ -13,7 +13,7 @@ const storageReference = vi.hoisted(() => ({
 
 const { connection, builtin } = vi.hoisted(() => ({
   connection: vi.fn(async () => undefined),
-  builtin: { template: 'builtin/storage-preview@0.0.3' },
+  builtin: { template: 'builtin/storage-preview@0.0.4' },
 }))
 
 vi.mock('next/server.js', () => ({ connection }))
@@ -215,7 +215,7 @@ beforeEach(() => {
   vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', 'render-key')
   vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'render-secret')
   vi.stubEnv('TRANSLOADIT_WORKSPACE', 'my-app')
-  builtin.template = 'builtin/storage-preview@0.0.3'
+  builtin.template = 'builtin/storage-preview@0.0.4'
   connection.mockClear()
 })
 
@@ -626,14 +626,14 @@ test('a Built-in bump preserves old markup and signs with the new Built-in', asy
   const configuration = { images, authorize: vi.fn(() => true) }
   const old = createImages(configuration)
   const url = firstUrl(renderToStaticMarkup(<old.Image src="website/hero.jpg" alt="Hero" />))
-  builtin.template = 'builtin/storage-preview@0.0.3'
+  builtin.template = 'builtin/storage-preview@0.0.4'
   const current = createImages(configuration)
   const response = await current.imageRoute(new Request(url))
   expect(response.status).toBe(307)
   expect(configuration.authorize).toHaveBeenCalledOnce()
   const location = response.headers.get('location')
   if (location === null) throw new Error('Expected a redirect')
-  expect(parseSmartCdnUrl(location).template).toBe('builtin/storage-preview@0.0.3')
+  expect(parseSmartCdnUrl(location).template).toBe('builtin/storage-preview@0.0.4')
   const custom = createImages({ ...configuration, template: 'my-custom-preview' })
   expect((await custom.imageRoute(new Request(url))).status).toBe(404)
 })

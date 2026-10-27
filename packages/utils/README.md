@@ -126,6 +126,5 @@ for (const source of imageCandidates.sources) {
 - `resolveSmartCdnImageFormats(formats)` and `resolveSmartCdnImageWidths(widths, maximumWidth?)`:
   shared validation and normalization for adapters that use a different image Built-in.
 - `getSmartCdnImageLimits(template)`: the dimension and quality bounds used by the candidate
-  builders. Both `builtin/public-preview@0.0.1` and the current `@0.0.2` contract are bounded at
-  4096 px / quality 85; custom
-  Templates retain the default 8000 px / quality 100 contract.
+  builders. `builtin/public-preview@0.0.1`, `@0.0.2` and the current `@0.0.3` contract are bounded
+  at 4096 px / quality 85; custom Templates retain the default 8000 px / quality 100 contract.

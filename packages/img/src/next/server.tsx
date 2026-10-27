@@ -33,6 +33,7 @@ import {
   snapshotImageSource,
 } from '../imageSource.ts'
 import {
+  assertSupportedStoragePreviewTemplate,
   createTransloaditImageModel,
   isVersionedStorageTemplate,
   transloaditPublicStoragePreviewTemplate,
@@ -309,6 +310,7 @@ function validateTemplate(template: string | undefined, name: string): void {
   if (!isImageSourceSelector(template)) {
     throw new TypeError(`${name} must be 1–256 characters without surrounding whitespace`)
   }
+  assertSupportedStoragePreviewTemplate(template)
 }
 
 function validateGlobalUrlParams(urlParams: SmartCdnUrlParams | undefined): void {

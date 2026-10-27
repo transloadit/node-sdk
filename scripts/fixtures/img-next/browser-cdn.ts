@@ -70,8 +70,8 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     const background = url.searchParams.get('bg') ?? '#ffffff'
     const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`
     const path = decodeURIComponent(url.pathname)
-    const publicTemplate = '/file/fixture/builtin/public-preview@0.0.2/'
-    const privateTemplate = '/file/fixture/builtin/storage-preview@0.0.3/'
+    const publicTemplate = '/file/fixture/builtin/public-preview@0.0.3/'
+    const privateTemplate = '/file/fixture/builtin/storage-preview@0.0.4/'
     const originalTemplate = '/file/fixture/builtin/storage-serve@0.0.3/'
     const isOriginal = path.startsWith(originalTemplate)
     // Only these configured source adapters participate in the experiment. This is a delivery

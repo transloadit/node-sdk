@@ -148,7 +148,7 @@ test.each([
   try {
     const { Image } = await import('../src/next/react-server.tsx')
     const html = renderToStaticMarkup(<Image storage src="website/hero.jpg" alt="Hero" />)
-    expect(html).toContain('builtin%2Fpublic-preview%400.0.2')
+    expect(html).toContain('builtin%2Fpublic-preview%400.0.3')
     expect(html).not.toMatch(/custom-template|metadata-key|metadata-secret|sig=/)
   } finally {
     project.catalog = original

@@ -224,7 +224,7 @@ test('a private redirect signs the compact parameters and retains authentication
       authSecret: 'signing-secret',
       expiresAt: parsed.auth.expiresAt,
       input: storageReference.asset_id,
-      template: 'builtin/storage-preview@0.0.3',
+      template: 'builtin/storage-preview@0.0.4',
       urlParams: { w: 400, h: 300, v: storageReference.version_id },
     }),
   )
@@ -238,7 +238,7 @@ test('public receipt images render permanent versioned URLs without any signing 
     <Image src="website/hero.jpg" alt="Hero" layout="constrained" width={960} priority />,
   )
   const parsed = parseSmartCdnUrl(imageUrl(markup))
-  expect(parsed.template).toBe('builtin/public-preview@0.0.2')
+  expect(parsed.template).toBe('builtin/public-preview@0.0.3')
   expect(parsed.auth).toBeUndefined()
   expect(parsed.urlParams.v).toBe(storageReference.version_id)
   expect(markup).not.toMatch(/auth_key|sig=|exp=|\/api\/storage-images|visibility:hidden/)
@@ -357,7 +357,7 @@ test('mixed public/private uses unsigned public delivery and a signed authorized
   const target = response.headers.get('location')
   if (target === null) throw new Error('Expected authorized redirect')
   expect(parseSmartCdnUrl(target).auth?.key).toBe('combined-key')
-  expect(parseSmartCdnUrl(target).template).toBe('builtin/storage-preview@0.0.3')
+  expect(parseSmartCdnUrl(target).template).toBe('builtin/storage-preview@0.0.4')
   expect(new URL(target).searchParams.get('v')).toBe(storageReference.version_id)
   expect(authorize).toHaveBeenCalledOnce()
   expect(response.headers.get('cache-control')).toBe('private, no-store')
@@ -381,10 +381,10 @@ test('pinning a private Template does not replace the public Built-in', () => {
   const { Image } = createImages({
     images,
     public: ['website/'],
-    template: 'builtin/storage-preview@0.0.3',
+    template: 'builtin/storage-preview@0.0.4',
   })
   const url = imageUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />))
-  expect(parseSmartCdnUrl(url).template).toBe('builtin/public-preview@0.0.2')
+  expect(parseSmartCdnUrl(url).template).toBe('builtin/public-preview@0.0.3')
   expect(parseSmartCdnUrl(url).auth).toBeUndefined()
 })
 
@@ -474,7 +474,7 @@ test.each([
   await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining(hint)))
   expect(warn).toHaveBeenCalledWith(
     expect.stringContaining(
-      'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.2/AAAAAAAAAAAAAAAAAAAAAA',
+      'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.3/AAAAAAAAAAAAAAAAAAAAAA',
     ),
   )
   expect(warn.mock.calls.flat().join('\n')).not.toContain('transloadit storage publish')
@@ -497,7 +497,7 @@ test('identifies the verified public delivery target without logging query param
   await vi.waitFor(() =>
     expect(info).toHaveBeenCalledWith(
       expect.stringContaining(
-        'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.2/AAAAAAAAAAAAAAAAAAAAAA',
+        'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.3/AAAAAAAAAAAAAAAAAAAAAA',
       ),
     ),
   )

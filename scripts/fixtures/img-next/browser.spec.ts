@@ -850,7 +850,7 @@ test('package Image decodes Storage and HTTP/S3 templates without an image-byte 
   expect(
     selected.map((image) => decodeURIComponent(new URL(image.url, page.url()).pathname)),
   ).toEqual([
-    `/file/fixture/builtin/public-preview@0.0.2/${fixtureStorageIdentity('website/hero.jpg').asset_id}`,
+    `/file/fixture/builtin/public-preview@0.0.3/${fixtureStorageIdentity('website/hero.jpg').asset_id}`,
     '/fixture/api/storage-images',
     '/fixture/api/storage-images',
     '/fixture/api/storage-images',
@@ -867,7 +867,7 @@ test('package Image decodes Storage and HTTP/S3 templates without an image-byte 
       .map((image) => decodeURIComponent(new URL(image.url).pathname)),
   ).toEqual(
     expect.arrayContaining([
-      `/file/fixture/builtin/public-preview@0.0.2/${fixtureStorageIdentity('website/hero.jpg').asset_id}`,
+      `/file/fixture/builtin/public-preview@0.0.3/${fixtureStorageIdentity('website/hero.jpg').asset_id}`,
       '/file/fixture/fixture-http/website/hero.jpg',
       '/file/fixture/fixture-s3/products/hero.jpg',
     ]),
@@ -1119,7 +1119,7 @@ test('unsigned public Built-ins refuse private paths and private Built-ins never
   context,
 }) => {
   const publicUrl = new URL(
-    `${cdnOrigin}/file/fixture/builtin%2Fpublic-preview%400.0.2/${fixtureStorageIdentity('website/hero.jpg').asset_id}?w=400&h=300&r=pad&f=webp&bg=%2300000000&v=${fixtureStorageIdentity('website/hero.jpg').version_id}`,
+    `${cdnOrigin}/file/fixture/builtin%2Fpublic-preview%400.0.3/${fixtureStorageIdentity('website/hero.jpg').asset_id}?w=400&h=300&r=pad&f=webp&bg=%2300000000&v=${fixtureStorageIdentity('website/hero.jpg').version_id}`,
   )
   expect((await context.request.get(publicUrl.href)).status()).toBe(200)
   expect((await context.request.head(publicUrl.href)).headers()['cache-control']).toContain(
@@ -1132,9 +1132,9 @@ test('unsigned public Built-ins refuse private paths and private Built-ins never
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
   publicUrl.searchParams.set('v', fixtureStorageIdentity('documents/private/hero.jpg').version_id)
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
-  publicUrl.pathname = `/file/fixture/builtin%2Fpublic-preview%400.0.2/${fixtureStorageIdentity('documents/private/hero.jpg').asset_id}`
+  publicUrl.pathname = `/file/fixture/builtin%2Fpublic-preview%400.0.3/${fixtureStorageIdentity('documents/private/hero.jpg').asset_id}`
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
-  publicUrl.pathname = `/file/fixture/builtin%2Fstorage-preview%400.0.3/${fixtureStorageIdentity('website/hero.jpg').asset_id}`
+  publicUrl.pathname = `/file/fixture/builtin%2Fstorage-preview%400.0.4/${fixtureStorageIdentity('website/hero.jpg').asset_id}`
   publicUrl.searchParams.set('v', fixtureStorageIdentity('website/hero.jpg').version_id)
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
 })
@@ -1155,7 +1155,7 @@ for (const width of [390, 1200]) {
     })
     const url = new URL(current)
     expect(decodeURIComponent(url.pathname)).toBe(
-      `/file/fixture/builtin/public-preview@0.0.2/${receipt.asset_id}`,
+      `/file/fixture/builtin/public-preview@0.0.3/${receipt.asset_id}`,
     )
     expect(url.searchParams.get('v')).toBe(receipt.version_id)
     expect(url.searchParams.has('sig')).toBe(false)
@@ -1597,7 +1597,7 @@ test('dynamic React receipts decode and refresh after the signed CDN URL expires
   const target = new URL(location)
   expect(target.origin).toBe(cdnOrigin)
   expect(target.pathname.split('/').map(decodeURIComponent)).toContain(
-    'builtin/storage-preview@0.0.3',
+    'builtin/storage-preview@0.0.4',
   )
   expect(target.pathname.split('/').at(-1)).toBe(
     fixtureStorageIdentity('documents/avatar.jpg').asset_id,

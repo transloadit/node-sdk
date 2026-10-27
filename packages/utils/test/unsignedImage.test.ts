@@ -33,7 +33,11 @@ test.each([
   ).toEqual(expected)
 })
 
-test('the exact public Built-in rejects unsupported quality without restricting customer Templates', () => {
+test.each([
+  'builtin/public-preview@0.0.1',
+  'builtin/public-preview@0.0.2',
+  'builtin/public-preview@0.0.3',
+])('public Built-in %s rejects unsupported quality without restricting customer Templates', (template) => {
   const options = {
     workspace: 'my-app',
     input: 'website/hero.jpg',
@@ -41,9 +45,9 @@ test('the exact public Built-in rejects unsupported quality without restricting 
     formats: { webp: 100 },
     fallbackUrl: '/fallback.jpg',
   }
-  expect(() =>
-    getSmartCdnImageCandidates({ ...options, template: 'builtin/public-preview@0.0.1' }),
-  ).toThrow('quality must be an integer from 1 through 85')
+  expect(() => getSmartCdnImageCandidates({ ...options, template })).toThrow(
+    'quality must be an integer from 1 through 85',
+  )
   const custom = getSmartCdnImageCandidates({ ...options, template: 'customer-preview' })
   expect(custom.sources[0]?.quality).toBe(100)
   expect(new URL(custom.sources[0]?.candidates[0]?.url ?? '').searchParams.get('h')).toBe('8000')
