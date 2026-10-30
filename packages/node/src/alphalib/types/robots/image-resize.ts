@@ -443,7 +443,7 @@ Changes the hue by rotating the color of the image. The value \`100\` would prod
       .max(2)
       .default(1)
       .describe(`
-Adjusts the contrast of the image. A value of \`1\` produces no change. Values below \`1\` decrease contrast (with \`0\` being minimum contrast), and values above \`1\` increase contrast (with \`2\` being maximum contrast). This works like the \`brightness\` parameter.
+Adjusts the contrast of the image. A value of \`1\` produces no change. Values below \`1\` decrease contrast, and values above \`1\` increase it. Start with small adjustments, such as \`0.9\` or \`1.1\`. Larger increases can clip shadows and highlights.
 `),
     watermark_url: httpUrlSchema.optional().describe(`
 A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.
@@ -480,6 +480,8 @@ Values can be both positive and negative and yield different results depending o
 The size of the watermark, as a percentage.
 
 For example, a value of \`"50%"\` means that size of the watermark will be 50% of the size of image on which it is placed. The exact sizing depends on \`watermark_resize_strategy\`, too.
+
+With \`watermark_repeat_x\` or \`watermark_repeat_y\`, this sizes each tile relative to the output image, before repeating it. It does not set the percentage of the image covered by the whole pattern. Smaller values produce more, smaller tiles. If omitted, the watermark keeps its original pixel dimensions.
 `),
     watermark_resize_strategy: z
       .enum(['area', 'fit', 'min_fit', 'stretch'])

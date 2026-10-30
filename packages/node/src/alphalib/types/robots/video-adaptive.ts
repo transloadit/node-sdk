@@ -71,6 +71,18 @@ This <dfn>Robot</dfn> accepts all types of video files and audio files. Do not f
 
 This <dfn>Robot</dfn> is normally used in combination with [🤖/video/encode](/docs/robots/video-encode/). We have implemented video and audio encoding presets specifically for MPEG-Dash and HTTP Live Streaming support. These presets are prefixed with \`"dash/"\` and \`"hls/"\`. [View a HTTP Live Streaming demo here](/demos/video-encoding/implement-http-live-streaming/).
 
+### HLS subtitles
+
+With \`"technique": "hls"\`, the first embedded subtitle track of each input is converted to segmented WebVTT and linked from the master playlist. Additional subtitle tracks in the same input are dropped. The Assembly adds a warning when any input contains more than one subtitle track.
+
+To add a track before packaging, use [🤖/video/subtitle](/docs/robots/video-subtitle/) with \`"subtitles_type": "external"\`, \`"preset": "empty"\`, and a \`language\` such as \`"eng"\`. Then encode with an \`"hls/"\` preset and pass the encoded video to this Robot. By default, the playlist’s subtitle \`NAME\` uses the language’s English name, for example “English”; its \`LANGUAGE\` preserves the input’s language tag. Unrecognized language codes are used as the name. If the language is missing or \`"und"\`, the name is “Unknown”. Custom \`ffmpeg.var_stream_map\` mappings control their own subtitle labels.
+
+To set an explicit subtitle name in a custom \`ffmpeg.var_stream_map\`, select \`"ffmpeg_stack": "v8.0.0"\` and use its \`sname\` option.
+
+WebVTT cues and MPEG-TS video use the same timestamp timeline. AAC priming or video frame reordering can move both after zero, so a small nonzero first cue timestamp does not by itself mean subtitles are delayed. Preserve the generated timestamps to keep subtitles synchronized with the video. When any input to an HLS Step has subtitles, \`ffmpeg.muxdelay\` defaults to \`0\` for the whole Step, including renditions without subtitles. Overriding it or other timestamp options can change that alignment.
+
+Store the WebVTT segments and subtitle playlists along with all other results, preserving \`\${file.meta.relative_path}\` as described below.
+
 ### CMAF aspect ratios
 
 CMAF aligns near-equal rendition aspect ratios, within 1% of the largest rendition, without re-encoding or changing pixel dimensions. This lets presets such as \`"hls/480p"\` and \`"hls/720p"\` support bitrate switching together.

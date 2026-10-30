@@ -7,6 +7,7 @@ import type {
 import { z } from 'zod'
 
 import {
+  createProcessingExample,
   defineRobot,
   httpHeaderSafetyDescription,
   httpUrlSchema,
@@ -17,17 +18,11 @@ import {
 
 export const meta: RobotMetaInput = {
   ...robotCodeEvaluationMeta,
-  example_code: {
-    steps: {
-      request: {
-        robot: '/http/request',
-        method: 'POST',
-        payload: 'metadata',
-        url: 'https://example.com/transloadit/files',
-        use: [],
-      },
-    },
-  },
+  example_code: createProcessingExample('request', '/http/request', {
+    method: 'POST',
+    payload: 'metadata',
+    url: 'https://example.com/transloadit/files',
+  }),
   example_code_description: 'Ask your application which input files should continue:',
   extended_description: `
 Use this <dfn>Robot</dfn> when your application should inspect the current Assembly state or input
@@ -56,7 +51,7 @@ in the Assembly Template and use this Step as their input.
 `,
   override_lvl1: 'Workflow Automation',
   purpose_sentence:
-    'calls your application during an Assembly and emits returned input file references',
+    'calls your application during an Assembly and emits selected input files or downloads returned result-file URLs',
   purpose_verb: 'run',
   purpose_word: 'HTTP endpoint',
   purpose_words: 'Call HTTP endpoints',
@@ -100,7 +95,8 @@ Controls what is sent to your endpoint.
 - \`file\`: Send multipart form data with a \`payload\` JSON field and the first input file as a
   \`file\` part.
 - \`files\`: Send multipart form data with a \`payload\` JSON field and all input files as repeated
-  \`files[]\` parts. Useful with \`bundle_steps\`.
+  \`files[]\` parts. To send several input files in one request, set \`bundle_steps: true\` in the
+  advanced [\`use\` options](/docs/topics/use-parameter/#step-bundling).
 
 The \`payload\` JSON object contains \`assembly\`, \`fields\`, \`previous_step\`, \`file\`, and
 \`files\`. \`file\` is the first input file’s metadata or \`null\`; \`files\` is an array of input

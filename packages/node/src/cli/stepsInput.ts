@@ -13,11 +13,44 @@ import { CliInputError, formatSchemaIssues } from './errors.ts'
 
 const stepsWrapperSchema = z.object({ steps: z.record(z.unknown()) })
 
-/** CLI inputs can be partial overrides; API2 validates OCR after merging their runtime context. */
+/** CLI overrides warn on new parameters and defer contextual OCR checks to API2. */
 export function createCliStepsSchema(
   output: Pick<IOutputCtl, 'warn'> = console,
 ): z.ZodType<StepsInput> {
-  const cliStepSchema = robotsSchema
+  const cliStepSchema = z
+    .object({ robot: z.string() })
+    .catchall(z.unknown())
+    .transform((step, context) => {
+      let validated = robotsSchema.safeParse(step, { path: context.path })
+      const unknownKeys = new Set<string>()
+      if (!validated.success) {
+        for (const issue of validated.error.issues) {
+          // Only new top-level Robot parameters are advisory; nested objects stay strict.
+          if (issue.code !== 'unrecognized_keys' || issue.path.length !== context.path.length)
+            continue
+          for (const key of issue.keys) unknownKeys.add(key)
+        }
+        if (unknownKeys.size > 0) {
+          validated = robotsSchema.safeParse(
+            Object.fromEntries(Object.entries(step).filter(([key]) => !unknownKeys.has(key))),
+            { path: context.path },
+          )
+        }
+      }
+      if (!validated.success) {
+        for (const issue of validated.error.issues) {
+          // Keep nested union diagnostics rooted at the Step while addIssue prefixes its own path.
+          context.addIssue({ ...issue, path: issue.path.slice(context.path.length) })
+        }
+        return z.NEVER
+      }
+      if (unknownKeys.size > 0) {
+        output.warn(
+          `${context.path.join('.')}: Unrecognized step parameters: ${[...unknownKeys].join(', ')}. Preserving them for API validation when submitted.`,
+        )
+      }
+      return { ...step, ...validated.data }
+    })
     .superRefine(refineTransloaditImportSelector)
     .superRefine((step, context) => {
       // API2 merges Template defaults before Robot validation. New OCR checks must not reject

@@ -8,6 +8,7 @@ import { z } from 'zod'
 
 import {
   defineRobot,
+  getConcatFadeDescription,
   inputSortBySchema,
   robotBase,
   robotFFmpegVideo,
@@ -67,23 +68,23 @@ It’s possible to concatenate a virtually infinite number of video files using 
 `),
     video_fade_seconds: z
       .number()
-      .default(1)
+      .default(0)
       .describe(`
-When used this adds a video fade in and out effect between each section of your concatenated video. The float value is used so if you want a video delay effect of 500 milliseconds between each video section you would select \`0.5\`, however, integer values can also be represented.
+${getConcatFadeDescription('video')}
 
-This parameter does not add a video fade effect at the beginning or end of your video. If you want to do so, create an additional [🤖/video/encode](/docs/robots/video-encode/) Step and use our \`ffmpeg\` parameter as shown in this [demo](/demos/video-encoding/concatenate-fade-effect/).
+This parameter only applies when \`transition\` is \`"none"\`. It is ignored when \`transition\` is \`"crossfade"\` or \`"fade_to_black"\`; use \`transition_duration\` for those effects. Audio fades are controlled separately by \`audio_fade_seconds\`.
 
-Please note this parameter is independent of adding audio fades between sections.
+To add a fade-in at the beginning of the output, use an additional [video encoding Step](/docs/robots/video-encode/) with the \`ffmpeg\` parameter, as shown in the [video fade demo](/demos/video-encoding/concatenate-fade-effect/).
 `),
     audio_fade_seconds: z
       .number()
-      .default(1)
+      .default(0)
       .describe(`
-When used this adds an audio fade in and out effect between each section of your concatenated video. The float value is used so if you want an audio delay effect of 500 milliseconds between each video section you would select \`0.5\`, however, integer values can also be represented.
+${getConcatFadeDescription('audio')}
 
-This parameter does not add an audio fade effect at the beginning or end of your video. If you want to do so, create an additional [🤖/video/encode](/docs/robots/video-encode/) Step and use our \`ffmpeg\` parameter as shown in this [demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
+This parameter only applies when \`transition\` is \`"none"\`. It is ignored when \`transition\` is \`"crossfade"\` or \`"fade_to_black"\`; use \`transition_duration\` for those effects. Video fades are controlled separately by \`video_fade_seconds\`.
 
-Please note this parameter is independent of adding video fades between sections.
+To add an audio fade-in at the beginning of the output, use an additional [video encoding Step](/docs/robots/video-encode/) with the \`ffmpeg\` parameter. The [audio fade demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/) shows the corresponding FFmpeg audio filter.
 `),
     chapter_markers: z
       .boolean()

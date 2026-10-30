@@ -577,6 +577,85 @@ describe('assemblies create', () => {
     })
   })
 
+  it.each([
+    'example-user-jwt',
+    '${file.meta.session_token}',
+  ])('accepts a Supabase user session token without changing it: %s', (sessionToken) => {
+    const steps = {
+      exported: {
+        robot: '/supabase/store',
+        use: ':original',
+        bucket: 'uploads',
+        host: 'project-ref.storage.supabase.co',
+        key: 'project-ref',
+        secret: 'example-anon-key',
+        session_token: sessionToken,
+      },
+    }
+    const output = { warn: vi.fn() }
+
+    expect(parseStepsInputJson(JSON.stringify(steps), output)).toEqual(steps)
+    expect(output.warn).not.toHaveBeenCalled()
+  })
+
+  it.each(['', 123])('rejects an invalid known Supabase session token: %j', (sessionToken) => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          exported: { robot: '/supabase/store', use: ':original', session_token: sessionToken },
+        }),
+        { warn: vi.fn() },
+      ),
+    ).toThrow('exported.session_token')
+  })
+
+  it('forwards new step parameters with a warning and still normalizes known parameters', () => {
+    const steps = {
+      waveform: {
+        robot: '/audio/waveform',
+        use: ':original',
+        style: 1,
+        future_option: { token: 'private-value' },
+        other_future_option: true,
+      },
+    }
+    const output = { warn: vi.fn() }
+
+    expect(parseStepsInputJson(JSON.stringify({ steps }), output)).toEqual({
+      waveform: { ...steps.waveform, style: 'v1' },
+    })
+    expect(output.warn).toHaveBeenCalledExactlyOnceWith(
+      'waveform: Unrecognized step parameters: future_option, other_future_option. Preserving them for API validation when submitted.',
+    )
+  })
+
+  it('rejects invalid known parameters even when a step has new parameters', () => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          imported: { robot: '/http/import', url: 123, future_option: true },
+        }),
+        { warn: vi.fn() },
+      ),
+    ).toThrow('Invalid steps format')
+  })
+
+  it('keeps nested parameter validation strict when a step has new parameters', () => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          encoded: {
+            robot: '/video/encode',
+            use: ':original',
+            ffmpeg: { 'x264-params': { unknown_option: true } },
+            future_option: true,
+          },
+        }),
+        { warn: vi.fn() },
+      ),
+    ).toThrow('encoded.ffmpeg.x264-params')
+  })
+
   it.each(['steps-only', 'wrapped'])('accepts a %s steps file', async (shape) => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const tempDir = await createTempDir('transloadit-steps-shape-')

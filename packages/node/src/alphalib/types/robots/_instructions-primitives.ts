@@ -828,6 +828,22 @@ const deprecatedFfmpegVersions = formatEnglishList([
   ),
 ])
 
+/** Common per-input concat fade behavior; Robot-specific transition controls stay owner-local. */
+export function getConcatFadeDescription(media: 'audio' | 'video'): string {
+  const timing =
+    media === 'audio'
+      ? 'Audio fade-outs start on a whole-second boundary and may finish before the input ends.'
+      : 'Video fade durations are rounded down to whole frames and capped at the duration of each input.'
+
+  return `
+When concatenating at least two files, a positive value fades out the ${media} of each input and fades in every input after the first. There is no fade-in at the beginning of the output, but the fade-out is also applied to the last input.
+
+The value is a duration in seconds. For example, \`0.5\` means 500 milliseconds. Omit this parameter or set it to \`0\` to disable these per-input fades. They do not overlap clips or insert additional time between them.
+
+${timing}
+`
+}
+
 export const robotParameterDocs = {
   adaptive_filtering: {
     description: `
@@ -2075,6 +2091,12 @@ export const vimeoBase = z
       .optional()
       .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Vimeo access token.
+
+For /vimeo/import, create your own app at [developer.vimeo.com/apps](https://developer.vimeo.com/apps), open \`Generate Access Token\`, choose \`Authenticated (you)\`, and select \`Public\`, \`Private\`, and \`Video Files\` (\`public private video_files\`). Generate the personal access token, then choose **Vimeo** and **Paste a personal access token** in the Console. The token is stored as \`access_token\` and is never displayed back in the Console. Saving checks your Vimeo account and the token’s scopes. Video file links also require an eligible Vimeo account and video permissions.
+
+Vimeo OAuth in the Console supports /vimeo/store. It cannot grant \`video_files\` for other members’ accounts because Transloadit is not a Vimeo partner. Imports require your own personal access token. To use that token for /vimeo/store too, also grant \`Upload\`, \`Edit\`, and \`Interact\` (\`upload edit interact\`) and ensure your Vimeo app has upload access.
+
+Updating a credential does not run OAuth again or add permissions. To reconnect, **Remove** the credential (which revokes its token at Vimeo), then create a new credential with the same name. For a personal token, generate a new one before saving it again. Revocation also affects any other use of that token. See the [Vimeo credential instructions](/docs/topics/template-credentials/#vimeo).
 `),
   })
   .strict()
@@ -2172,6 +2194,9 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
   })
   .strict()
 
+/** Default SSH/SFTP port when no explicit connection port is supplied. */
+export const sftpDefaultPort = 22
+
 export type SftpBase = z.infer<typeof sftpBase>
 export const sftpBase = z
   .object({
@@ -2184,7 +2209,7 @@ Please create your associated <dfn>Template Credentials</dfn> in your Transloadi
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"host"\`, \`"port"\`, \`"user"\`, \`"public_key"\` (optional).
 `),
     host: z.string().optional(),
-    port: port.default(21).describe('The port to use for the FTP connection.'),
+    port: port.default(sftpDefaultPort).describe('The port to use for the SFTP connection.'),
     user: z.string().optional(),
     public_key: z.string().optional(),
   })
@@ -2333,6 +2358,11 @@ export const filterConditionPartSchema = z.tuple([
 export type FilterCondition = z.infer<typeof filterCondition>
 export const filterCondition = z.union([z.null(), z.string(), z.array(filterConditionPartSchema)])
 
+/** English Turbo guidance shared by the public parameter and supporting video FAQ. */
+export const videoTurboParameterDocumentation = `Splits the video into multiple chunks so that each chunk can be encoded in parallel before all encoded chunks are stitched back together to form the result video. This comes at the expense of extra Priority Job Slots and may prove to be counter-productive for very small video files.
+
+VP8 output and unresolved video-codec expressions use normal encoding even when \`turbo\` is \`true\`.`
+
 /**
  * Parameters specific to the /video/encode robot. Useful for typing robots that pass files to /video/encode.
  */
@@ -2391,12 +2421,7 @@ Forces the video to be rotated by the specified degree integer. Currently, only 
       .describe(`
 Enables hinting for mp4 files, for RTP/RTSP streaming.
 `),
-    turbo: z
-      .boolean()
-      .default(false)
-      .describe(`
-Splits the video into multiple chunks so that each chunk can be encoded in parallel before all encoded chunks are stitched back together to form the result video. This comes at the expense of extra <dfn>Priority Job Slots</dfn> and may prove to be counter-productive for very small video files.
-`),
+    turbo: z.boolean().default(false).describe(videoTurboParameterDocumentation),
     chunk_duration: z
       .number()
       .int()
@@ -2404,6 +2429,8 @@ Splits the video into multiple chunks so that each chunk can be encoded in paral
       .optional()
       .describe(`
 Allows you to specify the duration of each chunk when \`turbo\` is set to \`true\`. This means you can take advantage of that feature while using fewer <dfn>Priority Job Slots</dfn>. For instance, the longer each chunk is, the fewer <dfn>Encoding Jobs</dfn> will need to be used.
+
+Requested durations below 5 seconds are treated as 5 seconds.
 `),
     watermark_url: z
       .union([z.literal(''), httpUrlSchema])

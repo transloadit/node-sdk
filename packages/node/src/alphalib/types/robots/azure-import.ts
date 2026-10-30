@@ -22,8 +22,7 @@ import {
 export const meta: RobotMetaInput = {
   ...robotImportMeta,
   example_code: createStorageImportExample('/azure/import', 'YOUR_AZURE_CREDENTIALS', false),
-  example_code_description:
-    'Import files from the `path/to/files` directory and its subdirectories:',
+  example_code_description: 'Import files from the `path/to/files` directory:',
   has_small_icon: true,
   purpose_sentence: 'imports whole directories of files from your Azure container',
   purpose_word: 'Azure',
@@ -41,14 +40,14 @@ export const robotAzureImportInstructionsSchema = robotBase
     path: path.describe(`
 The path in your container to the specific file or directory. If the path points to a file, only this file will be imported. For example: \`images/avatar.jpg\`.
 
-If it points to a directory, indicated by a trailing slash (\`/\`), then all files that are descendants of this directory are recursively imported. For example: \`images/\`.
+If it points to a directory, indicated by a trailing slash (\`/\`), then files directly inside this directory are imported. For example: \`images/\`. Set \`recursive: true\` to include subdirectories.
 
 If you want to import all files from the root directory, please use \`/\` as the value here.
 
 You can also use an array of path strings here to import multiple paths in the same <dfn>Robot</dfn>'s <dfn>Step</dfn>.
 `),
     recursive: recursive.describe(`
-  Setting this to \`true\` will enable importing files from subdirectories and sub-subdirectories (etc.) of the given path.
+  Setting this to \`true\` will enable importing files from subdirectories and sub-subdirectories (etc.) of the given path. By default, only files directly inside the given directory are imported.
   `),
     next_page_token: next_page_token.describe(`
 A string token used for pagination. The returned files of one paginated call have the next page token inside of their meta data, which needs to be used for the subsequent paging call.

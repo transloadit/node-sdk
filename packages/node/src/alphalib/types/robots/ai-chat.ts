@@ -472,6 +472,9 @@ export const vendorModelSchema = z.enum([firstSupportedModel, ...remainingSuppor
 
 export type VendorModel = z.infer<typeof vendorModelSchema>
 
+/** Reasoning effort used when the caller leaves the model on automatic selection. */
+export const AI_CHAT_AUTO_REASONING_EFFORT = 'xhigh'
+
 export const robotAiChatInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
@@ -485,7 +488,7 @@ export const robotAiChatInstructionsSchema = robotBase
       .union([vendorModelSchema, z.literal('auto')])
       .default('auto')
       .describe(
-        'The model to use. Transloadit can pick the best model for the job if you set this to "auto".',
+        'The model to use. The default, "auto", uses Transloadit\'s configured default model; it does not select a model based on the attached file. Choose a model that supports your input files.',
       ),
     format: z.enum(['json', 'text', 'meta']).default('json'),
     return_messages: z.enum(['all', 'last']).default('last'),
@@ -503,19 +506,19 @@ export const robotAiChatInstructionsSchema = robotBase
       .enum(['xhigh', 'high', 'medium', 'low'])
       .optional()
       .describe(
-        'Controls how much effort the model spends on reasoning. Higher values produce more thorough responses but cost more tokens. Applies to models that support extended thinking (OpenAI o-series, GPT-5.x, GPT-6, Anthropic Claude with thinking). If omitted, the model default is used.',
+        `Controls how much effort the model spends on reasoning. Higher values produce more thorough responses but cost more tokens. Applies to models that support extended thinking (OpenAI o-series, GPT-5.x, GPT-6, Anthropic Claude with thinking). If omitted with model: "auto" (the default), Transloadit uses "${AI_CHAT_AUTO_REASONING_EFFORT}". With an explicitly selected model, omitting this parameter leaves reasoning effort to that model's default.`,
       ),
     credentials: z
       .union([z.string(), z.array(z.string())])
       .optional()
       .describe(
-        'Names of template credentials to make available to the robot. When using your own AI provider keys, Transloadit charges a 30% markup (minimum $0.0005 per request).',
+        'Names of Template Credentials to make available to the Robot. When using your own AI provider keys, you pay the provider directly and Transloadit charges a fee equal to 30% of the provider cost, with a minimum fee of $0.0005 per request.',
       ),
     test_credentials: z
       .boolean()
       .optional()
       .describe(
-        'Use Transloadit-provided credentials for testing. Usage is billed at provider cost plus a 30% markup (minimum $0.0005 per request).',
+        'Use Transloadit-provided credentials for testing. Transloadit bills the provider cost plus a 30% markup, with a minimum markup of $0.0005 per request.',
       ),
     mcp_servers: z
       .array(
@@ -534,7 +537,7 @@ export const robotAiChatInstructionsSchema = robotBase
       )
       .optional()
       .describe(
-        'The MCP servers to use for tool calling. You can use any MCP server reachable from your environment. Use `headers` to pass server-specific auth (for example `Authorization: Bearer <token>`). For Transloadit\'s MCP server: Bearer tokens minted via `/token` satisfy Signature Authentication (signature checks apply only to key/secret requests). `auth: "transloadit"` is reserved for API2-managed auth to Transloadit-hosted MCP servers.',
+        'The MCP servers to use for tool calling. The servers must be reachable from Transloadit\'s workers, not just from your own network. Use `headers` to pass server-specific auth (for example `Authorization: Bearer <token>`). For Transloadit\'s MCP server: Bearer tokens minted via `/token` satisfy Signature Authentication (signature checks apply only to key/secret requests). `auth: "transloadit"` is reserved for Transloadit-managed auth to Transloadit-hosted MCP servers.',
       ),
   })
   .strict()

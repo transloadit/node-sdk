@@ -70,7 +70,7 @@ export const robotImageUpscaleInstructionsSchema = robotBase
     face_enhance: upscaleFaceEnhanceSchema
       .optional()
       .describe(
-        `Enable face enhancement for better face restoration. Defaults to ${upscaleFaceEnhanceSchema.parse(undefined)}.`,
+        `Enable face enhancement with Real-ESRGAN or face upsampling with CodeFormer. GFPGAN always performs face restoration and ignores this parameter. Defaults to ${upscaleFaceEnhanceSchema.parse(undefined)}.`,
       ),
   })
   .strict()
