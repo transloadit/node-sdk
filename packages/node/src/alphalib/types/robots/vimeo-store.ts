@@ -39,7 +39,7 @@ export const robotVimeoStoreInstructionsSchema = robotBase
     robot: z.literal('/vimeo/store').describe(`
 ## Getting started
 
-Since Vimeo works with OAuth, you will need to generate [Template Credentials](https://transloadit.com/c/template-credentials/) to use this <dfn>Robot</dfn>.
+Create [Template Credentials](https://transloadit.com/c/template-credentials/) using Vimeo OAuth for uploads, or paste your own personal access token. A personal token needs \`upload\`, \`edit\`, and \`interact\` for this <dfn>Robot</dfn>, plus \`public\`, \`private\`, and \`video_files\` when saving it through the Console for imports. Your Vimeo app must have upload access. Follow the [Vimeo token instructions](/docs/topics/template-credentials/#vimeo) to create a token or reconnect.
 
 To change the \`title\` or \`description\` per video, we recommend to [inject variables into your Template](/docs/topics/templates/).
 

@@ -33,9 +33,7 @@ export const robotTigrisStoreInstructionsSchema = robotBase
   .merge(robotUse)
   .merge(tigrisBase)
   .extend({
-    robot: z.literal('/tigris/store').describe(`
-The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
-`),
+    robot: z.literal('/tigris/store'),
     path: storeFilePath,
     acl: storageAcl,
     headers: z
@@ -62,6 +60,7 @@ If this parameter is not used, no URL signing is done.
       .describe('The region of your Tigris bucket. This is optional as it can often be derived.'),
   })
   .strict()
+  .describe('The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.')
 
 export const robotDefinition: RobotDefinition<typeof robotTigrisStoreInstructionsSchema.shape> =
   defineRobot(meta, robotTigrisStoreInstructionsSchema)

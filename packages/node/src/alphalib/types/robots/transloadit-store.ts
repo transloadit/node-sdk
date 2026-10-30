@@ -64,6 +64,25 @@ existing asset. Always save the returned asset identity, version and final path.
 Sets the destination path inside your Transloadit Storage workspace, relative to its root: a
 filename, or folders and a filename such as \`website/hero.jpg\`. Folders that do not exist yet
 are created.
+
+Repeated interior slashes are collapsed after variable interpolation. For example,
+\`a/\${file.meta.relative_path}/\${file.name}\` stores a root-level HLS playlist as
+\`a/playlist.m3u8\` when \`relative_path\` is empty. Leading or trailing slashes and
+\`.\` or \`..\` segments remain invalid.
+`),
+    result: z
+      .boolean()
+      .default(true)
+      .describe(`
+Leave \`result\` unset or set it to \`true\` on this Storage Step. Setting \`result: false\`
+here can omit stored entries, including asset and version IDs, from the Assembly Status JSON
+even though the files are stored.
+
+Stored results appear under their producing Step in the Assembly Status JSON, or under
+\`:original\` for uploaded files, rather than under this Storage Step. Setting \`result: false\`
+on a producing processing Step also omits its stored entries, including asset and version IDs,
+from the Assembly Status JSON even though the files are stored. Leave \`result\` unset or set it
+to \`true\` on that Step to receive those identities.
 `),
   })
   .strict()

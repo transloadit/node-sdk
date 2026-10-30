@@ -40,12 +40,15 @@ Whether to import files from subfolders and sub-subfolders when \`path\` is a fo
 only the folder's own files are imported.
 `
 
-/** Storage imports require proof of possession independently of Workspace signature settings. */
+/** Private Storage imports require proof of possession independently of Workspace settings. */
 export const transloaditImportAuthenticationGuidanceLines = [
   'Assemblies that use `/transloadit/import`, directly or through a Template, require',
   'either a bearer token or signed `params` with a future `params.auth.expires` timestamp.',
   'This applies even when Workspace Signature Authentication is disabled. An Auth Key alone',
   'is not sufficient; bearer-authenticated requests do not need a separate signature or expiry.',
+  'Public Storage Builtin Templates are the exception: they can serve unsigned requests only',
+  'when every Storage import remains within a declared public prefix. This does not authorize',
+  'unsigned Assemblies with arbitrary Steps or access to private Storage paths.',
 ] as const
 
 export const meta: RobotMetaInput = {

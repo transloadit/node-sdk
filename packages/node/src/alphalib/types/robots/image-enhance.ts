@@ -77,11 +77,11 @@ export const robotImageEnhanceInstructionsSchema = robotBase
   .merge(robotImagemagick)
   .extend({
     robot: z.literal('/image/enhance').describe(`
-With this <dfn>Robot</dfn> you can automatically enhance images with one click — adjusting levels, contrast, saturation, sharpness, and white balance to produce an optimally balanced image. It also supports a library of named photo filter presets (e.g. \`warm\`, \`cool\`, \`vintage\`, \`vivid\`) that apply curated color grading and tone adjustments.
+With this <dfn>Robot</dfn> you can automatically enhance images by adjusting levels, gamma, and sharpness. The selected enhancement mode determines which adjustments are applied. It also supports named photo filter presets (e.g. \`warm\`, \`cool\`, \`vintage\`, \`vivid\`) for color grading and tone adjustments.
 
 It works well together with [🤖/image/resize](/docs/robots/image-resize/) — you can enhance first, then resize, or vice versa.
 
-This <dfn>Robot</dfn> accepts all image types supported by ImageMagick and passes unsupported types through unchanged. \`engine: "classic"\` uses \`enhance\`, \`preset\`, \`sharpen\`, and \`denoise\`, while \`engine: "ai"\` uses \`ai_preset\` and \`quality\`; classic controls are ignored in AI mode. Output keeps the original file extension when possible. In AI mode, if the target extension is not writable by the selected \`imagemagick_stack\`, the file is passed through unchanged.
+This <dfn>Robot</dfn> accepts all image types supported by ImageMagick and passes unsupported image types through unchanged. \`engine: "classic"\` uses \`enhance\`, \`preset\`, \`sharpen\`, and \`denoise\`, while \`engine: "ai"\` uses \`ai_preset\`; classic controls are ignored in AI mode. Both engines use \`quality\` for the output image. Output keeps the original file extension when possible. In AI mode, if the target extension is not writable by the selected \`imagemagick_stack\`, the file is passed through unchanged.
 `),
     enhance: enhanceModeSchema.describe(`
 The auto-enhancement mode. \`"auto"\` applies balanced auto-levels, gamma correction, and subtle sharpening. \`"auto_gentle"\` is more conservative (good for already-decent photos). \`"auto_aggressive"\` applies stronger normalization and contrast. \`"none"\` skips auto-enhance (useful when only applying a preset filter).

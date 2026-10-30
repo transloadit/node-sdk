@@ -19,7 +19,7 @@ import {
 const extractTargets = z.enum(['text', 'images'])
 const imageFormats = z.enum(['auto', 'original', 'png', 'jpg'])
 const ocrProviders = z.enum(['aws', 'gcp'])
-const textFormats = z.enum(['txt', 'json'])
+const textFormats = z.enum(['txt', 'json', 'md', 'html'])
 const textGranularities = z.enum(['document', 'page'])
 const textMethods = z.enum(['native', 'ocr', 'auto'])
 
@@ -120,6 +120,10 @@ export const robotDocumentExtractInstructionsSchema = robotBase
     robot: z.literal('/document/extract').describe(`
 Extracts native/selectable text and embedded raster image assets from PDF documents.
 
+For DOCX files, first use \`/document/convert\` with \`format: "pdf"\`, then pass its output to this Robot.
+
+Markdown and HTML output are in beta and aim for readable structure, not a pixel-perfect copy. Native extraction detects paragraphs, larger-font headings, simple lists and aligned tables where possible. Multi-column text can interleave, prose can be mistaken for tables, and merged cells may need adjustment. HTML escapes extracted text and omits source scripts, links and event handlers.
+
 This robot does not render full pages. If you need page images, use \`/document/thumbs\`. Vector graphics, charts, and page backgrounds are not always embedded raster images and may therefore not be returned by this robot.
 `),
     extract: z
@@ -163,7 +167,19 @@ OCR modes currently cannot be combined with \`password\`.
 OCR provider to use when \`text_method\` is \`"ocr"\` or \`"auto"\`. Valid values are \`"aws"\` and \`"gcp"\`.
 `),
     text_format: textFormats.default('txt').describe(`
-Output format for extracted text. Use \`"txt"\` for plain text or \`"json"\` for structured output.
+Output format for extracted text. Plain text and JSON retain the existing extraction behavior. Markdown and HTML output are in beta and infer basic structure from native text positions and font sizes.
+
+Native Markdown and HTML extraction limits layout data to 8 MiB per input document, summed across its selected page ranges. For larger documents, use separate extraction Steps with fewer pages in each Step’s \`page_range\`.
+
+If native extraction cannot confirm the reading order of bidirectional text, it returns a validation error. Try fewer pages or use \`text_method: "ocr"\` with an OCR provider.
+
+When \`extract\` includes images, Markdown and HTML reference retained image results inline using relative, URL-encoded filenames matching each image result’s \`name\`. Save the text and image results together to resolve the references. Filtered images have no references; repeated images can reference the same deduplicated result. Images with unavailable or inconsistent positions, including retained image masks, are appended after their page’s text. Embedded base64 images are not produced.
+
+When exporting, preserve result names in a shared directory per input document. For example, set \`/s3/store\`’s \`path\` to \`"\${assembly.id}/\${file.original_id}/\${file.name}"\`. Default storage paths using \`\${unique_prefix}/\${file.url_name}\` separate and rename files, so they do not preserve these relative image links.
+
+Some native image encodings cannot be displayed by browsers or Markdown viewers. Set \`image_format\` to \`"png"\` or \`"jpg"\` for broadly viewable image results.
+
+OCR Markdown and HTML preserve readable text with minimal structure detection and append extracted images in source order, since reliable text positions are unavailable.
 `),
     text_granularity: textGranularities.default('document').describe(`
 Controls text output grouping for native extraction.

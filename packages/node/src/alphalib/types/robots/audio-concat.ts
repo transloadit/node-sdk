@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { stackVersions } from '../stackVersions.ts'
 import {
   bitrateSchema,
+  getConcatFadeDescription,
   inputSortBySchema,
   interpolateRobot,
   robotAudioEncodingMeta,
@@ -73,11 +74,11 @@ This Robot can concatenate an almost infinite number of audio files.
       .describe(robotParameterDocs.audio_sample_rate.description),
     audio_fade_seconds: z
       .number()
-      .default(1)
+      .default(0)
       .describe(`
-When used this adds an audio fade in and out effect between each section of your concatenated audio file. The float value is used, so if you want an audio delay effect of 500 milliseconds between each video section, you would select 0.5. Integer values can also be represented.
+${getConcatFadeDescription('audio')}
 
-This parameter does not add an audio fade effect at the beginning or end of your result audio file. If you want to do so, create an additional [🤖/audio/encode](/docs/robots/audio-encode/) <dfn>Step</dfn> and use our \`ffmpeg\` parameter as shown in this [demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
+When \`crossfade\` is \`true\`, this parameter controls the overlap between inputs instead of these separate fades. To add a fade-in at the beginning of the output, use an additional [audio encoding Step](/docs/robots/audio-encode/) with the \`ffmpeg\` parameter, as shown in the [fade-in and fade-out demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
 `),
     crossfade: z
       .boolean()
@@ -85,7 +86,7 @@ This parameter does not add an audio fade effect at the beginning or end of your
       .describe(`
 When set to \`true\`, this parameter enables crossfading between concatenated audio files using FFmpeg's \`acrossfade\` filter. This creates a smooth transition where the end of one audio file overlaps and blends with the beginning of the next file.
 
-The duration of the crossfade is controlled by the \`audio_fade_seconds\` parameter (defaults to 1 second if \`audio_fade_seconds\` is 0).
+The \`audio_fade_seconds\` parameter controls the overlap duration. Omitting it or setting it to \`0\` uses a 1-second crossfade. Each overlap shortens the output by that duration; this mode does not add a fade-in at the beginning or a fade-out at the end.
 
 Note: This parameter requires at least 2 audio files to concatenate and only works with audio files, not video files.
 `),

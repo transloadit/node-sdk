@@ -33,8 +33,30 @@ export const robotSupabaseStoreInstructionsSchema = robotBase
   .merge(robotUse)
   .merge(supabaseBase)
   .extend({
-    robot: z.literal('/supabase/store'),
+    robot: z.literal('/supabase/store').describe(`
+## Upload as a Supabase user
+
+For [Supabase session-token authentication](https://supabase.com/docs/guides/storage/s3/authentication#session-token), supply your project ref as \`key\`, your project’s anon key as \`secret\`, and the user’s access-token JWT as \`session_token\`. Supabase applies the authenticated user’s Row Level Security (RLS) policies to these uploads. Choose a \`path\` those policies permit, and use the endpoint and region from your project’s S3 connection settings.
+
+Send the user’s JWT with each Assembly from your trusted backend. It must remain valid through queuing, processing, and upload retries; the Robot does not refresh it. Without \`session_token\`, continue using your generated Supabase S3 access key and secret. Those generated S3 access keys bypass RLS.
+
+Supply \`session_token\` inline in the Step. Assembly Status returns \`fields\` unchanged, so passing the JWT through Assembly \`fields\` exposes it in the status response.
+
+The result URL uses Supabase’s public-object URL format. It does not grant read access to a private bucket; use Supabase’s download authorization for private objects.
+`),
+    credentials: supabaseBase.shape.credentials.describe(`
+The name of your Supabase <dfn>Template Credentials</dfn>, containing the bucket, host, key, secret, and bucket region. You can instead supply those parameters directly in the Step.
+
+For generated S3 access-key authentication, use the endpoint and S3 access keys from your Supabase project’s S3 connection settings. For user-scoped session-token authentication, use the project ref as \`key\` and the project’s anon key as \`secret\`, then supply the user’s access-token JWT as \`session_token\` with each Assembly.
+`),
     path: storeFilePath,
+    session_token: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(`
+The user’s Supabase access-token JWT for [session-token authentication](https://supabase.com/docs/guides/storage/s3/authentication#session-token). Use the Supabase project ref as \`key\` and the project’s anon key as \`secret\` so Supabase applies that user’s RLS policies. The JWT must remain valid through queuing, processing, and upload retries; the Robot does not refresh it. Supply this value directly in the Step; Assembly Status exposes values in \`fields\`.
+`),
     headers: z
       .record(z.string())
       .default({ 'Content-Type': '${file.mime}' })

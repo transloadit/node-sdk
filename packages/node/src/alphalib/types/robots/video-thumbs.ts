@@ -91,18 +91,18 @@ For an upload-to-poster Template, SDK usage, and publication checks, see the [HT
     count: thumbnailCountSchema.describe(`
 The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of thumbnails we currently allow is 999.
 
-The thumbnails are taken at regular intervals, determined by dividing the video duration by the count. For example, a count of 3 will produce thumbnails at 25%, 50% and 75% through the video.
+When \`smart\` is \`false\`, the thumbnails are taken at regular intervals. For example, a count of 3 produces thumbnails at 25%, 50% and 75% through the video. With \`smart: true\`, this is the number of thumbnails selected from the candidate pool instead.
 
 To extract thumbnails for specific timestamps, use the \`offsets\` parameter.
 `),
     offsets: z
-      .union([z.array(z.number().finite()), z.array(percentageSchema)])
+      .union([z.array(z.number().finite()).min(1), z.array(percentageSchema).min(1)])
       .nullable()
-      .default([])
+      .optional()
       .describe(`
 An array of offsets representing seconds of the file duration, such as \`[ 2, 45, 120 ]\`. Millisecond durations of a file can also be used by using decimal place values. For example, an offset from 1250 milliseconds would be represented with \`1.25\`. Offsets can also be percentage values such as \`[ "2%", "50%", "75%" ]\`.
 
-This option cannot be used with the \`count\` parameter, and takes precedence if both are specified. Out-of-range offsets are silently ignored.
+When \`smart\` is \`false\`, \`offsets\` takes precedence over \`count\`. Request timestamps within the video duration. If FFmpeg produces no frame at a requested offset, the Robot may retry without timestamp seeking and return an early frame instead. It does not simply ignore the offset, and extraction can still fail if no frame is available.
 
 When \`smart\` is \`true\`, smart selection ignores \`offsets\` and uses \`count\` to select from its own candidate timestamps. If no smart candidates can be extracted, the Robot falls back to standard extraction, where \`offsets\` takes precedence. Use \`smart: false\` to consistently extract the specified timestamps.
 
@@ -128,17 +128,17 @@ The width of the thumbnail, in pixels. Omit or use \`null\` for the original wid
       .number()
       .int()
       .min(1)
-      .max(1080)
+      .max(1920)
       .nullable()
       .optional()
       .describe(`
-The height of the thumbnail, in pixels. Omit or use \`null\` for the original height of the video.
+The thumbnail height in pixels, capped like \`width\`. Omit or use \`null\` for the original height.
 `),
     resize_strategy: resize_strategy.describe(`
 One of the [available resize strategies](/docs/topics/resize-strategies/).
 `),
-    background: color_with_alpha.default('#00000000').describe(`
-The background color of the resulting thumbnails in the \`"rrggbbaa"\` format (red, green, blue, alpha) when used with the \`"pad"\` resize strategy. The default color is black.
+    background: color_with_alpha.default('#000000ff').describe(`
+The background color of the resulting thumbnails in the \`"rrggbbaa"\` format (red, green, blue, alpha) when used with the \`"pad"\` resize strategy. The default color is opaque black.
 `),
     rotate: z
       .union([z.literal(0), z.literal(90), z.literal(180), z.literal(270), z.literal(360)])

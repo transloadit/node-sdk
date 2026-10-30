@@ -69,6 +69,8 @@ This <dfn>Robot</dfn> also detects and handles any of the following before evalu
 
 For security reasons, archives containing symlinks that point outside the archived directory will cause the <dfn>Assembly</dfn> to fail.
 
+Extracted file and directory names are transliterated for supported accented Latin and Cyrillic characters. For example, \`café.pdf\` becomes \`cafe.pdf\`.
+
 Password-protected archives (ZIP with ZipCrypto or AES encryption, RAR encrypted, 7z with AES-256) are supported via the \`password\` parameter.
 `),
     ignore_errors:
