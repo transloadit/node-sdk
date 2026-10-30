@@ -625,7 +625,7 @@ describe('assemblies create', () => {
       waveform: { ...steps.waveform, style: 'v1' },
     })
     expect(output.warn).toHaveBeenCalledExactlyOnceWith(
-      'waveform: Unrecognized step parameters: future_option, other_future_option. Passing them to the API for validation.',
+      'waveform: Unrecognized step parameters: future_option, other_future_option. Preserving them for API validation when submitted.',
     )
   })
 

@@ -46,7 +46,7 @@ export function createCliStepsSchema(
       }
       if (unknownKeys.size > 0) {
         output.warn(
-          `${context.path.join('.')}: Unrecognized step parameters: ${[...unknownKeys].join(', ')}. Passing them to the API for validation.`,
+          `${context.path.join('.')}: Unrecognized step parameters: ${[...unknownKeys].join(', ')}. Preserving them for API validation when submitted.`,
         )
       }
       return { ...step, ...validated.data }

@@ -20,4 +20,6 @@ SFTP defaults (transloadit/api2#10379), and concat/thumbnail defaults (transload
 - Type-breaking: `/document/extract` parsed `text_format` can also be `md` or `html`. Handle
   these values when reading parsed instructions, or select `txt`/`json` explicitly.
 - Parsed contract defaults now match API2: SFTP uses port 22, `/video/concat` fade durations
-  default to zero, and `/video/thumbs` uses an opaque black background.
+  default to zero, `/video/thumbs` uses an opaque black background, and `/transloadit/store`
+  defaults `result` to `true`. When `/file/preview` receives a `strategy` object without an
+  `image` entry, that entry now defaults to `['image', 'embedded-preview', 'icon']`.
