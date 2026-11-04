@@ -101,9 +101,9 @@ describe('Assembly result links for clients without a widget', () => {
         ...Array.from(
           { length: 8 },
           (_, index) =>
-            `- Step thumbs — cover-${index + 1}.jpg: https://results.example.com/cover-${index + 1}.jpg`,
+            `- Step thumbs, cover-${index + 1}.jpg: https://results.example.com/cover-${index + 1}.jpg`,
         ),
-        '- Step transcript — transcript.txt: https://results.example.com/transcript.txt',
+        '- Step transcript, transcript.txt: https://results.example.com/transcript.txt',
       ].join('\n'),
     })
     expect(result._meta).toEqual(
@@ -139,9 +139,9 @@ describe('Assembly result links for clients without a widget', () => {
 
     expect(result.structuredContent?.assembly).toEqual(assembly)
     expect(summary.match(/https:\/\/results\.example\.com\/cover-\d+\.jpg/g)).toHaveLength(20)
-    expect(content).toContain('Step first — cover-1.jpg: https://results.example.com/cover-1.jpg')
+    expect(content).toContain('Step first, cover-1.jpg: https://results.example.com/cover-1.jpg')
     expect(content).toContain(
-      'Step second — cover-20.jpg: https://results.example.com/cover-20.jpg',
+      'Step second, cover-20.jpg: https://results.example.com/cover-20.jpg',
     )
     expect(content).not.toContain('https://results.example.com/cover-21.jpg')
     expect(content).toContain('… 5 more result files not listed.')
@@ -204,7 +204,7 @@ describe('Assembly result links for clients without a widget', () => {
 
     expect(result.content).toContainEqual({
       type: 'text',
-      text: `Result files:\n- Step private — cover-1.jpg: ${signedUrl}`,
+      text: `Result files:\n- Step private, cover-1.jpg: ${signedUrl}`,
     })
   })
 
@@ -220,8 +220,8 @@ describe('Assembly result links for clients without a widget', () => {
       type: 'text',
       text: [
         'Result files:',
-        '- Step thumbs — cover-1.jpg: https://results.example.com/cover-1.jpg',
-        '- Step thumbs — legacy.jpg: https://results.example.com/legacy.jpg',
+        '- Step thumbs, cover-1.jpg: https://results.example.com/cover-1.jpg',
+        '- Step thumbs, legacy.jpg: https://results.example.com/legacy.jpg',
       ].join('\n'),
     })
   })
@@ -242,7 +242,7 @@ describe('Assembly result links for clients without a widget', () => {
 
     expect(result.content).toContainEqual({
       type: 'text',
-      text: 'Result files:\n- Step thumbs — Unnamed file: https://results.example.com/cover-1.jpg',
+      text: 'Result files:\n- Step thumbs, Unnamed file: https://results.example.com/cover-1.jpg',
     })
   })
 
@@ -254,7 +254,7 @@ describe('Assembly result links for clients without a widget', () => {
 
     expect(result.content).toContainEqual({
       type: 'text',
-      text: 'Result files:\n- Step video  covers — cover 1.jpg: https://results.example.com/cover-1.jpg',
+      text: 'Result files:\n- Step video  covers, cover 1.jpg: https://results.example.com/cover-1.jpg',
     })
   })
 })

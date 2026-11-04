@@ -454,7 +454,7 @@ const buildAssemblyToolResponse = (
       // Names can contain newlines; keep each file's label and URL together on one line.
       const stepName = step.replaceAll('\r', ' ').replaceAll('\n', ' ')
       const fileName = (file.name || 'Unnamed file').replaceAll('\r', ' ').replaceAll('\n', ' ')
-      lines.push(`- Step ${stepName} — ${fileName}: ${url}`)
+      lines.push(`- Step ${stepName}, ${fileName}: ${url}`)
     }
   }
 
