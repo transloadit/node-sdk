@@ -140,9 +140,7 @@ describe('Assembly result links for clients without a widget', () => {
     expect(result.structuredContent?.assembly).toEqual(assembly)
     expect(summary.match(/https:\/\/results\.example\.com\/cover-\d+\.jpg/g)).toHaveLength(20)
     expect(content).toContain('Step first, cover-1.jpg: https://results.example.com/cover-1.jpg')
-    expect(content).toContain(
-      'Step second, cover-20.jpg: https://results.example.com/cover-20.jpg',
-    )
+    expect(content).toContain('Step second, cover-20.jpg: https://results.example.com/cover-20.jpg')
     expect(content).not.toContain('https://results.example.com/cover-21.jpg')
     expect(content).toContain('… 5 more result files not listed.')
     expect(result.content).toContainEqual({
