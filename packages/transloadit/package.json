@@ -1,7 +1,7 @@
 {
   "name": "transloadit",
   "version": "6.6.0",
-  "description": "Node.js SDK for Transloadit",
+  "description": "Node.js SDK and `transloadit` CLI for Transloadit",
   "homepage": "https://github.com/transloadit/node-sdk/tree/main/packages/node",
   "bugs": {
     "url": "https://github.com/transloadit/node-sdk/issues"

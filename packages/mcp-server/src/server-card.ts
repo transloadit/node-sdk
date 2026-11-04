@@ -84,8 +84,9 @@ export const buildServerCard = (
       title: 'Transloadit MCP Server',
       version: packageJson.version,
     },
+    // No Robot count here: a hand-kept number drifted from the catalog the website publishes.
     description:
-      'Agent-native media processing: video encoding, image manipulation, document conversion, and more via 86+ Robots.',
+      'Agent-native media processing with Transloadit Robots: video encoding, image manipulation, document conversion, and more.',
     documentationUrl: 'https://transloadit.com/docs/sdks/mcp-server/',
     iconUrl: 'https://transloadit.com/favicon.ico',
     transport: {
