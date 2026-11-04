@@ -405,23 +405,80 @@ type ToolResponseExtras = {
   /** Result `_meta`, delivered to widgets and hosts but hidden from the model. */
   meta?: Record<string, unknown>
   isError?: boolean
+  content?: TextContent[]
 }
 
 const buildToolResponse = (
   payload: Record<string, unknown>,
   extras: ToolResponseExtras = {},
 ): CallToolResult => {
-  const content: TextContent = {
-    type: 'text',
-    text: JSON.stringify(payload),
-  }
+  const content: TextContent[] = extras.content ?? [{ type: 'text', text: JSON.stringify(payload) }]
 
   return {
-    content: [content],
+    content,
     structuredContent: payload,
     ...(extras.isError ? { isError: true } : {}),
     ...(extras.meta ? { _meta: extras.meta } : {}),
   }
+}
+
+const maxTextResultFiles = 20
+
+/** Gives clients without a result widget a bounded, readable list of completed result files. */
+const buildAssemblyToolResponse = (
+  payload: Record<string, unknown> & { assembly: AssemblyStatus },
+  extras: ToolResponseExtras = {},
+): CallToolResult => {
+  const { assembly } = payload
+  // Only successful completion publishes a final file list; partial results keep their JSON.
+  if (assembly.ok !== 'ASSEMBLY_COMPLETED' || assembly.error) {
+    return buildToolResponse(payload, extras)
+  }
+
+  const lines: string[] = []
+  const textResults: NonNullable<AssemblyStatus['results']> = {}
+  let totalFiles = 0
+  for (const [step, files] of Object.entries(assembly.results ?? {})) {
+    const remainingSlots = maxTextResultFiles - totalFiles
+    totalFiles += files.length
+    if (remainingSlots <= 0) continue
+    const textFiles = files.slice(0, remainingSlots)
+    // Metadata-only outputs, such as image descriptions, share the same cap as linked files.
+    textResults[step] = textFiles
+    for (const file of textFiles) {
+      const url = [file.signed_ssl_url, file.signed_url, file.ssl_url, file.url].find(
+        isNonEmptyString,
+      )
+      if (!url) continue
+
+      // Names can contain newlines; keep each file's label and URL together on one line.
+      const stepName = step.replaceAll('\r', ' ').replaceAll('\n', ' ')
+      const fileName = (file.name || 'Unnamed file').replaceAll('\r', ' ').replaceAll('\n', ' ')
+      lines.push(`- Step ${stepName} — ${fileName}: ${url}`)
+    }
+  }
+
+  const remaining = Math.max(totalFiles - maxTextResultFiles, 0)
+  if (lines.length === 0 && remaining === 0) return buildToolResponse(payload, extras)
+  if (remaining > 0) {
+    lines.push(`… ${remaining} more result ${remaining === 1 ? 'file' : 'files'} not listed.`)
+  }
+
+  return buildToolResponse(payload, {
+    ...extras,
+    content: [
+      {
+        type: 'text',
+        // The requested 20-file text limit applies to this JSON fallback too: repeating all
+        // results would defeat the cap. The next text block reports omissions; structuredContent
+        // and the widget retain every result, including metadata and files beyond the cap.
+        text: JSON.stringify(
+          remaining > 0 ? { ...payload, assembly: { ...assembly, results: textResults } } : payload,
+        ),
+      },
+      { type: 'text', text: ['Result files:', ...lines].join('\n') },
+    ],
+  })
 }
 
 /**
@@ -1851,7 +1908,7 @@ export const createTransloaditMcpServer = (
             ? []
             : followRunningAssemblySteps
 
-        return buildToolResponse(
+        return buildAssemblyToolResponse(
           {
             status: 'ok',
             assembly,
@@ -1988,7 +2045,7 @@ export const createTransloaditMcpServer = (
         throw error
       }
 
-      return buildToolResponse({
+      return buildAssemblyToolResponse({
         status: 'ok',
         assembly,
       })
@@ -2058,7 +2115,7 @@ export const createTransloaditMcpServer = (
       const waited_ms = Date.now() - start
       const running = isAssemblyRunning(assembly)
 
-      return buildToolResponse(
+      return buildAssemblyToolResponse(
         {
           status: 'ok',
           assembly,
