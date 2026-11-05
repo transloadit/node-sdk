@@ -1,5 +1,14 @@
 # @transloadit/node
 
+## 6.7.0
+
+### Minor Changes
+
+- 1c53f40: Add `--speaker-labels` and `--max-speakers` to `transloadit speech transcribe`. With
+  `--speaker-labels` and no `--provider`, the API picks a provider that can label speakers instead of
+  the CLI forcing `replicate`; combining it with `--provider replicate`, or `--max-speakers` without
+  `--speaker-labels`, fails before an Assembly is created.
+
 ## 6.6.1
 
 ### Patch Changes
