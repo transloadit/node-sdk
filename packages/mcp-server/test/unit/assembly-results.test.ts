@@ -43,6 +43,15 @@ const completed: AssemblyStatus = {
   },
 }
 
+// Gemini errored on completed results once they were split into two text blocks (0.8.4), so
+// every result stays a single block, as before.
+const resultText = (result: CallToolResult): string => {
+  expect(result.content).toHaveLength(1)
+  const [block] = result.content
+  if (block?.type !== 'text') throw new Error('Expected a single text block')
+  return block.text
+}
+
 describe('Assembly result links for clients without a widget', () => {
   let client: Client | undefined
   let server: ReturnType<typeof createTransloaditMcpServer> | undefined
@@ -90,13 +99,9 @@ describe('Assembly result links for clients without a widget', () => {
 
     expect(result.isError).toBeUndefined()
     expect(result.structuredContent?.assembly).toEqual(completed)
-    expect(result.content).toContainEqual({
-      type: 'text',
-      text: JSON.stringify(result.structuredContent),
-    })
-    expect(result.content).toContainEqual({
-      type: 'text',
-      text: [
+    expect(resultText(result)).toContain(JSON.stringify(result.structuredContent))
+    expect(resultText(result)).toContain(
+      [
         'Result files:',
         ...Array.from(
           { length: 8 },
@@ -105,7 +110,7 @@ describe('Assembly result links for clients without a widget', () => {
         ),
         '- Step transcript, transcript.txt: https://results.example.com/transcript.txt',
       ].join('\n'),
-    })
+    )
     expect(result._meta).toEqual(
       tool.name === 'transloadit_get_assembly_status'
         ? undefined
@@ -135,7 +140,7 @@ describe('Assembly result links for clients without a widget', () => {
     }
     const result = await call(tool, assembly)
     const content = JSON.stringify(result.content)
-    const summary = result.content.filter((item) => item.type === 'text')[1]?.text ?? ''
+    const summary = resultText(result).split('\n\nResult files:\n')[1] ?? ''
 
     expect(result.structuredContent?.assembly).toEqual(assembly)
     expect(summary.match(/https:\/\/results\.example\.com\/cover-\d+\.jpg/g)).toHaveLength(20)
@@ -143,16 +148,15 @@ describe('Assembly result links for clients without a widget', () => {
     expect(content).toContain('Step second, cover-20.jpg: https://results.example.com/cover-20.jpg')
     expect(content).not.toContain('https://results.example.com/cover-21.jpg')
     expect(content).toContain('… 5 more result files not listed.')
-    expect(result.content).toContainEqual({
-      type: 'text',
-      text: JSON.stringify({
+    expect(resultText(result)).toContain(
+      JSON.stringify({
         ...result.structuredContent,
         assembly: {
           ...assembly,
           results: { first: assembly.results?.first, second: assembly.results?.second.slice(0, 8) },
         },
       }),
-    })
+    )
   })
 
   it('does not add a file list when a completed Assembly has no results', async () => {
@@ -168,7 +172,7 @@ describe('Assembly result links for clients without a widget', () => {
       ...completed,
       results: { thumbs: Array.from({ length: count }, (_, index) => cover(index + 1)) },
     })
-    const content = result.content.filter((item) => item.type === 'text')[1]?.text ?? ''
+    const content = resultText(result).split('\n\nResult files:\n')[1] ?? ''
 
     expect(content.match(/https:\/\/results\.example\.com\/cover-\d+\.jpg/g)).toHaveLength(20)
     expect(content.includes('… 1 more result file not listed.')).toBe(count === 21)
@@ -185,10 +189,7 @@ describe('Assembly result links for clients without a widget', () => {
       },
     })
 
-    expect(result.content).toContainEqual({
-      type: 'text',
-      text: JSON.stringify(result.structuredContent),
-    })
+    expect(resultText(result)).toContain(JSON.stringify(result.structuredContent))
     expect(JSON.stringify(result.content)).toContain('A dog running through a field.')
     expect(JSON.stringify(result.content)).toContain('A cat resting on a sofa.')
   })
@@ -200,10 +201,7 @@ describe('Assembly result links for clients without a widget', () => {
       results: { private: [{ ...cover(1), signed_ssl_url: signedUrl }] },
     })
 
-    expect(result.content).toContainEqual({
-      type: 'text',
-      text: `Result files:\n- Step private, cover-1.jpg: ${signedUrl}`,
-    })
+    expect(resultText(result)).toContain(`Result files:\n- Step private, cover-1.jpg: ${signedUrl}`)
   })
 
   it('links to url when a result has no SSL URL', async () => {
@@ -214,14 +212,13 @@ describe('Assembly result links for clients without a widget', () => {
       },
     })
 
-    expect(result.content).toContainEqual({
-      type: 'text',
-      text: [
+    expect(resultText(result)).toContain(
+      [
         'Result files:',
         '- Step thumbs, cover-1.jpg: https://results.example.com/cover-1.jpg',
         '- Step thumbs, legacy.jpg: https://results.example.com/legacy.jpg',
       ].join('\n'),
-    })
+    )
   })
 
   it('skips files without download URLs and supplies a label for an unnamed file', async () => {
@@ -238,10 +235,9 @@ describe('Assembly result links for clients without a widget', () => {
       },
     })
 
-    expect(result.content).toContainEqual({
-      type: 'text',
-      text: 'Result files:\n- Step thumbs, Unnamed file: https://results.example.com/cover-1.jpg',
-    })
+    expect(resultText(result)).toContain(
+      'Result files:\n- Step thumbs, Unnamed file: https://results.example.com/cover-1.jpg',
+    )
   })
 
   it('keeps file links on one line when names contain newlines', async () => {
@@ -250,9 +246,8 @@ describe('Assembly result links for clients without a widget', () => {
       results: { 'video\r\ncovers': [{ ...cover(1), name: 'cover\n1.jpg' }] },
     })
 
-    expect(result.content).toContainEqual({
-      type: 'text',
-      text: 'Result files:\n- Step video  covers, cover 1.jpg: https://results.example.com/cover-1.jpg',
-    })
+    expect(resultText(result)).toContain(
+      'Result files:\n- Step video  covers, cover 1.jpg: https://results.example.com/cover-1.jpg',
+    )
   })
 })

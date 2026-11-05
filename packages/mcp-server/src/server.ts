@@ -469,14 +469,13 @@ const buildAssemblyToolResponse = (
     content: [
       {
         type: 'text',
-        // The requested 20-file text limit applies to this JSON fallback too: repeating all
-        // results would defeat the cap. The next text block reports omissions; structuredContent
-        // and the widget retain every result, including metadata and files beyond the cap.
-        text: JSON.stringify(
+        // One block, like every other tool result: Gemini errored on completed results once they
+        // came as two text blocks. The 20-file cap applies to the JSON too, since repeating all
+        // results would defeat it; structuredContent and the widget retain every result.
+        text: `${JSON.stringify(
           remaining > 0 ? { ...payload, assembly: { ...assembly, results: textResults } } : payload,
-        ),
+        )}\n\n${['Result files:', ...lines].join('\n')}`,
       },
-      { type: 'text', text: ['Result files:', ...lines].join('\n') },
     ],
   })
 }
