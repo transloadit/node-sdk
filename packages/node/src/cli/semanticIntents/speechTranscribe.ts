@@ -33,7 +33,8 @@ const speechTranscribeExecutionDefinition = {
       kind: 'string',
       propertyName: 'provider',
       optionFlags: '--provider',
-      description: 'Provider to use for transcription. Defaults to replicate.',
+      description:
+        'Provider to use for transcription. Defaults to replicate, or to aws with --speaker-labels.',
       required: false,
       exampleValue: defaultSpeechTranscribeProvider,
     },
@@ -65,6 +66,24 @@ const speechTranscribeExecutionDefinition = {
       required: false,
       exampleValue: 'french',
     },
+    {
+      name: 'speaker_labels',
+      kind: 'boolean',
+      propertyName: 'speakerLabels',
+      optionFlags: '--speaker-labels',
+      description:
+        'Label who is speaking: one paragraph per speaker in text, voice spans in WebVTT. Uses aws or gcp.',
+      required: false,
+    },
+    {
+      name: 'max_speakers',
+      kind: 'number',
+      propertyName: 'maxSpeakers',
+      optionFlags: '--max-speakers',
+      description: 'Maximum number of speakers to label, from 1 to 10. Requires --speaker-labels.',
+      required: false,
+      exampleValue: 2,
+    },
   ] as const satisfies readonly IntentOptionDefinition[],
 } satisfies IntentDynamicStepExecutionDefinition
 
@@ -83,17 +102,19 @@ const speechTranscribeCommandPresentation = {
       'Generate subtitles',
       'transloadit speech transcribe --input clip.mp4 --format webvtt --output captions.vtt',
     ],
+    [
+      'Label who is speaking in an interview',
+      'transloadit speech transcribe --input interview.mp4 --speaker-labels --output interview.txt',
+    ],
   ] as Array<[string, string]>,
 } as const satisfies SemanticIntentPresentation
 
-function parseProvider(value: unknown): SpeechTranscribeProvider {
-  return (
-    parseOptionalEnumValue({
-      flagName: '--provider',
-      supportedValues: speechTranscribeProviders,
-      value,
-    }) ?? defaultSpeechTranscribeProvider
-  )
+function parseProvider(value: unknown): SpeechTranscribeProvider | null {
+  return parseOptionalEnumValue({
+    flagName: '--provider',
+    supportedValues: speechTranscribeProviders,
+    value,
+  })
 }
 
 function parseFormat(value: unknown): SpeechTranscribeFormat {
@@ -119,23 +140,52 @@ function parseOptionalString(value: unknown, flagName: string): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
+function parseMaxSpeakers(value: unknown, speakerLabels: boolean): number | null {
+  if (value == null) {
+    return null
+  }
+
+  if (!speakerLabels) {
+    throw new Error('--max-speakers requires --speaker-labels')
+  }
+
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 10) {
+    throw new Error('--max-speakers must be an integer from 1 to 10')
+  }
+
+  return value
+}
+
 function createSpeechTranscribeStep(
   rawValues: Record<string, unknown>,
   _context: { hasInputs: boolean },
 ): Record<string, unknown> {
-  const provider = parseProvider(rawValues.provider)
+  const requestedProvider = parseProvider(rawValues.provider)
   const format = parseFormat(rawValues.format)
   const sourceLanguage = parseOptionalString(rawValues.source_language, '--source-language')
   const targetLanguage = parseOptionalString(rawValues.target_language, '--target-language')
+  const speakerLabels = rawValues.speaker_labels === true
+  const maxSpeakers = parseMaxSpeakers(rawValues.max_speakers, speakerLabels)
+
+  if (speakerLabels && requestedProvider === 'replicate') {
+    throw new Error('--speaker-labels needs --provider aws or gcp')
+  }
+
+  // Without an explicit provider, the API picks one that supports speaker labels.
+  const provider = speakerLabels
+    ? requestedProvider
+    : (requestedProvider ?? defaultSpeechTranscribeProvider)
 
   return {
     robot: '/speech/transcribe',
     use: ':original',
     result: true,
-    provider,
+    ...(provider != null ? { provider } : {}),
     format,
     ...(sourceLanguage != null ? { source_language: sourceLanguage } : {}),
     ...(targetLanguage != null ? { target_language: targetLanguage } : {}),
+    ...(speakerLabels ? { speaker_labels: true } : {}),
+    ...(maxSpeakers != null ? { max_speakers: maxSpeakers } : {}),
   }
 }
 

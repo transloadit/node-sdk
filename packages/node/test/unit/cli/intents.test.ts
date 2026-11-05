@@ -845,6 +845,71 @@ describe('intent commands', () => {
     expect(createSpy).not.toHaveBeenCalled()
   })
 
+  it('lets the API pick a speaker-labeling provider for speech transcribe', async () => {
+    const { createSpy } = await runIntentCommand([
+      'speech',
+      'transcribe',
+      '--input',
+      'interview.mp4',
+      '--speaker-labels',
+      '--max-speakers',
+      '2',
+      '--output',
+      'interview.txt',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          transcribe: {
+            robot: '/speech/transcribe',
+            use: ':original',
+            result: true,
+            format: 'text',
+            speaker_labels: true,
+            max_speakers: 2,
+          },
+        },
+      }),
+    )
+  })
+
+  it('rejects speaker labels with the replicate provider', async () => {
+    const { createSpy } = await runIntentCommand([
+      'speech',
+      'transcribe',
+      '--input',
+      'interview.mp4',
+      '--speaker-labels',
+      '--provider',
+      'replicate',
+      '--output',
+      'interview.txt',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
+  it('rejects --max-speakers without --speaker-labels', async () => {
+    const { createSpy } = await runIntentCommand([
+      'speech',
+      'transcribe',
+      '--input',
+      'interview.mp4',
+      '--max-speakers',
+      '2',
+      '--output',
+      'interview.txt',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
   it('passes through explicit markdown options for backend rendering', async () => {
     const { createSpy } = await runIntentCommand([
       'markdown',
