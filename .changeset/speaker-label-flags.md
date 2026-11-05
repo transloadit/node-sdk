@@ -1,6 +1,7 @@
 ---
 '@transloadit/node': minor
 'transloadit': minor
+'@transloadit/mcp-server': patch
 ---
 
 Add `--speaker-labels` and `--max-speakers` to `transloadit speech transcribe`. With
