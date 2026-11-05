@@ -1,5 +1,12 @@
 # @transloadit/mcp-server
 
+## 0.8.6
+
+### Patch Changes
+
+- 18946ff: Return completed Assembly results as a single text block again, with the result file links after
+  the JSON. Gemini failed tool calls once 0.8.4 split these results into two text blocks.
+
 ## 0.8.5
 
 ### Patch Changes
