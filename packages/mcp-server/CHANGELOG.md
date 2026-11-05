@@ -1,5 +1,19 @@
 # @transloadit/mcp-server
 
+## 0.8.4
+
+### Patch Changes
+
+- 0f62cae: The MCP server card no longer claims a hand-kept Robot count ("86+") that had fallen behind the
+  catalog. The npm descriptions of `@transloadit/node` and `transloadit` now name the bundled
+  `transloadit` CLI, so people searching for a Transloadit CLI find it.
+- fdaae24: Show completed Assembly result files as readable Step names, file names and download URLs in tool
+  text, so clients without a result widget can link to the outputs. Prefer signed download URLs when
+  available. Keep metadata for the first 20 files in text and report the remaining count, while
+  keeping all results in structured output and the result widget.
+- Updated dependencies [0f62cae]
+  - @transloadit/node@6.6.1
+
 ## 0.8.3
 
 ### Patch Changes

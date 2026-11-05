@@ -1,5 +1,13 @@
 # @transloadit/node
 
+## 6.6.1
+
+### Patch Changes
+
+- 0f62cae: The MCP server card no longer claims a hand-kept Robot count ("86+") that had fallen behind the
+  catalog. The npm descriptions of `@transloadit/node` and `transloadit` now name the bundled
+  `transloadit` CLI, so people searching for a Transloadit CLI find it.
+
 ## 6.6.0
 
 ### Minor Changes
