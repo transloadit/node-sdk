@@ -1,5 +1,16 @@
 # @transloadit/mcp-server
 
+## 0.8.5
+
+### Patch Changes
+
+- 1c53f40: Add `--speaker-labels` and `--max-speakers` to `transloadit speech transcribe`. With
+  `--speaker-labels` and no `--provider`, the API picks a provider that can label speakers instead of
+  the CLI forcing `replicate`; combining it with `--provider replicate`, or `--max-speakers` without
+  `--speaker-labels`, fails before an Assembly is created.
+- Updated dependencies [1c53f40]
+  - @transloadit/node@6.7.0
+
 ## 0.8.4
 
 ### Patch Changes
