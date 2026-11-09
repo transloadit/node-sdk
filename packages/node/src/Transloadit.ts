@@ -605,6 +605,7 @@ export class Transloadit {
     const result = await this._remoteJson<unknown, OptionalAuthParams & GetStoredAssetOptions>({
       urlSuffix: `/dam/assets/${id}`,
       method: 'get',
+      signEndpoint: true,
       params,
       signal: options.signal,
     })
@@ -629,6 +630,7 @@ export class Transloadit {
     const result = await this._remoteJson<unknown, OptionalAuthParams & ListStoredAssetsOptions>({
       urlSuffix: '/dam/assets',
       method: 'get',
+      signEndpoint: true,
       params,
       signal: options.signal,
     })
@@ -653,6 +655,7 @@ export class Transloadit {
     const result = await this._remoteJson<unknown, OptionalAuthParams & MoveStoredAssetOptions>({
       urlSuffix: `/dam/assets/${id}`,
       method: 'patch',
+      signEndpoint: true,
       params,
       signal: options.signal,
     })
@@ -676,6 +679,7 @@ export class Transloadit {
     const result = await this._remoteJson<unknown, OptionalAuthParams>({
       urlSuffix: `/dam/assets/${id}`,
       method: 'delete',
+      signEndpoint: true,
       signal: options.signal,
     })
     checkResult(result)
@@ -1712,6 +1716,8 @@ export class Transloadit {
     timeout?: Delays
     method?: 'delete' | 'get' | 'patch' | 'post' | 'put'
     params?: TParams
+    /** Sign the request's method and path into `params.auth`, as Storage requests require. */
+    signEndpoint?: boolean
     fields?: Fields
     headers?: Headers
     signal?: AbortSignal
@@ -1722,7 +1728,8 @@ export class Transloadit {
       isTrustedUrl = false,
       timeout = { request: this._defaultTimeout },
       method = 'get',
-      params = {},
+      params: paramsInput = {},
+      signEndpoint = false,
       fields,
       headers,
       signal,
@@ -1738,6 +1745,14 @@ export class Transloadit {
         throw new Error(`Untrusted URL: ${candidate.origin}`)
       }
     }
+
+    const requested: OptionalAuthParams = paramsInput
+    const params: OptionalAuthParams = signEndpoint
+      ? {
+          ...requested,
+          auth: { ...requested.auth, method: method.toUpperCase(), path: new URL(url).pathname },
+        }
+      : requested
 
     if (method === 'get') {
       url = this._appendParamsToUrl(url, params)
