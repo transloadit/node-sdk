@@ -1,52 +1,33 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
   boxBase,
-  interpolateRobot,
+  createStorageImportExample,
+  defineRobotWithHiddenFields,
   path,
   robotBase,
   robotImport,
+  robotImportMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      imported: {
-        robot: '/box/import',
-        credentials: 'YOUR_BOX_CREDENTIALS',
-        path: 'path/to/files/',
-      },
-    },
-  },
+  ...robotImportMeta,
+  example_code: createStorageImportExample('/box/import', 'YOUR_BOX_CREDENTIALS', false),
   example_code_description:
     'Import files from the `path/to/files` directory and its subdirectories:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Importing',
   purpose_sentence: 'imports whole directories of files from your Box',
-  purpose_verb: 'import',
   purpose_word: 'Box',
   purpose_words: 'Import files from Box',
   requires_credentials: true,
-  service_slug: 'file-importing',
-  slot_count: 20,
   title: 'Import files from Box',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'BoxImportRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
-  stage: 'ga',
 }
 
 export const robotBoxImportInstructionsSchema = robotBase
@@ -66,33 +47,29 @@ You can also use an array of path strings here to import multiple paths in the s
   })
   .strict()
 
-export const robotBoxImportInstructionsWithHiddenFieldsSchema =
-  robotBoxImportInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotBoxImportInstructionsSchema.shape.result]).optional(),
-    access_token: z.string().optional(),
-    key_file_contents: z.string().optional(),
-  })
+const hiddenFields = {
+  access_token: z.string().optional(),
+  key_file_contents: z.string().optional(),
+}
 
-export type RobotBoxImportInstructions = z.infer<typeof robotBoxImportInstructionsSchema>
-export type RobotBoxImportInstructionsWithHiddenFields = z.infer<
-  typeof robotBoxImportInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotBoxImportInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotBoxImportInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotBoxImportInstructionsSchema = interpolateRobot(
-  robotBoxImportInstructionsSchema,
-)
-export type InterpolatableRobotBoxImportInstructions = InterpolatableRobotBoxImportInstructionsInput
+export const {
+  withHiddenFields: robotBoxImportInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotBoxImportInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotBoxImportInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotBoxImportInstructionsInput = z.input<
-  typeof interpolatableRobotBoxImportInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotBoxImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotBoxImportInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotBoxImportInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotBoxImportInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotBoxImportInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotBoxImportInstructionsWithHiddenFieldsSchema
->
+export type RobotBoxImportInstructions = Instructions['output']
+export type RobotBoxImportInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotBoxImportInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotBoxImportInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotBoxImportInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotBoxImportInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

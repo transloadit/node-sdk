@@ -1,3 +1,4 @@
+<!-- alphalib-sync-agent-doc-sha256:9dc5eb4e06e12082ec883ab88ffd692b2017dc9ab4e18192cccc1109788ffb5c -->
 # Transloadit Repository Guide
 ## coding style
 
@@ -33,6 +34,11 @@ Coding style:
 - Use descriptive names: PascalCase for components/types, camelCase for variables/methods/schemas
 - Alphabetize imports, group by source type (built-in/external/internal)
 - Preserve existing sorted lists and config ordering unless intentionally changing the order.
+- Write code in English: identifiers, file names, comments, log and error messages, and
+  operator-facing CLI output. Text written for a specific audience, such as customer messages,
+  templates and translated UI copy, stays in that audience's language. Existing non-English code
+  needs no rename for its own sake, but new code and comments are English, and code is translated
+  before it moves into shared code such as alphalib.
 - Favor US English over UK English, so `summarizeError` over `summarise Error`
 - Favor `.replaceAll('a', 'b)` over `.replace(/a/g, 'b')` or `.replace(new RegExp('a', 'g'), 'b')` when the only need for regeses was replacing all strings. That's usually both easier to read and more performant.
 - Use typographic characters: ellipsis (`…`) instead of `...`, curly quotes (`'` `"`) instead of straight quotes in user-facing text
@@ -60,6 +66,9 @@ General:
 
 - Do not touch `.env` files!
 - Favor Yarn (4) over npm
+- Do not prove script, workflow, or config behavior with source-string assertions. Execute the
+  behavior; keep workflow YAML thin and test its scripts. Use standard validators or narrow, named
+  lint rules for intentional static contracts, with fixtures that demonstrate violations.
 - Before starting a dev server, first check whether a suitable one is already running and use that
   if possible. If none is available and local browser/e2e validation needs one, start the documented
   dev server, capture its log path/pid, and stop it when you are done unless the user asked to keep
@@ -69,7 +78,13 @@ General:
 - Use the `gh` tool to interact with GitHub (search/view an Issue, create a PR).
 - When using `fetch()` directly, check `response.ok` before parsing the body, and surface non-2xx
   responses as errors with enough context for debugging.
-- Treat `AGENTS.md` and `CLAUDE.md` as generated artifacts (single source of truth is `.ai/rules/`), managed by `~/code/content/_scripts/alphalib-sync.ts`; never edit those files directly. If you'd like to make a modification, do it here in `.ai/rules/` and the script will ensure proper preservation and syncing. If you need a rule specific to this repo, add it to `.ai/rules/repo.mdc`.
+- Treat `AGENTS.md` as a generated artifact (single source of truth is `.ai/rules/`), managed by
+  `~/code/content/_scripts/alphalib-sync.ts`; never edit it directly. Change `.ai/rules/` instead;
+  repo-specific rules belong in `.ai/rules/repo.mdc`. Regenerate with
+  `node ~/code/content/_scripts/alphalib-sync.ts generate-agent-docs --dir .`.
+- Do not recreate a duplicate `CLAUDE.md`. Claude Code v2.1.281+ reads `AGENTS.md` directly with its
+  built-in `agents-md` plugin enabled. Local or ancestor Claude instruction files can shadow it under
+  the default settings; preserve their instructions and resolve that explicitly before migrating.
 - All new files are to be in TypeScript. Even if someone suggests: make this new foo3 feature, model it after `foo1.js`, create: `foo3.ts`. Chances are, a `foo2.ts` already exist that you can take a look at also for inspiration.
 
 ## playwright
@@ -86,6 +101,15 @@ General:
 - Stub or mock external/third‑party requests (Intercom, Sentry, etc.) and any auth/login endpoints to keep tests deterministic; return minimal valid JSON when the app expects data.
 - Each unexpected error should surface and fail the test.
 
+## repo
+
+For this repo:
+
+- This is an SDK monorepo, not a Next.js application. Next.js-specific guidance applies only to
+  the integration examples and fixtures in `packages/img` and `scripts/fixtures/img-next`.
+- Keep the installed Next.js agent-rules block below in this repo-owned rule source. Do not copy
+  Content's website layout, routing, translation, or styling conventions into SDK packages.
+
 ## typescript
 
 For Typescript:
@@ -94,8 +118,9 @@ For Typescript:
 - Favor `from './PosterboyCommand.ts'` over `from './PosterboyCommand'`
 - Favor `return ideas.filter(isPresent)` over `ideas.filter((idea): idea is Idea => idea !== null)`
 - Favor using `.tsx` over `.jsx` file extensions.
-- Use Node v24's native typestripping vs `tsx` or `ts-node`. These days you do not even need to pass
-  `--experimental-strip-types`, `node app.ts` will just work.
+- Use the repository's declared Node version and native TypeScript stripping instead of `tsx` or
+  `ts-node`. Tooling versions do not raise a published package's supported runtime floor; check its
+  own manifest before introducing newer platform APIs.
 - In ESM TypeScript, use `import.meta.dirname` / `import.meta.filename` or `URL` objects instead of
   rebuilding `__dirname` with `fileURLToPath(import.meta.url)` unless compatibility requires it.
 - Use `satisfies` when you need literal preservation or structural conformance while keeping the
@@ -134,8 +159,9 @@ For Typescript:
 - Do not duplicate supported values in user-facing schema descriptions when schema metadata such as
   enums or suggested values can carry that information.
 - In TypeScript files, use TypeScript syntax instead of JSDoc type annotations. In JavaScript files,
-  prefer JSDoc `@import` / `@param` forms over noisy inline `import('...')` annotations, and make
-  sure `@type` annotates the expression it is meant to type.
+  put JSDoc `@import` declarations in the top-of-file JSDoc block with the other type imports. Do
+  not use inline `import('...')` annotations in `@param`, `@returns`, or `@type`. Make sure `@type`
+  annotates the expression it is meant to type.
 - Avoid hand-written `.d.ts` files when the declaration can come from TypeScript source or
   generation. If a declaration file is unavoidable, do not rely on `skipLibCheck` to hide duplicate
   or invalid exports.
@@ -160,3 +186,13 @@ For Typescript:
 - Favor defining props as an interface over inline
 - Favor explicit return types over inferring them as it makes typescript a lot faster in the editor
   on our scale
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

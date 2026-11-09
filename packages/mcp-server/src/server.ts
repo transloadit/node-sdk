@@ -1,9 +1,18 @@
+import type { RegisteredTool, ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
 import type {
   AssemblyInstructionsInput,
+  AssemblyStatus,
   CreateAssemblyParams,
+  InputFile,
   LintAssemblyInstructionsResult,
 } from '@transloadit/node'
+import type { SevLogger } from '@transloadit/sev-logger'
+import type { ZodObject } from 'zod'
+
+import type { BuiltinCatalog } from './builtin-shortcuts.ts'
+import type { ToolName } from './tool-metadata.ts'
+import type { WidgetContext } from './ui/assembly-result-widget.ts'
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import {
@@ -16,22 +25,99 @@ import {
   prepareInputFiles,
   Transloadit,
 } from '@transloadit/node'
+import { builtinTemplateFieldsSchema } from '@transloadit/zod/v4/builtinTemplates'
 import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
+import {
+  applyBuiltinCatalog,
+  BuiltinFieldValidationError,
+  builtinShortcuts,
+  loadBuiltinShortcuts,
+  selectBuiltinInputUrls,
+  validateBuiltinFields,
+} from './builtin-shortcuts.ts'
 import { getTransloaditDoc, searchTransloaditDocs } from './docs.ts'
-import { extractBearerToken } from './http-helpers.ts'
+import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
+import { buildRedactor, getDiagnosticsLogger } from './logger.ts'
+import { assertServerOptions } from './options.ts'
+import { mirrorSecuritySchemes } from './tool-list.ts'
+import {
+  buildToolMeta,
+  resolveSecuritySchemes,
+  resolveToolAuthMode,
+  serverInstructions,
+  toolMetadata,
+} from './tool-metadata.ts'
+import {
+  describeAssemblySteps,
+  registerAssemblyResultWidget,
+  widgetContextMetaKey,
+} from './ui/assembly-result-widget.ts'
+import { buildUploadInstructions, uploadInstructionSchema } from './upload-instructions.ts'
 
 export type TransloaditMcpServerOptions = {
   authKey?: string
   authSecret?: string
   mcpToken?: string
+  /**
+   * Protected-resource metadata URL of the hosted deployment. When set, auth failures carry an
+   * RFC 6750 challenge that points OAuth clients at API2 (`TRANSLOADIT_MCP_RESOURCE_METADATA_URL`).
+   */
+  resourceMetadataUrl?: string
+  /**
+   * Shared secret that identifies the Transloadit-hosted MCP service to API2, which only accepts
+   * relayed `aud=mcp` bearer tokens from that service (`TRANSLOADIT_MCP_UPSTREAM_SECRET`). It is
+   * sent as `Transloadit-Mcp-Upstream` next to a forwarded bearer token and never with key/secret.
+   */
+  upstreamSecret?: string
+  /**
+   * HMAC algorithm for key/secret signatures (`TRANSLOADIT_SIGNATURE_ALGORITHM`). Must match the
+   * Auth Key's `signature_algo`; Console keys that may sign Smart CDN URLs require `sha256`.
+   * Defaults to the SDK's `sha384`, which ordinary API keys use.
+   */
+  signatureAlgorithm?: McpSignatureAlgorithm
+  /**
+   * Origins the result widget may load previews from and link to
+   * (`TRANSLOADIT_MCP_RESULT_DOMAINS`). Takes exact origins or wildcard hosts; defaults to
+   * Transloadit's result buckets as wildcards.
+   */
+  resultDomains?: string[]
+  /**
+   * Dedicated origin ChatGPT serves the result widget from (`openai/widgetDomain`,
+   * `TRANSLOADIT_MCP_WIDGET_DOMAIN`); defaults to `https://transloadit.com`. Claude computes its
+   * own `ui.domain`, so this setting does not affect it.
+   */
+  widgetDomain?: string
+  /** Most bytes the URL inputs of one call may download together; defaults to 1 GiB. */
+  maxUrlDownloadBytes?: number
+  /** Longest one URL input download may take, redirects included; defaults to 10 minutes. */
+  urlDownloadTimeoutMs?: number
+  /**
+   * Longest a call that creates, resumes or waits for an Assembly blocks before it returns the
+   * Assembly's current state; defaults to 45 seconds, below the tool-call limits of MCP hosts.
+   */
+  maxWaitMs?: number
+  /** Receives diagnostics from tool calls; defaults to a logger that writes to stderr. */
+  logger?: SevLogger
+  /** Console origin used for widget deep links; defaults to the public website. */
+  consoleUrl?: string
   endpoint?: string
   serverName?: string
   serverVersion?: string
   clientName?: string
   clientSuffix?: string
 }
+
+const defaultConsoleUrl = 'https://transloadit.com'
+
+/** Signature algorithms API2 accepts for Auth Key signatures. */
+export const signatureAlgorithmSchema = z.enum(['sha1', 'sha256', 'sha384'])
+
+export type McpSignatureAlgorithm = z.infer<typeof signatureAlgorithmSchema>
+
+/** Header that carries `upstreamSecret` on API2 calls made with a forwarded bearer token. */
+export const upstreamSecretHeader = 'Transloadit-Mcp-Upstream'
 
 type LintIssueOutput = {
   path: string
@@ -102,6 +188,21 @@ const getDocOutputSchema = z.object({
   errors: z.array(toolMessageSchema).optional(),
 })
 
+/** URL inputs beyond these limits are not downloaded to this server's disk (per call). */
+const defaultMaxUrlDownloadBytes = 1024 * 1024 * 1024
+const defaultUrlDownloadTimeoutMs = 10 * 60 * 1000
+
+/**
+ * Hosts abandon tool calls that run too long (ChatGPT after about a minute) and may retry them,
+ * creating a second Assembly. Calls that create or follow an Assembly therefore return its
+ * current state once this budget is spent; transloadit_wait_for_assembly follows it from there.
+ */
+const defaultMaxWaitMs = 45_000
+/** Lowest request timeout handed to the SDK, so a nearly spent budget cannot fail a request. */
+const minimumSdkTimeoutMs = 10_000
+/** Longest a status read after an early return may take. */
+const statusReadTimeoutMs = 5_000
+
 type LintAssemblyInstructionsInput = Parameters<Transloadit['lintAssemblyInstructions']>[0]
 
 const lintIssueSchema = z.object({
@@ -129,6 +230,7 @@ const listRobotsOutputSchema = z.object({
     }),
   ),
   next_cursor: z.string().optional(),
+  next_steps: z.array(z.string()).optional(),
 })
 
 const robotParamSchema = z.object({
@@ -166,17 +268,13 @@ const getRobotHelpOutputSchema = z
     robot: robotHelpOutputSchema.optional(),
     robots: z.array(robotHelpOutputSchema).optional(),
     not_found: z.array(z.string()).optional(),
+    next_steps: z.array(z.string()).optional(),
   })
   .refine((value) => value.status !== 'ok' || value.robot || value.robots, {
     message: 'Expected robot or robots for ok status.',
   })
 
 const inputFileSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('path'),
-    field: z.string(),
-    path: z.string(),
-  }),
   z.object({
     kind: z.literal('base64'),
     field: z.string(),
@@ -193,22 +291,41 @@ const inputFileSchema = z.discriminatedUnion('kind', [
   }),
 ])
 
+// Exactly the file object ChatGPT hydrates for `_meta["openai/fileParams"]`: the two ids are
+// required, the descriptive fields optional, and nothing else is allowed.
+const hostFileSchema = z
+  .object({
+    download_url: z.string(),
+    file_id: z.string(),
+    mime_type: z.string().optional(),
+    file_name: z.string().optional(),
+  })
+  .strict()
+
+type HostFile = z.infer<typeof hostFileSchema>
+
+// Directory scanners require a typed schema; the server also accepts the instructions as a JSON string.
+const assemblyInstructionsInputSchema = z.union([z.record(z.string(), z.unknown()), z.string()])
+
 const createAssemblyInputSchema = z.object({
-  instructions: z.unknown().optional(),
+  instructions: assemblyInstructionsInputSchema.optional(),
   files: z.array(inputFileSchema).optional(),
+  attachments: z.array(hostFileSchema).optional(),
   fields: z.record(z.string(), z.unknown()).optional(),
   wait_for_completion: z.boolean().optional(),
   wait_timeout_ms: z.number().int().positive().optional(),
   upload_concurrency: z.number().int().positive().optional(),
   upload_chunk_size: z.number().int().positive().optional(),
   upload_behavior: z.enum(['await', 'background', 'none']).optional(),
-  expected_uploads: z.number().int().positive().optional(),
+  // Each expected upload becomes an instruction in the response; keep that response bounded.
+  expected_uploads: z.number().int().positive().max(100).optional(),
   assembly_url: z.string().optional(),
 })
 
 const createAssemblyOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   assembly: z.unknown().optional(),
+  running: z.boolean().optional(),
   upload: z
     .object({
       status: z.enum(['none', 'uploading', 'complete']),
@@ -217,6 +334,7 @@ const createAssemblyOutputSchema = z.object({
       upload_urls: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
+  upload_instructions: z.array(uploadInstructionSchema).optional(),
   next_steps: z.array(z.string()).optional(),
   errors: z.array(toolMessageSchema).optional(),
   warnings: z.array(toolMessageSchema).optional(),
@@ -244,7 +362,9 @@ const waitForAssemblyInputSchema = z.object({
 const waitForAssemblyOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   assembly: z.unknown().optional(),
+  running: z.boolean().optional(),
   waited_ms: z.number().int().nonnegative().optional(),
+  next_steps: z.array(z.string()).optional(),
   errors: z.array(toolMessageSchema).optional(),
   warnings: z.array(toolMessageSchema).optional(),
 })
@@ -267,6 +387,7 @@ const listTemplatesOutputSchema = z.object({
       name: z.string().optional(),
       description: z.string().optional(),
       builtin_version: z.string().optional(),
+      fields_schema: builtinTemplateFieldsSchema.optional(),
       steps: z.record(z.string(), z.unknown()).optional(),
     }),
   ),
@@ -278,7 +399,7 @@ const listTemplatesOutputSchema = z.object({
 })
 
 const lintAssemblyInputSchema = z.object({
-  instructions: z.unknown(),
+  instructions: assemblyInstructionsInputSchema,
   strict: z.boolean().optional(),
   return_fixed: z.boolean().optional(),
 })
@@ -287,7 +408,21 @@ const lintAssemblyOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   linting_issues: z.array(lintIssueSchema),
   normalized_instructions: z.unknown().optional(),
+  next_steps: z.array(z.string()).optional(),
 })
+
+const getProfileInputSchema = z.object({}).strict()
+
+// Shape ChatGPT expects from a profile tool: an opaque stable id plus optional display fields.
+const getProfileOutputSchema = z
+  .object({
+    id: z.string().min(1).regex(/\S/),
+    name: z.string().optional(),
+    nickname: z.string().optional(),
+  })
+  .strict()
+
+type WorkspaceProfile = z.infer<typeof getProfileOutputSchema>
 
 const toLintIssues = (issues: LintAssemblyInstructionsResult['issues']): LintIssueOutput[] =>
   issues.map((issue) => ({
@@ -305,17 +440,145 @@ const safeJsonParse = (value: string): unknown => {
   }
 }
 
-const buildToolResponse = (payload: Record<string, unknown>): CallToolResult => {
-  const content: TextContent = {
-    type: 'text',
-    text: JSON.stringify(payload),
-  }
+type ToolResponseExtras = {
+  /** Result `_meta`, delivered to widgets and hosts but hidden from the model. */
+  meta?: Record<string, unknown>
+  isError?: boolean
+  content?: TextContent[]
+}
+
+const buildToolResponse = (
+  payload: Record<string, unknown>,
+  extras: ToolResponseExtras = {},
+): CallToolResult => {
+  const content: TextContent[] = extras.content ?? [{ type: 'text', text: JSON.stringify(payload) }]
 
   return {
-    content: [content],
+    content,
     structuredContent: payload,
+    ...(extras.isError ? { isError: true } : {}),
+    ...(extras.meta ? { _meta: extras.meta } : {}),
   }
 }
+
+const maxTextResultFiles = 20
+
+/** Gives clients without a result widget a bounded, readable list of completed result files. */
+const buildAssemblyToolResponse = (
+  payload: Record<string, unknown> & { assembly: AssemblyStatus },
+  extras: ToolResponseExtras = {},
+): CallToolResult => {
+  const { assembly } = payload
+  // Only successful completion publishes a final file list; partial results keep their JSON.
+  if (assembly.ok !== 'ASSEMBLY_COMPLETED' || assembly.error) {
+    return buildToolResponse(payload, extras)
+  }
+
+  const lines: string[] = []
+  const textResults: NonNullable<AssemblyStatus['results']> = {}
+  let totalFiles = 0
+  for (const [step, files] of Object.entries(assembly.results ?? {})) {
+    const remainingSlots = maxTextResultFiles - totalFiles
+    totalFiles += files.length
+    if (remainingSlots <= 0) continue
+    const textFiles = files.slice(0, remainingSlots)
+    // Metadata-only outputs, such as image descriptions, share the same cap as linked files.
+    textResults[step] = textFiles
+    for (const file of textFiles) {
+      const url = [file.signed_ssl_url, file.signed_url, file.ssl_url, file.url].find(
+        isNonEmptyString,
+      )
+      if (!url) continue
+
+      // Names can contain newlines; keep each file's label and URL together on one line.
+      const stepName = step.replaceAll('\r', ' ').replaceAll('\n', ' ')
+      const fileName = (file.name || 'Unnamed file').replaceAll('\r', ' ').replaceAll('\n', ' ')
+      lines.push(`- Step ${stepName}, ${fileName}: ${url}`)
+    }
+  }
+
+  const remaining = Math.max(totalFiles - maxTextResultFiles, 0)
+  if (lines.length === 0 && remaining === 0) return buildToolResponse(payload, extras)
+  if (remaining > 0) {
+    lines.push(`… ${remaining} more result ${remaining === 1 ? 'file' : 'files'} not listed.`)
+  }
+
+  return buildToolResponse(payload, {
+    ...extras,
+    content: [
+      {
+        type: 'text',
+        // One block, like every other tool result: Gemini errored on completed results once they
+        // came as two text blocks. The 20-file cap applies to the JSON too, since repeating all
+        // results would defeat it; structuredContent and the widget retain every result.
+        text: `${JSON.stringify(
+          remaining > 0 ? { ...payload, assembly: { ...assembly, results: textResults } } : payload,
+        )}\n\n${['Result files:', ...lines].join('\n')}`,
+      },
+    ],
+  })
+}
+
+/**
+ * The SDK client validates `structuredContent` against a tool's output schema even on `isError`
+ * results, so tools whose schema cannot describe an error (Template lists, the strict profile)
+ * return errors as text only. The text still carries the code and hint as JSON.
+ */
+const withoutStructuredContent = (result: CallToolResult): CallToolResult => {
+  const { structuredContent: _structuredContent, ...rest } = result
+  return rest
+}
+
+type AuthErrorInput = {
+  code: 'mcp_missing_auth' | 'mcp_auth_rejected' | 'mcp_insufficient_scope'
+  oauthError: 'invalid_token' | 'insufficient_scope'
+  message: string
+  hint?: string
+  /** Scopes to request again; only meaningful for `insufficient_scope`. */
+  scopes?: string[]
+}
+
+/**
+ * Tool-level auth failure. `_meta["mcp/www_authenticate"]` mirrors the HTTP challenge so ChatGPT
+ * and Claude open their account-linking UI; the text content keeps the reason readable.
+ */
+const buildAuthError = (
+  options: TransloaditMcpServerOptions,
+  input: AuthErrorInput,
+): CallToolResult =>
+  buildToolResponse(
+    {
+      status: 'error',
+      errors: [{ code: input.code, message: input.message, hint: input.hint }],
+    },
+    {
+      isError: true,
+      meta: {
+        'mcp/www_authenticate': [
+          buildBearerChallenge({
+            resourceMetadataUrl: options.resourceMetadataUrl,
+            error: { code: input.oauthError, description: input.message },
+            scopes: input.scopes,
+          }),
+        ],
+      },
+    },
+  )
+
+const buildMissingAuthError = (options: TransloaditMcpServerOptions): CallToolResult =>
+  // Only a hosted server has an authorization server a host could link an account with.
+  options.resourceMetadataUrl
+    ? buildAuthError(options, {
+        code: 'mcp_missing_auth',
+        oauthError: 'insufficient_scope',
+        message: 'Sign in to Transloadit to use this tool.',
+        hint: 'Connect your Transloadit account through OAuth, then retry.',
+      })
+    : buildCredentialError({
+        code: 'mcp_missing_auth',
+        message: 'This server has no Transloadit credentials for this tool.',
+        hint: 'Set TRANSLOADIT_KEY/TRANSLOADIT_SECRET or send an Authorization: Bearer token.',
+      })
 
 const buildToolError = (
   code: string,
@@ -333,6 +596,85 @@ const buildToolError = (
       },
     ],
   })
+
+const buildShortcutError = (...args: Parameters<typeof buildToolError>): CallToolResult => ({
+  ...buildToolError(...args),
+  isError: true,
+})
+
+/** Maps an input preparation failure to a tool error; API rejections are left to the caller. */
+const buildInputError = (error: unknown): CallToolResult => {
+  // API rejections (the token check) are not input mistakes; the outer handler maps them.
+  if (error instanceof ApiError) throw error
+  const message = error instanceof Error ? error.message : 'Invalid file input.'
+  if (message.startsWith('Duplicate file field')) {
+    return buildToolError('mcp_duplicate_field', message, { path: 'files' })
+  }
+  if (message.startsWith('Base64 payload exceeds')) {
+    return buildToolError('mcp_base64_too_large', message, {
+      hint: 'Use a public URL import or upload from your own machine instead.',
+    })
+  }
+  return buildToolError('mcp_invalid_args', message)
+}
+
+const deadlineReached = Symbol('deadlineReached')
+
+/** Stops input preparation from starting another download once the wait budget is spent. */
+class PreparationBudgetSpentError extends Error {
+  override name = 'PreparationBudgetSpentError'
+}
+
+/** Settles like `promise`, or with `deadlineReached` when it is still pending after `ms`. */
+const settleWithin = async <T>(
+  promise: Promise<T>,
+  ms: number,
+): Promise<T | typeof deadlineReached> => {
+  let timer: NodeJS.Timeout | undefined
+  const deadline = new Promise<typeof deadlineReached>((resolve) => {
+    timer = setTimeout(resolve, ms, deadlineReached)
+  })
+  try {
+    return await Promise.race([promise, deadline])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** The SDK does not export PollingTimeoutError, so it is recognized by name. */
+const isPollingTimeout = (error: unknown): boolean =>
+  error instanceof Error && error.name === 'PollingTimeoutError'
+
+/** The same states the SDK's awaitAssemblyCompletion keeps polling on. */
+const runningAssemblyStates = new Set([
+  'ASSEMBLY_UPLOADING',
+  'ASSEMBLY_EXECUTING',
+  'ASSEMBLY_REPLAYING',
+])
+
+const isAssemblyRunning = (assembly: AssemblyStatus): boolean =>
+  !assembly.error && typeof assembly.ok === 'string' && runningAssemblyStates.has(assembly.ok)
+
+/** Tells the model that the call returned early and how to follow the Assembly instead of retrying. */
+const buildStillRunningNotice = (
+  assembly: { assembly_ssl_url?: unknown; assembly_url?: unknown },
+  fallbackUrl?: string,
+): { code: string; message: string; hint: string } => {
+  const assemblyUrl = isNonEmptyString(assembly.assembly_ssl_url)
+    ? assembly.assembly_ssl_url
+    : isNonEmptyString(assembly.assembly_url)
+      ? assembly.assembly_url
+      : fallbackUrl
+  const follow = 'Follow it with transloadit_wait_for_assembly or transloadit_get_assembly_status'
+  return {
+    code: 'mcp_assembly_still_running',
+    message:
+      'Returned before the Assembly finished, within the time this call may wait. The Assembly keeps running.',
+    hint: assemblyUrl
+      ? `${follow} using assembly_url ${assemblyUrl}; do not create it again.`
+      : `${follow}; do not create it again.`,
+  }
+}
 
 const getClientName = (options: TransloaditMcpServerOptions): string => {
   const base = options.clientName ?? `mcp-server:${packageJson.version}`
@@ -365,42 +707,54 @@ const getHeaderValue = (headers: HeaderMap | undefined, name: string): string | 
 const getBearerToken = (headers: HeaderMap | undefined): string | undefined =>
   extractBearerToken(getHeaderValue(headers, 'authorization'))
 
-type LiveClientResult = { client: Transloadit } | { error: ReturnType<typeof buildToolError> }
+/** Which credentials a live client signs with; recovery advice differs per kind. */
+type CredentialKind = 'bearer' | 'auth-key'
+
+type LiveClientResult =
+  | { client: Transloadit; credentials: CredentialKind }
+  | { error: ReturnType<typeof buildToolError> }
 
 const createLiveClient = (
   options: TransloaditMcpServerOptions,
   extra: ToolExtra,
+  maxRetries?: number,
 ): LiveClientResult => {
   const token = getBearerToken(extra.requestInfo?.headers)
   const authToken = token && token !== options.mcpToken ? token : undefined
 
   if (authToken) {
     return {
+      credentials: 'bearer',
       client: new Transloadit({
         authToken,
         authKey: options.authKey,
         authSecret: options.authSecret,
         endpoint: options.endpoint,
         clientName: getClientName(options),
+        signatureAlgorithm: options.signatureAlgorithm,
+        followRedirects: false,
+        maxRetries,
+        extraHeaders: options.upstreamSecret
+          ? { [upstreamSecretHeader]: options.upstreamSecret }
+          : undefined,
       }),
     }
   }
 
   if (!options.authKey || !options.authSecret) {
-    return {
-      error: buildToolError(
-        'mcp_missing_auth',
-        'Missing TRANSLOADIT_KEY/TRANSLOADIT_SECRET or Authorization: Bearer token for live API calls.',
-      ),
-    }
+    return { error: buildMissingAuthError(options) }
   }
 
   return {
+    credentials: 'auth-key',
     client: new Transloadit({
       authKey: options.authKey,
       authSecret: options.authSecret,
       endpoint: options.endpoint,
       clientName: getClientName(options),
+      signatureAlgorithm: options.signatureAlgorithm,
+      followRedirects: false,
+      maxRetries,
     }),
   }
 }
@@ -438,6 +792,207 @@ const getHttpStatusCode = (error: unknown): number | undefined => {
 
 const isErrnoException = (value: unknown): value is NodeJS.ErrnoException =>
   isRecord(value) && typeof value.code === 'string'
+
+/**
+ * Maps API2 rejections of the forwarded credentials to a tool auth error. Other failures are
+ * left to the caller so they keep surfacing as ordinary tool errors.
+ */
+const toAuthRejection = (
+  options: TransloaditMcpServerOptions,
+  error: unknown,
+  credentials: CredentialKind,
+  scopes: string[],
+): CallToolResult | undefined => {
+  const status = getHttpStatusCode(error)
+  // The token or key is valid but names a different Auth Key than the instructions'
+  // `auth.key`; reconnecting cannot fix that, so it is reported like any other bad argument.
+  if (error instanceof ApiError && error.code === 'BEARER_TOKEN_AUTH_KEY_MISMATCH') {
+    return buildCredentialError({
+      code: 'mcp_auth_key_mismatch',
+      message: 'The instructions name a different Auth Key than the connected credentials.',
+      hint: 'Remove auth.key from the instructions; the connected credentials supply it.',
+    })
+  }
+  // INSUFFICIENT_AUTH_SCOPE is API2's only scope rejection.
+  const scopeRejected =
+    status === 403 && error instanceof ApiError && error.code === 'INSUFFICIENT_AUTH_SCOPE'
+  // Only forwarded tokens can be renewed by the host's account linking; an Auth Key configured
+  // on the server needs an operator, so it gets no OAuth challenge.
+  if (credentials === 'auth-key') {
+    if (status === 401) {
+      return buildCredentialError({
+        code: 'mcp_credentials_rejected',
+        message: 'Transloadit rejected the Auth Key this server is configured with.',
+        hint: 'Check that TRANSLOADIT_KEY and TRANSLOADIT_SECRET belong to an active Auth Key.',
+      })
+    }
+    if (scopeRejected) {
+      return buildCredentialError({
+        code: 'mcp_insufficient_scope',
+        message: 'The configured Auth Key lacks the scope this tool needs.',
+        hint: 'Grant the Auth Key the scopes this tool declares, or configure another key.',
+      })
+    }
+  } else if (status === 401) {
+    return buildAuthError(options, {
+      code: 'mcp_auth_rejected',
+      oauthError: 'invalid_token',
+      message: 'Transloadit rejected the credentials; the token may have expired.',
+      hint: 'Reconnect your Transloadit account and retry.',
+    })
+  } else if (scopeRejected) {
+    return buildAuthError(options, {
+      code: 'mcp_insufficient_scope',
+      oauthError: 'insufficient_scope',
+      message: 'The connected credentials lack the scope this tool needs.',
+      hint: 'Reconnect your Transloadit account and grant the requested access.',
+      scopes,
+    })
+  }
+  if (error instanceof ApiError && error.code === 'INVALID_SIGNATURE') {
+    return buildSignatureError(error)
+  }
+  return undefined
+}
+
+/** Matches resolveAssemblyReference: the SDK's default when the endpoint is empty. */
+const defaultAssemblyUrl = (options: TransloaditMcpServerOptions, assemblyId: string): string =>
+  `${options.endpoint || 'https://api2.transloadit.com'}/assemblies/${assemblyId}`
+
+/** The Assembly exists, but its status could not be read with the caller's credentials. */
+const buildCreatedAssemblyUnavailable = (
+  options: TransloaditMcpServerOptions,
+  assemblyId: string,
+  describe: (assemblyUrl: string) => { code: string; message: string; hint: string } = (
+    assemblyUrl,
+  ) => ({
+    code: 'mcp_assembly_status_unavailable',
+    message:
+      'The Assembly was created, but Transloadit rejected the credentials while reading its status.',
+    hint: `Reconnect if needed, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl} instead of creating it again.`,
+  }),
+): CallToolResult => {
+  const assemblyUrl = defaultAssemblyUrl(options, assemblyId)
+  return buildToolResponse(
+    {
+      status: 'error',
+      assembly: { assembly_id: assemblyId, assembly_ssl_url: assemblyUrl },
+      errors: [describe(assemblyUrl)],
+    },
+    { isError: true },
+  )
+}
+
+/** The creation request is still in flight after the budget; its ID is chosen by this server. */
+const buildCreationPending = (
+  options: TransloaditMcpServerOptions,
+  assemblyId: string,
+  serverFiles: number,
+  /** Set when some of them are uploaded from the caller's sandbox. */
+  expectedUploads: number | undefined,
+): CallToolResult =>
+  buildCreatedAssemblyUnavailable(options, assemblyId, (assemblyUrl) => {
+    // An Assembly that API2 accepted only after the request was stopped never receives this
+    // call's files, so it is resumed rather than created again: another Assembly could repeat
+    // Steps that already ran, such as imports. API2 could in theory still be handling a request
+    // it received before the abort, so the hint asks for a pause first. Strict idempotency would
+    // need an API2 creation key, which does not exist; this path only runs after a request
+    // already took longer than the budget.
+    const resumeArguments = [
+      `assembly_url ${assemblyUrl}`,
+      ...(serverFiles > 0 ? ['the same files'] : []),
+      ...(expectedUploads ? [`expected_uploads ${expectedUploads}`] : []),
+    ]
+    const resume =
+      serverFiles > 0 || expectedUploads
+        ? `. If it is still waiting for uploads (ASSEMBLY_UPLOADING), its files were never sent: resume it by calling transloadit_create_assembly with ${resumeArguments.join(' and ')}${expectedUploads ? ', which hands out new upload_instructions' : ''}`
+        : ''
+    return {
+      code: 'mcp_assembly_creation_pending',
+      message:
+        'Transloadit did not confirm the Assembly in time, so this server stopped sending the creation request. Transloadit may still have received it.',
+      hint: `Wait about 30 seconds, then call transloadit_get_assembly_status with assembly_url ${assemblyUrl}. Create it again only if several checks over a few minutes report that the Assembly does not exist${resume}.`,
+    }
+  })
+
+/** Reserved upload URLs that an early return could not include yet. */
+const buildUploadUrlsPending = (
+  assemblyUrl: string | undefined,
+): { code: string; message: string; hint: string } => ({
+  code: 'mcp_upload_urls_pending',
+  message: 'The upload URLs were not reserved before this call returned.',
+  // The reservations this call started keep running; asking at once could reserve the files
+  // a second time instead of returning the URLs those reservations produce.
+  hint: `Wait about 30 seconds, then call transloadit_create_assembly with assembly_url ${assemblyUrl ?? 'from this result'}, the same files and upload_behavior "none" to get them.`,
+})
+
+/** A failed call caused by server-side credentials; an error result so strict outputs still pass. */
+const buildCredentialError = (error: {
+  code: string
+  message: string
+  hint: string
+}): CallToolResult => buildToolResponse({ status: 'error', errors: [error] }, { isError: true })
+
+/**
+ * Key/secret signatures fail when the configured algorithm differs from the Auth Key's
+ * `signature_algo`; API2 names the required one, so the hint can say exactly what to set.
+ */
+const buildSignatureError = (error: ApiError): CallToolResult => {
+  const required = signatureAlgorithmSchema.safeParse(
+    /requires (sha\d+)/.exec(error.rawMessage ?? '')?.[1],
+  )
+  return buildCredentialError({
+    code: 'mcp_invalid_signature',
+    message: 'Transloadit rejected the request signature for this Auth Key.',
+    hint: required.success
+      ? `This Auth Key signs with ${required.data}: set TRANSLOADIT_SIGNATURE_ALGORITHM=${required.data} (or the signatureAlgorithm option) and restart the MCP server.`
+      : 'Check that TRANSLOADIT_SECRET and TRANSLOADIT_SIGNATURE_ALGORITHM match the Auth Key.',
+  })
+}
+
+/** The Console origin and base path without a trailing slash, or `undefined` when unusable. */
+const parseConsoleUrl = (value: string): string | undefined => {
+  if (!URL.canParse(value)) return undefined
+  const url = new URL(value)
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined
+  return `${url.origin}${url.pathname}`.replace(/\/$/, '')
+}
+
+/** Widget-only context: whether the caller is signed in and where the Console deep links go. */
+const buildWidgetContext = (
+  options: TransloaditMcpServerOptions,
+  assembly: AssemblyStatus,
+): WidgetContext => {
+  // Links are a convenience: a malformed consoleUrl must not turn an Assembly that was already
+  // created into a failed call, which would invite a retry that processes the files twice.
+  const consoleUrl = parseConsoleUrl(options.consoleUrl || defaultConsoleUrl)
+  const slug = isNonEmptyString(assembly.account_slug) ? assembly.account_slug : undefined
+  const assemblyId = isNonEmptyString(assembly.assembly_id) ? assembly.assembly_id : undefined
+  const templateId = isNonEmptyString(assembly.template_id) ? assembly.template_id : undefined
+  const steps = describeAssemblySteps(assembly)
+  if (!slug || !consoleUrl) return { authenticated: true, steps }
+
+  const workspaceUrl = `${consoleUrl}/c/${encodeURIComponent(slug)}`
+  const newTemplateUrl = new URL(`${workspaceUrl}/templates/new`)
+  // The Console seeds the editor from `fromAssembly` since transloadit/content#6207, which ships
+  // together with this release: it loads the Assembly's effective instructions, overrides
+  // included. `duplicateFrom` stays as the seed for Consoles that predate it. Hiding or relabeling
+  // the action was considered and rejected in review of transloadit/node-sdk#529.
+  if (assemblyId) {
+    newTemplateUrl.searchParams.set('fromAssembly', assemblyId)
+  }
+  if (templateId && !isBuiltinTemplateId(templateId)) {
+    newTemplateUrl.searchParams.set('duplicateFrom', templateId)
+  }
+  return {
+    authenticated: true,
+    assembly_console_url: assemblyId
+      ? `${workspaceUrl}/assemblies/${encodeURIComponent(assemblyId)}`
+      : undefined,
+    new_template_url: newTemplateUrl.toString(),
+    steps,
+  }
+}
 
 const isHttpImportStep = (value: unknown): value is Record<string, unknown> =>
   isRecord(value) && value.robot === '/http/import'
@@ -523,17 +1078,120 @@ const mergeFieldValues = (
   }
 }
 
-const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
-  const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
-  if (!match) {
-    throw new Error(`Invalid assembly URL: ${assemblyUrl}`)
+const assemblyIdSchema = z.string().regex(/^[a-f\d]{32}$/i)
+const assemblyUrlSchema = z.url()
+
+type AssemblyReference = { assemblyId: string; assemblyUrl: string }
+
+/**
+ * Reads an Assembly's current status once, without outlasting the host's patience. The SDK's
+ * rate-limit backoff does not observe the abort signal, so the read is also raced against the
+ * clock; without a status in time, it returns undefined.
+ */
+const readAssemblyStatus = async (
+  client: Transloadit,
+  assemblyId: string,
+): Promise<AssemblyStatus | undefined> => {
+  const status = await settleWithin(
+    // Aborts after the race below gave up, so the abort never becomes the call's error.
+    client.getAssembly(assemblyId, { signal: AbortSignal.timeout(statusReadTimeoutMs + 1_000) }),
+    statusReadTimeoutMs,
+  )
+  return status === deadlineReached ? undefined : status
+}
+
+/** Tools that follow an Assembly that is still running, without creating it again. */
+const followRunningAssemblySteps = [
+  'transloadit_wait_for_assembly',
+  'transloadit_get_assembly_status',
+]
+
+/** Answers a call that returned early when not even the Assembly's status arrived in time. */
+const buildStatusPendingResponse = (
+  reference: AssemblyReference,
+  fields: Record<string, unknown> = {},
+  warnings: Array<{ code: string; message: string; hint?: string }> = [],
+): CallToolResult =>
+  buildToolResponse({
+    status: 'ok',
+    assembly: { assembly_id: reference.assemblyId, assembly_ssl_url: reference.assemblyUrl },
+    running: true,
+    ...fields,
+    warnings: [buildStillRunningNotice({}, reference.assemblyUrl), ...warnings],
+  })
+
+/** Production (`.com`) and development or tunnel (`.dev`) Transloadit hosts. */
+const isTransloaditHost = (hostname: string): boolean =>
+  ['transloadit.com', 'transloadit.dev'].some(
+    (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+  )
+
+const resolveAssemblyReference = (
+  options: TransloaditMcpServerOptions,
+  args: { assembly_url?: string; assembly_id?: string },
+): AssemblyReference | { error: ReturnType<typeof buildToolError> } => {
+  if (args.assembly_url === undefined && args.assembly_id === undefined) {
+    return { error: buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.') }
   }
-  return match[1] ?? ''
+
+  const path = args.assembly_url === undefined ? 'assembly_id' : 'assembly_url'
+  const invalidReference = {
+    error: buildToolError('mcp_invalid_args', 'Provide a valid Transloadit Assembly URL or ID.', {
+      path,
+    }),
+  }
+  // Match the SDK's default when an environment variable supplies an empty endpoint.
+  const endpoint = options.endpoint || 'https://api2.transloadit.com'
+  let assemblyId = args.assembly_id
+
+  // The message promises "URL or ID", and models pass a bare ID in either field.
+  if (args.assembly_url !== undefined && assemblyIdSchema.safeParse(args.assembly_url).success) {
+    assemblyId = args.assembly_url
+  } else if (args.assembly_url !== undefined) {
+    const parsed = assemblyUrlSchema.safeParse(args.assembly_url)
+    if (!parsed.success) return invalidReference
+    const url = new URL(parsed.data)
+    const apiEndpoint = new URL(endpoint)
+    const usesConfiguredOrigin = url.origin === apiEndpoint.origin
+    // A hosted server may answer on a public origin (a tunnel or proxy) other than its API
+    // endpoint; Assembly URLs it hands out carry that origin.
+    const usesPublicOrigin =
+      options.resourceMetadataUrl !== undefined &&
+      URL.canParse(options.resourceMetadataUrl) &&
+      url.origin === new URL(options.resourceMetadataUrl).origin
+    const usesTransloaditOrigin = isTransloaditHost(url.hostname) && url.port === ''
+    if (
+      (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      (!usesConfiguredOrigin && !usesPublicOrigin && !usesTransloaditOrigin)
+    ) {
+      return invalidReference
+    }
+
+    const prefix = usesConfiguredOrigin ? apiEndpoint.pathname.replace(/\/$/, '') : ''
+    const assemblyPath = `${prefix}/assemblies/`
+    if (!url.pathname.startsWith(assemblyPath)) return invalidReference
+    assemblyId = url.pathname.slice(assemblyPath.length).replace(/\/$/, '')
+  }
+
+  const parsedId = assemblyIdSchema.safeParse(assemblyId)
+  if (!parsedId.success) return invalidReference
+
+  // Caller URLs only identify an Assembly. Resolve its status and upload endpoints through
+  // the configured API so caller-controlled hosts, redirects, and DNS never receive credentials.
+  return {
+    assemblyId: parsedId.data,
+    assemblyUrl: `${endpoint}/assemblies/${parsedId.data}`,
+  }
 }
 
 type AssemblyAccessResult =
   | {
       client: Transloadit
+      credentials: CredentialKind
       assemblyId: string
       assemblyUrl?: string
     }
@@ -547,18 +1205,13 @@ const resolveAssemblyAccess = (
   const liveClient = createLiveClient(options, extra)
   if ('error' in liveClient) return liveClient
 
-  if (!args.assembly_url && !args.assembly_id) {
-    return { error: buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.') }
-  }
-
-  const assemblyId = args.assembly_url
-    ? getAssemblyIdFromUrl(args.assembly_url)
-    : (args.assembly_id as string)
+  const reference = resolveAssemblyReference(options, args)
+  if ('error' in reference) return reference
 
   return {
     client: liveClient.client,
-    assemblyId,
-    assemblyUrl: args.assembly_url,
+    credentials: liveClient.credentials,
+    ...reference,
   }
 }
 
@@ -568,7 +1221,9 @@ const apiTemplateSchema = z
     name: z.string().optional(),
     description: z.string().optional(),
     builtin_version: z.string().optional(),
+    fields_schema: builtinTemplateFieldsSchema.optional(),
     content: z.unknown().optional(),
+    account_id: z.string().nullable().optional(),
   })
   .passthrough()
 
@@ -598,6 +1253,7 @@ const mapTemplateListItem = (template: ApiTemplateRecord) => ({
   name: template.name,
   description: template.description,
   builtin_version: template.builtin_version,
+  ...(template.fields_schema !== undefined ? { fields_schema: template.fields_schema } : {}),
 })
 
 const loadTemplateSteps = async (
@@ -611,6 +1267,50 @@ const loadTemplateSteps = async (
   const full = await client.getTemplate(templateId)
   return extractTemplateSteps(full.content)
 }
+
+/**
+ * API2 has no userinfo endpoint yet, so the Workspace behind the credentials is read from the
+ * caller's own Assemblies (id, name and slug) or, failing that, from an owned Template (id only).
+ */
+const resolveWorkspaceProfile = async (
+  client: Transloadit,
+): Promise<WorkspaceProfile | undefined> => {
+  const assemblies = await client.listAssemblies({ pagesize: 1 })
+  const latest = assemblies.items[0]
+  if (latest?.id) {
+    // The details only add the Workspace name; an expired or unreadable Assembly must not hide
+    // the id the list already returned, nor skip the Template fallback.
+    const status: Partial<AssemblyStatus> = await client.getAssembly(latest.id).catch(() => ({}))
+    const id = isNonEmptyString(status.account_id) ? status.account_id : latest.account_id
+    if (isNonEmptyString(id)) {
+      return {
+        id,
+        name: isNonEmptyString(status.account_name) ? status.account_name : undefined,
+        nickname: isNonEmptyString(status.account_slug) ? status.account_slug : undefined,
+      }
+    }
+  }
+
+  // API2's default Template list fields omit account_id, so request it explicitly.
+  const templates = listTemplatesResponseSchema.safeParse(
+    await client.listTemplates({ pagesize: 1, fields: ['id', 'account_id'] }),
+  )
+  const template = templates.success ? templates.data.items?.[0] : undefined
+  if (template && isNonEmptyString(template.account_id)) {
+    return { id: template.account_id }
+  }
+  return undefined
+}
+
+/** Host-attached files become URL inputs; `file_id` is opaque, so the field name is positional. */
+const toAttachmentInputs = (attachments: HostFile[]): InputFile[] =>
+  attachments.map((attachment, index) => ({
+    kind: 'url',
+    field: `attachment_${index + 1}`,
+    url: attachment.download_url,
+    filename: attachment.file_name,
+    contentType: attachment.mime_type,
+  }))
 
 const looksLikeAssemblyParams = (input: Record<string, unknown>): boolean => {
   return (
@@ -646,24 +1346,68 @@ const toAssemblyInstructionsInput = (params: CreateAssemblyParams): AssemblyInst
   return rest as AssemblyInstructionsInput
 }
 
+const ownToolsByServer = new WeakMap<McpServer, Map<ToolName, RegisteredTool>>()
+
+/**
+ * The tools `createTransloaditMcpServer()` registered on `server`, in registration order. The
+ * server card reads them so it cannot drift from what `tools/list` serves.
+ */
+export const listOwnTools = (server: McpServer): ReadonlyMap<ToolName, RegisteredTool> => {
+  const tools = ownToolsByServer.get(server)
+  if (!tools) throw new Error('The server was not created by createTransloaditMcpServer().')
+  return tools
+}
+
 export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
-  const server = new McpServer({
-    name: options.serverName ?? 'Transloadit MCP',
-    version: options.serverVersion ?? packageJson.version,
-  })
+  assertServerOptions(options)
+  const logger = (options.logger ?? getDiagnosticsLogger()).nest('assemblies')
+  const redactError = buildRedactor([options.authSecret, options.upstreamSecret, options.mcpToken])
+  const server = new McpServer(
+    {
+      name: options.serverName ?? 'Transloadit MCP',
+      version: options.serverVersion ?? packageJson.version,
+    },
+    { instructions: serverInstructions },
+  )
+
+  const authMode = resolveToolAuthMode(options)
+  const ownTools = new Map<ToolName, RegisteredTool>()
+  ownToolsByServer.set(server, ownTools)
+  const register = <
+    Input extends ZodObject,
+    Output extends ZodObject,
+    Callback extends ToolCallback<Input>,
+  >(
+    name: ToolName,
+    inputSchema: Input,
+    outputSchema: Output,
+    callback: Callback,
+  ): Callback => {
+    const metadata = toolMetadata[name]
+    const registered = server.registerTool(
+      name,
+      {
+        title: metadata.title,
+        description: metadata.description,
+        inputSchema,
+        outputSchema,
+        // Directories read the listing name from `annotations.title`, not the tool's `title`.
+        annotations: { title: metadata.title, ...metadata.annotations },
+        _meta: buildToolMeta(metadata, resolveSecuritySchemes(metadata, authMode)),
+      },
+      callback,
+    )
+    ownTools.set(name, registered)
+    return callback
+  }
 
   // Builtin templates supersede the old golden template tool; no legacy alias by design.
-  server.registerTool(
+  register(
     'transloadit_search_docs',
-    {
-      title: 'Search Transloadit documentation',
-      description:
-        'Search the public Transloadit documentation index. This read-only tool does not require account credentials.',
-      inputSchema: searchDocsInputSchema,
-      outputSchema: searchDocsOutputSchema,
-    },
+    searchDocsInputSchema,
+    searchDocsOutputSchema,
     async ({ query, scope, limit }) => {
       try {
         const results = await searchTransloaditDocs(query, scope, limit)
@@ -677,15 +1421,10 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_get_doc',
-    {
-      title: 'Get Transloadit documentation',
-      description:
-        'Fetch one public Transloadit documentation page as Markdown. Accepts a /docs path or transloadit.com docs URL.',
-      inputSchema: getDocInputSchema,
-      outputSchema: getDocOutputSchema,
-    },
+    getDocInputSchema,
+    getDocOutputSchema,
     async ({ path_or_url, max_chars }) => {
       try {
         const document = await getTransloaditDoc(path_or_url, max_chars)
@@ -705,15 +1444,10 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_lint_assembly_instructions',
-    {
-      title: 'Lint Assembly Instructions',
-      description:
-        'Lint Assembly Instructions without creating an Assembly. Returns structured issues.',
-      inputSchema: lintAssemblyInputSchema,
-      outputSchema: lintAssemblyOutputSchema,
-    },
+    lintAssemblyInputSchema,
+    lintAssemblyOutputSchema,
     async ({ instructions, strict, return_fixed }) => {
       const client = createLintClient(options)
       const assemblyInstructions =
@@ -732,24 +1466,24 @@ export const createTransloaditMcpServer = (
       if (return_fixed && result.fixedInstructions) {
         payload.normalized_instructions = safeJsonParse(result.fixedInstructions)
       }
+      // Clean instructions are ready to run; with issues, the caller fixes and lints again.
+      if (result.success) {
+        payload.next_steps = ['transloadit_create_assembly']
+      }
 
       return buildToolResponse(payload)
     },
   )
 
-  server.registerTool(
+  const createAssembly = register(
     'transloadit_create_assembly',
-    {
-      title: 'Create or resume an Assembly',
-      description:
-        'Create or resume an Assembly, optionally uploading files and waiting for completion.',
-      inputSchema: createAssemblyInputSchema,
-      outputSchema: createAssemblyOutputSchema,
-    },
+    createAssemblyInputSchema,
+    createAssemblyOutputSchema,
     async (
       {
         instructions,
         files,
+        attachments,
         fields,
         wait_for_completion,
         wait_timeout_ms,
@@ -760,16 +1494,39 @@ export const createTransloaditMcpServer = (
         assembly_url,
       },
       extra,
+      fieldContractValidated = false,
+      // Shortcuts start the clock before loading their catalog, which counts toward the budget.
+      startedAt = performance.now(),
     ) => {
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
-      const { client } = liveClient
+      const { client, credentials } = liveClient
+      const reference =
+        assembly_url === undefined ? undefined : resolveAssemblyReference(options, { assembly_url })
+      if (reference && 'error' in reference) return reference.error
       const tempCleanups: Array<() => Promise<void>> = []
+      // Uploads or polling that continue after the call returned early.
+      let backgroundWork: Promise<void> | undefined
       const warnings: Array<{ code: string; message: string; hint?: string; path?: string }> = []
       let templatePathHint: string | undefined
+      const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
+      // Preparation (Template lookup, file inputs) runs before any Assembly exists, so failing
+      // once it used up the budget is safe to retry, unlike a host timeout after creation.
+      const preparationRemainingMs = (): number =>
+        Math.max(startedAt + maxWaitMs - performance.now(), 0)
+      const preparationTimeout = (reason?: string): CallToolResult =>
+        buildToolError(
+          'mcp_preparation_timeout',
+          reference
+            ? 'Preparing the files took too long, so none were added to the Assembly.'
+            : 'Preparing the Assembly took too long, so none was created.',
+          {
+            hint: reason ? `Retrying this call is safe. ${reason}` : 'Retrying this call is safe.',
+          },
+        )
 
       try {
-        const fileInputs = files ?? []
+        const fileInputs: InputFile[] = [...(files ?? []), ...toAttachmentInputs(attachments ?? [])]
         const urlInputs = fileInputs.filter((file) => file.kind === 'url')
         const hasUrlInputs = urlInputs.length > 0
         let inputFilesForPrep = fileInputs
@@ -785,7 +1542,12 @@ export const createTransloaditMcpServer = (
           templatePathHint = templatePathHint ?? 'instructions.template_id'
           let template: Awaited<ReturnType<typeof client.getTemplate>>
           try {
-            template = await client.getTemplate(params.template_id)
+            const lookup = await settleWithin(
+              client.getTemplate(params.template_id),
+              preparationRemainingMs(),
+            )
+            if (lookup === deadlineReached) return preparationTimeout()
+            template = lookup
           } catch (error) {
             const isTemplateNotFound =
               (error instanceof ApiError && error.code === 'TEMPLATE_NOT_FOUND') ||
@@ -829,13 +1591,13 @@ export const createTransloaditMcpServer = (
           mergedFields = isRecord(params.fields) ? (params.fields as Record<string, unknown>) : {}
         }
 
-        if (hasUrlInputs) {
+        if (hasUrlInputs && !reference) {
           if (!analysis.hasHttpImport && !analysis.requiresUpload) {
             inputFilesForPrep = fileInputs.filter((file) => file.kind !== 'url')
             warnings.push({
               code: 'mcp_url_inputs_ignored',
               message: 'URL inputs were ignored because the template does not require input files.',
-              hint: 'If you meant to process a URL, use a template that imports URLs (e.g. builtin/serve-preview@0.0.1), or call transloadit_list_templates with include_builtin: "exclusively-latest" to discover builtins.',
+              hint: 'If you meant to process a URL, add an /http/import step or choose a workspace template that contains one. Call transloadit_list_templates to discover available templates.',
               path: templatePathHint ?? 'instructions',
             })
           } else if (analysis.hasHttpImport) {
@@ -864,7 +1626,10 @@ export const createTransloaditMcpServer = (
           }
         }
 
-        if (mergedInstructions) {
+        // Placeholder discovery is a compatibility heuristic for generic Templates. Approved
+        // shortcuts already validated their complete fields against the catalog contract,
+        // which knows that placeholders such as encode-video's width/height are optional.
+        if (mergedInstructions && !fieldContractValidated) {
           const fieldTemplateContent = JSON.stringify(mergedInstructions)
           const requiredFields = collectFieldNames(fieldTemplateContent)
           const providedFields = mergeFieldValues(
@@ -888,25 +1653,62 @@ export const createTransloaditMcpServer = (
             )
           }
         }
-        const prep = await prepareInputFiles({
+        // The hosted gate only checks that a bearer is present. Before a URL input is downloaded
+        // to this server's disk (not for /http/import), API2 vouches for the token once
+        // (templates:read is declared for this tool).
+        let tokenCheck: Promise<unknown> | undefined
+        const verifyTokenBeforeDownload = async (): Promise<void> => {
+          tokenCheck ??= client.listTemplates({ pagesize: 1 })
+          await tokenCheck
+        }
+        const preparation = prepareInputFiles({
           inputFiles: inputFilesForPrep,
           params,
           fields,
           base64Strategy: 'tempfile',
-          urlStrategy: 'import-if-present',
+          urlStrategy: reference ? 'download' : 'import-if-present',
+          allowPrivateUrls: false,
           maxBase64Bytes,
-        }).catch((error) => {
-          const message = error instanceof Error ? error.message : 'Invalid file input.'
-          if (message.startsWith('Duplicate file field')) {
-            return buildToolError('mcp_duplicate_field', message, { path: 'files' })
-          }
-          if (message.startsWith('Base64 payload exceeds')) {
-            return buildToolError('mcp_base64_too_large', message, {
-              hint: 'Use a URL import or path upload instead.',
-            })
-          }
-          return buildToolError('mcp_invalid_args', message)
+          maxUrlDownloadBytes: options.maxUrlDownloadBytes ?? defaultMaxUrlDownloadBytes,
+          // prepareInputFiles() takes no abort signal, so its download timeout is what stops a
+          // download once the budget is spent; a retry would otherwise run next to it. The extra
+          // second lets the budget check below answer first, with mcp_preparation_timeout. Each
+          // download gets this timeout from its own start, but beforeUrlDownload starts none
+          // after the budget, so an abandoned download ends at most one timeout after the budget
+          // (twice the budget at worst). A tighter bound needs an abort signal in the SDK, which
+          // the URL import work in API2 makes unnecessary.
+          urlDownloadTimeoutMs: Math.min(
+            options.urlDownloadTimeoutMs ?? defaultUrlDownloadTimeoutMs,
+            preparationRemainingMs() + 1_000,
+          ),
+          // Runs before each download, so an abandoned preparation starts no further one.
+          beforeUrlDownload: async () => {
+            if (credentials === 'bearer') await verifyTokenBeforeDownload()
+            if (preparationRemainingMs() === 0) throw new PreparationBudgetSpentError()
+          },
         })
+        const prep = await settleWithin(preparation, preparationRemainingMs()).catch(
+          (error: unknown) =>
+            // The budget check can reject just before the deadline timer fires.
+            error instanceof PreparationBudgetSpentError ? deadlineReached : buildInputError(error),
+        )
+        if (prep === deadlineReached) {
+          // The download stops at its timeout and prepareInputFiles() removes its files; one that
+          // still finishes first returns files that nothing uploads.
+          void preparation
+            .then(
+              (late) => Promise.all(late.cleanup.map((cleanupFile) => cleanupFile())),
+              () => undefined,
+            )
+            .catch((error: unknown) => {
+              logger.warn('Removing prepared files failed: %s', redactError(error))
+            })
+          return preparationTimeout(
+            inputFilesForPrep.some((file) => file.kind === 'url')
+              ? 'A retry downloads the URL inputs again from the start. To have Transloadit fetch large files itself, use transloadit_create_assembly with Steps that contain an /http/import Step.'
+              : undefined,
+          )
+        }
         if ('content' in prep) {
           return prep
         }
@@ -921,43 +1723,190 @@ export const createTransloaditMcpServer = (
           total_files: totalFiles,
         }
 
-        const timeout = wait_timeout_ms
-        const waitForCompletion = wait_for_completion ?? false
+        // Files the caller uploads itself (from a sandbox) can only start once this call returns,
+        // so waiting here would just run into the timeout. A resumed Assembly hands them out
+        // again, e.g. after a creation request that was stopped. Whether its uploads already
+        // arrived shows only in its status, so a resume with expected_uploads does not wait
+        // either; next_steps then point to transloadit_wait_for_assembly.
+        const outOfBandUploads = Math.max((expected_uploads ?? 0) - totalFiles, 0)
+        const waitForCompletion = (wait_for_completion ?? false) && outOfBandUploads === 0
         const uploadBehavior = upload_behavior ?? (waitForCompletion ? 'await' : 'background')
         const uploadConcurrency = upload_concurrency
         const chunkSize = upload_chunk_size
 
-        let assembly: Awaited<ReturnType<typeof client.createAssembly>>
+        const deadline =
+          startedAt +
+          (waitForCompletion ? Math.min(wait_timeout_ms ?? maxWaitMs, maxWaitMs) : maxWaitMs)
+        const remainingMs = (): number => Math.max(deadline - performance.now(), 0)
+        // The SDK also applies this timeout to the creation request. It outlasts the deadline and
+        // the creation grace period after it, so a request timeout never fails a creation that
+        // API2 may have accepted; the deadline below bounds the call itself. Polling after an
+        // early return is not stopped separately: it ends with this timeout, a few seconds later,
+        // and the signal that could stop it would also stop uploads the Assembly still needs.
+        const timeout = Math.max(remainingMs() + statusReadTimeoutMs + 1_000, minimumSdkTimeoutMs)
+
+        // Every status the SDK reports, so a call that returns early still has the latest state.
+        let latest: AssemblyStatus | undefined
+        const trackProgress = (status: AssemblyStatus): void => {
+          latest = status
+        }
+
+        let assembly: AssemblyStatus
+        // Set by the SDK only after API2 accepted the creation request, so a rejected request
+        // (including an error body with HTTP 200) is never mistaken for an existing Assembly.
+        let createdAssemblyId: string | undefined
+        let resolveCreated: (status: AssemblyStatus) => void = () => undefined
+        const created = new Promise<AssemblyStatus>((resolve) => {
+          resolveCreated = resolve
+        })
+        let work: Promise<AssemblyStatus>
+        // Chosen by the SDK before the creation request is sent.
+        let creationAssemblyId: string | undefined
+        // Stops a creation request (and its rate-limit retries) that outlasted the call.
+        const creationAbort = new AbortController()
+        if (reference) {
+          work = client.resumeAssemblyUploads({
+            assemblyUrl: reference.assemblyUrl,
+            files: filesMap,
+            uploads: uploadsMap,
+            waitForCompletion,
+            timeout,
+            uploadConcurrency,
+            chunkSize,
+            uploadBehavior,
+            onAssemblyProgress: trackProgress,
+          })
+        } else {
+          const creation = client.createAssembly({
+            params,
+            files: filesMap,
+            uploads: uploadsMap,
+            waitForCompletion,
+            timeout,
+            uploadConcurrency,
+            chunkSize,
+            uploadBehavior,
+            expectedUploads: expected_uploads,
+            onAssemblyCreated: (status) => {
+              createdAssemblyId = status.assembly_id ?? creation.assemblyId
+              latest = status
+              resolveCreated(status)
+            },
+            onAssemblyProgress: trackProgress,
+            signal: creationAbort.signal,
+          })
+          creationAssemblyId = creation.assemblyId
+          work = creation
+        }
+
+        let workSettled = true
+        let returnedEarly = false
         try {
-          assembly = assembly_url
-            ? await client.resumeAssemblyUploads({
-                assemblyUrl: assembly_url,
-                files: filesMap,
-                uploads: uploadsMap,
-                waitForCompletion,
-                timeout,
-                uploadConcurrency,
-                chunkSize,
-                uploadBehavior,
-              })
-            : await client.createAssembly({
-                params,
-                files: filesMap,
-                uploads: uploadsMap,
-                waitForCompletion,
-                timeout,
-                uploadConcurrency,
-                chunkSize,
-                uploadBehavior,
-                expectedUploads: expected_uploads,
-              })
-        } catch (error) {
-          if (isErrnoException(error) && error.code === 'ENOENT') {
-            return buildToolError('mcp_file_not_found', error.message, {
-              hint: 'Path inputs only work when the MCP server can read local files. For hosted MCP, use url/base64 or upload via `npx -y @transloadit/node upload`.',
-            })
+          const outcome = await settleWithin(work, remainingMs())
+          if (outcome !== deadlineReached) {
+            assembly = outcome
+          } else {
+            // Hosts abandon calls that outlast their deadline and retry them, which creates a
+            // second Assembly. Return what is known instead; the Assembly keeps running.
+            workSettled = false
+            returnedEarly = true
+            backgroundWork = work.then(
+              () => undefined,
+              (error: unknown) => {
+                if (isPollingTimeout(error) || creationAbort.signal.aborted) return
+                // A creation failure within the grace period below also reaches the caller; the
+                // extra log line is accepted to keep this handler attached before that wait.
+                // Hosted instances keep no per-Assembly state to report this later; follow-up
+                // status calls show the Assembly itself.
+                logger.warn('Assembly work after an early return failed: %s', redactError(error))
+              },
+            )
+            if (latest) {
+              assembly = latest
+            } else if (reference) {
+              // The uploads keep running, so even a rejected read must not invite a replay.
+              const status = await readAssemblyStatus(client, reference.assemblyId).catch(
+                () => undefined,
+              )
+              if (!status) {
+                // Nothing sends reserved files or sandbox files by itself; say how to get the
+                // URLs or commands for them.
+                const recovery = [
+                  ...(uploadBehavior === 'none' && totalFiles > 0
+                    ? [buildUploadUrlsPending(reference.assemblyUrl)]
+                    : []),
+                  ...(outOfBandUploads > 0
+                    ? [
+                        {
+                          code: 'mcp_upload_instructions_pending',
+                          message:
+                            'The upload instructions were not ready before this call returned.',
+                          // Uploads this call started still reserve their fields; with the same
+                          // files, the next call reuses them instead of handing out commands.
+                          hint: `Wait about 30 seconds, then call transloadit_create_assembly with assembly_url ${reference.assemblyUrl}${totalFiles > 0 ? ', the same files' : ''} and expected_uploads ${expected_uploads} to get them.`,
+                        },
+                      ]
+                    : []),
+                ]
+                return buildStatusPendingResponse(
+                  reference,
+                  {
+                    upload: {
+                      ...uploadSummary,
+                      status: uploadBehavior === 'none' || totalFiles === 0 ? 'none' : 'uploading',
+                      resumed: true,
+                    },
+                    next_steps: followRunningAssemblySteps,
+                  },
+                  recovery,
+                )
+              }
+              assembly = status
+            } else {
+              // The creation request itself is slow (or retried); give it as long as a status read.
+              const known = await settleWithin(Promise.race([created, work]), statusReadTimeoutMs)
+              if (known === deadlineReached) {
+                // Without the request, nothing can create this Assembly later, so a status check
+                // that finds no Assembly makes creating it again safe.
+                creationAbort.abort()
+                return creationAssemblyId
+                  ? buildCreationPending(
+                      options,
+                      creationAssemblyId,
+                      totalFiles,
+                      outOfBandUploads > 0 ? expected_uploads : undefined,
+                    )
+                  : buildToolError(
+                      'mcp_assembly_creation_pending',
+                      'Creating the Assembly is taking too long.',
+                    )
+              }
+              assembly = known
+            }
           }
-          throw error
+        } catch (error) {
+          if (isPollingTimeout(error) && latest) {
+            // The SDK's own polling ran out of time; the Assembly is still known and running.
+            assembly = latest
+            returnedEarly = true
+          } else {
+            // Once API2 accepted the creation request, an auth failure (a token expiring while
+            // uploads or polling run) must not reach the client as a challenge: it would refresh
+            // and replay the call, creating and billing a second Assembly.
+            if (createdAssemblyId && toAuthRejection(options, error, credentials, [])) {
+              return buildCreatedAssemblyUnavailable(options, createdAssemblyId)
+            }
+            if (isErrnoException(error) && error.code === 'ENOENT') {
+              return buildToolError(
+                'mcp_file_not_found',
+                'A prepared upload is no longer available.',
+                {
+                  hint: 'Retry with base64 or a public URL, or upload via `npx -y @transloadit/node upload`.',
+                },
+              )
+            }
+            throw error
+          }
         }
 
         if (assembly_url) {
@@ -968,7 +1917,10 @@ export const createTransloaditMcpServer = (
           uploadSummary.status = 'none'
         } else if (uploadBehavior === 'none') {
           uploadSummary.status = 'none'
-        } else if (uploadBehavior === 'background') {
+        } else if (
+          uploadBehavior === 'background' ||
+          (!workSettled && assembly.ok === 'ASSEMBLY_UPLOADING')
+        ) {
           uploadSummary.status = 'uploading'
         }
 
@@ -976,80 +1928,292 @@ export const createTransloaditMcpServer = (
           uploadSummary.upload_urls = assembly.upload_urls as Record<string, string>
         }
 
-        const nextSteps = waitForCompletion
-          ? []
-          : ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status']
+        const ownFields = new Set([...Object.keys(filesMap), ...Object.keys(uploadsMap)])
+        // A resumed Assembly may have received some uploads already, and takes more only while
+        // it waits for them; expected_uploads counts all of its uploads, as at creation.
+        // Finished uploads are listed under uploads, running ones under tus_uploads.
+        const receivedFields = new Set(
+          [
+            ...(assembly.uploads ?? []).map((upload) => upload.field),
+            ...(assembly.tus_uploads ?? []).map((upload) => upload.fieldname),
+          ].filter((field): field is string => isNonEmptyString(field) && !ownFields.has(field)),
+        )
+        const pendingUploads = !reference
+          ? outOfBandUploads
+          : assembly.ok === 'ASSEMBLY_UPLOADING'
+            ? Math.max(outOfBandUploads - receivedFields.size, 0)
+            : 0
+        const uploadInstructions =
+          pendingUploads > 0
+            ? buildUploadInstructions(
+                assembly,
+                pendingUploads,
+                new Set([...ownFields, ...receivedFields]),
+              )
+            : undefined
+        if (wait_for_completion && uploadInstructions) {
+          warnings.push({
+            code: 'mcp_wait_skipped_for_uploads',
+            message:
+              'Did not wait for completion because the Assembly waits for the expected uploads. Run upload_instructions, then call transloadit_wait_for_assembly.',
+          })
+        }
+        if (pendingUploads > 0 && !uploadInstructions) {
+          warnings.push({
+            code: 'mcp_upload_instructions_unavailable',
+            message: 'The Assembly status has no tus_url or assembly_ssl_url to upload to.',
+          })
+        }
+        const running = isAssemblyRunning(assembly)
+        if (returnedEarly && running) {
+          warnings.push(buildStillRunningNotice(assembly, reference?.assemblyUrl))
+        }
+        if (
+          returnedEarly &&
+          uploadBehavior === 'none' &&
+          totalFiles > 0 &&
+          !uploadSummary.upload_urls
+        ) {
+          // Nothing uploads these files later, so the caller needs their reserved upload URLs.
+          const assemblyUrl =
+            reference?.assemblyUrl ??
+            (isNonEmptyString(assembly.assembly_ssl_url) ? assembly.assembly_ssl_url : undefined)
+          warnings.push(buildUploadUrlsPending(assemblyUrl))
+        }
+        const nextSteps = uploadInstructions
+          ? ['transloadit_wait_for_assembly']
+          : waitForCompletion && !running
+            ? []
+            : followRunningAssemblySteps
 
-        return buildToolResponse({
-          status: 'ok',
-          assembly,
-          upload: uploadSummary,
-          next_steps: nextSteps,
-          warnings: warnings.length > 0 ? warnings : undefined,
-        })
+        return buildAssemblyToolResponse(
+          {
+            status: 'ok',
+            assembly,
+            running,
+            upload: uploadSummary,
+            upload_instructions: uploadInstructions,
+            next_steps: nextSteps,
+            warnings: warnings.length > 0 ? warnings : undefined,
+          },
+          { meta: { [widgetContextMetaKey]: buildWidgetContext(options, assembly) } },
+        )
+      } catch (error) {
+        const rejection = toAuthRejection(
+          options,
+          error,
+          credentials,
+          toolMetadata.transloadit_create_assembly.scopes,
+        )
+        if (rejection) return rejection
+        throw error
       } finally {
-        await Promise.all(tempCleanups.map((cleanup) => cleanup()))
+        const cleanup = async (): Promise<void> => {
+          await Promise.all(tempCleanups.map((cleanupFile) => cleanupFile()))
+        }
+        // Uploads that continue after an early return still read the prepared files. This
+        // promise never rejects.
+        if (backgroundWork) {
+          void backgroundWork.then(cleanup).catch((error: unknown) => {
+            logger.warn('Removing prepared files failed: %s', redactError(error))
+          })
+        } else {
+          await cleanup()
+        }
       }
     },
   )
 
-  server.registerTool(
+  // Keep the generic execution path responsible for auth, uploads, waiting and widget results.
+  // Shortcuts can supply fields and files, but cannot replace the Builtin's reviewed workflow.
+  const shortcutInputSchema = createAssemblyInputSchema
+    .omit({ instructions: true, assembly_url: true })
+    .strict()
+  for (const { id, name } of builtinShortcuts) {
+    register(name, shortcutInputSchema, createAssemblyOutputSchema, async (args, extra) => {
+      const startedAt = performance.now()
+      const live = createLiveClient(options, extra, 0)
+      if ('error' in live) return live.error
+      let catalog: BuiltinCatalog
+      try {
+        catalog = await loadBuiltinShortcuts(live.client, id)
+      } catch (error) {
+        const rejection = toAuthRejection(
+          options,
+          error,
+          live.credentials,
+          toolMetadata[name].scopes,
+        )
+        if (rejection) return rejection
+        return buildShortcutError(
+          'mcp_builtin_unavailable',
+          'Could not load the Builtin catalog. Retry discovery with transloadit_list_templates.',
+        )
+      }
+      const template = catalog.get(id)
+      if (!template) {
+        return buildShortcutError(
+          'mcp_builtin_unavailable',
+          'This shortcut’s reviewed Builtin field contract is unavailable. Call transloadit_list_templates to discover available templates.',
+        )
+      }
+      let fields: Record<string, unknown>
+      try {
+        fields = validateBuiltinFields(template, args.fields)
+      } catch (error) {
+        if (!(error instanceof BuiltinFieldValidationError)) {
+          return buildShortcutError(
+            'mcp_builtin_unavailable',
+            'This shortcut’s catalog field contract could not be validated. Retry discovery.',
+          )
+        }
+        return buildShortcutError('mcp_invalid_builtin_fields', error.message, { path: 'fields' })
+      }
+      // upload_behavior none asks for reserved upload URLs, which only the upload path hands out.
+      const inputUrls =
+        args.upload_behavior === 'none'
+          ? undefined
+          : selectBuiltinInputUrls(
+              template.id,
+              [...(args.files ?? []), ...toAttachmentInputs(args.attachments ?? [])],
+              args.expected_uploads,
+            )
+      // API2 imports eligible URLs itself (api2#10292), so the Assembly exists at once and nothing
+      // is downloaded here. A refusal is API2's to explain, so it surfaces like any other error.
+      const result = await createAssembly(
+        inputUrls
+          ? {
+              ...args,
+              files: undefined,
+              attachments: undefined,
+              expected_uploads: undefined,
+              fields,
+              instructions: { template_id: template.id, input_url: inputUrls },
+            }
+          : { ...args, fields, instructions: { template_id: template.id } },
+        extra,
+        true,
+        startedAt,
+      )
+      // Keep the generic tool's historical error shape while making new shortcut failures
+      // recognizable to MCP clients that rely on isError instead of structuredContent.status.
+      return result.structuredContent?.status === 'error' ? { ...result, isError: true } : result
+    })
+  }
+
+  register(
     'transloadit_get_assembly_status',
-    {
-      title: 'Get Assembly status',
-      description: 'Fetch the latest Assembly status by URL or ID.',
-      inputSchema: getAssemblyStatusInputSchema,
-      outputSchema: getAssemblyStatusOutputSchema,
-    },
+    getAssemblyStatusInputSchema,
+    getAssemblyStatusOutputSchema,
     async ({ assembly_url, assembly_id }, extra) => {
       const access = resolveAssemblyAccess(options, extra, { assembly_url, assembly_id })
       if ('error' in access) return access.error
 
-      const assembly = await access.client.getAssembly(access.assemblyId)
+      let assembly: AssemblyStatus
+      try {
+        assembly = await access.client.getAssembly(access.assemblyId)
+      } catch (error) {
+        const rejection = toAuthRejection(
+          options,
+          error,
+          access.credentials,
+          toolMetadata.transloadit_get_assembly_status.scopes,
+        )
+        if (rejection) return rejection
+        throw error
+      }
 
-      return buildToolResponse({
+      return buildAssemblyToolResponse({
         status: 'ok',
         assembly,
       })
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_wait_for_assembly',
-    {
-      title: 'Wait for Assembly completion',
-      description: 'Polls until the Assembly completes or timeout is reached.',
-      inputSchema: waitForAssemblyInputSchema,
-      outputSchema: waitForAssemblyOutputSchema,
-    },
+    waitForAssemblyInputSchema,
+    waitForAssemblyOutputSchema,
     async ({ assembly_url, assembly_id, timeout_ms, poll_interval_ms }, extra) => {
       const access = resolveAssemblyAccess(options, extra, { assembly_url, assembly_id })
       if ('error' in access) return access.error
 
       const start = Date.now()
-      const assembly = await access.client.awaitAssemblyCompletion(access.assemblyId, {
-        timeout: timeout_ms,
-        interval: poll_interval_ms,
-        assemblyUrl: access.assemblyUrl,
-      })
+      const maxWaitMs = options.maxWaitMs ?? defaultMaxWaitMs
+      const budgetMs = Math.min(timeout_ms ?? maxWaitMs, maxWaitMs)
+      // Polling only reads status, so it can be stopped as soon as the budget is spent.
+      const polling = new AbortController()
+      let latest: AssemblyStatus | undefined
+      let assembly: AssemblyStatus
+      let returnedEarly = false
+      try {
+        const outcome = await settleWithin(
+          access.client.awaitAssemblyCompletion(access.assemblyId, {
+            timeout: budgetMs,
+            interval: poll_interval_ms,
+            assemblyUrl: access.assemblyUrl,
+            signal: polling.signal,
+            onAssemblyProgress: (status) => {
+              latest = status
+            },
+          }),
+          budgetMs,
+        )
+        if (outcome === deadlineReached) {
+          polling.abort()
+          returnedEarly = true
+          const status = latest ?? (await readAssemblyStatus(access.client, access.assemblyId))
+          if (!status) {
+            return buildStatusPendingResponse(
+              {
+                assemblyId: access.assemblyId,
+                assemblyUrl: access.assemblyUrl ?? defaultAssemblyUrl(options, access.assemblyId),
+              },
+              { waited_ms: Date.now() - start, next_steps: followRunningAssemblySteps },
+            )
+          }
+          assembly = status
+        } else {
+          assembly = outcome
+        }
+      } catch (error) {
+        if (!(isPollingTimeout(error) && latest)) {
+          const rejection = toAuthRejection(
+            options,
+            error,
+            access.credentials,
+            toolMetadata.transloadit_wait_for_assembly.scopes,
+          )
+          if (rejection) return rejection
+          throw error
+        }
+        assembly = latest
+        returnedEarly = true
+      }
       const waited_ms = Date.now() - start
+      const running = isAssemblyRunning(assembly)
 
-      return buildToolResponse({
-        status: 'ok',
-        assembly,
-        waited_ms,
-      })
+      return buildAssemblyToolResponse(
+        {
+          status: 'ok',
+          assembly,
+          running,
+          waited_ms,
+          next_steps: running ? followRunningAssemblySteps : undefined,
+          warnings:
+            returnedEarly && running
+              ? [buildStillRunningNotice(assembly, access.assemblyUrl)]
+              : undefined,
+        },
+        { meta: { [widgetContextMetaKey]: buildWidgetContext(options, assembly) } },
+      )
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_list_robots',
-    {
-      title: 'List Transloadit robots',
-      description: 'Returns a filtered list of robots with short summaries.',
-      inputSchema: listRobotsInputSchema,
-      outputSchema: listRobotsOutputSchema,
-    },
+    listRobotsInputSchema,
+    listRobotsOutputSchema,
     ({ category, search, limit, cursor }) => {
       const result = listRobots({ category, search, limit, cursor })
 
@@ -1057,18 +2221,16 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         robots: result.robots,
         next_cursor: result.nextCursor,
+        // Only listed Robots give a name to ask help for.
+        next_steps: result.robots.length > 0 ? ['transloadit_get_robot_help'] : undefined,
       })
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_get_robot_help',
-    {
-      title: 'Get robot parameter help',
-      description: 'Returns a robot summary and parameter details.',
-      inputSchema: getRobotHelpInputSchema,
-      outputSchema: getRobotHelpOutputSchema,
-    },
+    getRobotHelpInputSchema,
+    getRobotHelpOutputSchema,
     ({ robot_name, robot_names }) => {
       const splitComma = (value: string): string[] =>
         value
@@ -1118,11 +2280,15 @@ export const createTransloaditMcpServer = (
         })
       }
 
+      // Steps written from this help are linted before they run.
+      const robotHelpNextSteps =
+        robots.length > 0 ? ['transloadit_lint_assembly_instructions'] : undefined
       if (prefersSingle) {
         return buildToolResponse({
           status: 'ok',
           robot: robots[0],
           not_found: notFound.length > 0 ? notFound : undefined,
+          next_steps: robotHelpNextSteps,
         })
       }
 
@@ -1130,34 +2296,18 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         robots,
         not_found: notFound.length > 0 ? notFound : undefined,
+        next_steps: robotHelpNextSteps,
       })
     },
   )
 
-  server.registerTool(
+  register(
     'transloadit_list_templates',
-    {
-      title: 'List templates',
-      description:
-        'List Assembly Templates (owned and/or builtin). Tip: pass include_builtin: "exclusively-latest" to list builtins only.',
-      inputSchema: listTemplatesInputSchema,
-      outputSchema: listTemplatesOutputSchema,
-    },
+    listTemplatesInputSchema,
+    listTemplatesOutputSchema,
     async ({ page, page_size, sort, order, keywords, include_builtin, include_content }, extra) => {
       const liveClient = createLiveClient(options, extra)
-      if ('error' in liveClient) {
-        return buildToolResponse({
-          status: 'error',
-          templates: [],
-          errors: [
-            {
-              code: 'mcp_missing_auth',
-              message:
-                'Missing TRANSLOADIT_KEY/TRANSLOADIT_SECRET or Authorization: Bearer token for live API calls.',
-            },
-          ],
-        })
-      }
+      if ('error' in liveClient) return withoutStructuredContent(liveClient.error)
 
       try {
         const response = await liveClient.client.listTemplates({
@@ -1193,6 +2343,13 @@ export const createTransloaditMcpServer = (
           total: parsed.data.count ?? items.length,
         })
       } catch (error) {
+        const rejection = toAuthRejection(
+          options,
+          error,
+          liveClient.credentials,
+          toolMetadata.transloadit_list_templates.scopes,
+        )
+        if (rejection) return withoutStructuredContent(rejection)
         const message = error instanceof Error ? error.message : 'Failed to list templates.'
         return buildToolResponse({
           status: 'error',
@@ -1207,6 +2364,65 @@ export const createTransloaditMcpServer = (
       }
     },
   )
+
+  register(
+    'transloadit_get_profile',
+    getProfileInputSchema,
+    getProfileOutputSchema,
+    async (_args, extra) => {
+      const liveClient = createLiveClient(options, extra)
+      if ('error' in liveClient) return withoutStructuredContent(liveClient.error)
+
+      let profile: WorkspaceProfile | undefined
+      try {
+        profile = await resolveWorkspaceProfile(liveClient.client)
+      } catch (error) {
+        const rejection = toAuthRejection(
+          options,
+          error,
+          liveClient.credentials,
+          toolMetadata.transloadit_get_profile.scopes,
+        )
+        if (rejection) return withoutStructuredContent(rejection)
+        throw error
+      }
+
+      if (!profile) {
+        // The strict profile output schema has no error shape, so this must be an error result.
+        return withoutStructuredContent(
+          buildToolResponse(
+            {
+              status: 'error',
+              errors: [
+                {
+                  code: 'mcp_profile_unavailable',
+                  message: 'Could not determine the Workspace behind these credentials yet.',
+                  hint: 'Create an Assembly or a Template first, then call this tool again.',
+                },
+              ],
+            },
+            { isError: true },
+          ),
+        )
+      }
+      return buildToolResponse(profile)
+    },
+  )
+
+  registerAssemblyResultWidget(server, {
+    resultDomains: options.resultDomains,
+    widgetDomain: options.widgetDomain,
+    consoleUrl: parseConsoleUrl(options.consoleUrl || defaultConsoleUrl),
+  })
+  mirrorSecuritySchemes(server, async (result, extra) => {
+    if (!isRecord(result) || !Array.isArray(result.tools)) return result
+    const live = createLiveClient(options, extra, 0)
+    // A failed catalog read must not prevent discovery of the existing generic tools. The
+    // authenticated list/call tools still return actionable auth errors through their own paths.
+    const catalog: BuiltinCatalog | undefined =
+      'error' in live ? new Map() : await loadBuiltinShortcuts(live.client).catch(() => undefined)
+    return applyBuiltinCatalog(result, catalog)
+  })
 
   return server
 }

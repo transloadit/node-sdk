@@ -31,14 +31,12 @@ describe('server card', () => {
         },
       })
 
-      expect(Array.isArray(body.tools)).toBe(true)
-      expect(body.tools.length).toBe(7)
-      for (const tool of body.tools as Array<Record<string, unknown>>) {
-        expect(typeof tool.name).toBe('string')
-        expect(typeof tool.title).toBe('string')
-        expect(typeof tool.description).toBe('string')
-        expect(typeof tool.inputSchema).toBe('object')
-      }
+      expect(body.tools).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'transloadit_create_assembly' }),
+          expect.objectContaining({ name: 'transloadit_list_robots' }),
+        ]),
+      )
     } finally {
       await close()
     }

@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/mcp-server",
-  "version": "0.3.29",
+  "version": "0.8.6",
   "description": "Transloadit MCP server",
   "keywords": [
     "mcp",
@@ -53,24 +53,31 @@
     "transloadit-mcp": "./dist/cli.js"
   },
   "scripts": {
-    "lint:ts": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "lint:ts": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && yarn --cwd ../.. tsc:zod && ../../node_modules/.bin/tsc --build tsconfig.build.json",
     "build": "yarn lint:ts && chmod +x dist/cli.js",
-    "test:unit": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && ../../node_modules/.bin/vitest run ./test/unit",
-    "test:e2e": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && ../../node_modules/.bin/vitest run ./test/e2e",
+    "test:unit": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && yarn --cwd ../.. tsc:zod && ../../node_modules/.bin/vitest run ./test/unit",
+    "test:e2e": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && yarn --cwd ../.. tsc:zod && ../../node_modules/.bin/vitest run ./test/e2e",
+    "test:visual": "playwright test",
     "check": "yarn lint:ts && yarn test:unit",
     "prepack": "yarn build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@transloadit/node": "^4.11.1",
+    "@transloadit/node": "^6.7.0",
     "@transloadit/sev-logger": "^0.1.9",
+    "@transloadit/zod": "^7.5.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "express": "^5.2.1",
     "prom-client": "^15.1.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@types/express": "^5.0.6",
-    "@types/node": "^25.8.0"
+    "@types/node": "^25.8.0",
+    "happy-dom": "^20.9.0",
+    "nock": "^14.0.15"
   },
   "mcpName": "io.github.transloadit/mcp-server"
 }

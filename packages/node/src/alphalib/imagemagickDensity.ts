@@ -1,7 +1,8 @@
-const positiveDecimalDensityPart = String.raw`(?:0*[1-9]\d*(?:\.\d+)?|0+\.\d*[1-9]\d*)`
+const positiveDecimalDensityPart = String.raw`(?:0*[1-9][0-9]*(?:\.[0-9]+)?|0+\.[0-9]*[1-9][0-9]*)`
 
 const imagemagickDensityPattern = new RegExp(
   `^${positiveDecimalDensityPart}(?:x${positiveDecimalDensityPart})?$`,
+  'u',
 )
 
 function isValidImagemagickDensity(value: unknown): boolean {

@@ -1,63 +1,79 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { imagemagickDensityPattern } from '../../imagemagickDensity.ts'
+import { zodInputPreservingTransform } from '../../lib/zodInputSemantics.ts'
 import {
   color_without_alpha_with_named,
   colorspaceSchema,
   complexHeightSchema,
   complexWidthSchema,
+  createProcessingExample,
+  defineRobotWithHiddenFields,
   httpUrlSchema,
+  imageAdaptiveFilteringSchema,
   imageQualitySchema,
-  interpolateRobot,
   percentageSchema,
   positionSchema,
   robotBase,
   robotImagemagick,
+  robotImageProcessingMeta,
   robotUse,
   unsafeCoordinatesSchema,
 } from './_instructions-primitives.ts'
 
 const imageResizeGravitySchema = z.union([positionSchema, z.enum(['attention', 'entropy'])])
 
+/** Input MIME types eligible for automatic libvips processing in /image/resize. */
+export const imageResizeDaemonInputMimes: readonly string[] = [
+  'image/jpg',
+  'image/jpeg',
+  'image/jxl',
+  'image/png',
+  'image/tiff',
+  'image/tiff-fx',
+  'image/gif',
+  'image/webp',
+  'image/svg',
+  'image/svg+xml',
+]
+
+/** Output formats eligible for automatic libvips processing in /image/resize. */
+export const imageResizeDaemonOutputFormats: readonly string[] = [
+  'heic',
+  'heif',
+  'jpeg',
+  'jpg',
+  'jxl',
+  'png',
+  'raw',
+  'tiff',
+  'webp',
+  'avif',
+]
+
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      resized: {
-        robot: '/image/resize',
-        use: ':original',
-        width: 200,
-      },
-    },
-  },
+  ...robotImageProcessingMeta,
+  example_code: createProcessingExample('resized', '/image/resize', {
+    width: 200,
+  }),
   example_code_description:
     'Resize uploaded images to a width of 200px while keeping their original aspect ratio:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Image Manipulation',
   purpose_sentence:
     'resizes, crops, changes colorization, rotation, and applies text and watermarks to images',
   purpose_verb: 'convert',
   purpose_word: 'convert/resize/watermark',
   purpose_words: 'Convert, resize, or watermark images',
-  service_slug: 'image-manipulation',
-  slot_count: 5,
   title: 'Convert, resize, or watermark images',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'image',
   uses_tools: ['imagemagick'],
   name: 'ImageResizeRobot',
-  priceFactor: 1,
   queueSlotCount: 5,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const oneTextSchema = z.object({
@@ -183,14 +199,14 @@ Height of the new image, in pixels. If not specified, will default to the height
       .union([
         z
           .literal('crop')
-          .describe(`Cuts an area out of an image, discarding any overlapping parts. If the source image is smaller than the crop frame, it will be zoomed. This strategy is implied when you specify coordinates in the \`crop\` parameter, and cannot be used without it.
+          .describe(`Cuts an area out of an image. Coordinates in the \`crop\` parameter imply this strategy. With coordinates, ImageMagick crops without resizing; libvips enlarges the image if \`x2\` or \`y2\` exceeds its dimensions, even with \`zoom: false\`. Without coordinates, set both \`width\` and \`height\`; this uses \`fillcrop\`, with \`gravity\` selecting which part is kept. With the default \`zoom\` setting, this coordinate-free path scales the image to cover that rectangle before trimming.
 
 To crop around human faces, see [🤖/image/facedetect](https://transloadit.com/docs/robots/image-facedetect/) instead.`),
         z
           .literal('fillcrop')
           .describe(`Scales the image to fit into our 100×100 target while preserving aspect ratio, while trimming away any excess surface. This means both sides will become exactly 100 pixels, at the tradeoff of destroying parts of the image.
 
-By default the resulting image is horizontally/vertically centered to fill the target rectangle. Use the \`gravity\` parameter to change where to crop the image, such as \`"bottom\`" or \`"left\`".`),
+By default the resulting image is horizontally/vertically centered to fill the target rectangle. Use the \`gravity\` parameter to change where to crop the image, such as \`"bottom"\` or \`"left"\`.`),
         z
           .literal('fit')
           .describe(`Uses the larger side of the original image as a base for the resize. Aspect ratio is preserved. Either side will become at most 100 pixels.
@@ -236,7 +252,7 @@ For example:
 }
 \`\`\`
 
-This will crop the area from \`(80, 100)\` to \`(600, 800)\` from a 1000×1000 pixels image, which is a square whose width is 520px and height is 700px. If \`crop\` is set, the width and height parameters are ignored, and the \`resize_strategy\` is set to \`crop\` automatically.
+This will crop the area from \`(80, 100)\` to \`(600, 800)\` from a 1000×1000 pixels image, which is a rectangle whose width is 520px and height is 700px. If \`crop\` is set, the width and height parameters are ignored, and the \`resize_strategy\` is set to \`crop\` automatically.
 
 You can also use a JSON string of such an object with coordinates in similar fashion:
 
@@ -247,9 +263,11 @@ You can also use a JSON string of such an object with coordinates in similar fas
 To crop around human faces, see [🤖/image/facedetect](/docs/robots/image-facedetect/).
 `),
     gravity: imageResizeGravitySchema.default('center').describe(`
-The direction from which the image is to be cropped when \`"resize_strategy"\` is set to \`"crop"\` or \`"fillcrop"\`, but no crop coordinates are defined.
-
-You can also use \`"entropy"\` or \`"attention"\` for automatic point-of-interest cropping. \`"entropy"\` keeps the region with the highest Shannon entropy, while \`"attention"\` favors areas with luminance frequency, saturation, and skin-tone cues.
+Sets crop direction for \`crop\` or \`fillcrop\` without explicit coordinates.
+Content-aware \`attention\` and \`entropy\` need libvips, \`fillcrop\`, \`width\` and \`height\`.
+Effects such as \`sepia\` or \`text\`, and inputs such as HEIC, can use ImageMagick.
+It centers these crops and the Assembly reports a warning.
+Crop in a separate /image/resize Step before effects, or convert unsupported inputs to PNG first.
 `),
     strip: z
       .boolean()
@@ -310,12 +328,7 @@ To preserve animations, GIF files are not flattened when this is set to \`true\`
 Prevents gamma errors [common in many image scaling algorithms](https://www.4p8.com/eric.brasseur/gamma.html).
 `),
     quality: imageQualitySchema,
-    adaptive_filtering: z
-      .boolean()
-      .default(false)
-      .describe(`
-Controls the image compression for PNG images. Setting to \`true\` results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled.
-`),
+    adaptive_filtering: imageAdaptiveFilteringSchema,
     background: color_without_alpha_with_named.default('#FFFFFF').describe(`
 Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (used for the \`pad\` resize strategy).
 
@@ -380,7 +393,7 @@ Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
 `),
     blur: z
       .string()
-      .regex(/^\d+(\.\d+)?x\d+(\.\d+)?$/)
+      .regex(/^[0-9]+(\.[0-9]+)?x[0-9]+(\.[0-9]+)?$/u)
       .nullable()
       .default(null)
       .describe(`
@@ -430,7 +443,7 @@ Changes the hue by rotating the color of the image. The value \`100\` would prod
       .max(2)
       .default(1)
       .describe(`
-Adjusts the contrast of the image. A value of \`1\` produces no change. Values below \`1\` decrease contrast (with \`0\` being minimum contrast), and values above \`1\` increase contrast (with \`2\` being maximum contrast). This works like the \`brightness\` parameter.
+Adjusts the contrast of the image. A value of \`1\` produces no change. Values below \`1\` decrease contrast, and values above \`1\` increase it. Start with small adjustments, such as \`0.9\` or \`1.1\`. Larger increases can clip shadows and highlights.
 `),
     watermark_url: httpUrlSchema.optional().describe(`
 A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.
@@ -467,6 +480,8 @@ Values can be both positive and negative and yield different results depending o
 The size of the watermark, as a percentage.
 
 For example, a value of \`"50%"\` means that size of the watermark will be 50% of the size of image on which it is placed. The exact sizing depends on \`watermark_resize_strategy\`, too.
+
+With \`watermark_repeat_x\` or \`watermark_repeat_y\`, this sizes each tile relative to the output image, before repeating it. It does not set the percentage of the image covered by the whole pattern. Smaller values produce more, smaller tiles. If omitted, the watermark keeps its original pixel dimensions.
 `),
     watermark_resize_strategy: z
       .enum(['area', 'fit', 'min_fit', 'stretch'])
@@ -526,7 +541,7 @@ This is useful for creating tiled watermark patterns that cover the full image. 
 Interlaces the image if set to \`true\`, which makes the image load progressively in browsers. Instead of rendering the image from top to bottom, the browser will first show a low-res blurry version of the images which is then quickly replaced with the actual image as the data arrives. This greatly increases the user experience, but comes at a cost of a file size increase by around 10%.
 `),
     transparent: z
-      .union([color_without_alpha_with_named, z.string().regex(/^\d+,\d+,\d+$/)])
+      .union([color_without_alpha_with_named, z.string().regex(/^[0-9]+,[0-9]+,[0-9]+$/u)])
       .optional()
       .describe(`
 Make this color transparent within the image. Example: \`"255,255,255"\`.
@@ -606,8 +621,8 @@ Transform the image to black and white. This is a shortcut for setting the color
 `),
     shave: z
       .union([
-        z.string().regex(/^\d+(x\d+)?$/),
-        z.number().int().min(0).transform(String), // Accept numbers and convert to string
+        z.string().regex(/^[0-9]+(x[0-9]+)?$/u),
+        zodInputPreservingTransform(z.number().int().min(0), String),
       ])
       .optional()
       .describe(`
@@ -616,75 +631,68 @@ Shave pixels from the image edges. The value should be in the format \`width\` o
   })
   .strict()
 
-export const robotImageResizeInstructionsWithHiddenFieldsSchema =
-  robotImageResizeInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotImageResizeInstructionsSchema.shape.result])
-      .optional(),
-    stack: z.string().optional().describe('Legacy parameter, use imagemagick_stack instead'),
-    text: z
-      .union([
-        // Support single text object (backward compatibility)
+const hiddenFields = {
+  stack: z.string().optional().describe('Legacy parameter, use imagemagick_stack instead'),
+  text: z
+    .union([
+      // Support single text object (backward compatibility)
+      oneTextSchema.extend({
+        gravity: positionSchema
+          .default('top-left')
+          .optional()
+          .describe(`
+            Legacy. The direction from which to start the offsets.
+            `),
+      }),
+      // Support array of text objects (current schema)
+      z.array(
         oneTextSchema.extend({
           gravity: positionSchema
             .default('top-left')
             .optional()
             .describe(`
-            Legacy. The direction from which to start the offsets.
-            `),
-        }),
-        // Support array of text objects (current schema)
-        z.array(
-          oneTextSchema.extend({
-            gravity: positionSchema
-              .default('top-left')
-              .optional()
-              .describe(`
               Legacy. The direction from which to start the offsets.
               `),
-          }),
-        ),
-      ])
-      .optional()
-      .describe(TEXT_DESCRIPTION),
-    watermark_position_x: z
-      .number()
-      .int()
-      .optional()
-      .describe(`
+        }),
+      ),
+    ])
+    .optional()
+    .describe(TEXT_DESCRIPTION),
+  watermark_position_x: z
+    .number()
+    .int()
+    .optional()
+    .describe(`
       Legacy alias for \`watermark_x_offset\`. The x-offset in number of pixels at which the watermark will be placed.
       `),
-    watermark_position_y: z
-      .number()
-      .int()
-      .optional()
-      .describe(`
+  watermark_position_y: z
+    .number()
+    .int()
+    .optional()
+    .describe(`
       Legacy alias for \`watermark_y_offset\`. The y-offset in number of pixels at which the watermark will be placed.
       `),
-  })
+}
 
-export type RobotImageResizeInstructions = z.infer<typeof robotImageResizeInstructionsSchema>
-export type RobotImageResizeInstructionsInput = z.input<typeof robotImageResizeInstructionsSchema>
-export type RobotImageResizeInstructionsWithHiddenFields = z.infer<
-  typeof robotImageResizeInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotImageResizeInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotImageResizeInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotImageResizeInstructionsSchema = interpolateRobot(
-  robotImageResizeInstructionsSchema,
-)
-export type InterpolatableRobotImageResizeInstructions =
-  InterpolatableRobotImageResizeInstructionsInput
+export const {
+  withHiddenFields: robotImageResizeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageResizeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotImageResizeInstructionsInput = z.input<
-  typeof interpolatableRobotImageResizeInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotImageResizeInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotImageResizeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageResizeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema
->
+export type RobotImageResizeInstructions = Instructions['output']
+export type RobotImageResizeInstructionsInput = Instructions['input']
+export type RobotImageResizeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageResizeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageResizeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageResizeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageResizeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

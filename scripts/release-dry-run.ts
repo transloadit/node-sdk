@@ -28,6 +28,9 @@ async function packPackage(packDir: string, target: PackTarget): Promise<void> {
 const main = async (): Promise<void> => {
   const packDir = await mkdtemp(resolve(tmpdir(), 'transloadit-release-dry-run-'))
 
+  await packPackage(packDir, { packagePath: './packages/utils' })
+  await packPackage(packDir, { packagePath: './packages/img' })
+
   await Promise.all([
     packPackage(packDir, {
       packagePath: './packages/node',

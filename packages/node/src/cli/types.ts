@@ -2,7 +2,40 @@ import type { Steps } from '../alphalib/types/template.ts'
 
 import { z } from 'zod'
 
-import { optionalStepsSchema } from '../alphalib/types/template.ts'
+const ignoredErrorDetailsSchema = z
+  .union([
+    z.string(),
+    z.object({
+      code: z.string().optional().catch(undefined),
+      message: z.string().optional().catch(undefined),
+    }),
+  ])
+  .optional()
+  .catch(undefined)
+
+const ignoredErrorSummarySchema = z
+  .object({
+    step: z.string().nullable().optional().catch(undefined),
+    phase: z.string().optional().catch(undefined),
+    error: ignoredErrorDetailsSchema,
+    message: z.string().optional().catch(undefined),
+  })
+  .catch({})
+
+/** Project unchecked API responses to CLI diagnostics without nested request metadata. */
+export const assemblySummarySchema = z.object({
+  assembly_id: z.string().optional().catch(undefined),
+  assembly_url: z.string().nullable().optional().catch(undefined),
+  assembly_ssl_url: z.string().nullable().optional().catch(undefined),
+  ok: z.string().nullable().optional().catch(undefined),
+  error: z.string().optional().catch(undefined),
+  message: z.string().optional().catch(undefined),
+  ignored_error_count: z.number().finite().int().nonnegative().default(0).catch(0),
+  ignored_errors: z.array(ignoredErrorSummarySchema).default([]).catch([]),
+})
+
+/** Public diagnostics from one Assembly, excluding instructions and request internals. */
+export type AssemblySummary = z.infer<typeof assemblySummarySchema>
 
 // Zod schemas for runtime validation
 const APIErrorSchema = z.object({
@@ -35,13 +68,6 @@ export interface TemplateFileData {
   steps?: Steps
   [key: string]: unknown // passthrough
 }
-
-export const TemplateFileDataSchema: z.ZodType<TemplateFileData> = z
-  .object({
-    transloadit_template_id: z.string().optional(),
-    steps: optionalStepsSchema,
-  })
-  .passthrough() as z.ZodType<TemplateFileData>
 
 export interface TemplateFile {
   file: string

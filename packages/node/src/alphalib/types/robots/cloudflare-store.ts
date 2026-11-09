@@ -1,53 +1,50 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
   cloudflareBase,
-  interpolateRobot,
+  createStorageStoreExample,
+  defineRobot,
   robotBase,
+  robotStoreMeta,
   robotUse,
+  signedSslUrlLifetime,
+  storeFilePath,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 6,
-  discount_factor: 0.15000150001500018,
-  discount_pct: 84.99984999849998,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/cloudflare/store',
-        use: ':original',
-        credentials: 'YOUR_CLOUDFLARE_CREDENTIALS',
-        path: 'my_target_folder/${unique_prefix}/${file.url_name}',
-      },
-    },
-  },
-  example_code_description: 'Export uploaded files to `my_target_folder` on cloudflare R2:',
+  ...robotStoreMeta,
+  example_code: createStorageStoreExample('/cloudflare/store', 'YOUR_CLOUDFLARE_CREDENTIALS'),
+  example_code_description:
+    'Export uploaded files to `my_target_folder` in a Cloudflare R2 bucket:',
   extended_description: `
 The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
+
+## Temporary credentials and permissions
+
+You can use [temporary R2 credentials](https://developers.cloudflare.com/r2/api/s3/temporary-credentials/) by supplying the matching temporary \`key\`, \`secret\`, and \`session_token\`. Use the temporary secret returned or derived with the token, not the parent secret used to mint it. These values can also be stored together in Cloudflare <dfn>Template Credentials</dfn>. For per-Assembly credentials, send all three from your trusted backend; do not expose the parent credentials in browser instructions.
+
+Credentials must remain valid through queuing, processing, upload retries, and verification. The Robot does not refresh them. Signed download URLs cannot outlive the credentials that sign them, even when \`sign_urls_for\` is longer.
+
+When overriding a stored \`key\` or \`secret\` with a different value, supply the matching \`session_token\` inline too; the stored token will not be inherited. When updating Cloudflare Template Credentials, replacing either key or secret without a new token removes the old token. Omitting the token retains it only when the key and secret stay unchanged. You can also explicitly remove it with an empty string or \`null\`; empty tokens are treated as absent on creation too.
+
+For locally signed credentials using explicit R2 \`actions\`, grant \`PutObject\` for small uploads and \`HeadObject\` for the Robot’s mandatory signed HEAD verification. Uploads larger than the default 5 MiB part size use multipart requests: also grant \`CreateMultipartUpload\`, \`UploadPart\`, \`CompleteMultipartUpload\`, and \`AbortMultipartUpload\` for failed-upload cleanup. Grant \`GetObject\` if consumers will use signed download URLs. These are R2 action names, not AWS IAM policy actions.
+
+Scope \`paths.objectPaths\` to the exact destination object key and set \`path\` to that same key. A path ending in \`/\` appends a generated filename and will not match an exact-object grant. Use one output per exact-object key to avoid overwrites. No bucket listing or region-discovery permission is needed.
+
+Strictly write-only credentials cannot pass this Robot’s HEAD verification. For uploads without read verification, use [/s3/store](/docs/robots/s3-store/) with the R2 configuration documented there. A presigned PUT URL is a different credential format and cannot be used as this Robot’s \`host\`.
 `,
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
-  purpose_sentence: 'exports encoding results to cloudflare r2 buckets',
-  purpose_verb: 'export',
-  purpose_word: 'cloudflare',
+  purpose_sentence: 'exports encoding results to Cloudflare R2 buckets',
+  purpose_word: 'Cloudflare R2',
   purpose_words: 'Export files to Cloudflare R2',
-  service_slug: 'file-exporting',
-  slot_count: 10,
   title: 'Export files to Cloudflare R2',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'CloudflareStoreRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotCloudflareStoreInstructionsSchema = robotBase
@@ -55,28 +52,22 @@ export const robotCloudflareStoreInstructionsSchema = robotBase
   .merge(cloudflareBase)
   .extend({
     robot: z.literal('/cloudflare/store'),
-    path: z
+    path: storeFilePath,
+    session_token: z
       .string()
-      .default('${unique_prefix}/${file.url_name}')
+      .optional()
       .describe(`
-The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables). The path must not be a directory.
+The session token belonging to the temporary Cloudflare R2 access key ID and secret access key supplied for this upload. It can also be supplied inside Template Credentials. The credentials must remain valid through upload and signed HEAD verification; the Robot does not refresh them.
 `),
     headers: z
       .record(z.string())
       .default({ 'Content-Type': '${file.mime}' })
       .describe(`
-An object containing a list of headers to be set for this file on cloudflare Spaces, such as \`{ FileURL: "\${file.url_name}" }\`. This can also include any available [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables).
+An object containing a list of headers to be set for this file in your Cloudflare R2 bucket, such as \`{ FileURL: "\${file.url_name}" }\`. This can also include any available [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables).
 
 Object Metadata can be specified using \`x-amz-meta-*\` headers. Note that these headers [do not support non-ASCII metadata values](https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html#UserMetadata).
 `),
-    sign_urls_for: z
-      .number()
-      .int()
-      .min(0)
-      .optional()
-      .describe(`
-This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\` property). The number that you set this parameter to is the URL expiry time in seconds. If this parameter is not used, no URL signing is done.
-`),
+    sign_urls_for: signedSslUrlLifetime,
     url_prefix: z
       .string()
       .optional()
@@ -86,35 +77,24 @@ The URL prefix used for accessing files from your Cloudflare R2 bucket. This is 
   })
   .strict()
 
-export const robotCloudflareStoreInstructionsWithHiddenFieldsSchema =
-  robotCloudflareStoreInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotCloudflareStoreInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotCloudflareStoreInstructionsSchema.shape> =
+  defineRobot(meta, robotCloudflareStoreInstructionsSchema)
 
-export type RobotCloudflareStoreInstructions = z.infer<
-  typeof robotCloudflareStoreInstructionsSchema
->
-export type RobotCloudflareStoreInstructionsWithHiddenFields = z.infer<
-  typeof robotCloudflareStoreInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotCloudflareStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotCloudflareStoreInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotCloudflareStoreInstructionsSchema = interpolateRobot(
-  robotCloudflareStoreInstructionsSchema,
-)
-export type InterpolatableRobotCloudflareStoreInstructions =
-  InterpolatableRobotCloudflareStoreInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotCloudflareStoreInstructionsInput = z.input<
-  typeof interpolatableRobotCloudflareStoreInstructionsSchema
->
-
-export const interpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotCloudflareStoreInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotCloudflareStoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsSchema
->
+export type RobotCloudflareStoreInstructions = Instructions['output']
+export type RobotCloudflareStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotCloudflareStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotCloudflareStoreInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotCloudflareStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

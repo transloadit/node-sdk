@@ -1,0 +1,3 @@
+policy:
+  # A human opts into this CI-heavy loop with `$gh-pr-to-green`; agents should not reach for it.
+  allow_implicit_invocation: false

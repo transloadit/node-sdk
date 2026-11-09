@@ -1,5 +1,6 @@
 import type { IOutputCtl } from './OutputCtl.ts'
 import type { NormalizedAssemblyResults } from './resultFiles.ts'
+import type { AssemblySummary } from './types.ts'
 
 import { normalizeAssemblyResults } from './resultFiles.ts'
 
@@ -64,10 +65,17 @@ export function formatResultUrlRows(rows: readonly ResultUrlRow[]): string {
     .join('\n')
 }
 
-export function printResultUrls(output: IOutputCtl, rows: readonly ResultUrlRow[]): void {
-  if (rows.length === 0) {
+export function printResultUrls(
+  output: IOutputCtl,
+  rows: readonly ResultUrlRow[],
+  assemblies?: readonly AssemblySummary[],
+): void {
+  if (rows.length === 0 && !assemblies?.length) {
     return
   }
 
-  output.print(formatResultUrlRows(rows), { urls: rows })
+  output.print(rows.length > 0 ? formatResultUrlRows(rows) : undefined, {
+    urls: rows,
+    ...(assemblies?.length ? { assemblies } : {}),
+  })
 }

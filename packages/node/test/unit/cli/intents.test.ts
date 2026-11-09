@@ -6,6 +6,10 @@ import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+import {
+  robotSpeechTranscribeInstructionsSchema,
+  meta as robotSpeechTranscribeMeta,
+} from '../../../src/alphalib/types/robots/speech-transcribe.ts'
 import * as assembliesCommands from '../../../src/cli/commands/assemblies.ts'
 import {
   findIntentDefinitionByPaths,
@@ -13,7 +17,7 @@ import {
   getIntentResultStepName,
   intentCatalog,
 } from '../../../src/cli/intentCommandSpecs.ts'
-import { intentCommands } from '../../../src/cli/intentCommands.ts'
+import { intentCommands, resolveIntentCommandDefinitions } from '../../../src/cli/intentCommands.ts'
 import {
   coerceIntentFieldValue,
   inferIntentFieldKind,
@@ -498,7 +502,7 @@ describe('intent commands', () => {
     )
   })
 
-  it('defaults image generate to google/nano-banana-2 when no --model is provided', async () => {
+  it('defaults image generate to OpenAI Images 2.5 Flare when no --model is provided', async () => {
     const { createSpy } = await runIntentCommand([
       'image',
       'generate',
@@ -516,7 +520,7 @@ describe('intent commands', () => {
         stepsData: {
           generate: expect.objectContaining({
             robot: '/image/generate',
-            model: 'google/nano-banana-2',
+            model: 'openai/gpt-image-2.5-flare',
             prompt: 'A red bicycle in a studio',
             result: true,
           }),
@@ -525,14 +529,19 @@ describe('intent commands', () => {
     )
   })
 
-  it('passes through openai/gpt-image-2 and explicit dimensions for image generate', async () => {
+  it.each([
+    'openai/gpt-image-2.5-flare',
+    'openai/gpt-image-2.5-sunburst',
+    'openai/gpt-image-2',
+    'google/nano-banana-2',
+  ])('passes through %s and explicit dimensions for image generate', async (model) => {
     const { createSpy } = await runIntentCommand([
       'image',
       'generate',
       '--prompt',
       'A ceramic coffee mug on a white sweep',
       '--model',
-      'openai/gpt-image-2',
+      model,
       '--width',
       '1024',
       '--height',
@@ -551,7 +560,7 @@ describe('intent commands', () => {
         stepsData: {
           generate: expect.objectContaining({
             robot: '/image/generate',
-            model: 'openai/gpt-image-2',
+            model,
             prompt: 'A ceramic coffee mug on a white sweep',
             width: 1024,
             height: 1024,
@@ -591,6 +600,7 @@ describe('intent commands', () => {
           generate: expect.objectContaining({
             robot: '/image/generate',
             result: true,
+            model: 'openai/gpt-image-2.5-flare',
             prompt: 'Place person1.jpg feeding person2.jpg in front of background.jpg',
             use: {
               steps: [':original'],
@@ -732,6 +742,32 @@ describe('intent commands', () => {
     )
   })
 
+  it('matches speech transcribe target-language guidance to the Robot schema and example', () => {
+    const definition = resolveIntentCommandDefinitions().find(
+      (candidate) => candidate.paths.join(' ') === 'speech transcribe',
+    )
+    if (definition == null) {
+      throw new Error('Missing speech transcribe intent definition')
+    }
+
+    const targetLanguageOption = getIntentOptionDefinitions(definition.intentDefinition).find(
+      (field) => field.optionFlags === '--target-language',
+    )
+    const schemaExample = z
+      .object({ steps: z.object({ transcribed: robotSpeechTranscribeInstructionsSchema }) })
+      .parse(robotSpeechTranscribeMeta.example_code)
+
+    expect(targetLanguageOption).toMatchObject({
+      description: robotSpeechTranscribeInstructionsSchema.shape.target_language.description
+        ?.replaceAll('`source_language`', '`--source-language`')
+        .replace(/\s+/g, ' ')
+        .trim(),
+      exampleValue: schemaExample.steps.transcribed.target_language,
+    })
+    expect(targetLanguageOption?.description).toContain('use `--source-language` instead.')
+    expect(targetLanguageOption?.exampleValue).toBe('french')
+  })
+
   it('maps speech transcribe to text output with the SOTA provider default', async () => {
     const { createSpy } = await runIntentCommand([
       'speech',
@@ -803,6 +839,71 @@ describe('intent commands', () => {
       'transloadit',
       '--output',
       'voice.txt',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
+  it('lets the API pick a speaker-labeling provider for speech transcribe', async () => {
+    const { createSpy } = await runIntentCommand([
+      'speech',
+      'transcribe',
+      '--input',
+      'interview.mp4',
+      '--speaker-labels',
+      '--max-speakers',
+      '2',
+      '--output',
+      'interview.txt',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          transcribe: {
+            robot: '/speech/transcribe',
+            use: ':original',
+            result: true,
+            format: 'text',
+            speaker_labels: true,
+            max_speakers: 2,
+          },
+        },
+      }),
+    )
+  })
+
+  it('rejects speaker labels with the replicate provider', async () => {
+    const { createSpy } = await runIntentCommand([
+      'speech',
+      'transcribe',
+      '--input',
+      'interview.mp4',
+      '--speaker-labels',
+      '--provider',
+      'replicate',
+      '--output',
+      'interview.txt',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
+  it('rejects --max-speakers without --speaker-labels', async () => {
+    const { createSpy } = await runIntentCommand([
+      'speech',
+      'transcribe',
+      '--input',
+      'interview.mp4',
+      '--max-speakers',
+      '2',
+      '--output',
+      'interview.txt',
     ])
 
     expect(process.exitCode).toBe(1)

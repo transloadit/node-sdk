@@ -47,7 +47,7 @@ maybeDescribe('mcp-server base64 limit (stdio)', { timeout: 30000 }, () => {
     expect(Array.isArray(payload.errors)).toBe(true)
     const error = payload.errors?.[0] as { code?: string; hint?: string; message?: string }
     expect(error?.code).toBe('mcp_base64_too_large')
-    expect(error?.hint).toContain('Use a URL import or path upload instead')
+    expect(error?.hint).toContain('Use a public URL import or upload from your own machine instead')
     expect(error?.message).toContain('Base64 payload exceeds')
   })
 })

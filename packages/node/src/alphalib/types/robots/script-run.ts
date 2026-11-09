@@ -1,44 +1,37 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  defineRobotWithHiddenFields,
+  robotBase,
+  robotCodeEvaluationMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      evaluate: {
-        robot: '/script/run',
-        use: ':original',
-        script:
-          '({ width: file.meta.width, height: file.meta.height, area: file.meta.width * file.meta.height })',
-      },
-    },
-  },
+  ...robotCodeEvaluationMeta,
+  example_code: createProcessingExample('evaluate', '/script/run', {
+    script:
+      '({ width: file.meta.width, height: file.meta.height, area: file.meta.width * file.meta.height })',
+  }),
   example_code_description: 'Run JavaScript against uploaded file metadata:',
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'Code Evaluation',
   purpose_sentence: 'runs scripts in Assemblies',
   purpose_verb: 'run',
   purpose_word: 'script',
   purpose_words: 'Run scripts in Assemblies',
-  service_slug: 'code-evaluation',
-  slot_count: 5,
   title: 'Run Scripts',
   typical_file_size_mb: 0.0001,
-  typical_file_type: 'file',
   name: 'ScriptRunRobot',
   priceFactor: 10,
   queueSlotCount: 5,
   isAllowedForUrlTransform: true,
   trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotScriptRunInstructionsSchema = robotBase
@@ -97,37 +90,33 @@ You can check whether evaluating this script was free by inspecting \`file.meta.
   })
   .strict()
 
-export const robotScriptRunInstructionsWithHiddenFieldsSchema =
-  robotScriptRunInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotScriptRunInstructionsSchema.shape.result]).optional(),
-    contextJSON: z
-      .string()
-      .optional()
-      .describe(`
+const hiddenFields = {
+  contextJSON: z
+    .string()
+    .optional()
+    .describe(`
 A JSON string that provides additional context data to the script. This will be parsed and made available to the script as a \`context\` variable. For example, if you pass \`'{"foo":{"bar":"baz"}}'\`, the script can access \`context.foo.bar\` to get the value \`"baz"\`.
 `),
-  })
+}
 
-export type RobotScriptRunInstructions = z.infer<typeof robotScriptRunInstructionsSchema>
-export type RobotScriptRunInstructionsWithHiddenFields = z.infer<
-  typeof robotScriptRunInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotScriptRunInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotScriptRunInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotScriptRunInstructionsSchema = interpolateRobot(
-  robotScriptRunInstructionsSchema,
-)
-export type InterpolatableRobotScriptRunInstructions = InterpolatableRobotScriptRunInstructionsInput
+export const {
+  withHiddenFields: robotScriptRunInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotScriptRunInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotScriptRunInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotScriptRunInstructionsInput = z.input<
-  typeof interpolatableRobotScriptRunInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotScriptRunInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotScriptRunInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotScriptRunInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotScriptRunInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotScriptRunInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotScriptRunInstructionsWithHiddenFieldsSchema
->
+export type RobotScriptRunInstructions = Instructions['output']
+export type RobotScriptRunInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotScriptRunInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotScriptRunInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotScriptRunInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotScriptRunInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

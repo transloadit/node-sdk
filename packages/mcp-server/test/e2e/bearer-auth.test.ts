@@ -15,7 +15,9 @@ const fetchBearerToken = async (): Promise<string> => {
   const body = new URLSearchParams({
     grant_type: 'client_credentials',
     scope: 'assemblies:write assemblies:read',
-    aud: 'mcp',
+    // This server is self-hosted and forwards the token to API2 as is. API2 only accepts `mcp`
+    // tokens when the hosted MCP service relays them, so a self-hosted server needs an `api2` one.
+    aud: 'api2',
   })
 
   const response = await fetch('https://api2.transloadit.com/token', {

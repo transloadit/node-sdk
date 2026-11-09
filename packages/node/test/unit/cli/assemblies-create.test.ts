@@ -8,7 +8,7 @@ import tty from 'node:tty'
 import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { create } from '../../../src/cli/commands/assemblies.ts'
+import { create, replay } from '../../../src/cli/commands/assemblies.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { parseStepsInputJson } from '../../../src/cli/stepsInput.ts'
 import PollingTimeoutError from '../../../src/PollingTimeoutError.ts'
@@ -230,6 +230,7 @@ describe('assemblies create', () => {
     const outputPath = path.join(tempDir, 'result.txt')
 
     const output = new OutputCtl()
+    const outputError = vi.spyOn(output, 'error')
     const client = {
       createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-file-multi' }),
       awaitAssemblyCompletion: vi.fn().mockResolvedValue({
@@ -266,6 +267,78 @@ describe('assemblies create', () => {
     )
 
     await expect(stat(outputPath)).rejects.toThrow()
+    expect(outputError).toHaveBeenCalledWith(expect.stringContaining('use -o <dir>/'))
+  })
+
+  it.each([
+    { name: 'missing directory with a POSIX separator', separator: '/', existing: false },
+    { name: 'missing directory with a Windows separator', separator: '\\', existing: false },
+    { name: 'existing directory without a trailing separator', separator: '', existing: true },
+  ])('writes all Template results to a $name', async ({ separator, existing }) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-template-outdir-')
+    const inputPath = path.join(tempDir, 'video.mp4')
+    const outputDir = `${path.join(tempDir, 'nested', 'out')}${separator}`
+    await writeFile(inputPath, 'small video fixture')
+    if (existing) {
+      await mkdir(outputDir, { recursive: true })
+    }
+
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-social-captions' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          captioned: [{ url: 'http://downloads.test/video.mp4', name: 'video.mp4' }],
+          transcript: [{ url: 'http://downloads.test/video.srt', name: 'video.srt' }],
+          transcription: [{ url: 'http://downloads.test/video.json', name: 'video.json' }],
+        },
+      }),
+    }
+
+    const downloads = nock('http://downloads.test')
+      .get('/video.mp4')
+      .reply(200, 'captioned video')
+      .get('/video.srt')
+      .reply(200, 'subtitle text')
+      .get('/video.json')
+      .reply(200, '{"words":[]}')
+
+    await expect(
+      create(new OutputCtl(), client as never, {
+        inputs: [inputPath],
+        output: outputDir,
+        template: 'builtin/caption-video@0.0.2',
+        fields: { style: 'social', vocabulary: 'Transloadit' },
+      }),
+    ).resolves.toEqual(expect.objectContaining({ hasFailures: false }))
+
+    expect(client.createAssembly).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: {
+          template_id: 'builtin/caption-video@0.0.2',
+          fields: { style: 'social', vocabulary: 'Transloadit' },
+        },
+      }),
+    )
+    const mappedInput = getLegacyRelativeInputPath(inputPath)
+    const baseDir = path.join(path.dirname(mappedInput), 'video')
+    expect(await collectRelativeFiles(outputDir)).toEqual([
+      path.join(baseDir, 'captioned', 'video.mp4'),
+      path.join(baseDir, 'transcript', 'video.srt'),
+      path.join(baseDir, 'transcription', 'video.json'),
+    ])
+    expect(await readFile(path.join(outputDir, baseDir, 'captioned', 'video.mp4'), 'utf8')).toBe(
+      'captioned video',
+    )
+    expect(await readFile(path.join(outputDir, baseDir, 'transcript', 'video.srt'), 'utf8')).toBe(
+      'subtitle text',
+    )
+    expect(
+      await readFile(path.join(outputDir, baseDir, 'transcription', 'video.json'), 'utf8'),
+    ).toBe('{"words":[]}')
+    expect(downloads.isDone()).toBe(true)
   })
 
   it('supports bundled single-assembly outputs written to a file path', async () => {
@@ -434,9 +507,52 @@ describe('assemblies create', () => {
     })
 
     expect(client.createAssembly).toHaveBeenCalledTimes(1)
-    expect(await readFile(path.join(outputDir, 'generated-dir.png'), 'utf8')).toBe(
+    expect(await readFile(path.join(outputDir, 'generated', 'generated-dir.png'), 'utf8')).toBe(
       'dir-image-bytes',
     )
+  })
+
+  it('groups prompt-only results by step without an input folder', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-prompt-only-outdir-')
+    const outputDir = path.join(tempDir, 'out')
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-prompt-only' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          generated: [{ url: 'http://downloads.test/generated.png', name: 'generated.png' }],
+        },
+      }),
+    }
+    const downloads = nock('http://downloads.test').get('/generated.png').reply(200, 'image-bytes')
+
+    await expect(
+      create(new OutputCtl(), client as never, {
+        inputs: [],
+        output: `${outputDir}/`,
+        stepsData: {
+          generated: {
+            robot: '/image/generate',
+            result: true,
+            prompt: 'A red bicycle',
+            model: 'google/nano-banana',
+          },
+        },
+      }),
+    ).resolves.toEqual(expect.objectContaining({ hasFailures: false }))
+
+    expect(client.createAssembly).toHaveBeenCalledExactlyOnceWith({
+      params: { steps: expect.any(Object) },
+      onAssemblyCreated: expect.any(Function),
+      signal: expect.any(AbortSignal),
+    })
+    expect(await collectRelativeFiles(outputDir)).toEqual([path.join('generated', 'generated.png')])
+    expect(await readFile(path.join(outputDir, 'generated', 'generated.png'), 'utf8')).toBe(
+      'image-bytes',
+    )
+    expect(downloads.isDone()).toBe(true)
   })
 
   it('returns normalized step data from steps input parsing', () => {
@@ -459,6 +575,202 @@ describe('assemblies create', () => {
         style: 'v1',
       },
     })
+  })
+
+  it.each([
+    'example-user-jwt',
+    '${file.meta.session_token}',
+  ])('accepts a Supabase user session token without changing it: %s', (sessionToken) => {
+    const steps = {
+      exported: {
+        robot: '/supabase/store',
+        use: ':original',
+        bucket: 'uploads',
+        host: 'project-ref.storage.supabase.co',
+        key: 'project-ref',
+        secret: 'example-anon-key',
+        session_token: sessionToken,
+      },
+    }
+    const output = { warn: vi.fn() }
+
+    expect(parseStepsInputJson(JSON.stringify(steps), output)).toEqual(steps)
+    expect(output.warn).not.toHaveBeenCalled()
+  })
+
+  it.each(['', 123])('rejects an invalid known Supabase session token: %j', (sessionToken) => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          exported: { robot: '/supabase/store', use: ':original', session_token: sessionToken },
+        }),
+        { warn: vi.fn() },
+      ),
+    ).toThrow('exported.session_token')
+  })
+
+  it('forwards new step parameters with a warning and still normalizes known parameters', () => {
+    const steps = {
+      waveform: {
+        robot: '/audio/waveform',
+        use: ':original',
+        style: 1,
+        future_option: { token: 'private-value' },
+        other_future_option: true,
+      },
+    }
+    const output = { warn: vi.fn() }
+
+    expect(parseStepsInputJson(JSON.stringify({ steps }), output)).toEqual({
+      waveform: { ...steps.waveform, style: 'v1' },
+    })
+    expect(output.warn).toHaveBeenCalledExactlyOnceWith(
+      'waveform: Unrecognized step parameters: future_option, other_future_option. Preserving them for API validation when submitted.',
+    )
+  })
+
+  it('rejects invalid known parameters even when a step has new parameters', () => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          imported: { robot: '/http/import', url: 123, future_option: true },
+        }),
+        { warn: vi.fn() },
+      ),
+    ).toThrow('Invalid steps format')
+  })
+
+  it('keeps nested parameter validation strict when a step has new parameters', () => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          encoded: {
+            robot: '/video/encode',
+            use: ':original',
+            ffmpeg: { 'x264-params': { unknown_option: true } },
+            future_option: true,
+          },
+        }),
+        { warn: vi.fn() },
+      ),
+    ).toThrow('encoded.ffmpeg.x264-params')
+  })
+
+  it.each(['steps-only', 'wrapped'])('accepts a %s steps file', async (shape) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const tempDir = await createTempDir('transloadit-steps-shape-')
+    const stepsPath = path.join(tempDir, 'steps.json')
+    const steps = {
+      imported: {
+        robot: '/http/import',
+        result: true,
+        url: 'https://example.com/input.jpg',
+      },
+    }
+    await writeFile(stepsPath, JSON.stringify(shape === 'wrapped' ? { steps } : steps))
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-steps-shape' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {},
+      }),
+    }
+
+    await expect(
+      create(new OutputCtl(), client as never, { inputs: [], output: null, steps: stepsPath }),
+    ).resolves.toMatchObject({ hasFailures: false })
+
+    expect(client.createAssembly).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { steps } }),
+    )
+  })
+
+  it('normalizes wrapped steps without adding schema defaults', () => {
+    expect(
+      parseStepsInputJson(
+        JSON.stringify({
+          steps: { waveform: { robot: '/audio/waveform', use: ':original', style: 1 } },
+        }),
+      ),
+    ).toEqual({ waveform: { robot: '/audio/waveform', use: ':original', style: 'v1' } })
+  })
+
+  it('warns about OCR dependencies without blocking replay overrides', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const tempDir = await createTempDir('transloadit-ocr-template-')
+    const stepsPath = path.join(tempDir, 'steps.json')
+    const steps = {
+      extracted: { robot: '/document/extract', use: ':original', text_method: 'ocr' },
+    }
+    await writeFile(stepsPath, JSON.stringify({ steps }))
+    const output = new OutputCtl({ jsonMode: true })
+    const warning = vi.spyOn(output, 'warn')
+    const client = { replayAssembly: vi.fn().mockResolvedValue({}) }
+
+    // API2 merges these overrides with the original Assembly's ocr_provider before validation.
+    await replay(output, client as never, {
+      assemblies: ['assembly-with-ocr-provider'],
+      steps: stepsPath,
+    })
+
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('extracted.ocr_provider'))
+    expect(client.replayAssembly).toHaveBeenCalledWith(
+      'assembly-with-ocr-provider',
+      expect.objectContaining({ steps }),
+    )
+  })
+
+  it.each([
+    { text_method: 'auto' },
+    { text_method: 'ocr', ocr_provider: 'aws', password: 'secret' },
+    { text_method: 'ocr', ocr_provider: 'aws', page_range: '1-2' },
+    { text_method: 'auto', ocr_provider: 'gcp', text_granularity: 'page' },
+  ])('keeps new OCR constraints advisory for CLI steps: %j', (parameters) => {
+    const steps = { extracted: { robot: '/document/extract', ...parameters } }
+    const output = { warn: vi.fn() }
+
+    expect(parseStepsInputJson(JSON.stringify(steps), output)).toEqual(steps)
+    expect(output.warn).toHaveBeenCalledOnce()
+  })
+
+  it('still rejects an invalid Storage selector when OCR warnings are present', () => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          extracted: { robot: '/document/extract', text_method: 'ocr' },
+          imported: { robot: '/transloadit/import' },
+        }),
+        { warn: vi.fn() },
+      ),
+    ).toThrow('Invalid steps format')
+  })
+
+  it('accepts a steps-only file with a step named steps', () => {
+    const steps = { steps: { robot: '/file/filter', use: ':original', result: true } }
+    expect(parseStepsInputJson(JSON.stringify(steps))).toEqual(steps)
+  })
+
+  it('rejects invalid steps inside a wrapper', () => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({ steps: { imported: { robot: '/http/import', url: 123 } } }),
+      ),
+    ).toThrow('Invalid steps format')
+  })
+
+  it.each([
+    { fields: { caption: 'example' } },
+    { notify_url: 'https://example.com/notify' },
+    { template_id: 'example-template' },
+  ])('rejects unsupported wrapper properties instead of ignoring them: %j', (extra) => {
+    expect(() =>
+      parseStepsInputJson(
+        JSON.stringify({
+          steps: { imported: { robot: '/http/import', url: 'https://example.com/input.jpg' } },
+          ...extra,
+        }),
+      ),
+    ).toThrow('Unrecognized key')
   })
 
   it('rejects invalid steps files before calling the API', async () => {
@@ -1275,7 +1587,7 @@ describe('assemblies create', () => {
     expect(await readFile(path.join(outputDir, 'thumb__1.jpg'), 'utf8')).toBe('second-thumb')
   })
 
-  it('preserves legacy step-directory layout for generic directory outputs', async () => {
+  it('preserves input and Step folders for generic multi-result directory outputs', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const tempDir = await createTempDir('transloadit-legacy-outdir-')
@@ -1318,12 +1630,11 @@ describe('assemblies create', () => {
       } as never,
     )
 
-    const legacyRelative = getLegacyRelativeInputPath(inputPath)
-    const legacyBaseDir = path.join(path.dirname(legacyRelative), path.parse(legacyRelative).name)
-
+    const mappedInput = getLegacyRelativeInputPath(inputPath)
+    const baseDir = path.join(path.dirname(mappedInput), 'clip')
     expect(await collectRelativeFiles(outputDir)).toEqual([
-      path.join(legacyBaseDir, 'thumbs', 'one.jpg'),
-      path.join(legacyBaseDir, 'thumbs', 'two.jpg'),
+      path.join(baseDir, 'thumbs', 'one.jpg'),
+      path.join(baseDir, 'thumbs', 'two.jpg'),
     ])
   })
 
@@ -1372,7 +1683,7 @@ describe('assemblies create', () => {
     expect(await readFile(path.join(outputDir, 'input.txt'), 'utf8')).toBe('hello')
   })
 
-  it('preserves mapped out paths for legacy single-result directory outputs', async () => {
+  it('uses result names for directory outputs without an explicit output mode', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const tempDir = await createTempDir('transloadit-legacy-single-result-')
@@ -1407,7 +1718,9 @@ describe('assemblies create', () => {
       },
     })
 
-    expect(await collectRelativeFiles(outputDir)).toEqual([getLegacyRelativeInputPath(inputPath)])
+    expect(await collectRelativeFiles(outputDir)).toEqual([
+      path.join(path.dirname(getLegacyRelativeInputPath(inputPath)), 'input.txt'),
+    ])
   })
 
   it('does not create an empty output file when assembly creation fails', async () => {
@@ -1490,14 +1803,11 @@ describe('assemblies create', () => {
     const loggedError = consoleError.mock.calls.find(
       ([prefix, value]) =>
         prefix === 'err    ' &&
-        value instanceof Error &&
-        value.message.includes(
-          'Assembly URL: https://api2.transloadit.com/assemblies/assembly-timeout',
-        ),
+        typeof value === 'string' &&
+        value.includes('Assembly URL: https://api2.transloadit.com/assemblies/assembly-timeout'),
     )?.[1]
 
-    expect(loggedError).toBeInstanceOf(Error)
-    expect((loggedError as Error).message).toContain('Polling timed out')
+    expect(loggedError).toContain('Polling timed out')
   })
 
   it('does not report another assembly URL when concurrent polling times out', async () => {
@@ -1558,13 +1868,11 @@ describe('assemblies create', () => {
     const loggedError = consoleError.mock.calls.find(
       ([prefix, value]) =>
         prefix === 'err    ' &&
-        value instanceof Error &&
-        value.message.includes('Assembly ID: assembly-one'),
+        typeof value === 'string' &&
+        value.includes('Assembly ID: assembly-one'),
     )?.[1]
 
-    expect(loggedError).toBeInstanceOf(Error)
-    expect((loggedError as Error).message).not.toContain(
-      'https://api2.transloadit.com/assemblies/assembly-two',
-    )
+    expect(loggedError).toEqual(expect.any(String))
+    expect(loggedError).not.toContain('https://api2.transloadit.com/assemblies/assembly-two')
   })
 })

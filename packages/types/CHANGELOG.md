@@ -1,5 +1,189 @@
 # @transloadit/types
 
+## 6.5.0
+
+### Minor Changes
+
+- db3800f: Contract: sync current Robot schemas from API2, including Supabase user session tokens
+  (transloadit/api2#10239), document Markdown/HTML extraction (transloadit/api2#10323),
+  SFTP defaults (transloadit/api2#10379), and concat/thumbnail defaults (transloadit/api2#10554).
+
+  - Accept `session_token` on `/supabase/store` in the CLI and generated types and Zod schemas.
+  - Forward unknown top-level CLI Step parameters with a warning so new API parameters remain
+    usable before the next schema sync. Known parameters, nested objects, and Robot names still
+    undergo local validation. Warnings contain parameter names, never their values.
+  - Type-breaking: `/video/thumbs` no longer supplies an empty `offsets` array when parsing, and
+    rejects explicitly empty arrays. Parsed `offsets` can be `undefined`; omit the parameter
+    instead of supplying `[]`.
+  - Type-breaking: `/document/extract` parsed `text_format` can also be `md` or `html`. Handle
+    these values when reading parsed instructions, or select `txt`/`json` explicitly.
+  - Parsed contract defaults now match API2: SFTP uses port 22, `/video/concat` fade durations
+    default to zero, `/video/thumbs` uses an opaque black background, and `/transloadit/store`
+    defaults `result` to `true`. When `/file/preview` receives a `strategy` object without an
+    `image` entry, that entry now defaults to `['image', 'embedded-preview', 'icon']`.
+
+## 6.4.0
+
+### Minor Changes
+
+- aa02b8d: Contract: sync the Builtin Template summaries from API2 (transloadit/api2#10406). Builtin catalog
+  items parse the optional `summary` that `listTemplates({ include_builtin: 'exclusively-all' })`
+  returns, and `mcpBuiltinTemplateSummaries` exports the same summaries for the MCP-approved
+  Builtins, keyed like `mcpBuiltinTemplateManifest`.
+
+## 6.3.0
+
+### Minor Changes
+
+- bcbd703: Contract: add the `input_url` Assembly parameter (transloadit/api2#10292), which imports one or more URLs as the input files of a Builtin Template selected with `template_id`, and share the Builtins that accept it with the MCP Builtin manifest.
+
+## 6.2.0
+
+### Minor Changes
+
+- f5f1a91: Contract: sync Robot schemas from API2 (transloadit/api2#10052, transloadit/api2#10100, transloadit/api2#10103, transloadit/api2#10115, transloadit/api2#10159).
+
+  Add the optional Cloudflare R2 `session_token` parameter. Carry the reviewed temporary-credential guidance, bounded HTML-to-PDF readiness description, HDR overlay behavior, provider-catalog cleanup, and video-generation compatibility-window guidance. Existing instruction field types and parse-time defaults are preserved.
+
+## 6.1.1
+
+### Patch Changes
+
+- c755cd1: Document how SDK exports follow strict SemVer while API contract types and schemas follow API2
+  in minor releases, with guidance on dependency ranges and narrowing parsed output.
+
+## 6.1.0
+
+### Minor Changes
+
+- bf9491c: Contract: sync Robot schemas from API2 (transloadit/api2#9897, transloadit/api2#9938)
+  and share the approved MCP Builtin manifest.
+
+  - Type-breaking: `/video/subtitle` no longer fills in `font`, `font_size` and `bold` while
+    parsing. Parsed values (`RobotVideoSubtitleInstructions`, `AssemblyInstructions`,
+    `schema.parse()`) can be `undefined`; the API still applies Arial, 16 and `false`, or the
+    `social` style’s defaults. Instruction input types are unchanged.
+  - Type-breaking: `/video/thumbs` accepts `null` for `offsets`, `width` and `height`, so parsed
+    values can be `null`. Treat `null` like an omitted value.
+
+  Explicit schema validation now requires `ocr_provider` for OCR text extraction and rejects
+  native-only `password`, `page_range`, and page granularity with OCR. Thumbnail numeric offsets
+  must be finite. Validate complete, merged instructions; use `assemblies lint --template` when
+  linting Template overrides. The CLI warns about the new OCR constraints while reading Steps
+  files, syncing Templates, or signing parameters, allowing overrides whose remaining parameters
+  come from the original Assembly or Template to reach API2 for validation. Field discovery also
+  continues to work on partial Templates before Assembly overrides complete their instructions.
+
+  Zod v4 preserves the synced speech-vocabulary checks for case-insensitive uniqueness and the
+  200-byte joined UTF-8 budget, matching Zod v3 and API2.
+
+## 6.0.1
+
+### Patch Changes
+
+- 283922a: Refresh Robot schemas from API2 and register `/document/extract` so Assembly Instructions lint clean through the SDK and MCP server. Regenerate the SDK Robot registry during builds to keep new schemas registered, and align the Tigris metadata keys with API2.
+
+  In `@transloadit/zod`, replace `robotsMeta.tigrisImport` and `robotsMeta.tigrisStore` with `robotsMeta.tigrisImportMeta` and `robotsMeta.tigrisStoreMeta`. This metadata API change requires a major release of that package; the other packages receive patch updates.
+
+## 6.0.0
+
+### Major Changes
+
+- 3b4db64: Correct Assembly response readers to preserve numeric State/XPSubject metadata, repeated date tags and null uploaded-file extensions already emitted by the API. Read nonempty future Assembly error codes without confusing the closed known-code inventory with the public response contract; terminal-error helpers now recognize those responses.
+
+  These corrections widen exported response types. Consumers must handle numeric metadata, arrays of date values, nullable uploaded-file extensions and unknown error strings. The MCP server and notification relay follow the corrected response types in pre-1.0 minor releases; the relay publicly exports its AssemblyResponse alias. See the [Assembly response migration guide](https://github.com/transloadit/node-sdk/blob/main/docs/monorepo-architecture.md#assembly-response-migration) for the affected fields and narrowing rules.
+
+### Patch Changes
+
+- 8d768d6: Refresh Robot schemas and documentation from alphalib, including Google image seed guidance,
+  Google Storage permissions, crop fallback metadata, HTTP import URL boundaries, and AI Chat model
+  support and exact optional input types. Accept the new GOOGLE_STORE_ACCESS_DENIED and
+  DAM_STORAGE_UNAVAILABLE Assembly errors without expanding the SDK's operator dependencies.
+
+## 5.0.1
+
+### Patch Changes
+
+- dc7d42d: Add alpha React receipt images and a Web-standard Storage authorization route. Each preview,
+  original, and download request checks live application access before redirecting to an exact
+  retained version, with a finite rendition policy and private no-store responses.
+
+  React receipt images support opt-in ThumbHash blur placeholders with the same bounded decoder
+  as Next, without native dependencies or load handlers. Preview metadata must be authorized before
+  returning it to the browser; alpha and letterboxed images stay empty, and request-authorized
+  Next images continue to omit inline preview pixels.
+
+  Expose strict, pure retained Assembly result extraction through narrow Zod v3/v4 entries and
+  reuse it in the Node SDK, preserving receipt provenance and failed-Assembly errors. Utils and
+  Viewer gain no runtime dependencies.
+
+## 5.0.0
+
+### Major Changes
+
+- ba9299f: Accept current and historical API responses without discarding reserved uploads, numeric metadata,
+  or structured diagnostics. Update Robot schemas and input linting, including `/http/request`,
+  storage asset metadata, and the complete runtime error-code inventory. Correct generated
+  input/output types and preserve parameter help, boolean transformations, and omitted options
+  across Zod 3 and Zod 4.
+
+  Breaking schema changes: Assembly URLs and identity fields can be null, upload entries can be
+  reservations with missing metadata, and metadata and stored error reasons accept additional value
+  types. Narrow these values before using them. Robot metadata removes legacy billing fields and
+  changes `example_code` to `unknown`. Update `image-manipulation` category filters to
+  `image-processing` in the SDK and MCP Robot-list tool. See the SDK README’s “Migrating Assembly and
+  Robot schema consumers” section for details.
+
+  `ApiError.reason` keeps its `string | undefined` contract. The new `rawReason` property preserves
+  the original diagnostic value, including structured reasons.
+
+  `/ai/chat` model interpolation now requires a whole-value expression such as `${fields.model}`;
+  partial expressions such as `openai/${fields.model}` are rejected, matching the API. Supply the
+  complete provider/model value in the referenced variable instead. Model validation exposes a
+  finite enum, and the exported model-capability registry is read-only and frozen at the top level.
+
+  Zod 4 interpolation defaults now return `ZodPrefault`: update `ZodDefault` type/instance checks,
+  use `.unwrap()` instead of `.removeDefault()`, and add `{ io: 'input' }` to existing JSON Schema
+  conversion options to retain input defaults. `interpolateRecursive()` now requires
+  classic `zod/v4` schemas rather than core or Mini schemas. See the Zod package README for migration
+  examples and JSON Schema conversion limits.
+
+## 4.5.0
+
+### Minor Changes
+
+- be56c7f: Request server-generated image placeholders with `storeImage(..., { placeholder: 'blur' })`
+  or `storage store --placeholder blur`, without adding a native image decoder to the SDK.
+  Extraction is optional and best-effort; successful extraction adds metadata usage equal to 20%
+  of the file's bytes. Omission performs no extraction.
+
+  Preserve `thumbhash` and `has_alpha` in Storage receipts, native asset reads, Assembly recovery,
+  batch results and catalog sync. Viewer remains alpha and accepts server alpha metadata as well
+  as older `hasAlpha` catalogs. Private request-authorized delivery still omits inline preview pixels.
+  Hashed upload replays never overwrite or re-upload an image to generate missing metadata.
+
+  Release MCP alongside the SDK to keep its validated dependency versions aligned.
+
+### Patch Changes
+
+- b1fb7d3: Default image generation to OpenAI Images 2.5 Flare and expose Images 2.5 Sunburst as an explicit precision option. Existing explicit OpenAI and Google model selections are preserved. Add Claude Opus 5.5 image/PDF capabilities to the shared Robot schemas while retaining Opus 5 and Fable 5.1.
+
+## 4.4.1
+
+### Patch Changes
+
+- a2c5dd7: Include the Transloadit Storage import and store Robots in the offline catalog and generated
+  instructions, and type the optional `asset_id` in Assembly results. Recognize Storage import/store
+  error codes in response validation and terminal-status helpers, preserving API errors while polling.
+  Sync the canonical `recursive` option for Storage folder imports into the offline linter and
+  generated instructions without adding SDK-only schema fields.
+
+## 4.4.0
+
+### Minor Changes
+
+- 5fe9706: Support GPT-6 Astra and Claude Fable 5.1, and use Astra for automatic chat and assembly-instruction compilation. Assembly compilation retains medium reasoning effort. Existing model identifiers remain supported.
+
 ## 4.3.4
 
 ### Patch Changes

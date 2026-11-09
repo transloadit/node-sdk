@@ -20,6 +20,25 @@ const config: KnipConfig = {
     interface: true,
   },
   workspaces: {
+    'packages/img': {
+      entry: [
+        'src/index.ts',
+        'src/react.tsx',
+        'src/server.ts',
+        'src/server.browser.ts',
+        'src/next/index.tsx',
+        'src/next/server.tsx',
+        'test/**/*.{ts,tsx}',
+      ],
+      project: ['{src,test}/**/*.{ts,tsx}'],
+      ignore: [...sharedIgnore],
+      ignoreDependencies: [
+        // Knip cannot infer the Vitest environment dependency from its file pragma.
+        'happy-dom',
+        // Tooling lives at the repo root in this monorepo.
+        'vitest',
+      ],
+    },
     'packages/node': {
       entry: ['src/Transloadit.ts', 'src/cli.ts', 'test/**/*.{ts,tsx,js,jsx}', 'vitest.config.ts'],
       project: ['{src,test}/**/*.{ts,tsx,js,jsx}'],
@@ -69,6 +88,7 @@ const config: KnipConfig = {
         'clipanion',
         'debug',
         'dotenv',
+        'execa',
         'form-data',
         'got',
         'into-stream',
@@ -81,7 +101,6 @@ const config: KnipConfig = {
         'recursive-readdir',
         'tus-js-client',
         'typanion',
-        'type-fest',
         'zod',
         '@types/debug',
         '@types/recursive-readdir',
@@ -93,18 +112,18 @@ const config: KnipConfig = {
       ignore: ['dist/**', 'node_modules/**'],
     },
     'packages/utils': {
-      entry: ['src/**/*.{ts,tsx,js,jsx}'],
-      project: ['src/**/*.{ts,tsx,js,jsx}'],
+      entry: ['src/**/*.ts', 'test/**/*.ts'],
+      project: ['{src,test}/**/*.ts'],
       ignore: ['dist/**', 'node_modules/**'],
+      ignoreDependencies: [
+        // Tooling lives at the repo root in this monorepo.
+        'vitest',
+      ],
     },
     'packages/zod': {
       entry: ['src/**/*.{ts,tsx,js,jsx}', 'scripts/**/*.ts', 'test/**/*.ts'],
       project: ['{src,scripts,test}/**/*.ts'],
       ignore: ['dist/**', 'node_modules/**'],
-      ignoreDependencies: [
-        // Generated code uses this after sync, but sources don't import it directly.
-        'type-fest',
-      ],
     },
   },
 }

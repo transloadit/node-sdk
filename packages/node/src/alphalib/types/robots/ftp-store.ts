@@ -1,45 +1,30 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { ftpBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createStorageStoreExample,
+  defineRobotWithHiddenFields,
+  ftpBase,
+  robotBase,
+  robotStoreMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 6,
-  discount_factor: 0.15000150001500018,
-  discount_pct: 84.99984999849998,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/ftp/store',
-        use: ':original',
-        credentials: 'YOUR_FTP_CREDENTIALS',
-        path: 'my_target_folder/${unique_prefix}/${file.url_name}',
-      },
-    },
-  },
+  ...robotStoreMeta,
+  example_code: createStorageStoreExample('/ftp/store', 'YOUR_FTP_CREDENTIALS'),
   example_code_description: 'Export uploaded files to `my_target_folder` on an FTP server:',
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
   purpose_sentence:
     'exports encoding results to your FTP servers. This Robot relies on password access. For more security, consider our /sftp/store Robot',
-  purpose_verb: 'export',
   purpose_word: 'FTP servers',
   purpose_words: 'Export files to FTP servers',
-  service_slug: 'file-exporting',
-  slot_count: 10,
   title: 'Export files to FTP servers',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'FtpStoreRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotFtpStoreInstructionsSchema = robotBase
@@ -76,44 +61,40 @@ Determines whether to establish a secure connection to the FTP server using SSL.
   })
   .strict()
 
-export const robotFtpStoreInstructionsWithHiddenFieldsSchema =
-  robotFtpStoreInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotFtpStoreInstructionsSchema.shape.result]).optional(),
-    use_remote_utime: z
-      .boolean()
-      .optional()
-      .describe(`
+const hiddenFields = {
+  use_remote_utime: z
+    .boolean()
+    .optional()
+    .describe(`
 Use the remote file's modification time instead of the current time when storing the file.
 `),
-    version: z
-      .union([z.string(), z.number()])
-      .optional()
-      .describe(`
+  version: z
+    .union([z.string(), z.number()])
+    .optional()
+    .describe(`
 Version identifier for the underlying tool used (2 is ncftp, 1 is ftp).
 `),
-    allowNetwork: z.string().optional(), // For internal test purposes
-  })
+  allowNetwork: z.string().optional(), // For internal test purposes
+}
 
-export type RobotFtpStoreInstructions = z.infer<typeof robotFtpStoreInstructionsSchema>
-export type RobotFtpStoreInstructionsWithHiddenFields = z.infer<
-  typeof robotFtpStoreInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotFtpStoreInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotFtpStoreInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotFtpStoreInstructionsSchema = interpolateRobot(
-  robotFtpStoreInstructionsSchema,
-)
-export type InterpolatableRobotFtpStoreInstructions = InterpolatableRobotFtpStoreInstructionsInput
+export const {
+  withHiddenFields: robotFtpStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotFtpStoreInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotFtpStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotFtpStoreInstructionsInput = z.input<
-  typeof interpolatableRobotFtpStoreInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotFtpStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotFtpStoreInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotFtpStoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotFtpStoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotFtpStoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotFtpStoreInstructionsWithHiddenFieldsSchema
->
+export type RobotFtpStoreInstructions = Instructions['output']
+export type RobotFtpStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotFtpStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotFtpStoreInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotFtpStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotFtpStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

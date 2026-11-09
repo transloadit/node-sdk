@@ -1,52 +1,117 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import { ecmaWhitespaceCharacterClass } from '../../lib/zodInputSemantics.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  interpolationSchemaFull,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 const extractTargets = z.enum(['text', 'images'])
 const imageFormats = z.enum(['auto', 'original', 'png', 'jpg'])
 const ocrProviders = z.enum(['aws', 'gcp'])
-const textFormats = z.enum(['txt', 'json'])
+const textFormats = z.enum(['txt', 'json', 'md', 'html'])
 const textGranularities = z.enum(['document', 'page'])
 const textMethods = z.enum(['native', 'ocr', 'auto'])
 
-export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      extracted: {
-        robot: '/document/extract',
-        use: ':original',
-        extract: ['text', 'images'],
-        text_method: 'native',
-      },
-    },
+/** Validate OCR dependencies after interpolation-aware parsing at the Assembly Step boundary. */
+export function refineDocumentExtractOcr(
+  step: {
+    robot: string
+    extract?: unknown
+    text_method?: unknown
+    ocr_provider?: unknown
+    password?: unknown
+    page_range?: unknown
+    text_granularity?: unknown
   },
+  context: z.RefinementCtx,
+  options: { allowInterpolation?: boolean } = {},
+): void {
+  if (step.robot !== '/document/extract') return
+  if (step.text_method !== 'ocr' && step.text_method !== 'auto') return
+
+  // Image-only extraction never invokes OCR; unresolved targets are checked at runtime.
+  const extractsText =
+    step.extract === undefined ||
+    step.extract === 'text' ||
+    (Array.isArray(step.extract) && step.extract.includes('text'))
+  if (!extractsText) return
+
+  if (step.ocr_provider === undefined) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ocr_provider'],
+      message: 'The ocr_provider parameter is required when text_method is ocr or auto.',
+    })
+  }
+
+  // Assembly Steps preserve opaque interpolation until the Robot checks the resolved values.
+  // Builtin fields can opt out because those values are already resolved at their boundary.
+  // Keep these constraints aligned with the matching stepJsonInputSchema branch in template.ts.
+  if (
+    step.password !== undefined &&
+    step.password !== '' &&
+    !(
+      options.allowInterpolation !== false &&
+      interpolationSchemaFull.safeParse(step.password).success
+    )
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['password'],
+      message:
+        'The password parameter is only supported for native text extraction and embedded image extraction.',
+    })
+  }
+
+  // Defer full page-range interpolation to runtime, consistently with the other unresolved fields.
+  if (
+    step.page_range !== undefined &&
+    !(
+      options.allowInterpolation !== false &&
+      interpolationSchemaFull.safeParse(step.page_range).success
+    )
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['page_range'],
+      message: 'The page_range parameter is only supported for native text extraction.',
+    })
+  }
+
+  if (step.text_granularity === 'page') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['text_granularity'],
+      message: 'The page text_granularity is only supported for native text extraction.',
+    })
+  }
+}
+
+export const meta: RobotMetaInput = {
+  ...robotDocumentProcessingMeta,
+  example_code: createProcessingExample('extracted', '/document/extract', {
+    extract: ['text', 'images'],
+    text_method: 'native',
+  }),
   example_code_description: 'Extract native text and embedded raster images from a PDF document:',
-  minimum_charge: 1048576,
-  output_factor: 1,
-  override_lvl1: 'Document Processing',
   purpose_sentence: 'extracts text and embedded images from PDF documents',
   purpose_verb: 'extract',
   purpose_word: 'extracts text and images',
   purpose_words: 'Extracts text and embedded images',
-  service_slug: 'document-processing',
-  slot_count: 10,
   title: 'Extract text and images from documents',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'document',
   name: 'DocumentExtractRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
-  minimumCharge: 1048576,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'beta',
 }
 
 export const robotDocumentExtractInstructionsSchema = robotBase
@@ -54,6 +119,10 @@ export const robotDocumentExtractInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/document/extract').describe(`
 Extracts native/selectable text and embedded raster image assets from PDF documents.
+
+For DOCX files, first use \`/document/convert\` with \`format: "pdf"\`, then pass its output to this Robot.
+
+Markdown and HTML output are in beta and aim for readable structure, not a pixel-perfect copy. Native extraction detects paragraphs, larger-font headings, simple lists and aligned tables where possible. Multi-column text can interleave, prose can be mistaken for tables, and merged cells may need adjustment. HTML escapes extracted text and omits source scripts, links and event handlers.
 
 This robot does not render full pages. If you need page images, use \`/document/thumbs\`. Vector graphics, charts, and page backgrounds are not always embedded raster images and may therefore not be returned by this robot.
 `),
@@ -65,7 +134,12 @@ Selects which assets to extract. Use \`["text"]\`, \`["images"]\`, or \`["text",
 `),
     page_range: z
       .string()
-      .regex(/^\s*\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\s*$/)
+      .regex(
+        new RegExp(
+          `^${ecmaWhitespaceCharacterClass}*[0-9]+(?:${ecmaWhitespaceCharacterClass}*-${ecmaWhitespaceCharacterClass}*[0-9]+)?(?:${ecmaWhitespaceCharacterClass}*,${ecmaWhitespaceCharacterClass}*[0-9]+(?:${ecmaWhitespaceCharacterClass}*-${ecmaWhitespaceCharacterClass}*[0-9]+)?)*${ecmaWhitespaceCharacterClass}*$`,
+          'u',
+        ),
+      )
       .optional()
       .describe(`
 Optional comma-separated page selection, such as \`"1"\`, \`"1-3"\`, or \`"1,3-5"\`. Page numbers start at 1. Ranges are clamped to the detected page count.
@@ -93,7 +167,19 @@ OCR modes currently cannot be combined with \`password\`.
 OCR provider to use when \`text_method\` is \`"ocr"\` or \`"auto"\`. Valid values are \`"aws"\` and \`"gcp"\`.
 `),
     text_format: textFormats.default('txt').describe(`
-Output format for extracted text. Use \`"txt"\` for plain text or \`"json"\` for structured output.
+Output format for extracted text. Plain text and JSON retain the existing extraction behavior. Markdown and HTML output are in beta and infer basic structure from native text positions and font sizes.
+
+Native Markdown and HTML extraction limits layout data to 8 MiB per input document, summed across its selected page ranges. For larger documents, use separate extraction Steps with fewer pages in each Step’s \`page_range\`.
+
+If native extraction cannot confirm the reading order of bidirectional text, it returns a validation error. Try fewer pages or use \`text_method: "ocr"\` with an OCR provider.
+
+When \`extract\` includes images, Markdown and HTML reference retained image results inline using relative, URL-encoded filenames matching each image result’s \`name\`. Save the text and image results together to resolve the references. Filtered images have no references; repeated images can reference the same deduplicated result. Images with unavailable or inconsistent positions, including retained image masks, are appended after their page’s text. Embedded base64 images are not produced.
+
+When exporting, preserve result names in a shared directory per input document. For example, set \`/s3/store\`’s \`path\` to \`"\${assembly.id}/\${file.original_id}/\${file.name}"\`. Default storage paths using \`\${unique_prefix}/\${file.url_name}\` separate and rename files, so they do not preserve these relative image links.
+
+Some native image encodings cannot be displayed by browsers or Markdown viewers. Set \`image_format\` to \`"png"\` or \`"jpg"\` for broadly viewable image results.
+
+OCR Markdown and HTML preserve readable text with minimal structure detection and append extracted images in source order, since reliable text positions are unavailable.
 `),
     text_granularity: textGranularities.default('document').describe(`
 Controls text output grouping for native extraction.
@@ -149,35 +235,24 @@ When enabled, the robot also keeps image mask files when Poppler exposes them as
   })
   .strict()
 
-export const robotDocumentExtractInstructionsWithHiddenFieldsSchema =
-  robotDocumentExtractInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDocumentExtractInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotDocumentExtractInstructionsSchema.shape> =
+  defineRobot(meta, robotDocumentExtractInstructionsSchema)
 
-export type RobotDocumentExtractInstructions = z.infer<
-  typeof robotDocumentExtractInstructionsSchema
->
-export type RobotDocumentExtractInstructionsWithHiddenFields = z.infer<
-  typeof robotDocumentExtractInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotDocumentExtractInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDocumentExtractInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDocumentExtractInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotDocumentExtractInstructionsSchema = interpolateRobot(
-  robotDocumentExtractInstructionsSchema,
-)
-export type InterpolatableRobotDocumentExtractInstructions =
-  InterpolatableRobotDocumentExtractInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotDocumentExtractInstructionsInput = z.input<
-  typeof interpolatableRobotDocumentExtractInstructionsSchema
->
-
-export const interpolatableRobotDocumentExtractInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotDocumentExtractInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotDocumentExtractInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDocumentExtractInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDocumentExtractInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDocumentExtractInstructionsWithHiddenFieldsSchema
->
+export type RobotDocumentExtractInstructions = Instructions['output']
+export type RobotDocumentExtractInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDocumentExtractInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentExtractInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentExtractInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDocumentExtractInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

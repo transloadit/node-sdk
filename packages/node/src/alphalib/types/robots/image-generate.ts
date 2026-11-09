@@ -1,18 +1,29 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
+  imageGenerateDefaultModelIdentifier,
+  imageGenerateLegacyModelAlias,
+  imageGenerateModelIdentifiers,
+} from './_ai-models.ts'
+import { googleImageSeedMaximum } from './_google-image-seed.ts'
+import {
   autoProviderDescription,
   interpolateRobot,
+  robotArtificialIntelligenceMeta,
   robotBase,
+  robotParameterDocs,
   robotUse,
 } from './_instructions-primitives.ts'
 
+function formatEnglishModelList(values: readonly [string, string, ...string[]]): string {
+  const formattedValues = values.map((model) => `\`${model}\``)
+  return `${formattedValues.slice(0, -1).join(', ')}, and ${formattedValues.at(-1)}`
+}
+
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotArtificialIntelligenceMeta,
   example_code: {
     steps: {
       ':original': {
@@ -32,27 +43,14 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description:
-    'Inpaint an image by uploading an original image and a mask image, then use both files in /image/generate.',
-  minimum_charge: 0,
-  output_factor: 0.6,
+    'Inpaint an image by uploading an original image and a mask image, then use both files in /image/generate:',
   purpose_sentence: 'generates images from text prompts using AI',
   purpose_verb: 'generate',
   purpose_word: 'generate',
   purpose_words: 'Generate images from text prompts',
-  service_slug: 'artificial-intelligence',
-  slot_count: 10,
   title: 'Generate images from text prompts',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'image',
   name: 'ImageGenerateRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumChargeUsd: 0.06,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 // Internal documentation (for public docs, see transloadit.com/docs)
@@ -84,14 +82,14 @@ For inpainting, provide both the source image and mask through \`use\`, typicall
 Best practice:
 - Tag source and mask inputs explicitly using \`as\` (or semantic upload field names)
 - Keep the prompt focused on what should change in the masked/transparent region
-- Leave the model/provider choice to the robot defaults unless you have a specific need
+- Leave the model choice to the robot defaults unless you have a specific need
 `,
     ),
     model: z
       .string()
       .optional()
       .describe(
-        'The AI model to use. Defaults to google/nano-banana. Supported models include flux-1.1-pro-ultra, flux-schnell, recraft-v3, google/nano-banana, google/nano-banana-2, google/nano-banana-pro, openai/gpt-image-2, and stability-ai/stable-diffusion-inpainting. The legacy alias gpt-image-2 is also accepted for backwards compatibility.',
+        `The AI model to use. Defaults to \`${imageGenerateDefaultModelIdentifier}\`. Supported models include ${formatEnglishModelList(imageGenerateModelIdentifiers)}. The legacy alias \`${imageGenerateLegacyModelAlias}\` is also accepted for backwards compatibility.`,
       ),
     prompt: z
       .string()
@@ -99,12 +97,18 @@ Best practice:
         'Prompt describing the desired image. For inpainting, describe what should appear in the masked/transparent region and that the rest should stay unchanged.',
       ),
     format: z
-      .enum(['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg'])
+      .enum(['jpeg', 'jpg', 'png', 'webp', 'svg'])
       .optional()
       .describe(
-        'Output format. Defaults depend on model: png for Google models and openai/gpt-image-2, svg for recraft-v3, jpeg for others. Google models currently return PNG only.',
+        'Output format. Defaults depend on model: png for Google and OpenAI models, svg for recraft-v3, jpeg for others. Google models currently return PNG only.',
       ),
-    seed: z.number().optional().describe('Seed for the random number generator.'),
+    // Provider-specific limits are checked by the Robot so other models retain their seed range.
+    seed: z
+      .number()
+      .optional()
+      .describe(
+        `${robotParameterDocs.seed.description} For Google models, use an integer from 0 to ${googleImageSeedMaximum}. Each output increments the seed by 1, so the final output’s seed must also fit this range. A seed does not guarantee identical images.`,
+      ),
     aspect_ratio: z
       .string()
       .optional()
@@ -115,13 +119,13 @@ Best practice:
       .number()
       .optional()
       .describe(
-        'Requested output height in pixels (mainly used by Google image models and openai/gpt-image-2).',
+        'Requested output height in pixels (mainly used by Google and OpenAI image models).',
       ),
     width: z
       .number()
       .optional()
       .describe(
-        'Requested output width in pixels (mainly used by Google image models and openai/gpt-image-2).',
+        'Requested output width in pixels (mainly used by Google and OpenAI image models).',
       ),
     style: z.string().optional().describe('Style of the generated image.'),
     num_outputs: z
@@ -148,7 +152,7 @@ export type RobotImageGenerateInstructionsWithHiddenFields = z.infer<
 >
 
 export const interpolatableRobotImageGenerateInstructionsSchema = interpolateRobot(
-  robotImageGenerateInstructionsWithHiddenFieldsSchema,
+  robotImageGenerateInstructionsSchema,
 )
 export type InterpolatableRobotImageGenerateInstructions =
   InterpolatableRobotImageGenerateInstructionsInput
@@ -166,3 +170,13 @@ export type InterpolatableRobotImageGenerateInstructionsWithHiddenFields = z.inf
 export type InterpolatableRobotImageGenerateInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotImageGenerateInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotImageGenerateInstructionsSchema,
+  typeof interpolatableRobotImageGenerateInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotImageGenerateInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotImageGenerateInstructionsWithHiddenFieldsSchema,
+}

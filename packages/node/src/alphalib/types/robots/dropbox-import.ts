@@ -1,52 +1,33 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
+  createStorageImportExample,
+  defineRobot,
   dropboxBase,
-  interpolateRobot,
   path,
   robotBase,
   robotImport,
+  robotImportMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      imported: {
-        robot: '/dropbox/import',
-        credentials: 'YOUR_DROPBOX_CREDENTIALS',
-        path: 'path/to/files/',
-      },
-    },
-  },
+  ...robotImportMeta,
+  example_code: createStorageImportExample('/dropbox/import', 'YOUR_DROPBOX_CREDENTIALS', false),
   example_code_description:
     'Import files from the `path/to/files` directory and its subdirectories:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Importing',
   purpose_sentence: 'imports whole directories of files from your Dropbox',
-  purpose_verb: 'import',
   purpose_word: 'Dropbox',
   purpose_words: 'Import files from Dropbox',
   requires_credentials: true,
-  service_slug: 'file-importing',
-  slot_count: 20,
   title: 'Import files from Dropbox',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'DropboxImportRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
-  stage: 'ga',
 }
 
 export const robotDropboxImportInstructionsSchema = robotBase
@@ -78,34 +59,23 @@ You can also use an array of path strings here to import multiple paths in the s
   })
   .strict()
 
-export const robotDropboxImportInstructionsWithHiddenFieldsSchema =
-  robotDropboxImportInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDropboxImportInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotDropboxImportInstructionsSchema.shape> =
+  defineRobot(meta, robotDropboxImportInstructionsSchema)
 
-export type RobotDropboxImportInstructions = z.infer<typeof robotDropboxImportInstructionsSchema>
-export type RobotDropboxImportInstructionsWithHiddenFields = z.infer<
-  typeof robotDropboxImportInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotDropboxImportInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDropboxImportInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotDropboxImportInstructionsSchema = interpolateRobot(
-  robotDropboxImportInstructionsSchema,
-)
-export type InterpolatableRobotDropboxImportInstructions =
-  InterpolatableRobotDropboxImportInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotDropboxImportInstructionsInput = z.input<
-  typeof interpolatableRobotDropboxImportInstructionsSchema
->
-
-export const interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotDropboxImportInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotDropboxImportInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDropboxImportInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema
->
+export type RobotDropboxImportInstructions = Instructions['output']
+export type RobotDropboxImportInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDropboxImportInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDropboxImportInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotDropboxImportInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDropboxImportInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

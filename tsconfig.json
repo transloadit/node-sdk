@@ -5,6 +5,7 @@
     "allowImportingTsExtensions": true
   },
   "references": [
+    { "path": "./packages/img" },
     { "path": "./packages/node" },
     { "path": "./packages/notify-url-relay" },
     { "path": "./packages/types" },

@@ -1,6 +1,7 @@
 export interface AssemblyResultEntryLike {
   basename?: unknown
   ext?: unknown
+  meta?: unknown
   name?: unknown
   ssl_url?: unknown
   url?: unknown

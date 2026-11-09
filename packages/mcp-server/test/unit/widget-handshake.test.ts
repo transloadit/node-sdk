@@ -1,0 +1,735 @@
+import { Window } from 'happy-dom'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
+import packageJson from '../../package.json' with { type: 'json' }
+import {
+  assemblyResultWidgetHtml,
+  describeAssemblySteps,
+  widgetContextMetaKey,
+} from '../../src/ui/assembly-result-widget.ts'
+
+type JsonRpcMessage = Record<string, unknown>
+
+const hostInfo = { name: 'TestHost', version: '9.9.9' }
+
+/**
+ * Loads the real widget document in a DOM whose `window.parent` is a fake MCP Apps host, so the
+ * test sees exactly the JSON-RPC messages the inline script posts.
+ */
+const mountWidget = (
+  options: {
+    maxTimeout?: number
+    openai?: Record<string, unknown>
+    /** Answers the widget's `tools/call` requests (in a microtask, before any timer fires). */
+    answerToolCall?: (params: unknown) => unknown
+  } = {},
+): {
+  window: Window
+  sent: JsonRpcMessage[]
+  /** Every delay the widget passed to setTimeout, in order. */
+  delays: number[]
+  fromHost: (message: JsonRpcMessage) => Promise<void>
+  appText: () => string
+} => {
+  const window = new Window({
+    url: 'https://sandbox.example/',
+    // The script under test is our own widget, so evaluating it in the VM is intended.
+    settings: {
+      enableJavaScriptEvaluation: true,
+      suppressInsecureJavaScriptEnvironmentWarning: true,
+      ...(options.maxTimeout === undefined ? {} : { timer: { maxTimeout: options.maxTimeout } }),
+    },
+  })
+  const sent: JsonRpcMessage[] = []
+  const { answerToolCall } = options
+  const host = {
+    postMessage: (message: JsonRpcMessage) => {
+      sent.push(message)
+      if (message.method !== 'tools/call' || !answerToolCall) return
+      const result = answerToolCall(message.params)
+      queueMicrotask(() => {
+        window.dispatchEvent(
+          new window.MessageEvent('message', {
+            data: { jsonrpc: '2.0', id: message.id, result },
+            source: host,
+          }),
+        )
+      })
+    },
+  }
+  Object.defineProperty(window, 'parent', { value: host, configurable: true })
+  if (options.openai) {
+    Object.defineProperty(window, 'openai', { value: options.openai, configurable: true })
+  }
+  const delays: number[] = []
+  const setTimeoutOriginal = window.setTimeout.bind(window)
+  window.setTimeout = (callback: () => void, delay?: number) => {
+    delays.push(delay ?? 0)
+    return setTimeoutOriginal(callback, delay)
+  }
+  window.document.write(assemblyResultWidgetHtml)
+
+  const fromHost = async (message: JsonRpcMessage): Promise<void> => {
+    window.dispatchEvent(new window.MessageEvent('message', { data: message, source: host }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+  const appText = (): string => window.document.getElementById('app')?.textContent ?? ''
+  return { window, sent, delays, fromHost, appText }
+}
+
+const withoutSizeChanges = (messages: JsonRpcMessage[]): JsonRpcMessage[] =>
+  messages.filter((message) => message.method !== 'ui/notifications/size-changed')
+
+describe('assembly result widget handshake (MCP Apps 2026-01-26)', () => {
+  let widget: ReturnType<typeof mountWidget>
+
+  beforeEach(() => {
+    widget = mountWidget()
+  })
+
+  afterEach(async () => {
+    await widget.window.happyDOM.close()
+  })
+
+  const initialize = async (): Promise<void> => {
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      result: {
+        protocolVersion: '2026-01-26',
+        hostInfo,
+        hostCapabilities: { openLinks: {} },
+        hostContext: { theme: 'dark', displayMode: 'inline' },
+      },
+    })
+  }
+
+  it('opens with ui/initialize carrying appInfo, appCapabilities and protocolVersion', () => {
+    expect(withoutSizeChanges(widget.sent)).toEqual([
+      {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'ui/initialize',
+        params: {
+          appCapabilities: {},
+          appInfo: { name: 'transloadit-assembly-result', version: packageJson.version },
+          protocolVersion: '2026-01-26',
+        },
+      },
+    ])
+  })
+
+  it('confirms with a param-less ui/notifications/initialized and applies the host theme', async () => {
+    await initialize()
+
+    expect(withoutSizeChanges(widget.sent).at(-1)).toEqual({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/initialized',
+    })
+    expect(widget.window.document.documentElement.dataset.theme).toBe('dark')
+  })
+
+  it('renders tool-input progress, then the tool-result previews and actions', async () => {
+    await initialize()
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-input',
+      params: { arguments: { instructions: { steps: {} } } },
+    })
+    expect(widget.appText()).toBe('Running the Assembly…')
+
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        content: [{ type: 'text', text: '{}' }],
+        structuredContent: {
+          status: 'ok',
+          assembly: {
+            ok: 'ASSEMBLY_COMPLETED',
+            assembly_id: 'abc123',
+            results: {
+              resized: [
+                {
+                  name: 'pixel.png',
+                  mime: 'image/png',
+                  ssl_url: 'https://pub-123.r2.dev/pixel.png',
+                  width: 1,
+                  height: 1,
+                },
+              ],
+            },
+          },
+        },
+        _meta: {
+          [widgetContextMetaKey]: {
+            authenticated: true,
+            assembly_console_url: 'https://transloadit.com/c/acme/assemblies/abc123',
+            new_template_url: 'https://transloadit.com/c/acme/templates/new',
+          },
+        },
+      },
+    })
+
+    const document = widget.window.document
+    expect(widget.appText()).toContain('Assembly abc123')
+    expect(widget.appText()).toContain('Completed')
+    expect(document.querySelector('img')?.getAttribute('src')).toBe(
+      'https://pub-123.r2.dev/pixel.png',
+    )
+    expect(widget.appText()).toContain('Download pixel.png')
+    expect(widget.appText()).toContain('Save as Template')
+    expect(document.querySelector('a[title="Open in Console"]')?.getAttribute('href')).toBe(
+      'https://transloadit.com/c/acme/assemblies/abc123',
+    )
+  })
+
+  it('opens download links through the host so sandboxed frames can still download', async () => {
+    await initialize()
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          assembly: {
+            ok: 'ASSEMBLY_COMPLETED',
+            assembly_id: 'abc123',
+            results: {
+              resized: [
+                { name: 'clip.mp4', mime: 'video/mp4', ssl_url: 'https://pub-123.r2.dev/clip.mp4' },
+              ],
+            },
+          },
+        },
+      },
+    })
+
+    const link = widget.window.document.querySelector('a[download]')
+    const click = new widget.window.MouseEvent('click', { bubbles: true, cancelable: true })
+    link?.dispatchEvent(click)
+
+    expect(click.defaultPrevented).toBe(true)
+    expect(widget.sent.find((message) => message.method === 'ui/open-link')).toMatchObject({
+      params: { url: 'https://pub-123.r2.dev/clip.mp4' },
+    })
+  })
+
+  it('shows the recovery advice when a created Assembly could not be read', async () => {
+    await initialize()
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        isError: true,
+        structuredContent: {
+          status: 'error',
+          assembly: {
+            assembly_id: 'abc123',
+            assembly_ssl_url: 'https://api2.transloadit.com/assemblies/abc123',
+          },
+          errors: [
+            {
+              code: 'mcp_assembly_status_unavailable',
+              message: 'The Assembly was created, but its status could not be read.',
+              hint: 'Call transloadit_get_assembly_status instead of creating it again.',
+            },
+          ],
+        },
+      },
+    })
+
+    expect(widget.appText()).toContain('Assembly abc123')
+    expect(widget.appText()).toContain(
+      'The Assembly was created, but its status could not be read.',
+    )
+    expect(widget.appText()).toContain(
+      'Call transloadit_get_assembly_status instead of creating it again.',
+    )
+  })
+
+  it('does not offer a failed Assembly as a Template, nor call an unread one executing', async () => {
+    await initialize()
+    const context = {
+      authenticated: true,
+      new_template_url: 'https://transloadit.com/c/acme/templates/new',
+    }
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          assembly: {
+            assembly_id: 'abc123',
+            error: 'INVALID_FILE_META_DATA',
+            message: 'Bad file.',
+          },
+        },
+        _meta: { [widgetContextMetaKey]: context },
+      },
+    })
+    expect(widget.appText()).toContain('Failed')
+    expect(widget.appText()).toContain('Bad file.')
+    expect(widget.appText()).not.toContain('Save as Template')
+
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: { status: 'error', assembly: { assembly_id: 'abc123' } },
+        _meta: { [widgetContextMetaKey]: context },
+      },
+    })
+    expect(widget.appText()).toContain('Status unknown')
+    expect(widget.appText()).not.toContain('Processing')
+  })
+
+  it('shows the error text of a failed tool call instead of waiting forever', async () => {
+    await initialize()
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        isError: true,
+        content: [{ type: 'text', text: 'API error (HTTP 400) INVALID_SIGNATURE' }],
+      },
+    })
+
+    expect(widget.appText()).toBe('API error (HTTP 400) INVALID_SIGNATURE')
+  })
+
+  it('answers ping and ui/resource-teardown, and rejects unknown host requests', async () => {
+    await initialize()
+    await widget.fromHost({ jsonrpc: '2.0', id: 7, method: 'ping' })
+    await widget.fromHost({ jsonrpc: '2.0', id: 8, method: 'ui/resource-teardown', params: {} })
+    await widget.fromHost({ jsonrpc: '2.0', id: 9, method: 'ui/unknown', params: {} })
+
+    expect(withoutSizeChanges(widget.sent).slice(-3)).toEqual([
+      { jsonrpc: '2.0', id: 7, result: {} },
+      { jsonrpc: '2.0', id: 8, result: {} },
+      { jsonrpc: '2.0', id: 9, error: { code: -32601, message: 'Method not found: ui/unknown' } },
+    ])
+  })
+
+  it('reports a rejected ui/initialize instead of staying on the waiting message', async () => {
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      error: { code: -32602, message: 'Invalid params for ui/initialize' },
+    })
+
+    expect(widget.appText()).toBe('This host could not start the Assembly result view.')
+  })
+})
+
+describe('assembly result widget in ChatGPT', () => {
+  it('opens download links through window.openai.openExternal without a redirectUrl', async () => {
+    const opened: unknown[] = []
+    const widget = mountWidget({
+      openai: {
+        openExternal: (options: unknown) => {
+          opened.push(options)
+        },
+        toolOutput: {
+          status: 'ok',
+          assembly: {
+            ok: 'ASSEMBLY_COMPLETED',
+            assembly_id: 'abc123',
+            results: {
+              resized: [
+                { name: 'clip.mp4', mime: 'video/mp4', ssl_url: 'https://pub-123.r2.dev/clip.mp4' },
+              ],
+            },
+          },
+        },
+      },
+    })
+
+    const click = new widget.window.MouseEvent('click', { bubbles: true, cancelable: true })
+    widget.window.document.querySelector('a[download]')?.dispatchEvent(click)
+
+    expect(click.defaultPrevented).toBe(true)
+    expect(opened).toEqual([{ href: 'https://pub-123.r2.dev/clip.mp4', redirectUrl: false }])
+    await widget.window.happyDOM.close()
+  })
+})
+
+describe('assembly result widget Step labels', () => {
+  it('names each Step’s Robot, from the instructions API2 echoes', () => {
+    expect(
+      describeAssemblySteps({
+        merged_params: JSON.stringify({
+          steps: { ':original': { robot: '/upload/handle' }, resized: { robot: '/image/resize' } },
+        }),
+      }),
+    ).toEqual({
+      ':original': { robot: '/upload/handle' },
+      resized: { robot: '/image/resize' },
+    })
+    expect(describeAssemblySteps({ params: 'not json' })).toBeUndefined()
+  })
+})
+
+describe('assembly result widget previews', () => {
+  it('retries a preview that is not readable yet, then says so', async () => {
+    // Collapse the widget's 1 s / 3 s / 6 s retry delays.
+    const widget = mountWidget({ maxTimeout: 0 })
+    const resultUrl = 'https://pub-123.r2.dev/resized.jpg'
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { protocolVersion: '2026-01-26', hostInfo, hostCapabilities: {}, hostContext: {} },
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          assembly: {
+            ok: 'ASSEMBLY_COMPLETED',
+            assembly_id: 'abc123',
+            results: { resized: [{ name: 'resized.jpg', mime: 'image/jpeg', ssl_url: resultUrl }] },
+          },
+        },
+      },
+    })
+
+    const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 5))
+    const image = widget.window.document.querySelector('img')
+    image?.dispatchEvent(new widget.window.Event('error'))
+    await settle()
+    expect(image?.getAttribute('src')).toBe(resultUrl)
+    image?.dispatchEvent(new widget.window.Event('error'))
+    await settle()
+    image?.dispatchEvent(new widget.window.Event('error'))
+    await settle()
+    image?.dispatchEvent(new widget.window.Event('error'))
+    await settle()
+
+    expect(widget.appText()).toContain('Preview unavailable')
+    expect(widget.appText()).toContain('Download resized.jpg')
+    await widget.window.happyDOM.close()
+  })
+})
+
+describe('assembly result widget file names', () => {
+  const renderNames = async (
+    names: string[],
+  ): Promise<{ widget: ReturnType<typeof mountWidget>; labels: string[] }> => {
+    const widget = mountWidget()
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { protocolVersion: '2026-01-26', hostInfo, hostCapabilities: {}, hostContext: {} },
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          assembly: {
+            ok: 'ASSEMBLY_COMPLETED',
+            assembly_id: 'abc123',
+            results: {
+              imported: names.map((name, index) => ({
+                id: `file${index}`,
+                name,
+                mime: 'application/pdf',
+                ssl_url: `https://pub-123.r2.dev/${encodeURIComponent(name)}`,
+              })),
+            },
+          },
+        },
+      },
+    })
+    const labels = [...widget.window.document.querySelectorAll('.caption-text .name')].map(
+      (label) => label.getAttribute('title') ?? '',
+    )
+    return { widget, labels }
+  }
+
+  it('shows imported names decoded, while links keep the file URL', async () => {
+    const { widget, labels } = await renderNames([
+      'President_Kennedy%27s_Speech_at_Rice_University.mp4',
+      'caf%C3%A9%20menu.pdf',
+    ])
+
+    expect(labels).toEqual(["President_Kennedy's_Speech_at_Rice_University.mp4", 'café menu.pdf'])
+    expect(widget.appText()).toContain("Download President_Kennedy's_Speech_at_Rice_University.mp4")
+    expect(widget.window.document.querySelector('a[download]')?.getAttribute('href')).toBe(
+      'https://pub-123.r2.dev/President_Kennedy%2527s_Speech_at_Rice_University.mp4',
+    )
+    await widget.window.happyDOM.close()
+  })
+
+  it('keeps names that are malformed or would decode into unsafe characters', async () => {
+    const names = [
+      '100%.pdf',
+      'bad%E0%A4%A.pdf',
+      'a%2Fb.pdf',
+      'a%5Cb.pdf',
+      'line%0Abreak.pdf',
+      'x%E2%80%AEfdp.exe',
+    ]
+    const { widget, labels } = await renderNames(names)
+
+    expect(labels).toEqual(names)
+    await widget.window.happyDOM.close()
+  })
+})
+
+describe('assembly result widget status refresh', () => {
+  const assemblyUrl = 'https://api2-sjc.transloadit.com/assemblies/abc123'
+  const running = {
+    ok: 'ASSEMBLY_EXECUTING',
+    assembly_id: 'abc123',
+    assembly_ssl_url: assemblyUrl,
+  }
+  const completed = {
+    ...running,
+    ok: 'ASSEMBLY_COMPLETED',
+    results: {
+      resized: [
+        { name: 'pixel.png', mime: 'image/png', ssl_url: 'https://pub-123.r2.dev/pixel.png' },
+      ],
+    },
+  }
+  const statusResult = (assembly: Record<string, unknown>) => ({
+    content: [{ type: 'text', text: JSON.stringify({ status: 'ok', assembly }) }],
+    structuredContent: { status: 'ok', assembly },
+  })
+  const createResult = {
+    structuredContent: {
+      status: 'ok',
+      assembly: running,
+      warnings: [{ code: 'mcp_wait_skipped', message: 'Did not wait for completion.' }],
+    },
+    _meta: { [widgetContextMetaKey]: { authenticated: true } },
+  }
+  const statusCall = {
+    name: 'transloadit_get_assembly_status',
+    arguments: { assembly_url: assemblyUrl },
+  }
+
+  const waitFor = async (condition: () => boolean): Promise<void> => {
+    for (let round = 0; round < 400 && !condition(); round += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    expect(condition()).toBe(true)
+  }
+
+  const toolCalls = (sent: JsonRpcMessage[]): unknown[] =>
+    sent.filter((message) => message.method === 'tools/call').map((message) => message.params)
+
+  // Delays of the status checks, without the 30 s request timeouts that race each of them.
+  const checkDelays = (delays: number[]): number[] => delays.filter((delay) => delay !== 30_000)
+
+  const mountRunning = async (
+    answerToolCall: (params: unknown) => unknown,
+    hostCapabilities: Record<string, unknown> = { serverTools: {} },
+  ): Promise<ReturnType<typeof mountWidget>> => {
+    // Collapse the waits, so a 15-minute budget passes in milliseconds.
+    const widget = mountWidget({ maxTimeout: 0, answerToolCall })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { protocolVersion: '2026-01-26', hostInfo, hostCapabilities, hostContext: {} },
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: createResult,
+    })
+    return widget
+  }
+
+  it('follows a running Assembly through tools/call until it completes', async () => {
+    const answers = [running, running, completed]
+    const widget = await mountRunning(() => statusResult(answers.shift() ?? completed))
+    expect(widget.appText()).toContain('Processing')
+
+    await waitFor(() => widget.appText().includes('Completed'))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(toolCalls(widget.sent)).toEqual([statusCall, statusCall, statusCall])
+    expect(checkDelays(widget.delays)).toEqual([2000, 3000, 4500])
+    expect(widget.appText()).toContain('Download pixel.png')
+    // The create call's warning was about not waiting; it no longer applies.
+    expect(widget.appText()).not.toContain('Did not wait for completion.')
+    expect(widget.appText()).not.toContain('Result files appear')
+    await widget.window.happyDOM.close()
+  })
+
+  it('follows an Assembly whose status had not arrived when the call returned', async () => {
+    const widget = mountWidget({
+      maxTimeout: 0,
+      answerToolCall: () => statusResult(completed),
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      result: {
+        protocolVersion: '2026-01-26',
+        hostInfo,
+        hostCapabilities: { serverTools: {} },
+        hostContext: {},
+      },
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          status: 'ok',
+          // The server only knows the reference, so the Assembly carries no ok state.
+          assembly: { assembly_id: 'abc123', assembly_ssl_url: assemblyUrl },
+          running: true,
+        },
+      },
+    })
+
+    await waitFor(() => widget.appText().includes('Completed'))
+    expect(toolCalls(widget.sent)).toEqual([statusCall])
+    await widget.window.happyDOM.close()
+  })
+
+  it.each([
+    ['failed', { error: 'INVALID_FILE_META_DATA', message: 'Bad file.' }, 'Failed'],
+    ['canceled', { ok: 'ASSEMBLY_CANCELED' }, 'Canceled'],
+    ['aborted', { ok: 'REQUEST_ABORTED' }, 'Aborted'],
+  ])('stops once the Assembly has %s', async (_state, change, label) => {
+    const widget = await mountRunning(() => statusResult({ ...running, ...change }))
+
+    await waitFor(() => widget.appText().includes(label))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(toolCalls(widget.sent)).toHaveLength(1)
+    await widget.window.happyDOM.close()
+  })
+
+  it('backs off to 10 s, then offers to check again after 15 minutes', async () => {
+    let finished = false
+    const widget = await mountRunning(() => statusResult(finished ? completed : running))
+
+    await waitFor(() => widget.appText().includes('Check again'))
+    const delays = checkDelays(widget.delays)
+    expect(delays.slice(0, 6)).toEqual([2000, 3000, 4500, 6750, 10_000, 10_000])
+    expect(Math.max(...delays)).toBe(10_000)
+    expect(delays.reduce((sum, delay) => sum + delay, 0)).toBeGreaterThanOrEqual(15 * 60_000)
+    expect(toolCalls(widget.sent)).toHaveLength(delays.length)
+    expect(widget.appText()).toContain('Processing')
+
+    finished = true
+    const button = [...widget.window.document.querySelectorAll('button')].find(
+      (node) => node.textContent === 'Check again',
+    )
+    button?.click()
+    await waitFor(() => widget.appText().includes('Completed'))
+    expect(toolCalls(widget.sent)).toHaveLength(delays.length + 1)
+    await widget.window.happyDOM.close()
+  })
+
+  it('offers to check again after repeated failures', async () => {
+    const widget = await mountRunning(() => ({
+      isError: true,
+      content: [{ type: 'text', text: 'Transloadit rejected the credentials.' }],
+    }))
+
+    await waitFor(() => widget.appText().includes('Check again'))
+    expect(toolCalls(widget.sent)).toHaveLength(3)
+    expect(widget.appText()).toContain('Processing')
+    await widget.window.happyDOM.close()
+  })
+
+  it('keeps the result as it was when the host cannot call tools', async () => {
+    const widget = await mountRunning(() => statusResult(completed), { openLinks: {} })
+    const textBefore = widget.appText()
+
+    await waitFor(() => checkDelays(widget.delays).length > 20)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(toolCalls(widget.sent)).toEqual([])
+    expect(widget.appText()).toBe(textBefore)
+    expect(widget.appText()).not.toContain('Check again')
+    await widget.window.happyDOM.close()
+  })
+
+  it('stops when the host tears the widget down', async () => {
+    let widget: ReturnType<typeof mountWidget> | undefined
+    let callsAtTeardown = 0
+    widget = await mountRunning((params) => {
+      // The first check may run before mountRunning() returns; tear down on the next one.
+      if (widget && callsAtTeardown === 0) {
+        callsAtTeardown = toolCalls(widget.sent).length
+        widget.window.dispatchEvent(
+          new widget.window.MessageEvent('message', {
+            data: { jsonrpc: '2.0', id: 99, method: 'ui/resource-teardown', params: {} },
+            source: widget.window.parent,
+          }),
+        )
+      }
+      expect(params).toEqual(statusCall)
+      return statusResult(running)
+    })
+
+    await waitFor(() => callsAtTeardown > 0)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(toolCalls(widget.sent)).toHaveLength(callsAtTeardown)
+    expect(widget.appText()).not.toContain('Check again')
+    await widget.window.happyDOM.close()
+  })
+
+  it('pauses while the widget is hidden and checks again once it is back in view', async () => {
+    let visibility = 'hidden'
+    const widget = mountWidget({ maxTimeout: 0, answerToolCall: () => statusResult(completed) })
+    Object.defineProperty(widget.window.document, 'visibilityState', { get: () => visibility })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { protocolVersion: '2026-01-26', hostInfo, hostCapabilities: { serverTools: {} } },
+    })
+    await widget.fromHost({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: createResult,
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(toolCalls(widget.sent)).toEqual([])
+
+    visibility = 'visible'
+    widget.window.document.dispatchEvent(new widget.window.Event('visibilitychange'))
+    await waitFor(() => widget.appText().includes('Completed'))
+    expect(toolCalls(widget.sent)).toEqual([statusCall])
+    await widget.window.happyDOM.close()
+  })
+
+  it('follows a running Assembly through window.openai.callTool in ChatGPT', async () => {
+    const calls: unknown[] = []
+    const openai: Record<string, unknown> = {
+      theme: 'light',
+      toolOutput: createResult.structuredContent,
+      toolResponseMetadata: createResult._meta,
+      callTool: (name: string, args: unknown) => {
+        calls.push([name, args])
+        return Promise.resolve(statusResult(calls.length < 2 ? running : completed))
+      },
+    }
+    const widget = mountWidget({ maxTimeout: 0, openai })
+
+    await waitFor(() => widget.appText().includes('Completed'))
+    expect(calls).toEqual([
+      ['transloadit_get_assembly_status', { assembly_url: assemblyUrl }],
+      ['transloadit_get_assembly_status', { assembly_url: assemblyUrl }],
+    ])
+
+    // ChatGPT re-sends the original toolOutput with every globals change, e.g. the theme.
+    openai.theme = 'dark'
+    widget.window.dispatchEvent(new widget.window.CustomEvent('openai:set_globals'))
+    expect(widget.appText()).toContain('Completed')
+    await widget.window.happyDOM.close()
+  })
+})

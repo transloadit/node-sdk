@@ -129,6 +129,7 @@ const main = async (): Promise<void> => {
 
   await copyDir(resolve(nodePackage, 'dist'), resolve(legacyPackage, 'dist'))
   await copyDir(resolve(nodePackage, 'src'), resolve(legacyPackage, 'src'))
+  await copyDir(resolve(nodePackage, 'examples'), resolve(legacyPackage, 'examples'))
   await cp(resolve(nodePackage, 'README.md'), resolve(legacyPackage, 'README.md'))
   await cp(resolve(repoRoot, 'LICENSE'), resolve(legacyPackage, 'LICENSE'))
   await chmod(resolve(legacyPackage, 'dist/cli.js'), 0o755)

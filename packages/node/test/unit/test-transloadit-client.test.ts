@@ -1,5 +1,6 @@
 import type { Readable } from 'node:stream'
 
+import { createHmac } from 'node:crypto'
 import { PassThrough } from 'node:stream'
 
 import FormData from 'form-data'
@@ -297,6 +298,72 @@ describe('Transloadit', () => {
   })
 
   describe('calcSignature', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it.each([
+      ['without auth', { steps: {} }],
+      ['with existing auth', { steps: {}, auth: {} }],
+    ])('refreshes default expiry when reusing params %s after 25 hours', (_, params) => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const original = structuredClone(params)
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-01-12T12:00:00.000Z'))
+
+      const first = client.calcSignature(params)
+      vi.setSystemTime(new Date('2026-01-13T13:00:00.000Z'))
+      const second = client.calcSignature(params)
+
+      expect(JSON.parse(first.params)).toEqual({
+        steps: {},
+        auth: { key: 'foo_key', expires: '2026-01-13T12:00:00.000Z' },
+      })
+      expect(JSON.parse(second.params)).toEqual({
+        steps: {},
+        auth: { key: 'foo_key', expires: '2026-01-14T13:00:00.000Z' },
+      })
+      expect(second.signature).not.toBe(first.signature)
+      expect(params).toEqual(original)
+    })
+
+    it('does not carry a default Auth Key between clients sharing an auth object', () => {
+      const first = new Transloadit({ authKey: 'first_key', authSecret: 'first_secret' })
+      const second = new Transloadit({ authKey: 'second_key', authSecret: 'second_secret' })
+      const auth = {}
+
+      expect(JSON.parse(first.calcSignature({ auth }).params).auth.key).toBe('first_key')
+      expect(JSON.parse(second.calcSignature({ auth }).params).auth.key).toBe('second_key')
+      expect(auth).toEqual({})
+    })
+
+    it.each([
+      ['without auth', Object.freeze({ steps: {} })],
+      ['with frozen auth', Object.freeze({ steps: {}, auth: Object.freeze({}) })],
+    ])('can sign frozen params %s', (_, params) => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+      expect(JSON.parse(client.calcSignature(params).params)).toEqual({
+        steps: {},
+        auth: { key: 'foo_key', expires: expect.any(String) },
+      })
+    })
+
+    it('preserves an explicit Auth Key and expiry, even after they have expired', () => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const params = { auth: { key: 'custom_key', expires: '2026-01-13T12:00:00.000Z' } }
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-01-12T12:00:00.000Z'))
+
+      const first = client.calcSignature(params)
+      vi.setSystemTime(new Date('2026-01-13T13:00:00.000Z'))
+
+      expect(client.calcSignature(params)).toEqual(first)
+      expect(JSON.parse(first.params)).toEqual({
+        auth: { key: 'custom_key', expires: '2026-01-13T12:00:00.000Z' },
+      })
+    })
+
     it('should calc _prepareParams and _calcSignature', () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
@@ -407,6 +474,46 @@ describe('Transloadit', () => {
       expect(get).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ headers: { 'Transloadit-Client': 'mcp-server:1.2.3' } }),
+      )
+    })
+
+    it.each([
+      ['sha1'],
+      ['sha256'],
+      ['sha384'],
+    ] as const)('should sign params with the configured %s algorithm', (signatureAlgorithm) => {
+      const client = new Transloadit({
+        authKey: 'foo_key',
+        authSecret: 'foo_secret',
+        signatureAlgorithm,
+      })
+
+      const { signature, params } = client.calcSignature({ steps: {} })
+
+      const expected = createHmac(signatureAlgorithm, 'foo_secret').update(params).digest('hex')
+      expect(signature).toBe(`${signatureAlgorithm}:${expected}`)
+    })
+
+    it('should send extraHeaders next to the bearer token on every request', async () => {
+      const client = new Transloadit({
+        authToken: 'forwarded-token',
+        extraHeaders: { 'Transloadit-Mcp-Upstream': 'shared-secret' },
+      })
+
+      const get = mockGot('get')
+
+      const url = '/some-url'
+      // @ts-expect-error This tests private internals
+      await client._remoteJson({ url, method: 'get', isTrustedUrl: true })
+
+      expect(get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer forwarded-token',
+            'Transloadit-Mcp-Upstream': 'shared-secret',
+          }),
+        }),
       )
     })
   })

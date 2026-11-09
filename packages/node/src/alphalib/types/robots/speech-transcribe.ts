@@ -1,11 +1,18 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { zodWithConservativeJsonInputSchema } from '../../lib/zodInputSemantics.ts'
 import {
   autoProviderDescription,
+  createProcessingExample,
+  defineRobotWithHiddenFields,
   granularitySchema,
-  interpolateRobot,
+  robotArtificialIntelligenceMeta,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
@@ -15,51 +22,56 @@ const speechTranscribeProviderWithHiddenFieldsSchema = z
   .enum(['auto', 'aws', 'gcp', 'replicate', 'transloadit'])
   .default('auto')
 
+/** Shared vocabulary limits keep inline hints within GCP and Whisper prompt budgets. */
+export const speechTranscribeVocabularySchema = zodWithConservativeJsonInputSchema(
+  z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(100)
+        .regex(/^[^\p{Cc}]+$/u),
+    )
+    .max(50)
+    .refine((terms) => new Set(terms.map((term) => term.toLowerCase())).size === terms.length, {
+      message: 'Vocabulary terms must be unique, ignoring case.',
+    })
+    // Byte-level tokenization uses at most one token per byte. Reserve room for sentence styling.
+    .refine((terms) => new TextEncoder().encode(terms.join(', ')).byteLength <= 200, {
+      message: 'Vocabulary terms joined with comma-space must not exceed 200 UTF-8 bytes.',
+    }),
+  // Trimming, Unicode case uniqueness and a joined UTF-8 budget have no portable JSON Schema form.
+  z.array(z.string().min(1)).max(50),
+)
+
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      transcribed: {
-        robot: '/speech/transcribe',
-        use: ':original',
-        provider: 'replicate',
-        source_language: 'fr-FR',
-        format: 'text',
-      },
-    },
-  },
+  ...robotArtificialIntelligenceMeta,
+  example_code: createProcessingExample('transcribed', '/speech/transcribe', {
+    provider: 'replicate',
+    target_language: 'french',
+    format: 'text',
+  }),
   example_code_description:
-    'Transcribe speech in French from uploaded audio or video, and save it to a text file:',
+    'Transcribe French speech from uploaded audio or video, and save it to a text file:',
   extended_description: `
 > [!Warning]
 > Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses AI services. The providers will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
 `,
-  minimum_charge: 1048576,
-  output_factor: 0.05,
   override_lvl1: 'Artificial Intelligence',
   purpose_sentence: 'transcribes speech in audio or video files',
   purpose_verb: 'transcribe',
   purpose_word: 'transcribe speech',
   purpose_words: 'Transcribe speech in audio or video files',
-  service_slug: 'artificial-intelligence',
-  slot_count: 10,
   title: 'Transcribe speech in audio or video files',
   typical_file_size_mb: 2.4,
   typical_file_type: 'audio or video file',
   name: 'SpeechTranscribeRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumChargeUsdPerSpeechTranscribeMinute: {
     aws: 0.024,
     gcp: 0.024,
+    replicate: 'variable',
   },
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotSpeechTranscribeInstructionsSchema = robotBase
@@ -89,7 +101,8 @@ recurring speakers:
 \`\`\`
 
 Speaker labels are currently supported by the \`aws\` and \`gcp\` providers. If you enable
-\`speaker_labels\` without setting \`provider\`, Transloadit uses \`aws\` for that <dfn>Step</dfn>. Labels
+\`speaker_labels\` without setting \`provider\`, Transloadit uses \`aws\` for that <dfn>Step</dfn>, or
+\`gcp\` when \`vocabulary\` is also supplied. Labels
 are normalized as \`speaker_1\`, \`speaker_2\`, and so on:
 
 \`\`\`json
@@ -111,14 +124,34 @@ are normalized as \`speaker_1\`, \`speaker_2\`, and so on:
 ${autoProviderDescription}
 
 Set this to \`"aws"\`, \`"gcp"\`, or \`"replicate"\` to force a specific provider.
-When set to \`"auto"\`, Transloadit keeps the existing transcription default and uses \`"aws"\` only
-when \`speaker_labels\` is enabled.
+When set to \`"auto"\`, Transloadit uses \`"replicate"\` by default and uses \`"aws"\` when
+\`speaker_labels\` is enabled. If both \`speaker_labels\` and a nonempty \`vocabulary\` are set,
+\`"auto"\` uses \`"gcp"\`.
+`),
+    vocabulary: speechTranscribeVocabularySchema.optional().describe(`
+Words or phrases to favor during speech recognition, using the spelling you want in the output.
+For example, \`["Transloadit", "Uppy", "tus"]\` helps the provider recognize brand and product names.
+
+Supply up to 50 distinct terms, each between 1 and 100 characters after trimming surrounding
+whitespace. Terms must not contain control characters or case-insensitive duplicates. The terms
+joined with \`", "\` must fit within 200 UTF-8 bytes, keeping all terms within Whisper’s prompt
+budget. Omitting this parameter or supplying an empty array leaves recognition unchanged.
+
+Supported by \`"replicate"\` and \`"gcp"\`. Replicate uses a prompt-capable WhisperX large-v3 model
+with aligned word timestamps when vocabulary is supplied. GCP uses inline boosted phrase hints.
+Explicit \`"aws"\` requests with vocabulary return a validation error because AWS requires a
+pre-created Custom Vocabulary. Use \`"auto"\`, \`"replicate"\`, or \`"gcp"\` instead.
+
+Hints improve recognition but do not guarantee that a term is recognized. Afterwards, complete
+case-insensitive matches use your supplied spelling in every output format, including JSON words
+and speaker segments, without changing timestamps. Similar-sounding words are never replaced:
+\`"transloadit"\` becomes \`"Transloadit"\`, but \`"Transloaded"\` stays unchanged.
 `),
     granularity: granularitySchema.describe(`
-Whether to return a full response (\`"full"\`), or a flat list of descriptions (\`"list"\`).
+Both \`"full"\` and \`"list"\` currently return the same complete transcription response. \`"list"\` remains accepted for backward compatibility.
 `),
     format: z
-      .enum(['json', 'meta', 'srt', 'meta', 'text', 'webvtt'])
+      .enum(['json', 'meta', 'srt', 'text', 'webvtt'])
       .default('json')
       .describe(`
 Output format for the transcription.
@@ -150,53 +183,47 @@ The maximum number of speakers to detect when \`speaker_labels\` is enabled.
       .string()
       .default('en-US')
       .describe(`
-The spoken language of the audio or video. This will also be the language of the transcribed text.
+Sets the spoken language for the \`"aws"\` and \`"gcp"\` providers. The transcription stays in the spoken language; this parameter does not translate speech.
 
-The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please also consult the list of supported languages for [the \`gcp\` provider](https://cloud.google.com/speech-to-text/docs/languages) and the [the \`aws\` provider](https://docs.aws.amazon.com/transcribe/latest/dg/what-is-transcribe.html).
+The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please also consult the list of supported languages for [the \`gcp\` provider](https://cloud.google.com/speech-to-text/docs/languages) and [the \`aws\` provider](https://docs.aws.amazon.com/transcribe/latest/dg/what-is-transcribe.html).
 `),
     // TODO determine the list of languages
     target_language: z
       .string()
-      .default('en-US')
+      .optional()
       .describe(`
-      This will also be the language of the written text.
+Sets the spoken language hint for the \`"replicate"\` provider. Omit this parameter to detect the spoken language automatically. Set it to the full lowercase English language name, such as \`"french"\`, when the spoken language is known. Despite its name, this parameter does not translate speech.
 
-      The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please consult the list of supported languages and voices.
-    `),
+For the \`"aws"\` and \`"gcp"\` providers, use \`source_language\` instead.
+`),
   })
   .strict()
 
-export const robotSpeechTranscribeInstructionsWithHiddenFieldsSchema =
-  robotSpeechTranscribeInstructionsSchema.extend({
-    model: z.enum(['whisper-large-v3']).optional(),
-    provider: speechTranscribeProviderWithHiddenFieldsSchema,
-    result: z
-      .union([z.literal('debug'), robotSpeechTranscribeInstructionsSchema.shape.result])
-      .optional(),
-  })
+const hiddenFields = {
+  model: z.enum(['whisper-large-v3']).optional(),
+  provider: speechTranscribeProviderWithHiddenFieldsSchema,
+}
 
-export type RobotSpeechTranscribeInstructions = z.infer<
-  typeof robotSpeechTranscribeInstructionsSchema
->
-export type RobotSpeechTranscribeInstructionsWithHiddenFields = z.infer<
-  typeof robotSpeechTranscribeInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotSpeechTranscribeInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotSpeechTranscribeInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotSpeechTranscribeInstructionsSchema = interpolateRobot(
-  robotSpeechTranscribeInstructionsSchema,
-)
-export type InterpolatableRobotSpeechTranscribeInstructions =
-  InterpolatableRobotSpeechTranscribeInstructionsInput
+export const {
+  withHiddenFields: robotSpeechTranscribeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotSpeechTranscribeInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotSpeechTranscribeInstructionsInput = z.input<
-  typeof interpolatableRobotSpeechTranscribeInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotSpeechTranscribeInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotSpeechTranscribeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsSchema
->
+export type RobotSpeechTranscribeInstructions = Instructions['output']
+export type RobotSpeechTranscribeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotSpeechTranscribeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotSpeechTranscribeInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotSpeechTranscribeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

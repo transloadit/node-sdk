@@ -1,13 +1,19 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { tmpdir, userInfo } from 'node:os'
 import path from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { runSig } from '../../../src/cli/commands/auth.ts'
+import { requireCliCredentials, resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
+
+vi.mock('node:os', async (original) => {
+  const module = await original<typeof import('node:os')>()
+  return { ...module, userInfo: vi.fn(module.userInfo) }
+})
 
 const originalCwd = process.cwd()
 
@@ -59,6 +65,63 @@ function clearAmbientTransloaditEnv(): void {
 }
 
 describe('cli credential resolution', () => {
+  it('does not need a passwd entry when an explicit credentials file is configured', async () => {
+    const fixture = createCliFixture()
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('HOME', '')
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
+    writeFileSync(
+      fixture.credentialsFilePath,
+      'TRANSLOADIT_KEY=local-key\nTRANSLOADIT_SECRET=local-secret\n',
+    )
+    vi.mocked(userInfo).mockImplementation(() => {
+      throw new Error('No passwd entry')
+    })
+    process.chdir(fixture.cwd)
+    vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    try {
+      await main(['auth', 'status'])
+      expect(process.exitCode).toBeUndefined()
+      expect(userInfo).not.toHaveBeenCalled()
+    } finally {
+      fixture.cleanup()
+    }
+  })
+  it.each([
+    'saved login',
+    'project .env',
+  ])('keeps a shell token when %s has an invalid signing algorithm', async (source) => {
+    const fixture = createCliFixture()
+    writeFileSync(
+      source === 'saved login' ? fixture.credentialsFilePath : path.join(fixture.cwd, '.env'),
+      'TRANSLOADIT_KEY=invalid-key\nTRANSLOADIT_SECRET=invalid-secret\nTRANSLOADIT_SIGNATURE_ALGORITHM=unsupported\n',
+    )
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_SIGNATURE_ALGORITHM', '')
+    vi.stubEnv('TRANSLOADIT_AUTH_TOKEN', 'valid-shell-token')
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
+    process.chdir(fixture.cwd)
+    const list = vi
+      .spyOn(Transloadit.prototype, 'listTemplates')
+      .mockResolvedValue({ items: [], count: 0 })
+    vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
+    vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    try {
+      await main(['templates', 'list'])
+      expect(list).toHaveBeenCalledOnce()
+      expect(process.exitCode).toBeUndefined()
+      expect(resolveCliConfig().auth).toEqual({ authToken: 'valid-shell-token' })
+      expect(requireCliCredentials()).toEqual({
+        ok: false,
+        error: 'Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM in CLI credentials',
+      })
+    } finally {
+      fixture.cleanup()
+    }
+  })
+
   it('uses ~/.transloadit/credentials when shell env and .env are absent', async () => {
     const fixture = createCliFixture()
     writeFileSync(

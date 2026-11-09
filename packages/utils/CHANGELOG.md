@@ -1,5 +1,113 @@
 # @transloadit/utils
 
+## 4.10.1
+
+### Patch Changes
+
+- df7f1d8: Viewer now uses the direct-encode Storage previews: `builtin/storage-preview@0.0.4` for private
+  delivery and `builtin/public-preview@0.0.3` for public delivery. Both preserve the exact asset and
+  version, with no path-based fallback. Public previews retain their 4096px and quality-85 limits.
+
+  Breaking (Viewer alpha): these replace the previous preview pins. Remove overrides for older
+  Storage preview Built-ins; no legacy-version adapter is provided. Deploy the new API2 Built-ins and
+  their worker/FileInfoReader dependencies before adopting this release. Custom non-Storage Templates
+  and original/download delivery are unchanged.
+
+## 4.10.0
+
+### Minor Changes
+
+- c8d9b31: Accept both steps-only JSON and a wrapper containing only `steps` in `assemblies create --steps`. Reject other wrapper properties instead of silently discarding them. Preserve the final newline in files rewritten by `assemblies lint --fix` without adding blank lines on repeated fixes, and document the `run` and `assembly-instructions compile` commands.
+
+  Limit API signatures to the supported SHA-1, SHA-256, and SHA-384 algorithms in the CLI and shared utilities. Unsupported algorithms such as SHA-512 now fail locally in `signParams`, `signParamsSync`, and SDK signature generation, and are rejected by `verifyWebhookSignature`; SHA-512 remains available for file hashes. Release the MCP server and `transloadit` CLI alongside the Node SDK.
+
+## 4.9.0
+
+### Minor Changes
+
+- a2c5dd7: Add `getSmartCdnImageCandidates` next to the signed candidate builder on the Node entry point.
+  Share candidate validation and URL encoding while omitting signatures and expiry for genuinely
+  public delivery. Callers can use receipt-derived version tags for stable, immutable cache keys.
+  Include a proportional (rounded-up) fit height, or the backend limit without source metadata,
+  so a Template's default height does not silently invalidate the width descriptors.
+- a2c5dd7: Share Storage path and directory-prefix validation between image integrations and CLI scaffolds.
+  Keep generated image recipes scoped, preserve relative imports for hidden receipt catalogs, and
+  sign Storage listing requests against the endpoint belonging to the selected key credentials.
+
+### Patch Changes
+
+- a2c5dd7: Keep public-preview candidates within their dimension and quality limits, including width-only
+  requests and tall sources. Share the exact Built-in limits with image delivery adapters.
+
+## 4.8.1
+
+### Patch Changes
+
+- 5fe9706: Support GPT-6 Astra and Claude Fable 5.1, and use Astra for automatic chat and assembly-instruction compilation. Assembly compilation retains medium reasoning effort. Existing model identifiers remain supported.
+
+## 4.8.0
+
+### Minor Changes
+
+- 0c329bb: Add the storage-grant contract/codec: `StorageGrantClaims` types, `parseStorageGrantClaims`, browser-safe `decodeStorageGrant`, `normalizeStorageGrantPrefix` at the root, and deterministic HS256 `signStorageGrant`/`verifyStorageGrant` under `@transloadit/utils/node` — one wire contract for the grants minted by api2/integrator servers and verified by Companion's S3 provider.
+
+## 4.7.1
+
+### Patch Changes
+
+- ed75f00: Add a framework-neutral `createSmartCdnImageCandidates` policy with an injected signer, and make
+  the existing Node candidate helper share it. Optional intrinsic source dimensions now prevent
+  upscaling and renditions whose derived height exceeds Smart CDN's image limit. Framework adapters
+  can reuse the exported format and width normalization instead of copying those limits.
+
+  Candidate policy now distinguishes millisecond timestamps from accidentally seconds-based expiry
+  values and reports an invalid width by its index. Runtime `null` qualities are rejected consistently
+  with the exported TypeScript contract instead of being treated as an omitted format.
+
+  Ignore a legacy caller-provided `sig` while signing instead of including a value that the generated
+  signature replaces, which could otherwise produce an unverifiable URL.
+  Unsigned URLs now omit caller-provided `auth_key`, `exp`, and `sig` fields so they remain
+  unambiguously unsigned and round-trip through the parser.
+
+  Require callers to select a trusted workspace Template explicitly. The helper no longer defaults
+  to the arbitrary-origin `builtin/serve-image` Template. Require a separate browser `fallbackUrl`
+  because Template inputs are not necessarily browser-resolvable URLs. These intentional patch-level
+  replacements affect only the newly introduced, not-yet-adopted image-candidate API.
+
+## 4.7.0
+
+### Minor Changes
+
+- 7597b78: Add the rest of the Smart CDN URL grammar next to `getSignedSmartCdnUrl`, so applications stop
+  carrying their own copies: `getSmartCdnUrl` (unsigned builder), `parseSmartCdnUrl` (the inverse of
+  the builders — decodes once, keeps repeated query parameters, returns `auth_key`/`exp`/`sig` as
+  `auth`) and `stripSmartCdnAuth` (removes the signature parameters byte-for-byte otherwise). Both
+  builders accept a trusted `baseUrl` option (for example a local api2's URL Transform endpoint with
+  a `{workspace}` placeholder); the signature does not cover the host, so it must come from
+  configuration, never from user input. Exported from the root and the `./node` entry.
+
+## 4.6.0
+
+### Minor Changes
+
+- a652ffa: Add an isomorphic `getSignedSmartCdnUrl` to the root export. It signs with WebCrypto, so browsers,
+  edge runtimes and Node produce byte-identical Smart CDN URLs to the synchronous signer in
+  `@transloadit/utils/node`, which now shares the same URL-building code. `signParams` and
+  `verifyWebhookSignature` additionally accept `sha512`, matching `signParamsSync`.
+
+## 4.5.1
+
+### Patch Changes
+
+- 85a0bbd: Replace the two-day-old Smart CDN candidate return value with structured sources for
+  renderer-independent integrations. The only application consumer migrates with this release.
+
+## 4.5.0
+
+### Minor Changes
+
+- 1565012: Add deterministic signed responsive-image candidates for Smart CDN.
+
 ## 4.4.1
 
 ### Patch Changes

@@ -1,13 +1,21 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import { htmlPdfReadinessDescription } from './_html-pdf.ts'
+import {
+  defineRobotWithHiddenFields,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotDocumentProcessingMeta,
   example_code: {
     steps: {
       captured: {
@@ -24,27 +32,16 @@ export const meta: RobotMetaInput = {
 > [!Note]
 > Any files imported within the HTML page will be included in the cost.
 `,
-  minimum_charge: 1048576,
-  output_factor: 0.5,
-  override_lvl1: 'Document Processing',
   purpose_sentence: 'takes screenshots of web pages or uploaded HTML pages',
   purpose_verb: 'take',
   purpose_word: 'take screenshots of a webpage',
   purpose_words: 'Take screenshots of webpages or HTML files',
-  service_slug: 'document-processing',
-  slot_count: 10,
   title: 'Take screenshots of webpages or uploaded HTML files',
   typical_file_size_mb: 0.6,
   typical_file_type: 'webpage',
   name: 'HtmlConvertRobot',
-  priceFactor: 1,
   queueSlotCount: 30,
-  minimumCharge: 1048576,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotHtmlConvertInstructionsSchema = robotBase
@@ -54,6 +51,8 @@ export const robotHtmlConvertInstructionsSchema = robotBase
 A URL can be provided instead of an input HTML file, to capture a screenshot from the website referenced by the URL.
 
 Use [🤖/image/resize](/docs/robots/image-resize/) to resize or crop the screenshot as needed.
+
+${htmlPdfReadinessDescription}
 `),
     url: z
       .string()
@@ -61,6 +60,7 @@ Use [🤖/image/resize](/docs/robots/image-resize/) to resize or crop the screen
       .default(null)
       .describe(`
 The URL of the web page to be converted. Optional, as you can also upload/import HTML files and pass it to this <dfn>Robot</dfn>.
+Omit it, or use \`null\` or an empty string, to convert uploaded HTML instead.
 `),
     format: z
       .enum(['jpeg', 'jpg', 'pdf', 'png'])
@@ -129,37 +129,30 @@ See [Playwright's documentation](https://playwright.dev/docs/api/class-page#page
   })
   .strict()
 
-export const robotHtmlConvertInstructionsWithHiddenFieldsSchema =
-  robotHtmlConvertInstructionsSchema.extend({
-    debuginfo: z.boolean().optional(),
-    timeouts: z.record(z.unknown()).optional(),
-    actions: z.array(z.record(z.unknown())).optional(),
-    result: z
-      .union([z.literal('debug'), robotHtmlConvertInstructionsSchema.shape.result])
-      .optional(),
-  })
+const hiddenFields = {
+  debuginfo: z.boolean().optional(),
+  timeouts: z.record(z.unknown()).optional(),
+  actions: z.array(z.record(z.unknown())).optional(),
+}
 
-export type RobotHtmlConvertInstructions = z.infer<typeof robotHtmlConvertInstructionsSchema>
-export type RobotHtmlConvertInstructionsWithHiddenFields = z.infer<
-  typeof robotHtmlConvertInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotHtmlConvertInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotHtmlConvertInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotHtmlConvertInstructionsSchema = interpolateRobot(
-  robotHtmlConvertInstructionsSchema,
-)
-export type InterpolatableRobotHtmlConvertInstructions =
-  InterpolatableRobotHtmlConvertInstructionsInput
+export const {
+  withHiddenFields: robotHtmlConvertInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotHtmlConvertInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotHtmlConvertInstructionsInput = z.input<
-  typeof interpolatableRobotHtmlConvertInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotHtmlConvertInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotHtmlConvertInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotHtmlConvertInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema
->
+export type RobotHtmlConvertInstructions = Instructions['output']
+export type RobotHtmlConvertInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotHtmlConvertInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotHtmlConvertInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotHtmlConvertInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotHtmlConvertInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

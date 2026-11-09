@@ -1,55 +1,35 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
   backblazeBase,
-  files_per_page,
-  interpolateRobot,
+  createStorageImportExample,
+  defineRobot,
   path,
   recursive,
+  recursiveImportPageSize,
   robotBase,
   robotImport,
+  robotImportMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      imported: {
-        robot: '/backblaze/import',
-        credentials: 'YOUR_BACKBLAZE_CREDENTIALS',
-        path: 'path/to/files/',
-        recursive: true,
-      },
-    },
-  },
+  ...robotImportMeta,
+  example_code: createStorageImportExample('/backblaze/import', 'YOUR_BACKBLAZE_CREDENTIALS'),
   example_code_description:
     'Import files from the `path/to/files` directory and its subdirectories:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Importing',
   purpose_sentence: 'imports whole directories of files from your Backblaze bucket',
-  purpose_verb: 'import',
   purpose_word: 'Backblaze',
   purpose_words: 'Import files from Backblaze',
   requires_credentials: true,
-  service_slug: 'file-importing',
-  slot_count: 20,
   title: 'Import files from Backblaze',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'BackblazeImportRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
-  stage: 'ga',
 }
 
 export const robotBackblazeImportInstructionsSchema = robotBase
@@ -79,41 +59,28 @@ Please use the pagination parameters \`start_file_name\` and \`files_per_page\` 
       .describe(`
 The name of the last file from the previous paging call. This tells the <dfn>Robot</dfn> to ignore all files up to and including this file.
 `),
-    files_per_page: files_per_page.describe(`
-The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
-`),
+    files_per_page: recursiveImportPageSize,
   })
   .strict()
 
-export const robotBackblazeImportInstructionsWithHiddenFieldsSchema =
-  robotBackblazeImportInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotBackblazeImportInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotBackblazeImportInstructionsSchema.shape> =
+  defineRobot(meta, robotBackblazeImportInstructionsSchema)
 
-export type RobotBackblazeImportInstructions = z.infer<
-  typeof robotBackblazeImportInstructionsSchema
->
-export type RobotBackblazeImportInstructionsWithHiddenFields = z.infer<
-  typeof robotBackblazeImportInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotBackblazeImportInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotBackblazeImportInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotBackblazeImportInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotBackblazeImportInstructionsSchema = interpolateRobot(
-  robotBackblazeImportInstructionsSchema,
-)
-export type InterpolatableRobotBackblazeImportInstructions =
-  InterpolatableRobotBackblazeImportInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotBackblazeImportInstructionsInput = z.input<
-  typeof interpolatableRobotBackblazeImportInstructionsSchema
->
-
-export const interpolatableRobotBackblazeImportInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotBackblazeImportInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotBackblazeImportInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotBackblazeImportInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotBackblazeImportInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotBackblazeImportInstructionsWithHiddenFieldsSchema
->
+export type RobotBackblazeImportInstructions = Instructions['output']
+export type RobotBackblazeImportInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotBackblazeImportInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotBackblazeImportInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotBackblazeImportInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotBackblazeImportInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

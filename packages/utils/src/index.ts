@@ -1,6 +1,40 @@
-export type SignatureAlgorithm = 'sha1' | 'sha256' | 'sha384'
+import type { SignatureAlgorithm } from './signatureAlgorithm.ts'
+import type { SmartCdnUrlOptions } from './smartCdn.ts'
+
+import { isSignatureAlgorithm } from './signatureAlgorithm.ts'
+import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
+
+export type { SignatureAlgorithm } from './signatureAlgorithm.ts'
+export type {
+  ParsedSmartCdnUrl,
+  ParseSmartCdnUrlOptions,
+  SmartCdnUnsignedUrlOptions,
+  SmartCdnUrlOptions,
+  SmartCdnUrlParams,
+} from './smartCdn.ts'
+export type {
+  SignSmartCdnImageRequest,
+  SmartCdnImageCandidate,
+  SmartCdnImageCandidates,
+  SmartCdnImageFormat,
+  SmartCdnImageFormatQuality,
+  SmartCdnImageFormats,
+  SmartCdnImagePolicyOptions,
+  SmartCdnImageSignRequest,
+  SmartCdnImageSource,
+  SmartCdnImageSourceDimensions,
+} from './smartCdnImage.ts'
 
 export * from './assemblyInstructionsCompiler.ts'
+export { getSmartCdnUrl, parseSmartCdnUrl, stripSmartCdnAuth } from './smartCdn.ts'
+export {
+  createSmartCdnImageCandidates,
+  getSmartCdnImageLimits,
+  resolveSmartCdnImageFormats,
+  resolveSmartCdnImageWidths,
+  smartCdnImageMaxDimension,
+} from './smartCdnImage.ts'
+export { validateStoragePath, validateStoragePathPrefix } from './storagePath.ts'
 
 const algorithmMap = {
   sha1: 'SHA-1',
@@ -8,13 +42,13 @@ const algorithmMap = {
   sha384: 'SHA-384',
 } as const
 
-const isSignatureAlgorithm = (value: string): value is SignatureAlgorithm =>
-  value === 'sha1' || value === 'sha256' || value === 'sha384'
-
 const getSubtle = (): SubtleCrypto => {
   const subtle = globalThis.crypto?.subtle
   if (!subtle) {
-    throw new Error('Web Crypto is required to sign Transloadit payloads')
+    // Browsers only expose crypto.subtle on secure origins (https:// or localhost).
+    throw new Error(
+      'Web Crypto is required to sign Transloadit payloads; browsers only provide crypto.subtle on secure origins (https:// or localhost)',
+    )
   }
   return subtle
 }
@@ -89,3 +123,22 @@ export const verifyWebhookSignature = async (
   const expected = await hmacHex(normalized, options.authSecret, options.rawBody)
   return safeCompare(expected, signature)
 }
+
+/**
+ * Signs a Smart CDN URL with WebCrypto, so it works in browsers, edge runtimes and Node alike.
+ * Produces the same URL as the synchronous `getSignedSmartCdnUrl` from `@transloadit/utils/node`.
+ */
+export const getSignedSmartCdnUrl = async (opts: SmartCdnUrlOptions): Promise<string> => {
+  const prepared = prepareSmartCdnUrl(opts)
+  const signature = await hmacHex('sha256', opts.authSecret, prepared.stringToSign)
+  return finishSmartCdnUrl(prepared, signature)
+}
+
+export type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
+
+export {
+  decodeStorageGrant,
+  normalizeStorageGrantPrefix,
+  parseStorageGrantClaims,
+  STORAGE_GRANT_SCOPES,
+} from './storageGrant.ts'

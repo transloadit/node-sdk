@@ -13,6 +13,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { isIP } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, join, parse } from 'node:path'
+import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 import got from 'got'
@@ -53,6 +54,15 @@ export type PrepareInputFilesOptions = {
   urlStrategy?: UrlStrategy
   maxBase64Bytes?: number
   allowPrivateUrls?: boolean
+  /** Abort once all URL downloads of this call exceed this many bytes together. */
+  maxUrlDownloadBytes?: number
+  /** Abort a URL download (DNS checks and redirects included) after this many milliseconds. */
+  urlDownloadTimeoutMs?: number
+  /**
+   * Awaited before each URL input is downloaded locally (not for `/http/import`), so a caller can
+   * vouch for the requester first; rejecting aborts preparation.
+   */
+  beforeUrlDownload?: () => Promise<void>
   tempDir?: string
 }
 
@@ -202,6 +212,16 @@ const isPrivateIp = (address: string): boolean => {
   return false
 }
 
+/**
+ * Names a URL in error messages without its query or fragment: input URLs are often presigned
+ * (ChatGPT attachments, S3), and these messages reach logs and model-visible tool results.
+ */
+const describeUrl = (value: string): string => {
+  if (!URL.canParse(value)) return '[unparseable URL]'
+  const url = new URL(value)
+  return `${url.origin}${url.pathname}`
+}
+
 export const resolvePublicDownloadAddresses = async (
   value: string,
 ): Promise<Array<{ address: string; family: 4 | 6 }>> => {
@@ -211,10 +231,10 @@ export const resolvePublicDownloadAddresses = async (
       ? parsed.hostname.slice(1, -1)
       : parsed.hostname
   if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`URL downloads are limited to http/https: ${value}`)
+    throw new Error(`URL downloads are limited to http/https: ${describeUrl(value)}`)
   }
   if (isPrivateIp(hostname)) {
-    throw new Error(`URL downloads are limited to public hosts: ${value}`)
+    throw new Error(`URL downloads are limited to public hosts: ${describeUrl(value)}`)
   }
 
   const literalFamily = isIP(hostname)
@@ -226,11 +246,11 @@ export const resolvePublicDownloadAddresses = async (
           verbatim: true,
         })
   if (resolvedAddresses.some((address) => isPrivateIp(address.address))) {
-    throw new Error(`URL downloads are limited to public hosts: ${value}`)
+    throw new Error(`URL downloads are limited to public hosts: ${describeUrl(value)}`)
   }
 
   if (resolvedAddresses.length === 0) {
-    throw new Error(`Unable to resolve URL hostname: ${value}`)
+    throw new Error(`Unable to resolve URL hostname: ${describeUrl(value)}`)
   }
 
   return resolvedAddresses.map((address) => ({
@@ -370,22 +390,58 @@ export function createPinnedDnsLookup(
   return pinnedDnsLookup as PinnedDnsLookup
 }
 
+/** A budget shared by every URL download of one `prepareInputFiles` call. */
+type DownloadBudget = { totalBytes: number; remainingBytes: number }
+
+const budgetExceeded = (budget: DownloadBudget, url: string): Error =>
+  new Error(`URL downloads exceed ${budget.totalBytes} bytes: ${describeUrl(url)}`)
+
+/** Errors once the budget is used up, so temp files stay bounded while they stream in. */
+const limitDownloadBytes = (budget: DownloadBudget, url: string): Transform =>
+  new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      budget.remainingBytes -= chunk.length
+      if (budget.remainingBytes < 0) {
+        callback(budgetExceeded(budget, url))
+        return
+      }
+      callback(null, chunk)
+    },
+  })
+
 const downloadUrlToFile = async ({
   allowPrivateUrls,
   filePath,
   url,
+  budget,
+  timeoutMs,
 }: {
   allowPrivateUrls: boolean
   filePath: string
   url: string
+  budget?: DownloadBudget
+  timeoutMs?: number
 }): Promise<void> => {
   let currentUrl = url
+  // One deadline for the whole download, so DNS checks and redirects cannot each restart it.
+  const deadline = timeoutMs === undefined ? undefined : Date.now() + timeoutMs
+  const remainingMs = (): number | undefined => {
+    if (deadline === undefined) return undefined
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) {
+      throw new Error(`URL download timed out after ${timeoutMs} ms: ${describeUrl(url)}`)
+    }
+    return remaining
+  }
 
   for (let redirectCount = 0; redirectCount <= MAX_URL_REDIRECTS; redirectCount += 1) {
     let validatedAddresses: Array<{ address: string; family: 4 | 6 }> | null = null
     if (!allowPrivateUrls) {
+      // Not raced against the deadline: the system resolver bounds each lookup with its own
+      // short timeout and no bytes are transferred, so checking the clock right after suffices.
       validatedAddresses = await resolvePublicDownloadAddresses(currentUrl)
     }
+    const requestTimeoutMs = remainingMs()
 
     const dnsLookup: LookupFunction | undefined =
       validatedAddresses == null ? undefined : createPinnedDnsLookup(validatedAddresses)
@@ -395,6 +451,7 @@ const downloadUrlToFile = async ({
       followRedirect: false,
       retry: { limit: 0 },
       throwHttpErrors: false,
+      ...(requestTimeoutMs === undefined ? {} : { timeout: { request: requestTimeoutMs } }),
     })
 
     const response = await new Promise<
@@ -416,7 +473,7 @@ const downloadUrlToFile = async ({
       responseStream.destroy()
       const location = response.headers.location
       if (location == null) {
-        throw new Error(`Redirect response missing Location header: ${currentUrl}`)
+        throw new Error(`Redirect response missing Location header: ${describeUrl(currentUrl)}`)
       }
       currentUrl = new URL(location, currentUrl).toString()
       continue
@@ -424,14 +481,22 @@ const downloadUrlToFile = async ({
 
     if (statusCode >= 400) {
       responseStream.destroy()
-      throw new Error(`Failed to download URL: ${currentUrl} (${statusCode})`)
+      throw new Error(`Failed to download URL: ${describeUrl(currentUrl)} (${statusCode})`)
     }
 
-    await pipeline(responseStream, createWriteStream(filePath))
+    if (budget === undefined) {
+      await pipeline(responseStream, createWriteStream(filePath))
+      return
+    }
+    if (Number(response.headers['content-length']) > budget.remainingBytes) {
+      responseStream.destroy()
+      throw budgetExceeded(budget, url)
+    }
+    await pipeline(responseStream, limitDownloadBytes(budget, url), createWriteStream(filePath))
     return
   }
 
-  throw new Error(`Too many redirects while downloading URL input: ${url}`)
+  throw new Error(`Too many redirects while downloading URL input: ${describeUrl(url)}`)
 }
 
 export const prepareInputFiles = async (
@@ -445,6 +510,9 @@ export const prepareInputFiles = async (
     urlStrategy = 'import',
     maxBase64Bytes,
     allowPrivateUrls = true,
+    maxUrlDownloadBytes,
+    urlDownloadTimeoutMs,
+    beforeUrlDownload,
     tempDir,
   } = options
 
@@ -452,6 +520,10 @@ export const prepareInputFiles = async (
   const files: Record<string, string> = {}
   const uploads: Record<string, UploadInput> = {}
   const cleanup: Array<() => Promise<void>> = []
+  const downloadBudget: DownloadBudget | undefined =
+    maxUrlDownloadBytes === undefined
+      ? undefined
+      : { totalBytes: maxUrlDownloadBytes, remainingBytes: maxUrlDownloadBytes }
 
   if (fields && Object.keys(fields).length > 0) {
     nextParams = {
@@ -530,10 +602,13 @@ export const prepareInputFiles = async (
           getFilenameFromUrl(file.url) ??
           `${file.field}.bin`
         const filePath = await ensureUniqueTempFilePath(root, filename, usedTempPaths)
+        await beforeUrlDownload?.()
         await downloadUrlToFile({
           allowPrivateUrls,
           filePath,
           url: file.url,
+          budget: downloadBudget,
+          timeoutMs: urlDownloadTimeoutMs,
         })
         files[file.field] = filePath
       }

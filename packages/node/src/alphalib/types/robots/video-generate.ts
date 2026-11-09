@@ -1,51 +1,40 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { videoGenerateDefaultModelIdentifier } from './_ai-models.ts'
 import {
   autoProviderDescription,
   interpolateRobot,
+  robotArtificialIntelligenceMeta,
   robotBase,
+  robotParameterDocs,
   robotUse,
 } from './_instructions-primitives.ts'
+import { videoGenerationParameterEnforcementDate } from './_video-generate-description.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotArtificialIntelligenceMeta,
   example_code: {
     steps: {
       generated_video: {
         robot: '/video/generate',
         prompt: 'A slow cinematic drone shot of ocean cliffs at sunrise, realistic lighting.',
-        duration: 5,
-        aspect_ratio: '16:9',
         format: 'mp4',
       },
     },
   },
   example_code_description: 'Generate a short video from a text prompt:',
-  minimum_charge: 0,
-  output_factor: 0.6,
   purpose_sentence: 'generates videos from text prompts using AI',
   purpose_verb: 'generate',
   purpose_word: 'generate',
   purpose_words: 'Generate videos from text prompts',
-  service_slug: 'artificial-intelligence',
-  slot_count: 10,
   title: 'Generate videos from text prompts',
   typical_file_size_mb: 50,
   typical_file_type: 'video',
   name: 'VideoGenerateRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumChargeUsd: 0.06,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
   applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotVideoGenerateInstructionsSchema = robotBase
@@ -55,14 +44,19 @@ export const robotVideoGenerateInstructionsSchema = robotBase
     model: z
       .string()
       .optional()
-      .describe('The AI model to use for video generation. Defaults to minimax/video-01.'),
+      .describe(
+        `Video model; defaults to ${videoGenerateDefaultModelIdentifier}. Unsupported settings warn until ${videoGenerationParameterEnforcementDate}. MiniMax outputs are about six seconds.`,
+      ),
     prompt: z.string().describe('The prompt describing the desired video content.'),
-    format: z.enum(['mp4', 'gif']).optional().describe('Format of the generated video.'),
-    seed: z.number().optional().describe('Seed for the random number generator.'),
-    aspect_ratio: z.string().optional().describe('Aspect ratio of the generated video.'),
-    height: z.number().optional().describe('Height of the generated video.'),
-    width: z.number().optional().describe('Width of the generated video.'),
-    style: z.string().optional().describe('Style of the generated video.'),
+    format: z.enum(['mp4']).optional().describe('Format of the generated video.'),
+    seed: z.number().optional().describe(robotParameterDocs.seed.description),
+    aspect_ratio: z
+      .string()
+      .optional()
+      .describe('Aspect ratio for lightricks/ltx-video without an input image.'),
+    height: z.number().optional().describe('Pixel height for tencent/hunyuan-video.'),
+    width: z.number().optional().describe('Pixel width for tencent/hunyuan-video.'),
+    style: z.string().optional().describe('Unsupported by current models; omit it.'),
     num_outputs: z
       .number()
       .int()
@@ -70,26 +64,12 @@ export const robotVideoGenerateInstructionsSchema = robotBase
       .max(10)
       .optional()
       .describe('Number of video variants to generate.'),
-    duration: z.number().optional().describe('Duration of the generated video in seconds.'),
-    fps: z.number().optional().describe('Frames per second of the output video.'),
-    motion_amount: z
-      .number()
-      .optional()
-      .describe('Controls the intensity of motion in the generated video.'),
-    camera_motion: z
-      .string()
-      .optional()
-      .describe(
-        'Camera movement type (e.g., pan-left, pan-right, zoom-in, zoom-out, orbit, static, dolly, crane).',
-      ),
-    negative_prompt: z
-      .string()
-      .optional()
-      .describe('Describes what should be avoided in the generated video.'),
-    reference_strength: z
-      .number()
-      .optional()
-      .describe('How closely the output should follow the reference input (0.0 - 1.0).'),
+    duration: z.number().optional().describe('Unsupported by current models; omit it.'),
+    fps: z.number().optional().describe('Frames per second for tencent/hunyuan-video.'),
+    motion_amount: z.number().optional().describe('Unsupported by current models; omit it.'),
+    camera_motion: z.string().optional().describe('Unsupported by current models; omit it.'),
+    negative_prompt: z.string().optional().describe('Content to avoid (lightricks/ltx-video).'),
+    reference_strength: z.number().optional().describe('Unsupported by current models; omit it.'),
   })
   .strict()
 
@@ -107,7 +87,7 @@ export type RobotVideoGenerateInstructionsWithHiddenFields = z.infer<
 >
 
 export const interpolatableRobotVideoGenerateInstructionsSchema = interpolateRobot(
-  robotVideoGenerateInstructionsWithHiddenFieldsSchema,
+  robotVideoGenerateInstructionsSchema,
 )
 export type InterpolatableRobotVideoGenerateInstructions =
   InterpolatableRobotVideoGenerateInstructionsInput
@@ -125,3 +105,13 @@ export type InterpolatableRobotVideoGenerateInstructionsWithHiddenFields = z.inf
 export type InterpolatableRobotVideoGenerateInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotVideoGenerateInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotVideoGenerateInstructionsSchema,
+  typeof interpolatableRobotVideoGenerateInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotVideoGenerateInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotVideoGenerateInstructionsWithHiddenFieldsSchema,
+}

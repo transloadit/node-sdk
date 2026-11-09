@@ -1,0 +1,25 @@
+{
+  "include": ["src"],
+  "exclude": ["dist", "test"],
+  "references": [{ "path": "../utils/tsconfig.build.json" }],
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "lib": ["DOM", "ES2022"],
+    "module": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "target": "ES2022",
+    "noImplicitOverride": true,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    // Next 16's declarations reference optional webpack and RSC types absent from consumers.
+    "skipLibCheck": true,
+    "strict": true,
+    "types": ["react", "react-dom"]
+  }
+}

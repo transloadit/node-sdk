@@ -1,28 +1,23 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
   cloudfilesBase,
-  interpolateRobot,
+  createStorageStoreExample,
+  defineRobot,
   robotBase,
+  robotStoreMeta,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 6,
-  discount_factor: 0.15000150001500018,
-  discount_pct: 84.99984999849998,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/cloudfiles/store',
-        use: ':original',
-        credentials: 'YOUR_CLOUDFILES_CREDENTIALS',
-        path: 'my_target_folder/${unique_prefix}/${file.url_name}',
-      },
-    },
-  },
+  ...robotStoreMeta,
+  example_code: createStorageStoreExample('/cloudfiles/store', 'YOUR_CLOUDFILES_CREDENTIALS'),
   example_code_description: 'Export uploaded files to `my_target_folder` on Rackspace Cloud Files:',
   extended_description: `
 <a id="export-to-rackspace-cloudfiles" aria-hidden="true"></a>
@@ -34,26 +29,11 @@ CDN container, or is \`null\` otherwise.
 
 The storage container URL for this file is always available via \`file.meta.storage_url\`.
 `,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
   purpose_sentence: 'exports encoding results to Rackspace Cloud Files',
-  purpose_verb: 'export',
   purpose_word: 'Rackspace Cloud Files',
   purpose_words: 'Export files to Rackspace Cloud Files',
-  service_slug: 'file-exporting',
-  slot_count: 10,
   title: 'Export files to Rackspace Cloud Files',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'CloudfilesStoreRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotCloudfilesStoreInstructionsSchema = robotBase
@@ -70,35 +50,24 @@ The path at which to store the file. This value can also contain [Assembly varia
   })
   .strict()
 
-export const robotCloudfilesStoreInstructionsWithHiddenFieldsSchema =
-  robotCloudfilesStoreInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotCloudfilesStoreInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotCloudfilesStoreInstructionsSchema.shape> =
+  defineRobot(meta, robotCloudfilesStoreInstructionsSchema)
 
-export type RobotCloudfilesStoreInstructions = z.infer<
-  typeof robotCloudfilesStoreInstructionsSchema
->
-export type RobotCloudfilesStoreInstructionsWithHiddenFields = z.infer<
-  typeof robotCloudfilesStoreInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotCloudfilesStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotCloudfilesStoreInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotCloudfilesStoreInstructionsSchema = interpolateRobot(
-  robotCloudfilesStoreInstructionsSchema,
-)
-export type InterpolatableRobotCloudfilesStoreInstructions =
-  InterpolatableRobotCloudfilesStoreInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotCloudfilesStoreInstructionsInput = z.input<
-  typeof interpolatableRobotCloudfilesStoreInstructionsSchema
->
-
-export const interpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotCloudfilesStoreInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotCloudfilesStoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsSchema
->
+export type RobotCloudfilesStoreInstructions = Instructions['output']
+export type RobotCloudfilesStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotCloudfilesStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotCloudfilesStoreInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotCloudfilesStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

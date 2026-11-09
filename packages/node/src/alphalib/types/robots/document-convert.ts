@@ -1,33 +1,67 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import { zodCaseInsensitiveEnum } from '../../lib/zodInputSemantics.ts'
+import {
+  documentConvertLoadInternalErrorReason,
+  documentConvertLoadUserErrorReason,
+} from '../responseErrors/DocumentConvertRobot.ts'
+import { htmlPdfReadinessDescription } from './_html-pdf.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
+
+const transcriptSrtDocumentation =
+  'Timestamped JSON from `/speech/transcribe` with `"format": "json"` can be converted to SRT. ' +
+  'Set `"format": "srt"` here. JSON words are grouped into cues of up to three words, breaking ' +
+  'at sentence endings and pauses longer than 0.4 seconds. Casing and punctuation are preserved. ' +
+  'JSON input is limited to 32 MiB and is only supported for SRT output. ' +
+  'SRT-to-SRT copies the original cues unchanged.'
+
+/** Accepts Playwright's paper-format case variants while publishing canonical spellings. */
+export const documentConvertPdfFormatSchema = zodCaseInsensitiveEnum(
+  z.enum(['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'Ledger', 'Legal', 'Letter', 'Tabloid']),
+)
+
+const documentLoadErrorDocumentation = `
+A generic LibreOffice load refusal returns \`USER_COMMAND_ERROR\` with the reason “${documentConvertLoadUserErrorReason}” This preserves the user error code for integrations without assuming the document is corrupt.
+
+When diagnostics identify a problem in the conversion service, the load failure returns \`INTERNAL_COMMAND_ERROR\` with the reason “${documentConvertLoadInternalErrorReason}” Private diagnostics are not included in either response.
+`
+
+const pdfAlternativesDocumentation = `
+> [!Note]
+> This <dfn>Robot</dfn> converts supported files to PDF, but does not convert PDF input to other formats. To render PDF pages as images, use [🤖/image/resize](/docs/robots/image-resize/). For native text extraction or OCR of PDF documents, use [🤖/document/extract](/docs/robots/document-extract/) and review its provider and input requirements. For OCR of images, use [🤖/image/ocr](/docs/robots/image-ocr/). These extraction Robots return recognized text; they do not add a searchable text layer to the original PDF.
+`
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      converted: {
-        robot: '/document/convert',
-        use: ':original',
-        format: 'pdf',
-      },
-    },
-  },
+  ...robotDocumentProcessingMeta,
+  example_code: createProcessingExample('converted', '/document/convert', {
+    format: 'pdf',
+  }),
   example_code_description: 'Convert uploaded files to PDF documents:',
   extended_description: `
-> [!Note]
-> This <dfn>Robot</dfn> can convert files to PDF, but cannot convert PDFs to different formats. If you want to convert PDFs to say, JPEG or TIFF, use [🤖/image/resize](/docs/robots/image-resize/). If you want to turn them into text files or recognize (OCR) them to make them searchable, reach out, as we have a new <dfn>Robot</dfn> in the works for this.
+${pdfAlternativesDocumentation}
 
 Sometimes, a certain file type might not support what you are trying to accomplish. Perhaps your company is trying to automate document formatting, but it only works with docx, so all your docs need to be converted. Or maybe your stored jpg files are taking up too much space and you want a lighter format. Whatever the case, we have you covered.
 
 Using this <dfn>Robot</dfn>, you can bypass the issues that certain file types may bring, by converting your file into the most suitable format. This also works in conjunction with our other <dfn>Robots</dfn>, allowing for even greater versatility when using our services.
 
-> ![Warning]
+> [!Warning]
 > A general rule of this <dfn>Robot</dfn> is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format, but not to an image.
+
+${documentLoadErrorDocumentation}
+
+${transcriptSrtDocumentation}
 
 The following file formats can be converted from:
 
@@ -65,46 +99,34 @@ The following file formats can be converted from:
 - \`xlsx\`
 - \`xml\`
 `,
-  minimum_charge: 1048576,
-  output_factor: 1,
-  override_lvl1: 'Document Processing',
   purpose_sentence: 'converts documents into different formats',
   purpose_verb: 'convert',
   purpose_word: 'convert',
   purpose_words: 'Convert documents into different formats',
-  service_slug: 'document-processing',
-  slot_count: 12,
   title: 'Convert documents into different formats',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'document',
   name: 'DocumentConvertRobot',
-  priceFactor: 1,
   // This slot count needs to be unique, because unoconv can only process one document at a time,
   // and is also only included in WorkerSlotCalculator::slotsThatFit() when
   // we have enough idle unoconv daemons.
   // We do not want a queue of this Robot to block any other Robot's jobs.
   queueSlotCount: 32,
-  minimumCharge: 1048576,
   lazyLoad: true,
   installVersionFile:
     typeof process !== 'undefined' && process.env.API2_UNOCONV_INSTALL_VERSION_FILE
       ? process.env.API2_UNOCONV_INSTALL_VERSION_FILE
       : '',
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
   // we cannot use coreConfig.numUnoconvDaemons, because it does not live in alphalib
   numDaemons: 8,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotDocumentConvertInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/document/convert').describe(`
-> [!Note]
-> This Robot can convert files to PDF, but cannot convert PDFs to different formats. If you want to convert PDFs to say, JPEG or TIFF, use [🤖/image/resize](/docs/robots/image-resize/). If you want to turn them into text files or recognize (OCR) them to make them searchable, reach out, as we have a new Robot in the works for this.
+${htmlPdfReadinessDescription}
+
+${pdfAlternativesDocumentation}
 
 Sometimes, a certain file type might not support what you are trying to accomplish. Perhaps your company is trying to automate document formatting, but it only works with docx, so all your docs need to be converted. Or maybe your stored jpg files are taking up too much space and you want a lighter format. Whatever the case, we have you covered.
 
@@ -112,6 +134,10 @@ Using this Robot, you can bypass the issues that certain file types may bring, b
 
 > [!Warning]
 > A general rule of this Robot is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format (and vice versa), but not to an image.
+
+${documentLoadErrorDocumentation}
+
+${transcriptSrtDocumentation}
 
 The following file formats can be converted from:
 
@@ -220,11 +246,8 @@ Print PDF background graphics.
 
 Currently this parameter is only supported when converting from \`html\`.
 `),
-    pdf_format: z
-      .enum(['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'Ledger', 'Legal', 'Letter', 'Tabloid'])
-      .default('Letter')
-      .describe(`
-PDF paper format.
+    pdf_format: documentConvertPdfFormatSchema.default('Letter').describe(`
+PDF paper format. Values are case-insensitive.
 
 Currently this parameter is only supported when converting from \`html\`.
 `),
@@ -276,35 +299,24 @@ To change the formatting of the HTML element, the \`font-size\` must be specifie
   })
   .strict()
 
-export const robotDocumentConvertInstructionsWithHiddenFieldsSchema =
-  robotDocumentConvertInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDocumentConvertInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotDocumentConvertInstructionsSchema.shape> =
+  defineRobot(meta, robotDocumentConvertInstructionsSchema)
 
-export type RobotDocumentConvertInstructions = z.infer<
-  typeof robotDocumentConvertInstructionsSchema
->
-export type RobotDocumentConvertInstructionsWithHiddenFields = z.infer<
-  typeof robotDocumentConvertInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotDocumentConvertInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDocumentConvertInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotDocumentConvertInstructionsSchema = interpolateRobot(
-  robotDocumentConvertInstructionsSchema,
-)
-export type InterpolatableRobotDocumentConvertInstructions =
-  InterpolatableRobotDocumentConvertInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotDocumentConvertInstructionsInput = z.input<
-  typeof interpolatableRobotDocumentConvertInstructionsSchema
->
-
-export const interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotDocumentConvertInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema
->
+export type RobotDocumentConvertInstructions = Instructions['output']
+export type RobotDocumentConvertInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDocumentConvertInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentConvertInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

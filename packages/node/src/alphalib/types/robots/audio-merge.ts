@@ -1,4 +1,4 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
@@ -6,17 +6,17 @@ import { stackVersions } from '../stackVersions.ts'
 import {
   bitrateSchema,
   interpolateRobot,
+  robotAudioEncodingMeta,
   robotBase,
   robotFFmpegAudio,
+  robotParameterDocs,
   robotUse,
   robotUseWithHiddenFields,
   sampleRateSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 4,
-  discount_factor: 0.25,
-  discount_pct: 75,
+  ...robotAudioEncodingMeta,
   example_code: {
     steps: {
       merged: {
@@ -47,28 +47,13 @@ export const meta: RobotMetaInput = {
   },
   example_code_description:
     'If you have a form with 3 file input fields and wish to overlay the uploaded audios, instruct Transloadit using the `name` attribute of each input field. Use this attribute as the value for the `fields` key in the JSON, and set `as` to `audio`:',
-  minimum_charge: 0,
-  output_factor: 0.8,
-  override_lvl1: 'Audio Encoding',
   purpose_sentence: 'overlays several audio files on top of each other',
   purpose_verb: 'merge',
   purpose_word: 'merge',
   purpose_words: 'Merge audio files into one',
-  service_slug: 'audio-encoding',
-  slot_count: 20,
   title: 'Merge audio files into one',
-  typical_file_size_mb: 3.8,
-  typical_file_type: 'audio file',
   uses_tools: ['ffmpeg'],
   name: 'AudioMergeRobot',
-  priceFactor: 4,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotAudioMergeInstructionsSchema = robotBase
@@ -76,12 +61,10 @@ export const robotAudioMergeInstructionsSchema = robotBase
   .merge(robotFFmpegAudio)
   .extend({
     robot: z.literal('/audio/merge'),
-    bitrate: bitrateSchema.optional().describe(`
-Bit rate of the resulting audio file, in bits per second. If not specified will default to the bit rate of the input audio file.
-`),
-    sample_rate: sampleRateSchema.optional().describe(`
-Sample rate of the resulting audio file, in Hertz. If not specified will default to the sample rate of the input audio file.
-`),
+    bitrate: bitrateSchema.optional().describe(robotParameterDocs.audio_bitrate.description),
+    sample_rate: sampleRateSchema
+      .optional()
+      .describe(robotParameterDocs.audio_sample_rate.description),
     duration: z
       .enum(['first', 'longest', 'shortest'])
       .default('longest')
@@ -136,3 +119,12 @@ export type InterpolatableRobotAudioMergeInstructionsWithHiddenFields = z.infer<
 export type InterpolatableRobotAudioMergeInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotAudioMergeInstructionsSchema,
+  typeof interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotAudioMergeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema,
+}

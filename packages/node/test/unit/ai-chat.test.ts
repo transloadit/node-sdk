@@ -1,10 +1,30 @@
 import { describe, expect, it } from 'vitest'
 
-import { robotAiChatInstructionsSchema } from '../../src/alphalib/types/robots/ai-chat.ts'
+import {
+  MODEL_CAPABILITIES,
+  robotAiChatInstructionsSchema,
+} from '../../src/alphalib/types/robots/ai-chat.ts'
 
 const messagesSchema = robotAiChatInstructionsSchema.shape.messages
 
 describe('/ai/chat message schema', () => {
+  it.each([
+    'anthropic/claude-opus-5-5',
+    'anthropic/claude-opus-5',
+    'anthropic/claude-fable-5-1',
+  ])('accepts %s with image and PDF capabilities', (model) => {
+    expect(MODEL_CAPABILITIES[model]).toEqual({ image: true, pdf: true })
+    expect(
+      robotAiChatInstructionsSchema.parse({
+        robot: '/ai/chat',
+        model,
+        messages: 'Summarize this file.',
+      }),
+    ).toMatchObject({
+      model,
+    })
+  })
+
   it('normalizes persisted AI SDK 5 tool history', () => {
     const messages = messagesSchema.parse([
       {

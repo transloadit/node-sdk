@@ -1,11 +1,10 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-type BumpType = 'major' | 'minor' | 'patch'
+import parseChangeset from '@changesets/parse'
 
-type ParsedChangeset = {
+type ParsedChangeset = ReturnType<typeof parseChangeset> & {
   file: string
-  packages: Set<string>
 }
 
 const CHANGESET_DIR = path.join(process.cwd(), '.changeset')
@@ -27,34 +26,11 @@ async function listChangesetFiles(): Promise<string[]> {
     .map((name) => path.join(CHANGESET_DIR, name))
 }
 
-function parseFrontmatterPackages(markdown: string): Set<string> {
-  // Changesets frontmatter is YAML-ish and looks like:
-  // ---
-  // "@transloadit/node": patch
-  // "@transloadit/mcp-server": patch
-  // ---
-  const first = markdown.indexOf('---')
-  if (first === -1) return new Set()
-  const second = markdown.indexOf('---', first + 3)
-  if (second === -1) return new Set()
-
-  const frontmatter = markdown.slice(first + 3, second)
-  const pkgs = new Set<string>()
-  const re = /["']([^"']+)["']\s*:\s*(major|minor|patch)\b/g
-
-  for (const match of frontmatter.matchAll(re)) {
-    const pkg = match[1]
-    const bump = match[2] as BumpType
-    if (pkg && bump) pkgs.add(pkg)
-  }
-  return pkgs
-}
-
 async function parseChangesets(files: string[]): Promise<ParsedChangeset[]> {
   const out: ParsedChangeset[] = []
   for (const file of files) {
     const markdown = await fs.readFile(file, 'utf8')
-    out.push({ file, packages: parseFrontmatterPackages(markdown) })
+    out.push({ file, ...parseChangeset(markdown) })
   }
   return out
 }
@@ -72,7 +48,18 @@ async function main(): Promise<void> {
   const changesets = await parseChangesets(files)
   const touched = new Set<string>()
   for (const cs of changesets) {
-    for (const pkg of cs.packages) touched.add(pkg)
+    const hasMajor = cs.releases.some((release) => release.type === 'major')
+    const namesSdkBreak = cs.summary
+      .split('\n')
+      .some((line) => /^[\t ]*(?:[-*][\t ]+)?SDK-breaking:[\t ]*\S/.test(line))
+    if (hasMajor && !namesSdkBreak) {
+      fail(
+        `Changeset policy violation: ${path.relative(process.cwd(), cs.file)} contains a major release without a nonempty SDK-breaking: line naming the SDK surface it breaks. See CONTRIBUTING.md#versioning-policy for SDK and contract bump rules.`,
+      )
+    }
+    for (const release of cs.releases) {
+      if (release.type !== 'none') touched.add(release.name)
+    }
   }
 
   // Coupling policy:

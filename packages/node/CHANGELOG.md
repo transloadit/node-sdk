@@ -1,5 +1,425 @@
 # @transloadit/node
 
+## 6.7.0
+
+### Minor Changes
+
+- 1c53f40: Add `--speaker-labels` and `--max-speakers` to `transloadit speech transcribe`. With
+  `--speaker-labels` and no `--provider`, the API picks a provider that can label speakers instead of
+  the CLI forcing `replicate`; combining it with `--provider replicate`, or `--max-speakers` without
+  `--speaker-labels`, fails before an Assembly is created.
+
+## 6.6.1
+
+### Patch Changes
+
+- 0f62cae: The MCP server card no longer claims a hand-kept Robot count ("86+") that had fallen behind the
+  catalog. The npm descriptions of `@transloadit/node` and `transloadit` now name the bundled
+  `transloadit` CLI, so people searching for a Transloadit CLI find it.
+
+## 6.6.0
+
+### Minor Changes
+
+- db3800f: Contract: sync current Robot schemas from API2, including Supabase user session tokens
+  (transloadit/api2#10239), document Markdown/HTML extraction (transloadit/api2#10323),
+  SFTP defaults (transloadit/api2#10379), and concat/thumbnail defaults (transloadit/api2#10554).
+
+  - Accept `session_token` on `/supabase/store` in the CLI and generated types and Zod schemas.
+  - Forward unknown top-level CLI Step parameters with a warning so new API parameters remain
+    usable before the next schema sync. Known parameters, nested objects, and Robot names still
+    undergo local validation. Warnings contain parameter names, never their values.
+  - Type-breaking: `/video/thumbs` no longer supplies an empty `offsets` array when parsing, and
+    rejects explicitly empty arrays. Parsed `offsets` can be `undefined`; omit the parameter
+    instead of supplying `[]`.
+  - Type-breaking: `/document/extract` parsed `text_format` can also be `md` or `html`. Handle
+    these values when reading parsed instructions, or select `txt`/`json` explicitly.
+  - Parsed contract defaults now match API2: SFTP uses port 22, `/video/concat` fade durations
+    default to zero, `/video/thumbs` uses an opaque black background, and `/transloadit/store`
+    defaults `result` to `true`. When `/file/preview` receives a `strategy` object without an
+    `image` entry, that entry now defaults to `['image', 'embedded-preview', 'icon']`.
+
+## 6.5.0
+
+### Minor Changes
+
+- 3675b8a: Fix CLI downloads to use Assembly result names and extensions, including bundled outputs and type-changing Steps. Preserve the existing input-relative directories and `<input>/<step>/…` layout for ordinary multi-result downloads, along with time-based skipping for directory reruns. Use `--reprocess-stale` to process unchanged inputs again.
+
+  Fix HLS downloads by retaining the result directories referenced by playlists, keeping independent source bundles separate, and publishing linked watch updates together. Reserve download paths using the destination root’s case and Unicode naming rules, and avoid file/directory collisions and descendant symlinks.
+
+  Add public HTTP(S) URL inputs to `assemblies create` and `run` using temporary uploads that are cleaned up afterward. Each download has a five-minute deadline, configurable in milliseconds with `--url-download-timeout`. Watch mode requires local inputs.
+
+- aa02b8d: Contract: sync the Builtin Template summaries from API2 (transloadit/api2#10406). Builtin catalog
+  items parse the optional `summary` that `listTemplates({ include_builtin: 'exclusively-all' })`
+  returns, and `mcpBuiltinTemplateSummaries` exports the same summaries for the MCP-approved
+  Builtins, keyed like `mcpBuiltinTemplateManifest`.
+
+### Patch Changes
+
+- 86a708f: Report Assembly IDs and URLs in CLI diagnostics and JSON summaries, warn about ignored errors,
+  and show concise validation and API errors with the reason for failed Assemblies.
+  Validate diagnostic fields before printing them, excluding nested request metadata.
+- 4fbd847: Close SDK-opened upload file streams before a failed or aborted `createAssembly()` rejects, so callers can immediately remove temporary files without leaking file handles.
+
+## 6.4.0
+
+### Minor Changes
+
+- bcbd703: Contract: add the `input_url` Assembly parameter (transloadit/api2#10292), which imports one or more URLs as the input files of a Builtin Template selected with `template_id`, and share the Builtins that accept it with the MCP Builtin manifest.
+
+## 6.3.0
+
+### Minor Changes
+
+- f5f1a91: Contract: sync Robot schemas from API2 (transloadit/api2#10052, transloadit/api2#10100, transloadit/api2#10103, transloadit/api2#10115, transloadit/api2#10159).
+
+  Add the optional Cloudflare R2 `session_token` parameter. Carry the reviewed temporary-credential guidance, bounded HTML-to-PDF readiness description, HDR overlay behavior, provider-catalog cleanup, and video-generation compatibility-window guidance. Existing instruction field types and parse-time defaults are preserved.
+
+## 6.2.2
+
+### Patch Changes
+
+- 2d8b688: Fix directory downloads for Assemblies without uploads, including import-only and prompt-only Steps, saving results as `<output>/<step>/<result name>`. Only infer stdin uploads from pipes or redirected files, and use the existing stdin stream for uploads so agent shells and CI do not reopen `/dev/stdin`.
+
+## 6.2.1
+
+### Patch Changes
+
+- c755cd1: Document how SDK exports follow strict SemVer while API contract types and schemas follow API2
+  in minor releases, with guidance on dependency ranges and narrowing parsed output.
+
+## 6.2.0
+
+### Minor Changes
+
+- bf9491c: Contract: sync Robot schemas from API2 (transloadit/api2#9897, transloadit/api2#9938)
+  and share the approved MCP Builtin manifest.
+
+  - Type-breaking: `/video/subtitle` no longer fills in `font`, `font_size` and `bold` while
+    parsing. Parsed values (`RobotVideoSubtitleInstructions`, `AssemblyInstructions`,
+    `schema.parse()`) can be `undefined`; the API still applies Arial, 16 and `false`, or the
+    `social` style’s defaults. Instruction input types are unchanged.
+  - Type-breaking: `/video/thumbs` accepts `null` for `offsets`, `width` and `height`, so parsed
+    values can be `null`. Treat `null` like an omitted value.
+
+  Explicit schema validation now requires `ocr_provider` for OCR text extraction and rejects
+  native-only `password`, `page_range`, and page granularity with OCR. Thumbnail numeric offsets
+  must be finite. Validate complete, merged instructions; use `assemblies lint --template` when
+  linting Template overrides. The CLI warns about the new OCR constraints while reading Steps
+  files, syncing Templates, or signing parameters, allowing overrides whose remaining parameters
+  come from the original Assembly or Template to reach API2 for validation. Field discovery also
+  continues to work on partial Templates before Assembly overrides complete their instructions.
+
+  Zod v4 preserves the synced speech-vocabulary checks for case-insensitive uniqueness and the
+  200-byte joined UTF-8 budget, matching Zod v3 and API2.
+
+## 6.1.2
+
+### Patch Changes
+
+- 6d49076: Create missing CLI output directories recursively when `-o` ends in `/` or `\`, so Templates with multiple results work on the first run. Preserve single-file outputs without a trailing separator and suggest `-o <dir>/` when multiple results need a directory.
+
+## 6.1.1
+
+### Patch Changes
+
+- cebb683: Clarify the upload-once example’s device approval and local catalog guidance, report uploaded versus reused originals through an additive CLI JSON `uploaded` boolean, and use sample-sized variants with a visible crop. Detect rejected Smart CDN delivery before reporting success and show safe recovery guidance for failed images. Release the legacy CLI and MCP server alongside the SDK.
+
+## 6.1.0
+
+### Minor Changes
+
+- 238c2ff: Add `transloadit init upload-once <directory>` with a versioned, runnable example that reuses the
+  existing browser login, Storage receipt/checksum handling and Smart CDN signer. Scaffold without
+  uploads or public policy changes, reuse matching originals on subsequent runs, and keep one
+  maintained example for the CLI and documentation.
+
+## 6.0.4
+
+### Patch Changes
+
+- 76562ed: Correct the `speech transcribe --target-language` help and example: this is a spoken-language hint for Replicate using a full lowercase English name such as `french`. It does not translate speech; AWS and GCP use `--source-language` instead.
+
+## 6.0.3
+
+### Patch Changes
+
+- 283922a: Refresh Robot schemas from API2 and register `/document/extract` so Assembly Instructions lint clean through the SDK and MCP server. Regenerate the SDK Robot registry during builds to keep new schemas registered, and align the Tigris metadata keys with API2.
+
+  In `@transloadit/zod`, replace `robotsMeta.tigrisImport` and `robotsMeta.tigrisStore` with `robotsMeta.tigrisImportMeta` and `robotsMeta.tigrisStoreMeta`. This metadata API change requires a major release of that package; the other packages receive patch updates.
+
+- ef9600e: Type the documented `listAssemblies` filters `template_id`, `region`, `sort` and `order`, and accept `keywords` as a string, which is what API2 searches for (an array only works with a single element).
+
+## 6.0.2
+
+### Patch Changes
+
+- 3a73ec2: Keep caller-owned request parameters unchanged when signing requests. Reusing the same params or auth object now generates a fresh default expiration for each request instead of retaining the first request’s expiration. Explicit Auth Keys and expiration timestamps are still respected.
+
+  When using `calcSignature`, read the generated auth values from its returned `params` JSON string rather than from the input object. Send that returned string together with its signature.
+
+## 6.0.1
+
+### Patch Changes
+
+- f85459c: Include the SDK name and version in the Transloadit-Client header on bearer token requests from the
+  SDK and CLI. Preserve the configured SDK client name when minting tokens.
+
+## 6.0.0
+
+### Major Changes
+
+- 3b4db64: Correct Assembly response readers to preserve numeric State/XPSubject metadata, repeated date tags and null uploaded-file extensions already emitted by the API. Read nonempty future Assembly error codes without confusing the closed known-code inventory with the public response contract; terminal-error helpers now recognize those responses.
+
+  These corrections widen exported response types. Consumers must handle numeric metadata, arrays of date values, nullable uploaded-file extensions and unknown error strings. The MCP server and notification relay follow the corrected response types in pre-1.0 minor releases; the relay publicly exports its AssemblyResponse alias. See the [Assembly response migration guide](https://github.com/transloadit/node-sdk/blob/main/docs/monorepo-architecture.md#assembly-response-migration) for the affected fields and narrowing rules.
+
+### Patch Changes
+
+- 8d768d6: Refresh Robot schemas and documentation from alphalib, including Google image seed guidance,
+  Google Storage permissions, crop fallback metadata, HTTP import URL boundaries, and AI Chat model
+  support and exact optional input types. Accept the new GOOGLE_STORE_ACCESS_DENIED and
+  DAM_STORAGE_UNAVAILABLE Assembly errors without expanding the SDK's operator dependencies.
+
+## 5.2.0
+
+### Minor Changes
+
+- 8b0c308: Add an `extraHeaders` client option so trusted relays such as the hosted MCP service can send a
+  fixed header (`Transloadit-Mcp-Upstream`) with every API request next to a forwarded bearer token.
+  Like `Authorization`, these headers are dropped when a redirect leaves the API origin.
+
+  `listTemplates()` also accepts `fields`, for API2 columns such as `account_id` that the default
+  Template list omits.
+
+  `prepareInputFiles()` accepts `maxUrlDownloadBytes` (a total for the call) and `urlDownloadTimeoutMs`
+  (one deadline per download, redirects included) to bound URL downloads and `beforeUrlDownload` to vouch for a requester before a file is fetched locally; its
+  download errors name only a URL's origin and path, never presigned query parameters.
+  `createAssembly()` accepts `onAssemblyCreated`, called once API2 accepted the creation request.
+
+## 5.1.0
+
+### Minor Changes
+
+- c8d9b31: Accept both steps-only JSON and a wrapper containing only `steps` in `assemblies create --steps`. Reject other wrapper properties instead of silently discarding them. Preserve the final newline in files rewritten by `assemblies lint --fix` without adding blank lines on repeated fixes, and document the `run` and `assembly-instructions compile` commands.
+
+  Limit API signatures to the supported SHA-1, SHA-256, and SHA-384 algorithms in the CLI and shared utilities. Unsupported algorithms such as SHA-512 now fail locally in `signParams`, `signParamsSync`, and SDK signature generation, and are rejected by `verifyWebhookSignature`; SHA-512 remains available for file hashes. Release the MCP server and `transloadit` CLI alongside the Node SDK.
+
+### Patch Changes
+
+- Updated dependencies [c8d9b31]
+  - @transloadit/utils@4.10.0
+
+## 5.0.1
+
+### Patch Changes
+
+- dc7d42d: Add alpha React receipt images and a Web-standard Storage authorization route. Each preview,
+  original, and download request checks live application access before redirecting to an exact
+  retained version, with a finite rendition policy and private no-store responses.
+
+  React receipt images support opt-in ThumbHash blur placeholders with the same bounded decoder
+  as Next, without native dependencies or load handlers. Preview metadata must be authorized before
+  returning it to the browser; alpha and letterboxed images stay empty, and request-authorized
+  Next images continue to omit inline preview pixels.
+
+  Expose strict, pure retained Assembly result extraction through narrow Zod v3/v4 entries and
+  reuse it in the Node SDK, preserving receipt provenance and failed-Assembly errors. Utils and
+  Viewer gain no runtime dependencies.
+
+## 5.0.0
+
+### Major Changes
+
+- ba9299f: Accept current and historical API responses without discarding reserved uploads, numeric metadata,
+  or structured diagnostics. Update Robot schemas and input linting, including `/http/request`,
+  storage asset metadata, and the complete runtime error-code inventory. Correct generated
+  input/output types and preserve parameter help, boolean transformations, and omitted options
+  across Zod 3 and Zod 4.
+
+  Breaking schema changes: Assembly URLs and identity fields can be null, upload entries can be
+  reservations with missing metadata, and metadata and stored error reasons accept additional value
+  types. Narrow these values before using them. Robot metadata removes legacy billing fields and
+  changes `example_code` to `unknown`. Update `image-manipulation` category filters to
+  `image-processing` in the SDK and MCP Robot-list tool. See the SDK README’s “Migrating Assembly and
+  Robot schema consumers” section for details.
+
+  `ApiError.reason` keeps its `string | undefined` contract. The new `rawReason` property preserves
+  the original diagnostic value, including structured reasons.
+
+  `/ai/chat` model interpolation now requires a whole-value expression such as `${fields.model}`;
+  partial expressions such as `openai/${fields.model}` are rejected, matching the API. Supply the
+  complete provider/model value in the referenced variable instead. Model validation exposes a
+  finite enum, and the exported model-capability registry is read-only and frozen at the top level.
+
+  Zod 4 interpolation defaults now return `ZodPrefault`: update `ZodDefault` type/instance checks,
+  use `.unwrap()` instead of `.removeDefault()`, and add `{ io: 'input' }` to existing JSON Schema
+  conversion options to retain input defaults. `interpolateRecursive()` now requires
+  classic `zod/v4` schemas rather than core or Mini schemas. See the Zod package README for migration
+  examples and JSON Schema conversion limits.
+
+## 4.14.0
+
+### Minor Changes
+
+- b1fb7d3: Default image generation to OpenAI Images 2.5 Flare and expose Images 2.5 Sunburst as an explicit precision option. Existing explicit OpenAI and Google model selections are preserved. Add Claude Opus 5.5 image/PDF capabilities to the shared Robot schemas while retaining Opus 5 and Fable 5.1.
+- be56c7f: Request server-generated image placeholders with `storeImage(..., { placeholder: 'blur' })`
+  or `storage store --placeholder blur`, without adding a native image decoder to the SDK.
+  Extraction is optional and best-effort; successful extraction adds metadata usage equal to 20%
+  of the file's bytes. Omission performs no extraction.
+
+  Preserve `thumbhash` and `has_alpha` in Storage receipts, native asset reads, Assembly recovery,
+  batch results and catalog sync. Viewer remains alpha and accepts server alpha metadata as well
+  as older `hasAlpha` catalogs. Private request-authorized delivery still omits inline preview pixels.
+  Hashed upload replays never overwrite or re-upload an image to generate missing metadata.
+
+  Release MCP alongside the SDK to keep its validated dependency versions aligned.
+
+### Patch Changes
+
+- 10febdc: Restrict MCP file inputs to base64 and URLs, and require public HTTP(S) targets for server-side
+  downloads. Local filesystem path inputs are no longer supported in hosted or self-hosted MCP;
+  upload local files with `npx -y @transloadit/node upload` instead.
+
+  Validate Assembly references and resolve them through the configured API endpoint so MCP callers
+  cannot redirect authenticated status, wait, or resume requests to arbitrary hosts. Resume uploads
+  from public URL inputs without requiring the original Assembly Instructions.
+
+  Add the SDK's `followRedirects` option (defaulting to `true`) and disable API redirects in MCP,
+  including responses for Assemblies configured with `redirect_url`.
+
+## 4.13.1
+
+### Patch Changes
+
+- 38492fe: Remove Sharp from automatic SDK installation and the ordinary import graph, fixing the 4.13.0
+  Supabase Edge bundle-size regression. Ordinary uploads and verified Storage receipts no longer
+  decode images locally. Existing blur hashes remain usable.
+
+  `storeImage()` and `storage store` no longer generate new blur hashes. Image uploads and
+  server-verified dimensions are unchanged; receipts without hashes render without a blur background.
+
+## 4.13.0
+
+### Minor Changes
+
+- a2c5dd7: Require Node 20.10.0+ for JSON import attributes and composed AbortSignal cancellation. Logout
+  only forgets imported and legacy application keys unless revocation is explicitly requested
+  with `--revoke`.
+
+  Add `getStoredAssemblyResults()` for verified completed batches of any retained media, with
+  Assembly/step/result/input provenance. Add native `moveStoredAsset()` / `deleteStoredAsset()`;
+  moves return the canonical transaction snapshot and preserve existing references.
+  `getStoredAssetUrl()` signs exact original bytes through `builtin/storage-serve@0.0.3`, with an
+  optional safe Unicode attachment filename and a bounded, cache-rotated lifetime. Requires a
+  backend with that Built-in and canonical native mutation responses.
+
+  Add `client.storeImage(filePath, { path })` for one original Storage image without overwriting.
+  Stream the input checksum and verify the completed receipt's path, asset ID, stored bytes and
+  EXIF-oriented display dimensions. Community-plan transformations may change the stored size/MD5;
+  return authoritative result metadata and expose the input comparison through `onReceipt`.
+  The CLI warns about changed bytes, saves the receipt and adds bounded debug diagnostics.
+  Return typed metadata suitable for saving and rendering without another lookup. Preserve Assembly
+  upload progress, cancellation and errors; receipt validation after a write is not a rollback.
+
+  Add `transloadit storage store <file> <path>` using the CLI's existing
+  Assembly credentials. Atomically append keyed receipts, preserve previous data on failures and
+  reject concurrent writers, then print a ready-to-render Image storage snippet.
+  Add `storage store --hashed` for content-addressed filenames: eight MD5 hex digits before the
+  extension, with catalog keys, generated types and JSX following the stored path. Retain the local
+  filename as `source`; reuse matching full-checksum/size receipts without uploading. Never overwrite
+  a hash conflict. Document native catalog recovery in the image reference.
+  When receipt validation fails after writing, print the destination and Assembly ID for recovery.
+  Point to list/sync, not overwrite or another upload. Report pending browser approval every minute.
+  Document npm-first onboarding, browser signup and free-plan watermark behavior.
+  Keep receipts-file filesystem errors distinct from JSON validation failures, with the file path.
+  Retain a completed temporary catalog on local replacement failures, print the verified receipt,
+  and preserve an existing catalog's permissions.
+
+  Add `getStoredImageReceipt({ assemblyId, expected })` to recover the same verified metadata after
+  a trusted upload notification or a local file error. Add explicit `store --overwrite` and
+  read-scoped `storage ls <prefix>`; overwriting is never implicit.
+
+  Add `storage receipts sync <prefix> --receipts images.json` to recover rendering metadata from
+  signed, bounded native catalog pages without per-file HEAD requests, an Assembly or an original
+  download. Recover canonical Workspace, asset ID, retained version ID, current path, dimensions,
+  MIME and available checksums. Share
+  atomic receipt-file writes and credential-bound endpoint resolution with the existing commands;
+  preserve unmatched records and the entire previous file on metadata, listing or write failures.
+  Record API provenance for every upload, not only hashed uploads, and on the catalog even when
+  publication happens before the first upload. Reject API-environment mismatches
+  even when Workspace slugs are identical; a custom delivery host is not an API identity. Recover
+  unbound legacy receipts into a separate catalog before reviewing and replacing the old file.
+  Recovery records the verified API origin so hashed uploads can be reused without uploading.
+  Existing rendering catalogs require this recovery before adopting the version-addressed Viewer.
+  Redeploy the application to regenerate private capability-v2 URLs; old capability URLs are not
+  accepted by the new handler. New Built-ins select actual retained versions, not arbitrary cache tags.
+
+  Add browser device authorization for `auth login`, with bounded polling, cancellation and
+  owner-only credential persistence. Keep `--stdin` for an existing Auth Key, verified by a signed read.
+  Keep newly entered credentials independent from project dotenv endpoint settings; save an explicit
+  trusted endpoint with the key. Add `image init [--public | --private]`, with
+  opt-in private `.env.local` scaffolding via `--write-env`. Never overwrite existing application files.
+  Default store/sync catalogs to `transloadit.images.json`. Init writes an empty catalog and a runnable example
+  for `app` or `src/app`, preserving existing files. Store prints only the saved path and component
+  usage; its snippet-only public/private flags and init's dead next flag are removed. Keep upload
+  local placeholders on sync only when the canonical asset ID and version ID still match.
+
+  Rename the unpublished image package to `@transloadit/viewer` and expose `Image` with mutually
+  exclusive `storage` and `template` selectors and a separate `workspace` prop. Custom HTTP/S3
+  Templates do not require a Storage catalog or inherit its publication policy. Keep credentials
+  server-only and authorize the full workspace, Template and path identity for private redirects.
+
+  Consolidate the unpublished Next factories into `createImages`; select `public`, `authorize`,
+  or `delivery: 'direct'` explicitly. The authorize overload retains its typed redirect handler.
+  Require Next 16.3.3 or newer in the peer range.
+
+  Reuse the login workspace and combined Auth Key for optional env scaffolding without extra prompts.
+  Add signed public-prefix declaration, revocation and listing methods with `storage publish`,
+  `storage unpublish` and `storage publications`. Public image init declares server policy before writing
+  files and explains that already cached public bytes cannot be recalled.
+
+  Preserve the device key's signing algorithm in CLI credentials and subsequent API requests.
+  Add `signatureAlgorithm` to SDK client options while retaining the legacy SHA-384 default and
+  explicit per-call overrides. Init's env setup uses the saved key/workspace/endpoint together,
+  independently of stale project or shell credentials. Public/private Template overrides are separate.
+
+  Public init stores workspace and published prefixes in the committed catalog, with no app env file.
+  Require public/private intent and bind Storage operations to the selected key's verified workspace.
+  Support multi-file store, auth status and server-side auth logout before removing credentials.
+  Infer allowed directories from
+  public policy even with an empty catalog, and accepts a missing trailing slash. Storage commands
+  report the winning credential source without showing credentials; store prints constrained JSX
+  bounded to the receipt width. Login makes a bounded read-only Storage policy preflight and gives
+  Console advice when unavailable. Keep the image quickstart concise and ship its detailed reference.
+
+### Patch Changes
+
+- a2c5dd7: Honor selected fields in JSON output from Template and Assembly list commands, and lead CLI
+  onboarding with browser login while retaining explicit credentials for automation.
+- a2c5dd7: Share Storage path and directory-prefix validation between image integrations and CLI scaffolds.
+  Keep generated image recipes scoped, preserve relative imports for hidden receipt catalogs, and
+  sign Storage listing requests against the endpoint belonging to the selected key credentials.
+- a2c5dd7: Include the Transloadit Storage import and store Robots in the offline catalog and generated
+  instructions, and type the optional `asset_id` in Assembly results. Recognize Storage import/store
+  error codes in response validation and terminal-status helpers, preserving API errors while polling.
+  Sync the canonical `recursive` option for Storage folder imports into the offline linter and
+  generated instructions without adding SDK-only schema fields.
+- Updated dependencies [a2c5dd7]
+- Updated dependencies [a2c5dd7]
+- Updated dependencies [a2c5dd7]
+  - @transloadit/utils@4.9.0
+
+## 4.12.0
+
+### Minor Changes
+
+- 5fe9706: Support GPT-6 Astra and Claude Fable 5.1, and use Astra for automatic chat and assembly-instruction compilation. Assembly compilation retains medium reasoning effort. Existing model identifiers remain supported.
+
+### Patch Changes
+
+- Updated dependencies [5fe9706]
+  - @transloadit/utils@4.8.1
+
 ## 4.11.1
 
 ### Patch Changes

@@ -1,5 +1,6 @@
 import type { AssemblyStatus, Options } from '../../src/Transloadit.ts'
 
+import { createHmac } from 'node:crypto'
 import { inspect } from 'node:util'
 
 import nock from 'nock'
@@ -24,6 +25,58 @@ describe('Mocked API tests', () => {
   afterEach(() => {
     nock.cleanAll()
     nock.abortPendingRequests() // Abort delayed requests preventing them from ruining the next test
+    vi.useRealTimers()
+  })
+
+  it('sends a fresh signed expiry when createAssembly reuses params after 25 hours', async () => {
+    const client = new Transloadit({
+      authKey: 'foo_key',
+      authSecret: 'foo_secret',
+      endpoint: 'http://localhost',
+      maxRetries: 0,
+    })
+    const params = { steps: {}, auth: {} }
+    // Check the signed wire bytes independently, without calling calcSignature as the oracle.
+    const matchesSignedParams = (expires: string) => (body: unknown) => {
+      const json = JSON.stringify({ steps: {}, auth: { key: 'foo_key', expires } })
+      const signature = `sha384:${createHmac('sha384', 'foo_secret').update(json).digest('hex')}`
+      return (
+        typeof body === 'string' &&
+        body.includes(`name="params"\r\n\r\n${json}\r\n`) &&
+        body.includes(`name="signature"\r\n\r\n${signature}\r\n`)
+      )
+    }
+    const requests = nock('http://localhost')
+      .post(createAssemblyRegex, matchesSignedParams('2026-01-13T12:00:00.000Z'))
+      .reply(200, { ok: 'ASSEMBLY_UPLOADING' })
+      .post(createAssemblyRegex, matchesSignedParams('2026-01-14T13:00:00.000Z'))
+      .reply(200, { ok: 'ASSEMBLY_UPLOADING' })
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-01-12T12:00:00.000Z'))
+
+    await client.createAssembly({ params })
+    vi.setSystemTime(new Date('2026-01-13T13:00:00.000Z'))
+    await client.createAssembly({ params })
+
+    requests.done()
+    expect(params).toEqual({ steps: {}, auth: {} })
+  })
+
+  it('continues to follow API redirects by default', async () => {
+    const client = getLocalClient()
+    const initial = nock('http://localhost')
+      .get('/assemblies/123')
+      .query(true)
+      .reply(302, undefined, { Location: 'https://example.com/assemblies/123' })
+    const redirected = nock('https://example.com').get('/assemblies/123').reply(200, {
+      ok: 'ASSEMBLY_COMPLETED',
+      assembly_url: 'http://example.com/assemblies/123',
+      assembly_ssl_url: 'https://example.com/assemblies/123',
+    })
+
+    await expect(client.getAssembly('123')).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
+    expect(initial.isDone()).toBe(true)
+    expect(redirected.isDone()).toBe(true)
   })
 
   it('should time out createAssembly with a custom timeout', async () => {
@@ -136,6 +189,36 @@ describe('Mocked API tests', () => {
     await expect(
       client.awaitAssemblyCompletion('1', { timeout: 100, interval: 1 }),
     ).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
+    scope.done()
+  })
+
+  it('validates a Storage conflict when polling and preserves its code in createAssembly', async () => {
+    const client = getLocalClient({ validateResponses: true })
+    const conflict = {
+      error: 'TRANSLOADIT_STORE_CONFLICT',
+      assembly_id: 'storage-conflict',
+      assembly_url: 'http://localhost/assemblies/storage-conflict',
+      assembly_ssl_url: 'http://localhost/assemblies/storage-conflict',
+      message: 'An asset already exists at this path',
+    }
+    const scope = nock('http://localhost')
+      .get('/assemblies/storage-conflict')
+      .query(true)
+      .reply(200, conflict)
+      .post(createAssemblyRegex)
+      .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_id: 'storage-conflict' })
+      .get('/assemblies/storage-conflict')
+      .query(true)
+      .reply(200, conflict)
+
+    await expect(client.awaitAssemblyCompletion('storage-conflict')).resolves.toMatchObject(
+      conflict,
+    )
+    await expect(client.createAssembly({ waitForCompletion: true })).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'TRANSLOADIT_STORE_CONFLICT',
+      assemblyId: 'storage-conflict',
+    })
     scope.done()
   })
 

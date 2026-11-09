@@ -1,11 +1,18 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
+  createProcessingExample,
+  defineRobot,
   filterCondition,
-  interpolateRobot,
   robotBase,
+  robotFileFilteringMeta,
+  robotParameterDocs,
   robotUse,
 } from './_instructions-primitives.ts'
 
@@ -21,43 +28,23 @@ export {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 0,
-  discount_factor: 0,
-  discount_pct: 100,
-  example_code: {
-    steps: {
-      filtered: {
-        robot: '/file/filter',
-        use: ':original',
-        declines: [['${file.size}', '>', '20mb']],
-        error_on_decline: true,
-        error_msg: 'File size must not exceed 20 MB',
-      },
-    },
-  },
+  ...robotFileFilteringMeta,
+  example_code: createProcessingExample('filtered', '/file/filter', {
+    declines: [['${file.size}', '>', '20mb']],
+    error_on_decline: true,
+    error_msg: 'File size must not exceed 20 MB',
+  }),
   example_code_description: 'Reject files that are larger than 20 MB:',
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Filtering',
   purpose_sentence: 'directs files to different encoding Steps based on your conditions',
   purpose_verb: 'filter',
   purpose_word: 'filter',
   purpose_words: 'Filter files',
-  service_slug: 'file-filtering',
-  slot_count: 0,
   title: 'Filter files',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'FileFilterRobot',
   priceFactor: 100,
   queueSlotCount: 0,
   downloadInputFiles: false,
   preserveInputFileUrls: true,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotFileFilterInstructionsSchema = robotBase
@@ -163,46 +150,30 @@ Specifies the condition type according to which the members of the \`accepts\` o
     error_on_decline: z
       .boolean()
       .default(false)
-      .describe(`
-If this is set to \`true\` and one or more files are declined, the Assembly will be stopped and marked with an error.
-`),
+      .describe(robotParameterDocs.error_on_decline.description),
     error_msg: z
       .string()
       .default('One of your files was declined')
-      .describe(`
-The error message shown to your users (such as by Uppy) when a file is declined and \`error_on_decline\` is set to \`true\`.
-`),
+      .describe(robotParameterDocs.error_msg.description),
   })
   .strict()
 
-export const robotFileFilterInstructionsWithHiddenFieldsSchema =
-  robotFileFilterInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotFileFilterInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotFileFilterInstructionsSchema.shape> =
+  defineRobot(meta, robotFileFilterInstructionsSchema)
 
-export type RobotFileFilterInstructions = z.infer<typeof robotFileFilterInstructionsSchema>
-export type RobotFileFilterInstructionsWithHiddenFields = z.infer<
-  typeof robotFileFilterInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotFileFilterInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotFileFilterInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotFileFilterInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotFileFilterInstructionsSchema = interpolateRobot(
-  robotFileFilterInstructionsSchema,
-)
-export type InterpolatableRobotFileFilterInstructions =
-  InterpolatableRobotFileFilterInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotFileFilterInstructionsInput = z.input<
-  typeof interpolatableRobotFileFilterInstructionsSchema
->
-
-export const interpolatableRobotFileFilterInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotFileFilterInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotFileFilterInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotFileFilterInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotFileFilterInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotFileFilterInstructionsWithHiddenFieldsSchema
->
+export type RobotFileFilterInstructions = Instructions['output']
+export type RobotFileFilterInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotFileFilterInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotFileFilterInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotFileFilterInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotFileFilterInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

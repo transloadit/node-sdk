@@ -200,3 +200,28 @@ This is now a manual/release-time tool for investigating publish drift or intent
 - [x] Add a sync-v4 regression fixture to verify `.passthrough()` → `.catchall(z.unknown())` and `z.record(...)` key injection
 - [x] Add runtime parity coverage for `assemblyStatus` (ok/error/busy) once stable samples are selected
 - [x] Add a CI guard that `@transloadit/zod` exports list stays in sync with `packages/node/src/alphalib/types`
+
+## Assembly response migration
+
+The response-reader correction is a breaking type release for `@transloadit/node`, `transloadit`,
+`@transloadit/types` and `@transloadit/zod`; the pre-1.0 MCP server and notification relay follow in minor releases. The relay publicly
+exports its `AssemblyResponse` alias, so its consumers see the same type widening.
+The API already emits these values, and response validation now preserves them without coercion:
+
+- `meta.state` and `meta.xp_subject` can be finite numbers as well as strings, null or omitted.
+  Narrow with `typeof value === 'number'` before using string methods.
+- `date_file_modified`, `date_recorded`, `date_file_created`, `create_date` and `modify_date` can
+  contain a string, a finite number, an array of those values, null or no value. Use `Array.isArray`
+  before treating a repeated metadata tag as a scalar; numeric values are preserved rather than
+  converted into an assumed timestamp format.
+- A completed uploaded file can have `ext: null`. Check for null before calling extension string
+  methods; null does not mean an empty extension.
+- Public Assembly status and list response errors are nonempty strings, including future server
+  codes. Exhaustive switches need a default branch. `hasError(status, code)` accepts an arbitrary
+  string, and terminal-error helpers recognize future errors. `assemblyStatusErrCodeSchema`,
+  `AssemblyStatusErrCode` and `isAssemblyErrorStatus` still describe only the closed known-code
+  inventory; use them when an application specifically needs to narrow to a known code.
+
+Empty errors, nonfinite metadata numbers, booleans and nested date arrays remain invalid. The HTTP
+status and paginated-list regression fixtures protect the same contract as the generated Zod v3/v4
+schemas and public TypeScript declarations. This change does not publish a package automatically.

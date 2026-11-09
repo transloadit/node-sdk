@@ -1,23 +1,24 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
 import {
   bitrateSchema,
+  getConcatFadeDescription,
   inputSortBySchema,
   interpolateRobot,
+  robotAudioEncodingMeta,
   robotBase,
   robotFFmpegAudio,
+  robotParameterDocs,
   robotUse,
   robotUseWithHiddenFields,
   sampleRateSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 4,
-  discount_factor: 0.25,
-  discount_pct: 75,
+  ...robotAudioEncodingMeta,
   example_code: {
     steps: {
       concatenated: {
@@ -47,28 +48,13 @@ export const meta: RobotMetaInput = {
   },
   example_code_description:
     'If you have a form with 3 file input fields and want to concatenate the uploaded audios in a specific order, instruct Transloadit using the `name` attribute of each input field. Use this attribute as the value for the `fields` key in the JSON, and set `as` to `audio_[[index]]`. Transloadit will concatenate the files based on the ascending index order:',
-  minimum_charge: 0,
-  output_factor: 0.8,
-  override_lvl1: 'Audio Encoding',
   purpose_sentence: 'concatenates several audio files together',
   purpose_verb: 'concatenate',
   purpose_word: 'concatenate',
   purpose_words: 'Concatenate audio',
-  service_slug: 'audio-encoding',
-  slot_count: 20,
   title: 'Concatenate audio',
-  typical_file_size_mb: 3.8,
-  typical_file_type: 'audio file',
   uses_tools: ['ffmpeg'],
   name: 'AudioConcatRobot',
-  priceFactor: 4,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotAudioConcatInstructionsSchema = robotBase
@@ -82,19 +68,17 @@ export const robotAudioConcatInstructionsSchema = robotBase
     robot: z.literal('/audio/concat').describe(`
 This Robot can concatenate an almost infinite number of audio files.
 `),
-    bitrate: bitrateSchema.optional().describe(`
-Bit rate of the resulting audio file, in bits per second. If not specified will default to the bit rate of the input audio file.
-`),
-    sample_rate: sampleRateSchema.optional().describe(`
-Sample rate of the resulting audio file, in Hertz. If not specified will default to the sample rate of the input audio file.
-`),
+    bitrate: bitrateSchema.optional().describe(robotParameterDocs.audio_bitrate.description),
+    sample_rate: sampleRateSchema
+      .optional()
+      .describe(robotParameterDocs.audio_sample_rate.description),
     audio_fade_seconds: z
       .number()
-      .default(1)
+      .default(0)
       .describe(`
-When used this adds an audio fade in and out effect between each section of your concatenated audio file. The float value is used, so if you want an audio delay effect of 500 milliseconds between each video section, you would select 0.5. Integer values can also be represented.
+${getConcatFadeDescription('audio')}
 
-This parameter does not add an audio fade effect at the beginning or end of your result audio file. If you want to do so, create an additional [🤖/audio/encode](/docs/robots/audio-encode/) <dfn>Step</dfn> and use our \`ffmpeg\` parameter as shown in this [demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
+When \`crossfade\` is \`true\`, this parameter controls the overlap between inputs instead of these separate fades. To add a fade-in at the beginning of the output, use an additional [audio encoding Step](/docs/robots/audio-encode/) with the \`ffmpeg\` parameter, as shown in the [fade-in and fade-out demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
 `),
     crossfade: z
       .boolean()
@@ -102,7 +86,7 @@ This parameter does not add an audio fade effect at the beginning or end of your
       .describe(`
 When set to \`true\`, this parameter enables crossfading between concatenated audio files using FFmpeg's \`acrossfade\` filter. This creates a smooth transition where the end of one audio file overlaps and blends with the beginning of the next file.
 
-The duration of the crossfade is controlled by the \`audio_fade_seconds\` parameter (defaults to 1 second if \`audio_fade_seconds\` is 0).
+The \`audio_fade_seconds\` parameter controls the overlap duration. Omitting it or setting it to \`0\` uses a 1-second crossfade. Each overlap shortens the output by that duration; this mode does not add a fade-in at the beginning or a fade-out at the end.
 
 Note: This parameter requires at least 2 audio files to concatenate and only works with audio files, not video files.
 `),
@@ -143,3 +127,12 @@ export type InterpolatableRobotAudioConcatInstructionsWithHiddenFields = z.infer
 export type InterpolatableRobotAudioConcatInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotAudioConcatInstructionsSchema,
+  typeof interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotAudioConcatInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema,
+}

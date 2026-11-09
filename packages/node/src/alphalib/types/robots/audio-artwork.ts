@@ -1,52 +1,37 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { describeApiParameter } from '../apiParameterDescription.ts'
 import { stackVersions } from '../stackVersions.ts'
 import {
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
+  robotAudioEncodingMeta,
   robotBase,
   robotFFmpegAudio,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      artwork_extracted: {
-        robot: '/audio/artwork',
-        use: ':original',
-        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
-      },
-    },
-  },
+  ...robotAudioEncodingMeta,
+  example_code: createProcessingExample('artwork_extracted', '/audio/artwork', {
+    ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
+  }),
   example_code_description: 'Extract embedded cover artwork from uploaded audio files:',
-  minimum_charge: 0,
-  output_factor: 0.8,
-  override_lvl1: 'Audio Encoding',
   purpose_sentence:
     'extracts embedded cover artwork from audio files or inserts a new cover image into them. Extracted artwork can be piped into other Steps such as /image/resize. Use `method: "insert"` to embed artwork into audio files like MP3, FLAC, or M4A',
   purpose_verb: 'extract',
   purpose_word: 'extract/insert artwork',
   purpose_words: 'Extract or insert audio artwork',
-  service_slug: 'audio-encoding',
-  slot_count: 20,
   title: 'Extract or insert audio artwork',
-  typical_file_size_mb: 3.8,
-  typical_file_type: 'audio file',
   uses_tools: ['ffmpeg'],
   name: 'AudioArtworkRobot',
   priceFactor: 1,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotAudioArtworkInstructionsSchema = robotBase
@@ -66,43 +51,32 @@ For insertion, provide both an audio file (as \`"audio"\`) and an image file (as
       .describe(`
 What should be done with the audio file. A value of \`"extract"\` means audio artwork will be extracted. A value of \`"insert"\` means the provided image will be inserted as audio artwork.
 `),
-    change_format_if_necessary: z
-      .boolean()
-      .default(false)
-      .describe(`
+    change_format_if_necessary: describeApiParameter(
+      'audioArtworkChangeFormatIfNecessary',
+      z.boolean().default(false),
+      `
 Whether the original file should be transcoded into a new format if there is an issue with the original file.
-`),
+`,
+    ),
   })
   .strict()
 
-export const robotAudioArtworkInstructionsWithHiddenFieldsSchema =
-  robotAudioArtworkInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotAudioArtworkInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotAudioArtworkInstructionsSchema.shape> =
+  defineRobot(meta, robotAudioArtworkInstructionsSchema)
 
-export type RobotAudioArtworkInstructions = z.infer<typeof robotAudioArtworkInstructionsSchema>
-export type RobotAudioArtworkInstructionsWithHiddenFields = z.infer<
-  typeof robotAudioArtworkInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotAudioArtworkInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotAudioArtworkInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotAudioArtworkInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotAudioArtworkInstructionsSchema = interpolateRobot(
-  robotAudioArtworkInstructionsSchema,
-)
-export type InterpolatableRobotAudioArtworkInstructions =
-  InterpolatableRobotAudioArtworkInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotAudioArtworkInstructionsInput = z.input<
-  typeof interpolatableRobotAudioArtworkInstructionsSchema
->
-
-export const interpolatableRobotAudioArtworkInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotAudioArtworkInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotAudioArtworkInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotAudioArtworkInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotAudioArtworkInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotAudioArtworkInstructionsWithHiddenFieldsSchema
->
+export type RobotAudioArtworkInstructions = Instructions['output']
+export type RobotAudioArtworkInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotAudioArtworkInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotAudioArtworkInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotAudioArtworkInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotAudioArtworkInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

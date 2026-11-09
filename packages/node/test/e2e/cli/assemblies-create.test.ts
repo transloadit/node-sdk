@@ -234,7 +234,7 @@ describeLive('assemblies', { retry: 1 }, () => {
     )
 
     it(
-      'should detect outdir conflicts',
+      'should disambiguate colliding input names in directory outputs',
       testCase(async (client) => {
         await fsp.mkdir('in')
         await Promise.all(['1.jpg', 'in/1.jpg'].map(imgPromise))
@@ -242,24 +242,12 @@ describeLive('assemblies', { retry: 1 }, () => {
         const steps = await stepsPromise()
 
         const output = new OutputCtl()
-        try {
-          await assembliesCreate(output, client, {
-            steps,
-            inputs: ['1.jpg', 'in'],
-            output: 'out',
-          })
-          throw new Error('assembliesCreate didnt err; should have')
-        } catch (_err) {
-          const result = output.get() as OutputEntry[]
-          expect(result[result.length - 1])
-            .to.have.property('type')
-            .that.equals('error')
-          expect(result[result.length - 1])
-            .to.have.nested.property('msg.message')
-            .that.equals("Output collision between 'in/1.jpg' and '1.jpg'")
-        }
-        // Small delay to allow abort signals to propagate and streams to close
-        await new Promise((resolve) => setTimeout(resolve, 50))
+        await assembliesCreate(output, client, {
+          steps,
+          inputs: ['1.jpg', 'in'],
+          output: 'out',
+        })
+        expect(await fsp.readdir('out')).to.deep.equal(['1.jpg', '1__1.jpg'])
       }),
     )
 
@@ -313,33 +301,51 @@ describeLive('assemblies', { retry: 1 }, () => {
     )
 
     it(
-      'should allow output directory for no-input templates (downloads into directory)',
+      'should allow output directory for no-input workspace templates',
       testCase(async (client) => {
         await fsp.mkdir('out')
 
-        const output = new OutputCtl()
-        await assembliesCreate(output, client, {
-          template: 'builtin/serve-preview@0.0.1',
-          fields: {
-            input: genericImg,
-            w: '256',
-            h: '256',
-            f: 'png',
+        const template = await client.createTemplate({
+          name: `node-sdk-no-input-${crypto.randomUUID()}`,
+          template: {
+            steps: {
+              import: {
+                robot: '/http/import',
+                url: genericImg,
+              },
+              resize: {
+                robot: '/image/resize',
+                use: 'import',
+                result: true,
+                width: 256,
+                height: 256,
+                format: 'png',
+              },
+            },
           },
-          inputs: [],
-          output: 'out',
         })
 
-        const files = await rreaddirAsync('out')
-        expect(files.length).to.be.greaterThan(0)
+        try {
+          const output = new OutputCtl()
+          await assembliesCreate(output, client, {
+            template: template.id,
+            inputs: [],
+            output: 'out',
+          })
 
-        // Ensure at least one output file is a valid image.
-        const first = files[0]
-        expect(first).to.be.a('string')
-        const buf = await fsp.readFile(first)
-        const dim = imageSize(new Uint8Array(buf))
-        expect(dim.width).to.be.greaterThan(0)
-        expect(dim.height).to.be.greaterThan(0)
+          const files = await rreaddirAsync('out')
+          expect(files.length).to.be.greaterThan(0)
+
+          // Ensure at least one output file is a valid image.
+          const first = files[0]
+          expect(first).to.be.a('string')
+          const buf = await fsp.readFile(first)
+          const dim = imageSize(new Uint8Array(buf))
+          expect(dim.width).to.be.greaterThan(0)
+          expect(dim.height).to.be.greaterThan(0)
+        } finally {
+          await client.deleteTemplate(template.id)
+        }
       }),
       180_000,
     )
@@ -394,7 +400,7 @@ describeLive('assemblies', { retry: 1 }, () => {
     )
 
     it(
-      'should not reprocess inputs that are older than their output',
+      'should not reprocess inputs that are older than their directory output',
       testCase(async (client) => {
         const infiles = await Promise.all(['in1.jpg', 'in2.jpg', 'in3.jpg'].map(imgPromise))
         const steps = await stepsPromise()
@@ -407,17 +413,42 @@ describeLive('assemblies', { retry: 1 }, () => {
           output: 'out',
         })
 
+        const inputTime = new Date(Date.now() - 60_000)
+        await fsp.utimes(infiles[0] as string, inputTime, inputTime)
         const output2 = new OutputCtl()
-        await assembliesCreate(output2, client, {
+        const { results } = await assembliesCreate(output2, client, {
           steps,
           inputs: infiles,
           output: 'out',
         })
-        const result = output2.get(true) as OutputEntry[]
+        expect(results).to.have.lengthOf(2)
+        expect(await fsp.readdir('out')).to.deep.equal(['in1.jpg', 'in2.jpg', 'in3.jpg'])
+      }),
+      180_000,
+    )
 
-        expect(
-          result.map((line) => line.msg).filter((msg) => String(msg).includes('in1.jpg')),
-        ).to.have.lengthOf(0)
+    it(
+      'should skip an explicit file output newer than its input',
+      testCase(async (client) => {
+        const infile = await imgPromise()
+        const steps = await stepsPromise()
+        const inputTime = new Date(Date.now() - 60_000)
+        await fsp.utimes(infile, inputTime, inputTime)
+        await assembliesCreate(new OutputCtl(), client, {
+          steps,
+          inputs: [infile],
+          output: 'out.jpg',
+        })
+        const originalOutput = await fsp.readFile('out.jpg')
+
+        const { results } = await assembliesCreate(new OutputCtl(), client, {
+          steps,
+          inputs: [infile],
+          output: 'out.jpg',
+        })
+
+        expect(results).to.have.lengthOf(0)
+        expect(await fsp.readFile('out.jpg')).to.deep.equal(originalOutput)
       }),
       180_000,
     )

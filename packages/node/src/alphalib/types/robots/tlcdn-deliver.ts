@@ -1,13 +1,15 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
+import { defineRobot, robotBase, robotContentDeliveryMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 25,
-  discount_factor: 0.04,
-  discount_pct: 96,
+  ...robotContentDeliveryMeta,
   example_code: {
     steps: {
       deliver: {
@@ -16,31 +18,17 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Cache and deliver files over Smart CDN using the tlcdn.com domain:',
-  minimum_charge: 102400,
-  output_factor: 1,
   override_lvl1: 'Content Delivery',
   purpose_sentence: 'caches and delivers files globally',
   purpose_verb: 'cache & deliver',
   purpose_word: 'Cache and deliver files',
   purpose_words: 'Cache and deliver files globally',
-  service_slug: 'content-delivery',
-  slot_count: 0,
   title: 'Cache and deliver files globally',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'TlcdnDeliverRobot',
   // Baseline factor for non-HIPAA delivery; HIPAA delivery uses a 20% lower factor.
   priceFactor: 25,
-  queueSlotCount: 0,
   minimumCharge: 102400,
   minimumChargeUsd: 0.0000152587890625,
-  downloadInputFiles: false,
-  preserveInputFileUrls: true,
-  isAllowedForUrlTransform: false,
-  trackOutputFileSize: false,
-  isInternal: true,
-  stage: 'ga',
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotTlcdnDeliverInstructionsSchema = robotBase
@@ -58,34 +46,22 @@ When you want Transloadit to transform files on the fly, this <dfn>Robot</dfn> c
   })
   .strict()
 
-export const robotTlcdnDeliverInstructionsWithHiddenFieldsSchema =
-  robotTlcdnDeliverInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotTlcdnDeliverInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotTlcdnDeliverInstructionsSchema.shape> =
+  defineRobot(meta, robotTlcdnDeliverInstructionsSchema)
 
-export type RobotTlcdnDeliverInstructions = z.infer<typeof robotTlcdnDeliverInstructionsSchema>
-export type RobotTlcdnDeliverInstructionsWithHiddenFields = z.infer<
-  typeof robotTlcdnDeliverInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotTlcdnDeliverInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotTlcdnDeliverInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotTlcdnDeliverInstructionsSchema = interpolateRobot(
-  robotTlcdnDeliverInstructionsSchema,
-)
-export type InterpolatableRobotTlcdnDeliverInstructions =
-  InterpolatableRobotTlcdnDeliverInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotTlcdnDeliverInstructionsInput = z.input<
-  typeof interpolatableRobotTlcdnDeliverInstructionsSchema
->
-
-export const interpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotTlcdnDeliverInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotTlcdnDeliverInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsSchema
->
+export type RobotTlcdnDeliverInstructions = Instructions['output']
+export type RobotTlcdnDeliverInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotTlcdnDeliverInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotTlcdnDeliverInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotTlcdnDeliverInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

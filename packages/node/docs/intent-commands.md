@@ -106,7 +106,7 @@ npx transloadit image generate [--input <path|dir|url|->] [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--prompt` | `string` | yes | `"A red bicycle in a studio"` | The prompt describing the desired image content. |
-| `--model` | `string` | no | `google/nano-banana-2` | The AI model to use for image generation. Defaults to google/nano-banana-2. Backend-supported models include openai/gpt-image-2 and Google Nano Banana variants. |
+| `--model` | `string` | no | `openai/gpt-image-2.5-flare` | Defaults to openai/gpt-image-2.5-flare. Choose openai/gpt-image-2.5-sunburst for precision. Explicit older models remain supported. |
 | `--format` | `string` | no | `jpg` | Format of the generated image. |
 | `--seed` | `number` | no | — | Seed for the random number generator. |
 | `--aspect-ratio` | `string` | no | — | Aspect ratio of the generated image. |
@@ -120,8 +120,8 @@ npx transloadit image generate [--input <path|dir|url|->] [options]
 ```bash
 # Generate an image from text
 transloadit image generate --prompt "A red bicycle in a studio" --output output.png
-# Generate with OpenAI gpt-image-2
-transloadit image generate --model openai/gpt-image-2 --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png
+# Generate with OpenAI Images 2.5 Sunburst
+transloadit image generate --model openai/gpt-image-2.5-sunburst --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png
 # Guide generation with one input image
 transloadit image generate --input subject.jpg --prompt "Place subject.jpg on a magazine cover" --output output.png
 # Guide generation with multiple input images
@@ -157,6 +157,7 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--format` | `string` | no | `jpg` | The output format for the generated thumbnail image. If a short video clip is generated using the clip strategy, its format is defined by clip_format. |
+| `--quality` | `number` | no | `1` | Compression quality for still previews, from 1 to 100. When specified, the final image resize encodes directly into the requested format at this quality and strips embedded… |
 | `--width` | `number` | no | `1` | Width of the thumbnail, in pixels. |
 | `--height` | `number` | no | `1` | Height of the thumbnail, in pixels. |
 | `--resize-strategy` | `string` | no | `crop` | To achieve the desired dimensions of the preview thumbnail, the Robot might have to resize the generated image. |
@@ -173,11 +174,11 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 | `--icon-text-color` | `string` | no | `value` | The color of the text used in the icon. The format is #rrggbb[aa]. Only used if the icon strategy is applied. |
 | `--icon-text-font` | `string` | no | `value` | The font family of the text used in the icon. Only used if the icon strategy is applied. Here is a list of all supported fonts. |
 | `--icon-text-content` | `string` | no | `extension` | The content of the text box in generated icons. Only used if the icon_style parameter is set to with-text. The default value, extension, adds the file extension (e.g. MP4, JPEG)… |
-| `--optimize` | `boolean` | no | `true` | Specifies whether the generated preview image should be optimized to reduce the image's file size while keeping their quaility. |
+| `--optimize` | `boolean` | no | `true` | Specifies whether the generated preview image should be optimized to reduce its file size while maintaining visual quality. |
 | `--optimize-priority` | `string` | no | `compression-ratio` | Specifies whether conversion speed or compression ratio is prioritized when optimizing images. |
 | `--optimize-progressive` | `boolean` | no | `true` | Specifies whether images should be interlaced, which makes the result image load progressively in browsers. |
 | `--clip-format` | `string` | no | `apng` | The animated image format for the generated video clip. Only used if the clip strategy for video files is applied. Please consult the MDN Web Docs for detailed information about… |
-| `--clip-offset` | `number` | no | `1` | The start position in seconds of where the clip is cut. Only used if the clip strategy for video files is applied. Be aware that for larger video only the first few MBs of the… |
+| `--clip-offset` | `number` | no | `1` | The start position in seconds of where the clip is cut. Only used if the clip strategy for video files is applied. For large videos, only portions of the file may be imported to… |
 | `--clip-duration` | `number` | no | `1` | The duration in seconds of the generated video clip. Only used if the clip strategy for video files is applied. Be aware that a longer clip duration also results in a larger file… |
 | `--clip-framerate` | `number` | no | `1` | The framerate of the generated video clip. Only used if the clip strategy for video files is applied. Be aware that a higher framerate appears smoother but also results in a… |
 | `--clip-loop` | `boolean` | no | `true` | Specifies whether the generated animated image should loop forever (true) or stop after playing the animation once (false). |
@@ -218,7 +219,7 @@ npx transloadit image remove-background --input <path|dir|url|-> [options]
 | --- | --- | --- | --- | --- |
 | `--select` | `string` | no | `foreground` | Region to select and keep in the image. The other region is removed. |
 | `--format` | `string` | no | `png` | Format of the generated image. Defaults to PNG when not provided. |
-| `--provider` | `string` | no | `aws` | Provider to use for removing the background. |
+| `--provider` | `string` | no | `aws` | Chooses the best provider based on your request. Select a specific provider to override automatic selection. |
 | `--model` | `string` | no | `value` | Provider-specific model to use for removing the background. Mostly intended for testing and evaluation. |
 
 **Examples**
@@ -256,14 +257,19 @@ npx transloadit image merge --input <path|dir|url|-> [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--format` | `string` | no | `jpg` | The output format for the modified image. |
-| `--direction` | `string` | no | `horizontal` | Specifies the direction which the images are displayed. Only applies to the default spritesheet layout. Ignored when effect is set to polaroid-stack or mosaic, as those effects… |
+| `--direction` | `string` | no | `horizontal` | Specifies the direction which the images are displayed. Use grid to arrange inputs left-to-right and top-to-bottom. Only applies to the default spritesheet layout. Ignored when… |
 | `--effect` | `string` | no | `mosaic` | Applies a styled collage layout instead of a plain horizontal or vertical spritesheet. |
+| `--columns` | `number` | no | `1` | Number of columns in the grid layout. Only applies when direction is grid. If omitted, columns are calculated automatically from the number of inputs and requested rows. |
+| `--rows` | `number` | no | `1` | Number of rows in the grid layout. Only applies when direction is grid. If omitted, rows are calculated automatically from the number of inputs and requested columns. |
+| `--cell-width` | `number` | no | `1` | Uniform width for each grid cell in pixels. Only applies when direction is grid. Images are resized to fit within the cell while preserving aspect ratio. |
+| `--cell-height` | `number` | no | `1` | Uniform height for each grid cell in pixels. Only applies when direction is grid. Images are resized to fit within the cell while preserving aspect ratio. |
 | `--border` | `number` | no | `1` | An integer value which defines the gap between images on the spritesheet. |
 | `--background` | `string` | no | `transparent` | Either the hexadecimal code or name of the color used to fill the background (only shown with a border > 1). |
 | `--width` | `number` | no | `1` | The output canvas width in pixels. This is mainly used by styled effects such as polaroid-stack and mosaic. |
 | `--height` | `number` | no | `1` | The output canvas height in pixels. This is mainly used by styled effects such as polaroid-stack and mosaic. |
 | `--seed` | `number` | no | `1` | Optional deterministic seed used by styled effects such as polaroid-stack and mosaic. |
 | `--shuffle` | `boolean` | no | `true` | Whether styled effects such as polaroid-stack and mosaic may shuffle the input order before laying out the canvas. |
+| `--sort-by` | `string` | no | `auto` | Controls how bundled inputs are ordered when no explicit numbered alias for the input type is used. |
 | `--coverage` | `number` | no | `1` | Area-coverage multiplier for the polaroid-stack effect. Controls how large each polaroid is relative to the canvas and consequently how much of the canvas is covered by photos.… |
 | `--adaptive-filtering` | `boolean` | no | `true` | Controls the image compression for PNG images. Setting to true results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled. |
 | `--quality` | `number` | no | `1` | Controls the image compression for JPG, PNG, and WebP images. Please also take a look at 🤖/image/optimize. |
@@ -348,7 +354,7 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 | `--resize-strategy` | `string` | no | `crop` | See the list of available resize strategies. |
 | `--zoom` | `boolean` | no | `true` | If this is set to false, smaller images will not be stretched to the desired width and height. |
 | `--crop` | `auto` | no | `value` | Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original image(s). |
-| `--gravity` | `string` | no | `bottom` | The direction from which the image is to be cropped, when "resize_strategy" is set to "crop", but no crop coordinates are defined. |
+| `--gravity` | `string` | no | `bottom` | Sets crop direction for crop or fillcrop without explicit coordinates. |
 | `--strip` | `boolean` | no | `true` | Strips all metadata from the image. This is useful to keep thumbnails as small as possible. |
 | `--alpha` | `string` | no | `Activate` | Gives control of the alpha/matte channel of an image. |
 | `--preclip-alpha` | `string` | no | `Activate` | Gives control of the alpha/matte channel of an image before applying the clipping path via clip: true. |
@@ -368,7 +374,7 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 | `--brightness` | `number` | no | `1` | Increases or decreases the brightness of the image by using a multiplier. For example 1.5 would increase the brightness by 50%, and 0.75 would decrease the brightness by 25%. |
 | `--saturation` | `number` | no | `1` | Increases or decreases the saturation of the image by using a multiplier. For example 1.5 would increase the saturation by 50%, and 0.75 would decrease the saturation by 25%. |
 | `--hue` | `number` | no | `1` | Changes the hue by rotating the color of the image. The value 100 would produce no change whereas 0 and 200 will negate the colors in the image. |
-| `--contrast` | `number` | no | `1` | Adjusts the contrast of the image. A value of 1 produces no change. Values below 1 decrease contrast (with 0 being minimum contrast), and values above 1 increase contrast (with 2… |
+| `--contrast` | `number` | no | `1` | Adjusts the contrast of the image. A value of 1 produces no change. Values below 1 decrease contrast, and values above 1 increase it. Start with small adjustments, such as 0.9 or… |
 | `--watermark-url` | `string` | no | `value` | A URL indicating a PNG image to be overlaid above this image. |
 | `--watermark-position` | `string[]` | no | `bottom` | The position at which the watermark is placed. The available options are "center", "top", "bottom", "left", and "right". You can also combine options, such as "bottom-right". An… |
 | `--watermark-x-offset` | `number` | no | `1` | The x-offset in number of pixels at which the watermark will be placed in relation to the position it has due to watermark_position. |
@@ -423,9 +429,9 @@ npx transloadit image upscale --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--model` | `string` | no | `nightmareai/real-esrgan` | The AI model to use for image upscaling. Defaults to nightmareai/real-esrgan. |
-| `--scale` | `number` | no | `2` | Upscale factor. Defaults to 2. |
-| `--face-enhance` | `boolean` | no | `true` | Enable face enhancement for better face restoration. Defaults to false. |
+| `--model` | `string` | no | `nightmareai/real-esrgan` | The AI model to use for image upscaling. Defaults to nightmareai/real-esrgan. Real-ESRGAN inputs exceeding 2,096,704 pixels are resized proportionally before upscaling. |
+| `--scale` | `number` | no | `2` | Upscale factor, applied after any input resizing. Defaults to 2. GFPGAN results are resized after restoration to match this factor. |
+| `--face-enhance` | `boolean` | no | `true` | Enable face enhancement with Real-ESRGAN or face upsampling with CodeFormer. GFPGAN always performs face restoration and ignores this parameter. Defaults to false. |
 
 **Examples**
 
@@ -466,7 +472,7 @@ npx transloadit document convert --input <path|dir|url|-> [options]
 | `--markdown-theme` | `string` | no | `bare` | This parameter overhauls your Markdown files styling based on several canned presets. |
 | `--pdf-margin` | `string` | no | `value` | PDF Paper margins, separated by , and with units. We support the following unit values: px, in, cm, mm. Currently this parameter is only supported when converting from html. |
 | `--pdf-print-background` | `boolean` | no | `true` | Print PDF background graphics. Currently this parameter is only supported when converting from html. |
-| `--pdf-format` | `string` | no | `A0` | PDF paper format. Currently this parameter is only supported when converting from html. |
+| `--pdf-format` | `string` | no | `A0` | PDF paper format. Values are case-insensitive. Currently this parameter is only supported when converting from html. |
 | `--pdf-display-header-footer` | `boolean` | no | `true` | Display PDF header and footer. Currently this parameter is only supported when converting from html. |
 | `--pdf-header-template` | `string` | no | `value` | HTML template for the PDF print header. Should be valid HTML markup with following classes used to inject printing values into them: - date formatted print date - title document… |
 | `--pdf-footer-template` | `string` | no | `value` | HTML template for the PDF print footer. Should use the same format as the pdf_header_template. Currently this parameter is only supported when converting from html, and requires… |
@@ -673,6 +679,8 @@ Transcribe speech in audio or video files
 
 Runs `/speech/transcribe` with a text-first default and writes the transcript to `--output`.
 
+`--target-language`: Sets the spoken language hint for the `"replicate"` provider. Omit this parameter to detect the spoken language automatically. Set it to the full lowercase English language name, such as `"french"`, when the spoken language is known. Despite its name, this parameter does not translate speech. For the `"aws"` and `"gcp"` providers, use `--source-language` instead.
+
 **Usage**
 
 ```bash
@@ -695,10 +703,12 @@ npx transloadit speech transcribe --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--provider` | `string` | no | `replicate` | Provider to use for transcription. Defaults to replicate. |
+| `--provider` | `string` | no | `replicate` | Provider to use for transcription. Defaults to replicate, or to aws with --speaker-labels. |
 | `--format` | `string` | no | `text` | Output format. Defaults to text. |
 | `--source-language` | `string` | no | `en-US` | Spoken language as a BCP-47 code, for providers that support explicit source languages. |
-| `--target-language` | `string` | no | `en-US` | Target written language for providers that support translation. |
+| `--target-language` | `string` | no | `french` | Sets the spoken language hint for the "replicate" provider. Omit this parameter to detect the spoken language automatically. Set it to the full lowercase English language name,… |
+| `--speaker-labels` | `boolean` | no | — | Label who is speaking: one paragraph per speaker in text, voice spans in WebVTT. Uses aws or gcp. |
+| `--max-speakers` | `number` | no | — | Maximum number of speakers to label, from 1 to 10. Requires --speaker-labels. |
 
 **Examples**
 
@@ -707,6 +717,8 @@ npx transloadit speech transcribe --input <path|dir|url|-> [options]
 transloadit speech transcribe --input voice.opus --output voice.txt
 # Generate subtitles
 transloadit speech transcribe --input clip.mp4 --format webvtt --output captions.vtt
+# Label who is speaking in an interview
+transloadit speech transcribe --input interview.mp4 --speaker-labels --output interview.txt
 ```
 
 ## `text speak`
@@ -738,7 +750,7 @@ npx transloadit text speak [--input <path|dir|url|->] [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--prompt` | `string` | no | `"A red bicycle in a studio"` | Which text to speak. You can also set this to null and supply an input text file. |
-| `--provider` | `string` | yes | `aws` | Which AI provider to leverage. Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information… |
+| `--provider` | `string` | no | `aws` | Chooses the best provider based on your request. Select a specific provider to override automatic selection. |
 | `--target-language` | `string` | no | `en-US` | The written language of the document. This will also be the language of the spoken text. The language should be specified in the BCP-47 format, such as "en-GB", "de-DE" or… |
 | `--voice` | `string` | no | `female-1` | The gender to be used for voice synthesis. Please consult the list of supported languages and voices. |
 | `--ssml` | `boolean` | no | `true` | Supply Speech Synthesis Markup Language instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations. |
@@ -746,7 +758,7 @@ npx transloadit text speak [--input <path|dir|url|->] [options]
 **Examples**
 
 ```bash
-transloadit text speak --input input.pdf --provider aws --output output.mp3
+transloadit text speak --input input.pdf --output output.mp3
 ```
 
 ## `video thumbs`
@@ -781,12 +793,14 @@ npx transloadit video thumbs --input <path|dir|url|-> [options]
 | `--count` | `number` | no | `1` | The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of… |
 | `--offsets` | `auto` | no | `value` | An array of offsets representing seconds of the file duration, such as [ 2, 45, 120 ]. |
 | `--format` | `string` | no | `jpg` | The format of the extracted thumbnail. Supported values are "jpg", "jpeg" and "png". Even if you specify the format to be "jpeg" the resulting thumbnails will have a "jpg" file… |
-| `--width` | `number` | no | `1` | The width of the thumbnail, in pixels. Defaults to the original width of the video. |
-| `--height` | `number` | no | `1` | The height of the thumbnail, in pixels. Defaults to the original height of the video. |
+| `--width` | `number` | no | `1` | The width of the thumbnail, in pixels. Omit or use null for the original width of the video. |
+| `--height` | `number` | no | `1` | The thumbnail height in pixels, capped like width. Omit or use null for the original height. |
 | `--resize-strategy` | `string` | no | `crop` | One of the available resize strategies. |
-| `--background` | `string` | no | `value` | The background color of the resulting thumbnails in the "rrggbbaa" format (red, green, blue, alpha) when used with the "pad" resize strategy. The default color is black. |
+| `--background` | `string` | no | `value` | The background color of the resulting thumbnails in the "rrggbbaa" format (red, green, blue, alpha) when used with the "pad" resize strategy. The default color is opaque black. |
 | `--rotate` | `number` | no | `0` | Forces the video to be rotated by the specified degree integer. |
 | `--input-codec` | `string` | no | `value` | Specifies the input codec to use when decoding the video. This is useful for videos with special codecs that require specific decoders. |
+| `--smart` | `boolean` | no | `true` | When set to true, enables AI-powered smart thumbnail selection. |
+| `--smart-max-candidates` | `number` | no | `1` | The maximum size of the candidate pool when smart is true. The Robot analyzes up to three candidates per requested thumbnail, capped by this value, but it will never analyze… |
 
 **Examples**
 

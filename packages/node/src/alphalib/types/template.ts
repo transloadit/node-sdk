@@ -9,6 +9,8 @@ import type {
   RobotsWithHiddenBotsAndFields,
 } from './robots/_index.ts'
 import type { RobotUse } from './robots/_instructions-primitives.ts'
+import { refineDocumentExtractOcr } from './robots/document-extract.ts'
+import { refineTransloaditImportSelector } from './robots/transloadit-import.ts'
 
 export type Step = RobotsSchema
 export type StepInput = Step
@@ -24,6 +26,8 @@ export const stepSchema: z.ZodType<Step> = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsSchema)
+  .superRefine(refineTransloaditImportSelector)
+  .superRefine(refineDocumentExtractOcr)
 export const stepsSchema: z.ZodType<Steps> = z
   .record(stepSchema)
   .describe('Contains Assembly Instructions.')
@@ -42,6 +46,8 @@ export const stepSchemaWithHiddenFields: z.ZodType<StepWithHiddenFields> = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsWithHiddenBotsAndFieldsSchema)
+  .superRefine(refineTransloaditImportSelector)
+  .superRefine(refineDocumentExtractOcr)
 export const stepsSchemaWithHiddenFields: z.ZodType<StepsWithHiddenFields> = z
   .record(stepSchemaWithHiddenFields)
   .describe('Contains Assembly Instructions.')
@@ -166,14 +172,44 @@ const assemblyInstructionsSharedShape = {
   template_id: templateIdSchema,
 } as const
 
+/** Most URLs one Assembly may import through `input_url`. */
+export const assemblyInputUrlMaxCount = 10
+/** Longest URL `input_url` accepts, in Unicode code points. */
+export const assemblyInputUrlMaxLength = 4096
+
+/** One `input_url` entry; API2 additionally requires a literal absolute HTTP(S) URL. */
+export const assemblyInputUrlValueSchema = z
+  .string()
+  .min(1)
+  .refine(
+    (value) => [...value].length <= assemblyInputUrlMaxLength,
+    `Must be at most ${assemblyInputUrlMaxLength} characters`,
+  )
+
+// Request-only: Template content cannot declare it, so it stays out of the shared shape.
+const assemblyInputUrlSchema = z
+  .union([
+    assemblyInputUrlValueSchema,
+    z.array(assemblyInputUrlValueSchema).min(1).max(assemblyInputUrlMaxCount),
+  ])
+  .optional()
+  .describe(
+    `One HTTP(S) URL, or a list of up to ${assemblyInputUrlMaxCount}, that Transloadit downloads as the input files of the Builtin Template selected with \`template_id\`, instead of your client uploading them. Only Builtin Templates that accept an input file support it, and the request must be signed or Bearer-authenticated. It cannot be combined with \`steps\` or with uploads. URLs are used literally: they must be absolute, at most ${assemblyInputUrlMaxLength} characters, and must not contain whitespace, \`|\` or Assembly variables such as \`\${fields.url}\`. Private-network addresses are refused.`,
+  )
+
+/** URLs a request imports as a Builtin Template's input files. */
+export type AssemblyInputUrl = z.input<typeof assemblyInputUrlSchema>
+
 export const assemblyInstructionsSchema = z.object({
   auth: assemblyAuthInstructionsSchema.optional(),
   ...assemblyInstructionsSharedShape,
+  input_url: assemblyInputUrlSchema,
 })
 
 export const assemblyInstructionsSchemaWithRequiredAuth = z.object({
   auth: assemblyAuthInstructionsSchema,
   ...assemblyInstructionsSharedShape,
+  input_url: assemblyInputUrlSchema,
 })
 
 export type AssemblyInstructions = z.infer<typeof assemblyInstructionsSchema>

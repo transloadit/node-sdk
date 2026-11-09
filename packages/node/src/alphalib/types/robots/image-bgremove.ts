@@ -1,48 +1,32 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
   autoProviderDescription,
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
   robotBase,
+  robotImageProcessingMeta,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  discount_factor: 1,
-  bytescount: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      remove_background: {
-        robot: '/image/bgremove',
-        use: ':original',
-      },
-    },
-  },
+  ...robotImageProcessingMeta,
+  example_code: createProcessingExample('remove_background', '/image/bgremove'),
   example_code_description: 'Remove the background from the uploaded image:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Image Manipulation',
   purpose_sentence: 'removes the background from images',
   purpose_verb: 'remove',
   purpose_word: 'remove',
   purpose_words: 'Remove the background from images',
-  service_slug: 'image-manipulation',
-  slot_count: 10,
   title: 'Remove the background from images',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'image',
   name: 'ImageBgremoveRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumChargeUsd: 0.006,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotImageBgremoveInstructionsSchema = robotBase
@@ -61,7 +45,7 @@ export const robotImageBgremoveInstructionsSchema = robotBase
       .enum(['auto', 'transloadit', 'replicate', 'fal'])
       .default('auto')
       .describe(
-        `${autoProviderDescription} Set this to \`"transloadit"\`, \`"replicate"\`, or \`"fal"\` to force a specific provider.`,
+        `${autoProviderDescription}\n\nSelect a specific provider to override automatic selection.`,
       ),
     model: z
       .string()
@@ -72,34 +56,23 @@ export const robotImageBgremoveInstructionsSchema = robotBase
   })
   .strict()
 
-export const robotImageBgremoveInstructionsWithHiddenFieldsSchema =
-  robotImageBgremoveInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotImageBgremoveInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotImageBgremoveInstructionsSchema.shape> =
+  defineRobot(meta, robotImageBgremoveInstructionsSchema)
 
-export type RobotImageBgremoveInstructions = z.infer<typeof robotImageBgremoveInstructionsSchema>
-export type RobotImageBgremoveInstructionsWithHiddenFields = z.infer<
-  typeof robotImageBgremoveInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotImageBgremoveInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageBgremoveInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotImageBgremoveInstructionsSchema = interpolateRobot(
-  robotImageBgremoveInstructionsSchema,
-)
-export type InterpolatableRobotImageBgremoveInstructions =
-  InterpolatableRobotImageBgremoveInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotImageBgremoveInstructionsInput = z.input<
-  typeof interpolatableRobotImageBgremoveInstructionsSchema
->
-
-export const interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotImageBgremoveInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotImageBgremoveInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageBgremoveInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema
->
+export type RobotImageBgremoveInstructions = Instructions['output']
+export type RobotImageBgremoveInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageBgremoveInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageBgremoveInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageBgremoveInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageBgremoveInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

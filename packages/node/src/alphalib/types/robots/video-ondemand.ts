@@ -1,18 +1,22 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { stackVersions } from '../stackVersions.ts'
 import {
-  interpolateRobot,
+  defineRobotWithHiddenFields,
   robotBase,
   robotUse,
+  robotVideoEncodingMeta,
   videoEncodeSpecificInstructionsSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  discount_factor: 1,
-  discount_pct: 0,
-  bytescount: 1,
+  ...robotVideoEncodingMeta,
   example_code: {
     steps: {
       import: {
@@ -27,15 +31,15 @@ export const meta: RobotMetaInput = {
         variants: {
           '480p': {
             preset: 'hls/480p',
-            ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+            ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
           },
           '720p': {
             preset: 'hls/720p',
-            ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+            ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
           },
           '1080p': {
             preset: 'hls/1080p',
-            ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+            ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
           },
         },
       },
@@ -47,29 +51,17 @@ export const meta: RobotMetaInput = {
   },
   example_code_description:
     'Enable streaming of a video stored on S3 in three variants (480p, 720p, 1080p) with on-demand encoding:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Video Encoding',
   purpose_sentence:
     'generates HTTP Live Streaming (HLS) playlists and segments on-demand for adaptive and cost-efficient playback',
   purpose_verb: 'stream',
   purpose_word: 'stream',
   purpose_words: 'Stream videos with on-demand encoding',
-  service_slug: 'video-encoding',
-  slot_count: 60,
   title: 'Stream videos with on-demand encoding',
   typical_file_size_mb: 300,
-  typical_file_type: 'video',
   name: 'VideoOndemandRobot',
-  priceFactor: 1,
-  queueSlotCount: 60,
   downloadInputFiles: false,
   isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'beta',
+  stage: 'ga',
 }
 
 export const robotVideoOndemandInstructionsSchema = robotBase
@@ -115,48 +107,42 @@ export const robotVideoOndemandInstructionsSchema = robotBase
   })
   .strict()
 
-export const robotVideoOndemandInstructionsWithHiddenFieldsSchema =
-  robotVideoOndemandInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVideoOndemandInstructionsSchema.shape.result])
-      .optional(),
-    cdn_required_bypass: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe(
-        'Internal parameter that indicates whether `cdn=required` should be added to the URLs in playlists. Useful for testing with URL Transform directly and not through Smart CDN.',
-      ),
-    url_transform_format: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe(
-        'Internal parameter that indicates whether the URLs in playlists should use the Smart CDN or the URL Transform format.',
-      ),
-  })
+const hiddenFields = {
+  cdn_required_bypass: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'Internal parameter that indicates whether `cdn=required` should be added to the URLs in playlists. Useful for testing with URL Transform directly and not through Smart CDN.',
+    ),
+  url_transform_format: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'Internal parameter that indicates whether the URLs in playlists should use the Smart CDN or the URL Transform format.',
+    ),
+}
 
-export type RobotVideoOndemandInstructions = z.infer<typeof robotVideoOndemandInstructionsSchema>
-export type RobotVideoOndemandInstructionsWithHiddenFields = z.infer<
-  typeof robotVideoOndemandInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotVideoOndemandInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotVideoOndemandInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotVideoOndemandInstructionsSchema = interpolateRobot(
-  robotVideoOndemandInstructionsSchema,
-)
-export type InterpolatableRobotVideoOndemandInstructions =
-  InterpolatableRobotVideoOndemandInstructionsInput
+export const {
+  withHiddenFields: robotVideoOndemandInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoOndemandInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotVideoOndemandInstructionsInput = z.input<
-  typeof interpolatableRobotVideoOndemandInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVideoOndemandInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVideoOndemandInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVideoOndemandInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema
->
+export type RobotVideoOndemandInstructions = Instructions['output']
+export type RobotVideoOndemandInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoOndemandInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoOndemandInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoOndemandInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoOndemandInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -1,4 +1,4 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
@@ -7,13 +7,12 @@ import {
   path,
   robotBase,
   robotImport,
+  robotImportMeta,
   vimeoBase,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
+  ...robotImportMeta,
   example_code: {
     steps: {
       imported: {
@@ -28,27 +27,14 @@ export const meta: RobotMetaInput = {
   },
   example_code_description: 'Import videos from your Vimeo account:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Importing',
   purpose_sentence: 'imports videos from your Vimeo account',
-  purpose_verb: 'import',
   purpose_word: 'Vimeo',
   purpose_words: 'Import videos from Vimeo',
   requires_credentials: true,
-  service_slug: 'file-importing',
-  slot_count: 20,
   title: 'Import videos from Vimeo',
   typical_file_size_mb: 50,
   typical_file_type: 'video',
   name: 'VimeoImportRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
-  stage: 'ga',
 }
 
 export const robotVimeoImportInstructionsSchema = robotBase
@@ -84,7 +70,9 @@ You can also use an array of path strings here to import multiple paths in the s
     rendition: z
       .enum(['240p', '360p', '540p', '720p', '1080p', 'source'])
       .default('720p')
-      .describe('The quality of the video to import.'),
+      .describe(
+        'The quality of the video to import. Use `source` for the original upload. Source availability depends on video permissions, your Vimeo account, the access token’s `video_files` scope, and whether Vimeo has retained the source file. The import fails with an error if the source file is unavailable.',
+      ),
   })
   .strict()
 
@@ -124,3 +112,12 @@ export type InterpolatableRobotVimeoImportInstructionsWithHiddenFields = z.infer
 export type InterpolatableRobotVimeoImportInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotVimeoImportInstructionsSchema,
+  typeof interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotVimeoImportInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema,
+}

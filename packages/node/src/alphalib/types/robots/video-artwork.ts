@@ -1,52 +1,38 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
 import {
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
   robotBase,
   robotFFmpegAudio,
   robotUse,
+  robotVideoEncodingMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      artwork_extracted: {
-        robot: '/video/artwork',
-        use: ':original',
-        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
-      },
-    },
-  },
+  ...robotVideoEncodingMeta,
+  example_code: createProcessingExample('artwork_extracted', '/video/artwork', {
+    ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
+  }),
   example_code_description: 'Extract embedded cover artwork from uploaded video files:',
-  minimum_charge: 0,
-  output_factor: 0.8,
-  override_lvl1: 'Video Encoding',
   purpose_sentence:
     'extracts embedded cover artwork from video files or inserts a new cover image into them. Extracted artwork can be piped into other Steps such as /image/resize. Use `method: "insert"` to embed artwork into video files like MP4, MOV, or M4V',
   purpose_verb: 'extract',
   purpose_word: 'extract/insert artwork',
   purpose_words: 'Extract or insert video artwork',
-  service_slug: 'video-encoding',
-  slot_count: 20,
   title: 'Extract or insert video artwork',
   typical_file_size_mb: 3.8,
-  typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
   name: 'VideoArtworkRobot',
-  priceFactor: 1,
   queueSlotCount: 20,
   isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotVideoArtworkInstructionsSchema = robotBase
@@ -69,34 +55,22 @@ What should be done with the video file. A value of \`"extract"\` means video ar
   })
   .strict()
 
-export const robotVideoArtworkInstructionsWithHiddenFieldsSchema =
-  robotVideoArtworkInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVideoArtworkInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotVideoArtworkInstructionsSchema.shape> =
+  defineRobot(meta, robotVideoArtworkInstructionsSchema)
 
-export type RobotVideoArtworkInstructions = z.infer<typeof robotVideoArtworkInstructionsSchema>
-export type RobotVideoArtworkInstructionsWithHiddenFields = z.infer<
-  typeof robotVideoArtworkInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotVideoArtworkInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoArtworkInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVideoArtworkInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotVideoArtworkInstructionsSchema = interpolateRobot(
-  robotVideoArtworkInstructionsSchema,
-)
-export type InterpolatableRobotVideoArtworkInstructions =
-  InterpolatableRobotVideoArtworkInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotVideoArtworkInstructionsInput = z.input<
-  typeof interpolatableRobotVideoArtworkInstructionsSchema
->
-
-export const interpolatableRobotVideoArtworkInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVideoArtworkInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVideoArtworkInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVideoArtworkInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVideoArtworkInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVideoArtworkInstructionsWithHiddenFieldsSchema
->
+export type RobotVideoArtworkInstructions = Instructions['output']
+export type RobotVideoArtworkInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoArtworkInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoArtworkInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoArtworkInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoArtworkInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

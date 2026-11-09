@@ -17,6 +17,54 @@ afterEach(() => {
 })
 
 describe('cli templates list', () => {
+  it.each([true, false])('projects --fields in JSON=%s output', async (json) => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({
+      items: [
+        {
+          id: 'template-id',
+          name: 'Products',
+          content: { steps: {} },
+          require_signature_auth: 1,
+        },
+      ],
+      count: 1,
+    })
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await main(['templates', 'list', '--fields', 'id,name', ...(json ? ['--json'] : [])])
+
+    expect(process.exitCode).toBeUndefined()
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('')
+    if (json) {
+      expect(JSON.parse(output)).toEqual({ id: 'template-id', name: 'Products' })
+    } else {
+      expect(output.trim()).toBe('template-id Products')
+    }
+  })
+
+  it('keeps the complete JSON record when --fields is omitted', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+    const template = {
+      id: 'template-id',
+      name: 'Products',
+      content: { steps: {} },
+      require_signature_auth: 1,
+    }
+    vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({
+      items: [template],
+      count: 1,
+    })
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await main(['templates', 'list', '--json'])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(stdout.mock.calls.map(([chunk]) => String(chunk)).join(''))).toEqual(template)
+  })
+
   it('accepts --include-builtin and forwards it to the API', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
@@ -26,8 +74,8 @@ describe('cli templates list', () => {
       .mockResolvedValueOnce({
         items: [
           {
-            id: 'builtin/serve-preview@0.0.1',
-            name: 'Serve preview',
+            id: 'builtin/encode-hls-video@0.0.1',
+            name: 'Encode HLS video',
             // minimal shape for CLI printing
             content: {},
             require_signature_auth: 0,
@@ -57,8 +105,8 @@ describe('cli templates list', () => {
       .mockResolvedValueOnce({
         items: [
           {
-            id: 'builtin/serve-preview@0.0.1',
-            name: 'Serve preview',
+            id: 'builtin/encode-hls-video@0.0.1',
+            name: 'Encode HLS video',
             content: {},
             require_signature_auth: 0,
           },
@@ -70,8 +118,8 @@ describe('cli templates list', () => {
     const getSpy = vi.spyOn(Transloadit.prototype, 'getTemplate').mockResolvedValue({
       ok: 'ok',
       message: 'OK',
-      id: 'builtin/serve-preview@0.0.1',
-      name: 'Serve preview',
+      id: 'builtin/encode-hls-video@0.0.1',
+      name: 'Encode HLS video',
       require_signature_auth: 0,
       content: {
         steps: {
@@ -86,7 +134,7 @@ describe('cli templates list', () => {
     await main(['templates', 'list', '--include-content', '--include-builtin', 'latest'])
 
     expect(process.exitCode).toBeUndefined()
-    expect(getSpy).toHaveBeenCalledWith('builtin/serve-preview@0.0.1')
+    expect(getSpy).toHaveBeenCalledWith('builtin/encode-hls-video@0.0.1')
   })
 
   it('fails with an invalid --include-builtin value', async () => {

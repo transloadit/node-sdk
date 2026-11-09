@@ -1,10 +1,19 @@
+import type { ReadStream } from 'node:fs'
 import type { Readable } from 'node:stream'
 
 import type {
   CompileAssemblyInstructionsOptions,
   CompileAssemblyInstructionsResult,
 } from '@transloadit/utils'
-import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
+import type { SignatureAlgorithm } from '@transloadit/utils/node'
+import type {
+  BeforeRedirectHook,
+  Delays,
+  Headers,
+  OptionsOfJSONResponseBody,
+  RetryOptions,
+} from 'got'
+import type { Input as IntoStreamInput } from 'into-stream'
 
 import type { TransloaditErrorResponseBody } from './ApiError.ts'
 import type {
@@ -12,6 +21,13 @@ import type {
   AssemblyIndexItem,
   AssemblyStatus,
 } from './alphalib/types/assemblyStatus.ts'
+import type {
+  GetStoredAssetOptions,
+  ListStoredAssetsOptions,
+  MoveStoredAssetOptions,
+  StoredAsset,
+  StoredAssetsPage,
+} from './alphalib/types/storageAsset.ts'
 import type {
   BaseResponse,
   BillResponse,
@@ -38,13 +54,30 @@ import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
 } from './lintAssemblyInstructions.ts'
+import type {
+  GetStoredImageReceiptOptions,
+  StoredImageReceipt,
+  StoreImageOptions,
+} from './storageImage.ts'
+import type {
+  StoragePublicPrefixDeclared,
+  StoragePublicPrefixes,
+  StoragePublicPrefixRevoked,
+} from './storagePublicPrefixes.ts'
+import type {
+  GetStoredAssemblyResultsOptions,
+  StoredAssemblyResult,
+  StoredAssetUrlOptions,
+} from './storageResults.ts'
 import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
 import { randomUUID } from 'node:crypto'
+import { addAbortListener, setMaxListeners } from 'node:events'
 import { constants, createReadStream } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
 import { basename } from 'node:path'
+import { finished } from 'node:stream/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import { compileAssemblyInstructionsFromPrompt } from '@transloadit/utils'
@@ -52,19 +85,37 @@ import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
 import debug from 'debug'
 import FormData from 'form-data'
 import got, { HTTPError, RequestError } from 'got'
-import intoStream, { type Input as IntoStreamInput } from 'into-stream'
+import intoStream from 'into-stream'
 import { isReadableStream, isStream } from 'is-stream'
 import pMap from 'p-map'
+import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
 import { ApiError } from './ApiError.ts'
 import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
+import {
+  damAssetFoundResponseSchema,
+  damAssetGetOptionsSchema,
+  damAssetMoveOptionsSchema,
+  damAssetsListedResponseSchema,
+  damAssetsListOptionsSchema,
+  damIdSchema,
+  storedAssetSchema,
+} from './alphalib/types/storageAsset.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import { mintBearerTokenWithCredentials } from './bearerToken.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
+import { getStoredImageReceipt, storeImage } from './storageImage.ts'
+import {
+  normalizeStoragePublicPrefix,
+  storagePublicPrefixDeclaredSchema,
+  storagePublicPrefixesSchema,
+  storagePublicPrefixRevokedSchema,
+} from './storagePublicPrefixes.ts'
+import { getStoredAssemblyResults, getStoredAssetUrl } from './storageResults.ts'
 import { sendTusRequest } from './tus.ts'
 
 export type {
@@ -76,6 +127,13 @@ export type {
 } from '@transloadit/utils'
 
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
+export type {
+  GetStoredAssetOptions,
+  ListStoredAssetsOptions,
+  MoveStoredAssetOptions,
+  StoredAsset,
+  StoredAssetsPage,
+} from './alphalib/types/storageAsset.ts'
 export type {
   Base64Strategy,
   InputFile,
@@ -93,6 +151,22 @@ export type {
   RobotListResult,
   RobotParamHelp,
 } from './robots.ts'
+export type {
+  GetStoredImageReceiptOptions,
+  StoredImageExpectation,
+  StoredImageReceipt,
+  StoreImageOptions,
+} from './storageImage.ts'
+export type {
+  StoragePublicPrefixDeclared,
+  StoragePublicPrefixes,
+  StoragePublicPrefixRevoked,
+} from './storagePublicPrefixes.ts'
+export type {
+  GetStoredAssemblyResultsOptions,
+  StoredAssemblyResult,
+  StoredAssetUrlOptions,
+} from './storageResults.ts'
 
 export {
   buildCompileAssemblyInstructionsSystemPrompt,
@@ -170,11 +244,15 @@ const toReadableUpload = (label: string, value: Readable | IntoStreamInput): Rea
   return readable ? value : intoStream(value)
 }
 
-const buildStreamsMap = (descriptors: UploadDescriptor[]): Record<string, Stream> =>
+const buildStreamsMap = (
+  descriptors: UploadDescriptor[],
+  onFileStreamOpened?: (stream: ReadStream) => void,
+): Record<string, Stream> =>
   Object.fromEntries(
     descriptors.map((descriptor) => {
       if (descriptor.path) {
         const stream = createReadStream(descriptor.path)
+        onFileStreamOpened?.(stream)
         return [descriptor.label, { stream, path: descriptor.path }]
       }
 
@@ -231,6 +309,11 @@ export interface CreateAssemblyOptions extends AssemblyUploadOptions {
    * Expected number of tus uploads when files will be uploaded separately.
    */
   expectedUploads?: number
+  /**
+   * Called once API2 has accepted the creation request, before uploads and polling. Callers that
+   * must not create an Assembly twice use it to tell later failures apart from rejected creation.
+   */
+  onAssemblyCreated?: (assembly: AssemblyStatus) => void
 }
 
 export interface ResumeAssemblyUploadsOptions extends AssemblyUploadOptions {
@@ -307,7 +390,9 @@ interface CreateAssemblyPromise extends Promise<AssemblyStatusWithUploadUrls> {
 }
 
 // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
-function checkAssemblyUrls(result: AssemblyStatus) {
+function checkAssemblyUrls(
+  result: AssemblyStatus,
+): asserts result is AssemblyStatus & { assembly_url: string; assembly_ssl_url: string } {
   if (result.assembly_url == null || result.assembly_ssl_url == null) {
     throw new InconsistentResponseError('Server returned an incomplete assembly response (no URL)')
   }
@@ -382,17 +467,28 @@ type AuthToken = {
 }
 
 type BaseOptions = {
+  /** Use signatureAlgorithm: 'sha256' for new combined Smart CDN/Assembly keys; legacy default: sha384. */
+  signatureAlgorithm?: SignatureAlgorithm
   endpoint?: string
   maxRetries?: number
   timeout?: number
   gotRetry?: Partial<RetryOptions>
+  /** Follow API redirects. Disable when requests originate from untrusted callers. Defaults to true. */
+  followRedirects?: boolean
   validateResponses?: boolean
   clientName?: string
+  /**
+   * Fixed headers sent with every API request, for trusted relays such as the Transloadit-hosted
+   * MCP service that must identify itself to API2 next to a forwarded bearer token.
+   */
+  extraHeaders?: Record<string, string>
 }
 
 export type Options = BaseOptions & (AuthKeySecret | AuthToken)
 
 export class Transloadit {
+  #signatureAlgorithm: SignatureAlgorithm
+  #followRedirects: boolean
   private _authKey: string
 
   private _authSecret: string
@@ -409,10 +505,31 @@ export class Transloadit {
 
   private _clientName: string
 
+  #extraHeaders: Record<string, string>
+
   private _lastUsedAssemblyUrl = ''
+
+  /**
+   * got drops `Authorization` and cookies when a redirect changes origin, but not custom headers,
+   * so `extraHeaders` (such as a relay's shared secret) are removed the same way.
+   */
+  #dropExtraHeadersOffOrigin(requestUrl: string): BeforeRedirectHook[] {
+    const names = Object.keys(this.#extraHeaders).map((name) => name.toLowerCase())
+    if (names.length === 0) return []
+    // An unparseable request URL counts as a different origin, which drops the headers.
+    const requestOrigin = URL.canParse(requestUrl) ? new URL(requestUrl).origin : undefined
+    return [
+      (redirectOptions) => {
+        const redirectUrl = redirectOptions.url
+        if (requestOrigin && redirectUrl && new URL(redirectUrl).origin === requestOrigin) return
+        for (const name of names) delete redirectOptions.headers[name]
+      },
+    ]
+  }
 
   private _validateResponses = false
 
+  /** Create a client; new combined keys require signatureAlgorithm: 'sha256' explicitly. */
   constructor(opts: Options) {
     const rawToken = typeof opts?.authToken === 'string' ? opts.authToken.trim() : ''
     const hasToken = rawToken.length > 0
@@ -433,11 +550,14 @@ export class Transloadit {
 
     this._authKey = opts.authKey ?? ''
     this._authSecret = opts.authSecret ?? ''
+    this.#signatureAlgorithm = opts.signatureAlgorithm ?? 'sha384'
     this._authToken = hasToken ? rawToken : null
+    this.#followRedirects = opts.followRedirects ?? true
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
     this._clientName = opts.clientName?.trim() || `node-sdk:${version}`
+    this.#extraHeaders = { ...opts.extraHeaders }
 
     // Passed on to got https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md
     this._gotRetry = opts.gotRetry != null ? opts.gotRetry : { limit: 0 }
@@ -451,6 +571,126 @@ export class Transloadit {
 
   setDefaultTimeout(timeout: number): void {
     this._defaultTimeout = timeout
+  }
+
+  /** Stores one local original at an explicit path and returns its verified image metadata. */
+  storeImage(filePath: string, options: StoreImageOptions): Promise<StoredImageReceipt> {
+    return storeImage(this, filePath, options)
+  }
+
+  /** Reconstructs a verified receipt from authoritative Assembly status and trusted upload facts. */
+  getStoredImageReceipt(options: GetStoredImageReceiptOptions): Promise<StoredImageReceipt> {
+    return getStoredImageReceipt(this, options)
+  }
+
+  /** Verifies a completed batch's retained media and preserves result/input provenance. */
+  getStoredAssemblyResults(
+    options: GetStoredAssemblyResultsOptions,
+  ): Promise<StoredAssemblyResult[]> {
+    return getStoredAssemblyResults(this, options)
+  }
+
+  /** Signs exact original bytes after your app authorizes the asset. Use a 307 for fresh request-time authorization. */
+  getStoredAssetUrl(asset: StoredAsset, options?: StoredAssetUrlOptions): string {
+    return getStoredAssetUrl(this, asset, options)
+  }
+
+  /** Reads a live asset's current version, or the exact retained version when version_id is set. */
+  async getStoredAsset(
+    assetId: string,
+    options: GetStoredAssetOptions & { signal?: AbortSignal } = {},
+  ): Promise<StoredAsset> {
+    const id = damIdSchema.parse(assetId)
+    const params = damAssetGetOptionsSchema.parse(options)
+    const result = await this._remoteJson<unknown, OptionalAuthParams & GetStoredAssetOptions>({
+      urlSuffix: `/dam/assets/${id}`,
+      method: 'get',
+      params,
+      signal: options.signal,
+    })
+    checkResult(result)
+    const { asset } = damAssetFoundResponseSchema.parse(result)
+    if (
+      asset.asset_id !== id ||
+      (params.version_id !== undefined && asset.version_id !== params.version_id)
+    ) {
+      throw new InconsistentResponseError(
+        'The response did not match the requested Storage reference',
+      )
+    }
+    return asset
+  }
+
+  /** Reads one bounded catalog page without S3 credentials or a HEAD request per object. */
+  async listStoredAssets(
+    options: ListStoredAssetsOptions & { signal?: AbortSignal } = {},
+  ): Promise<StoredAssetsPage> {
+    const params = damAssetsListOptionsSchema.parse(options)
+    const result = await this._remoteJson<unknown, OptionalAuthParams & ListStoredAssetsOptions>({
+      urlSuffix: '/dam/assets',
+      method: 'get',
+      params,
+      signal: options.signal,
+    })
+    checkResult(result)
+    const page = damAssetsListedResponseSchema.parse(result)
+    if (page.assets.some((asset) => asset.workspace !== page.workspace)) {
+      throw new InconsistentResponseError('Storage catalog page contains a different Workspace')
+    }
+    return page
+  }
+
+  /** Moves or renames an asset natively, preserving asset and version identities. */
+  async moveStoredAsset(
+    assetId: string,
+    options: MoveStoredAssetOptions & { signal?: AbortSignal },
+  ): Promise<StoredAsset> {
+    const id = damIdSchema.parse(assetId)
+    const params = damAssetMoveOptionsSchema.parse(options)
+    if (params.filename === undefined && params.destination_folder_id === undefined) {
+      throw new TypeError('Provide filename or destination_folder_id for a Storage move')
+    }
+    const result = await this._remoteJson<unknown, OptionalAuthParams & MoveStoredAssetOptions>({
+      urlSuffix: `/dam/assets/${id}`,
+      method: 'patch',
+      params,
+      signal: options.signal,
+    })
+    checkResult(result)
+    const { asset } = z
+      .object({ ok: z.literal('DAM_ASSET_MOVED'), asset: storedAssetSchema })
+      .parse(result)
+    if (asset.asset_id !== id)
+      throw new InconsistentResponseError(
+        'The response did not match the requested Storage reference',
+      )
+    return asset
+  }
+
+  /** Soft-deletes an asset by identity, making retained versions unavailable for new reads. */
+  async deleteStoredAsset(
+    assetId: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<{ asset_id: string; deleted_at: string }> {
+    const id = damIdSchema.parse(assetId)
+    const result = await this._remoteJson<unknown, OptionalAuthParams>({
+      urlSuffix: `/dam/assets/${id}`,
+      method: 'delete',
+      signal: options.signal,
+    })
+    checkResult(result)
+    const receipt = z
+      .object({
+        ok: z.literal('DAM_ASSET_DELETED'),
+        asset_id: damIdSchema,
+        deleted_at: z.string().datetime(),
+      })
+      .parse(result)
+    if (receipt.asset_id !== id)
+      throw new InconsistentResponseError(
+        'The response did not match the requested Storage reference',
+      )
+    return { asset_id: receipt.asset_id, deleted_at: receipt.deleted_at }
   }
 
   /**
@@ -471,7 +711,8 @@ export class Transloadit {
       uploads = {},
       assemblyId,
       expectedUploads,
-      signal,
+      onAssemblyCreated,
+      signal: callerSignal,
       uploadBehavior = 'await',
     } = opts
 
@@ -488,6 +729,34 @@ export class Transloadit {
       effectiveAssemblyId = randomUUID().replace(/-/g, '')
     }
     const urlSuffix = `/assemblies/${effectiveAssemblyId}`
+    const uploadAbort = new AbortController()
+    const signal = uploadAbort.signal
+    // This private signal coordinates every concurrent upload and its queue.
+    setMaxListeners(0, signal)
+    if (callerSignal?.aborted) uploadAbort.abort(callerSignal.reason)
+    // Older supported Node releases retain AbortSignal.any() dependencies indefinitely.
+    const callerAbort =
+      callerSignal && !callerSignal.aborted
+        ? addAbortListener(callerSignal, () => uploadAbort.abort(callerSignal.reason))
+        : undefined
+    const detachCallerAbort = (): void => {
+      callerAbort?.[Symbol.dispose]()
+    }
+    let backgroundUploadsComplete: Promise<unknown> | undefined
+    const openedFileStreams = new Set<ReadStream>()
+    const pendingFileSlices = new Set<Promise<unknown>>()
+    const onFileStreamOpened = (stream: ReadStream): void => {
+      // Register before I/O can emit close, so cleanup cannot miss that event.
+      openedFileStreams.add(stream)
+      stream.once('close', () => openedFileStreams.delete(stream))
+    }
+    const onFileSliceStarted = (slice: Promise<unknown>): void => {
+      pendingFileSlices.add(slice)
+      const remove = (): void => {
+        pendingFileSlices.delete(slice)
+      }
+      slice.then(remove, remove)
+    }
 
     // We want to be able to return the promise immediately with custom data
     const promise = (async () => {
@@ -512,7 +781,7 @@ export class Transloadit {
         })),
       ]
 
-      const allStreamsMap = buildStreamsMap(descriptors)
+      const allStreamsMap = buildStreamsMap(descriptors, onFileStreamOpened)
 
       const allStreams = Object.values(allStreamsMap)
 
@@ -542,9 +811,10 @@ export class Transloadit {
           signal,
         })
         checkResult(result)
+        onAssemblyCreated?.(result)
 
         if (Object.keys(allStreamsMap).length > 0) {
-          const { uploadUrls } = await sendTusRequest({
+          const { uploadUrls, uploadsComplete } = await sendTusRequest({
             streamsMap: allStreamsMap,
             assembly: result,
             onProgress: onUploadProgress,
@@ -552,7 +822,10 @@ export class Transloadit {
             uploadConcurrency,
             signal,
             uploadBehavior,
+            onFileStreamOpened,
+            onFileSliceStarted,
           })
+          if (uploadBehavior === 'background') backgroundUploadsComplete = uploadsComplete
           if (uploadBehavior !== 'await' && Object.keys(uploadUrls).length > 0) {
             result.upload_urls = uploadUrls
           }
@@ -578,6 +851,29 @@ export class Transloadit {
 
       return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
     })()
+      .catch(async (error: unknown) => {
+        uploadAbort.abort()
+        // File descriptors must be closed before callers can remove their temporary files.
+        // Destroyed, unread streams reject finished(); cleanup must preserve the creation error.
+        while (openedFileStreams.size > 0 || pendingFileSlices.size > 0) {
+          await Promise.allSettled(pendingFileSlices)
+          await Promise.allSettled(
+            [...openedFileStreams].map((stream) => {
+              const closed = finished(stream, { cleanup: true })
+              stream.destroy()
+              return closed
+            }),
+          )
+        }
+        throw error
+      })
+      .finally(() => {
+        if (backgroundUploadsComplete && !signal.aborted) {
+          backgroundUploadsComplete.then(detachCallerAbort, detachCallerAbort)
+          return
+        }
+        detachCallerAbort()
+      })
 
     // This allows the user to use or log the assemblyId even before it has been created for easier debugging
     return Object.assign(promise, { assemblyId: effectiveAssemblyId })
@@ -665,7 +961,7 @@ export class Transloadit {
    * If `scope` is omitted, the token inherits the auth key's scope.
    */
   async mintBearerToken(
-    options: Omit<MintBearerTokenOptions, 'endpoint'> & { endpoint?: string } = {},
+    options: Omit<MintBearerTokenOptions, 'clientName' | 'endpoint'> & { endpoint?: string } = {},
   ): Promise<BearerTokenResponse> {
     if (this._authToken) {
       throw new Error(
@@ -677,6 +973,7 @@ export class Transloadit {
       { authKey: this._authKey, authSecret: this._authSecret },
       {
         ...options,
+        clientName: this._clientName,
         endpoint: options.endpoint ?? this._endpoint,
       },
     )
@@ -926,9 +1223,10 @@ export class Transloadit {
    * @returns after the assembly is deleted
    */
   async cancelAssembly(assemblyId: string): Promise<AssemblyStatus> {
-    const { assembly_ssl_url: url } = await this.getAssembly(assemblyId)
+    const assembly = await this.getAssembly(assemblyId)
+    checkAssemblyUrls(assembly)
     const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
-      url,
+      url: assembly.assembly_ssl_url,
       isTrustedUrl: true,
       method: 'delete',
     })
@@ -1199,6 +1497,20 @@ export class Transloadit {
     })
   }
 
+  /** Revoke the signing Auth Key itself, without granting access to other workspace keys. */
+  async revokeOwnAuthKey(): Promise<void> {
+    const result = await this._remoteJson<
+      unknown,
+      OptionalAuthParams & { action: 'revoke_auth_key' }
+    >({
+      urlSuffix: '/auth_keys/self',
+      method: 'delete',
+      params: { action: 'revoke_auth_key' },
+    })
+    checkResult(result)
+    z.object({ ok: z.literal('AUTH_KEY_DELETED') }).parse(result)
+  }
+
   /**
    * Get an Assembly Template
    *
@@ -1230,6 +1542,49 @@ export class Transloadit {
 
   streamTemplates(params?: ListTemplatesParams): PaginationStream<ListedTemplate> {
     return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
+  }
+
+  /** Declare a directory public for unsigned Storage Built-ins. Requires dam:write scope. */
+  async publishStoragePrefix(
+    prefix: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<StoragePublicPrefixDeclared> {
+    const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'post',
+      params: { prefix: normalizeStoragePublicPrefix(prefix) },
+      signal: options?.signal,
+    })
+    checkResult(result)
+    return storagePublicPrefixDeclaredSchema.parse(result)
+  }
+
+  /** Revoke origin access to a public directory; cached or downloaded bytes cannot be recalled. */
+  async unpublishStoragePrefix(
+    prefix: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<StoragePublicPrefixRevoked> {
+    const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'delete',
+      params: { prefix: normalizeStoragePublicPrefix(prefix) },
+      signal: options?.signal,
+    })
+    checkResult(result)
+    return storagePublicPrefixRevokedSchema.parse(result)
+  }
+
+  /** List the workspace's explicitly public directories through the ordinary signed API. */
+  async listPublicStoragePrefixes(options?: {
+    signal?: AbortSignal
+  }): Promise<StoragePublicPrefixes> {
+    const result = await this._remoteJson({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'get',
+      signal: options?.signal,
+    })
+    checkResult(result)
+    return storagePublicPrefixesSchema.parse(result)
   }
 
   /**
@@ -1274,7 +1629,7 @@ export class Transloadit {
     })
   }
 
-  private _calcSignature(toSign: string, algorithm = 'sha384'): string {
+  private _calcSignature(toSign: string, algorithm: string = this.#signatureAlgorithm): string {
     if (!this._authSecret) {
       throw new Error('Cannot sign params without authSecret.')
     }
@@ -1325,12 +1680,10 @@ export class Transloadit {
 
   // Responsible for including auth parameters in all requests
   private _prepareParams(paramsIn?: OptionalAuthParams): string {
-    let params = paramsIn
-    if (params == null) {
-      params = {}
-    }
-    if (params.auth == null) {
-      params.auth = {}
+    // Keep defaults request-local so reused params do not retain an expired timestamp or key.
+    const params = {
+      ...paramsIn,
+      auth: { ...paramsIn?.auth },
     }
     if (params.auth.key == null) {
       params.auth.key = this._authKey
@@ -1357,7 +1710,7 @@ export class Transloadit {
     url?: string
     isTrustedUrl?: boolean
     timeout?: Delays
-    method?: 'delete' | 'get' | 'post' | 'put'
+    method?: 'delete' | 'get' | 'patch' | 'post' | 'put'
     params?: TParams
     fields?: Fields
     headers?: Headers
@@ -1397,12 +1750,13 @@ export class Transloadit {
     for (let retryCount = 0; ; retryCount++) {
       let form: FormData | undefined
 
-      if (method === 'post' || method === 'put' || method === 'delete') {
+      if (method === 'post' || method === 'patch' || method === 'put' || method === 'delete') {
         form = new FormData()
         this._appendForm(form, params, fields)
       }
 
       const requestOpts: OptionsOfJSONResponseBody = {
+        followRedirect: this.#followRedirects,
         retry: this._gotRetry,
         body: form,
         timeout,
@@ -1410,16 +1764,29 @@ export class Transloadit {
           'Transloadit-Client': this._clientName,
           'User-Agent': undefined, // Remove got's user-agent
           ...(this._authToken ? { Authorization: `Bearer ${this._authToken}` } : {}),
+          ...this.#extraHeaders,
           ...headers,
         },
+        hooks: { beforeRedirect: this.#dropExtraHeadersOffOrigin(url) },
         responseType: 'json',
         signal,
       }
 
       try {
         const request = got[method]<TRet>(url, requestOpts)
-        const { body } = await request
-        // console.log(body)
+        const { body, statusCode } = await request
+        // redirect_url responses can contain a valid Assembly, but an empty redirect cannot
+        // fulfill an API request. Keep its Location unfollowed without reporting empty success.
+        if (
+          !this.#followRedirects &&
+          statusCode >= 300 &&
+          statusCode < 400 &&
+          (body === null || typeof body !== 'object')
+        ) {
+          throw new InconsistentResponseError(
+            'The API returned a redirect without a JSON object while redirects are disabled.',
+          )
+        }
         return body
       } catch (err) {
         if (!(err instanceof RequestError)) throw err

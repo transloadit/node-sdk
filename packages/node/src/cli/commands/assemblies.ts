@@ -1,5 +1,6 @@
 import type { Readable } from 'node:stream'
 
+import type { AssemblyStatus } from '../../alphalib/types/assemblyStatus.ts'
 import type { StepsInput } from '../../alphalib/types/template.ts'
 import type { CreateAssemblyParams, ReplayAssemblyParams } from '../../apiTypes.ts'
 import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
@@ -11,6 +12,7 @@ import type {
 import type { IOutputCtl } from '../OutputCtl.ts'
 import type { NormalizedAssemblyResultFile, NormalizedAssemblyResults } from '../resultFiles.ts'
 import type { ResultUrlRow } from '../resultUrls.ts'
+import type { AssemblySummary } from '../types.ts'
 
 import { randomUUID } from 'node:crypto'
 import EventEmitter from 'node:events'
@@ -24,14 +26,16 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { promisify } from 'node:util'
 
 import { Command, Option } from 'clipanion'
-import got from 'got'
+import got, { RequestError } from 'got'
 import PQueue from 'p-queue'
 import * as t from 'typanion'
 import { z } from 'zod'
 
 import { formatLintIssue } from '../../alphalib/assembly-linter.lang.en.ts'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
+import { assemblyStatusResultSchema } from '../../alphalib/types/assemblyStatus.ts'
 import { ensureUniqueCounterValue } from '../../ensureUniqueCounter.ts'
+import { prepareInputFiles } from '../../inputFiles.ts'
 import { lintAssemblyInstructions } from '../../lintAssemblyInstructions.ts'
 import { lintingExamples } from '../docs/assemblyLintingExamples.ts'
 import {
@@ -49,7 +53,7 @@ import { formatAPIError, readCliInput } from '../helpers.ts'
 import { normalizeAssemblyResults } from '../resultFiles.ts'
 import { collectNormalizedResultUrlRows, printResultUrls } from '../resultUrls.ts'
 import { parseStepsInputJson, readStepsInputFile } from '../stepsInput.ts'
-import { ensureError, isErrnoException } from '../types.ts'
+import { assemblySummarySchema, ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
 // --- From assemblies.ts: Schemas and interfaces ---
@@ -132,9 +136,11 @@ function parseTemplateFieldAssignments(
   return fieldsMap
 }
 
-const AssemblySchema = z.object({
-  id: z.string(),
-})
+const AssemblySchema = z
+  .object({
+    id: z.string(),
+  })
+  .passthrough()
 
 // --- Business logic functions (from assemblies.ts) ---
 
@@ -163,8 +169,14 @@ export function list(
       if (fields == null) {
         output.print(parsed.data.id, assembly)
       } else {
-        const assemblyRecord = assembly as Record<string, unknown>
-        output.print(fields.map((field) => assemblyRecord[field]).join(' '), assembly)
+        const record = parsed.data
+        const selected = fields.filter((field) => Object.hasOwn(record, field))
+        output.print(
+          fields
+            .map((field) => (Object.hasOwn(record, field) ? record[field] : undefined))
+            .join(' '),
+          Object.fromEntries(selected.map((field) => [field, record[field]])),
+        )
       }
     }
   })
@@ -186,11 +198,7 @@ export async function get(
 ): Promise<void> {
   for (const assembly of assemblies) {
     await delay(1000)
-    const [err, result] = await tryCatch(client.getAssembly(assembly))
-    if (err) {
-      output.error(formatAPIError(err))
-      throw ensureError(err)
-    }
+    const result = await client.getAssembly(assembly)
     output.print(result, result)
   }
 }
@@ -219,7 +227,7 @@ export async function replay(
 ): Promise<void> {
   if (steps) {
     try {
-      await apiCall(await readStepsInputFile(steps))
+      await apiCall(await readStepsInputFile(steps, output))
     } catch (err) {
       const error = ensureError(err)
       output.error(error.message)
@@ -305,13 +313,18 @@ export async function lint(
   }
 
   const issues = result.issues
+  // Unchanged wrapped instructions may already include their final newline.
+  const fixedInstructions =
+    result.fixedInstructions != null && !result.fixedInstructions.endsWith('\n')
+      ? `${result.fixedInstructions}\n`
+      : result.fixedInstructions
 
   if (fix && isStdin) {
-    if (result.fixedInstructions == null) {
+    if (fixedInstructions == null) {
       output.error('No fixed output available.')
       return 1
     }
-    process.stdout.write(`${result.fixedInstructions}\n`)
+    process.stdout.write(fixedInstructions)
     for (const issue of issues) {
       const line = formatLintIssue(issue)
       if (issue.type === 'warning') output.warn(line)
@@ -320,8 +333,8 @@ export async function lint(
     return result.success ? 0 : 1
   }
 
-  if (fix && inputPath && result.fixedInstructions != null) {
-    await fsp.writeFile(inputPath, result.fixedInstructions)
+  if (fix && inputPath && fixedInstructions != null) {
+    await fsp.writeFile(inputPath, fixedInstructions)
   }
 
   if (json) {
@@ -471,12 +484,16 @@ function getJobInputPath(filepath: string): string {
   return normalizedFile
 }
 
-function createInputUploadStream(filepath: string): Readable {
-  const instream = fs.createReadStream(filepath)
-  // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-  // before being consumed (e.g., due to output collision detection)
-  instream.on('error', () => {})
-  return instream
+function hasPipedStdin(): boolean {
+  if (process.stdin.isTTY) return false
+
+  try {
+    const stats = fs.fstatSync(process.stdin.fd)
+    return stats.isFIFO() || stats.isFile()
+  } catch {
+    // A closed or unavailable descriptor is not an implicit upload.
+    return false
+  }
 }
 
 function createOutputPlan(pathname: string | undefined, mtime: Date): OutputPlan {
@@ -501,8 +518,10 @@ async function createExistingPathOutputPlan(outputPath: string | undefined): Pro
   return createOutputPlan(outputPath, stats?.mtime ?? new Date(0))
 }
 
-function dirProvider(output: string): OutputPlanProvider {
-  return async (inpath, indir = process.cwd()) => {
+function dirProvider(output: string, transientInputPaths?: Set<string>): OutputPlanProvider {
+  const namesByInput = new Map<string, string>()
+  const usedNames = new Set<string>()
+  return async (inpath, indir) => {
     if (inpath == null) {
       return await createExistingPathOutputPlan(output)
     }
@@ -510,8 +529,22 @@ function dirProvider(output: string): OutputPlanProvider {
       throw new Error('You must provide an input to output to a directory')
     }
 
-    let relpath = path.relative(indir, inpath)
-    relpath = relpath.replace(/^(\.\.\/)+/, '')
+    const inputKey = path.resolve(inpath)
+    let relpath = namesByInput.get(inputKey)
+    if (relpath == null) {
+      const requestedPath = transientInputPaths?.has(inputKey)
+        ? path.basename(inpath)
+        : path.relative(indir ?? process.cwd(), inpath).replace(/^(\.\.\/)+/, '')
+      const parsed = path.parse(requestedPath)
+      relpath = await ensureUniqueCounterValue({
+        initialValue: requestedPath,
+        isTaken: (candidate) => usedNames.has(candidate),
+        reserve: (candidate) => usedNames.add(candidate),
+        nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
+        scope: usedNames,
+      })
+      namesByInput.set(inputKey, relpath)
+    }
     const outpath = path.join(output, relpath)
     return await createExistingPathOutputPlan(outpath)
   }
@@ -535,6 +568,7 @@ async function downloadResultToFile(
   resultUrl: string,
   outPath: string,
   signal: AbortSignal,
+  isCurrent: () => boolean,
 ): Promise<void> {
   await fsp.mkdir(path.dirname(outPath), { recursive: true })
 
@@ -551,6 +585,10 @@ async function downloadResultToFile(
     throw dlErr
   }
 
+  if (!isCurrent()) {
+    await fsp.rm(tempPath, { force: true })
+    return
+  }
   await fsp.rename(tempPath, outPath)
 }
 
@@ -591,38 +629,260 @@ async function downloadResultToStdout(resultUrl: string, signal: AbortSignal): P
   await pipeline(got.stream(resultUrl, { signal }), stdoutStream)
 }
 
-function sanitizeResultName(value: string): string {
+function sanitizeResultName(value: string, fallback?: string): string {
   const base = path.basename(value)
-  return base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
+  const name = base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
+  if (name === '' || name === '.' || name === '..') {
+    if (fallback != null) return sanitizeResultName(fallback)
+    throw new Error('Assembly result has an unsafe name')
+  }
+  return name
 }
 
-async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>): Promise<string> {
+interface OutputNameSensitivity {
+  caseSensitive: boolean
+  normalizationSensitive: boolean
+}
+
+interface DownloadPathReservations extends OutputNameSensitivity {
+  allocations: PQueue
+  bundleCommits: PQueue
+  directories: Set<string>
+  ownersByPath: Map<string, string>
+  pathsByOwner: Map<string, string>
+}
+
+async function outputNameSensitivity(root: string): Promise<OutputNameSensitivity> {
+  await fsp.mkdir(root, { recursive: true })
+  const probe = await fsp.mkdtemp(path.join(root, '.transloadit-names-'))
+  async function distinguishesNames(first: string, second: string): Promise<boolean> {
+    await fsp.writeFile(path.join(probe, first), '')
+    const [error] = await tryCatch(fsp.lstat(path.join(probe, second)))
+    if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
+    return error != null
+  }
+  try {
+    // Assume this tree shares the root's naming rules; nested filesystems are tracked in #615.
+    return {
+      caseSensitive: await distinguishesNames('case', 'CASE'),
+      normalizationSensitive: await distinguishesNames('\u00e9', 'e\u0301'),
+    }
+  } finally {
+    await fsp.rm(probe, { recursive: true, force: true })
+  }
+}
+
+function downloadPathKey(target: string, reservedPaths: DownloadPathReservations): string {
+  const absolutePath = path.resolve(target)
+  const folded = reservedPaths.caseSensitive ? absolutePath : absolutePath.toLowerCase()
+  return reservedPaths.normalizationSensitive ? folded : folded.normalize('NFC')
+}
+
+function hasReservedFileAncestor(target: string, reservedPaths: DownloadPathReservations): boolean {
+  let current = downloadPathKey(target, reservedPaths)
+  while (true) {
+    if (reservedPaths.ownersByPath.has(current) && !reservedPaths.directories.has(current)) {
+      return true
+    }
+    const parent = path.dirname(current)
+    if (parent === current) return false
+    current = parent
+  }
+}
+
+function reserveDownloadPath(
+  target: string,
+  owner: string,
+  reservedPaths: DownloadPathReservations,
+  directory = false,
+): void {
+  const key = downloadPathKey(target, reservedPaths)
+  reservedPaths.ownersByPath.set(key, owner)
+  let current = directory ? key : path.dirname(key)
+  while (true) {
+    reservedPaths.directories.add(current)
+    const parent = path.dirname(current)
+    if (parent === current) return
+    current = parent
+  }
+}
+
+async function ensureUniquePath(
+  targetPath: string,
+  reservedPaths: DownloadPathReservations,
+  owner: string,
+  directory = false,
+  overwriteExistingFile = false,
+): Promise<string> {
+  const selectedPath = reservedPaths.pathsByOwner.get(owner)
+  if (selectedPath != null) return selectedPath
   const parsed = path.parse(targetPath)
   return await ensureUniqueCounterValue({
     initialValue: targetPath,
-    isTaken: async (candidate) => {
-      if (reservedPaths.has(candidate)) {
-        return true
-      }
-
-      const [statErr] = await tryCatch(fsp.stat(candidate))
-      return statErr == null
-    },
+    isTaken: async (candidate) =>
+      await isDownloadPathTaken(
+        candidate,
+        reservedPaths,
+        owner,
+        directory,
+        overwriteExistingFile && candidate === targetPath,
+      ),
     reserve: (candidate) => {
-      reservedPaths.add(candidate)
+      reserveDownloadPath(candidate, owner, reservedPaths, directory)
+      reservedPaths.pathsByOwner.set(owner, candidate)
     },
-    nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
+    nextValue: (counter) =>
+      path.join(
+        parsed.dir,
+        directory ? `${parsed.base}__${counter}` : `${parsed.name}__${counter}${parsed.ext}`,
+      ),
     scope: reservedPaths,
   })
 }
 
-function getResultFileName(file: NormalizedAssemblyResultFile): string {
-  return sanitizeResultName(file.name)
+const resultPathSchema = z.object({
+  meta: z.object({ relative_path: z.string().nullish() }).nullish(),
+})
+
+function getResultRelativePath(file: NormalizedAssemblyResultFile): string | null {
+  const parsed = resultPathSchema.safeParse(file.file)
+  if (!parsed.success) throw new Error('Assembly result has invalid relative path metadata')
+  const relativePath = parsed.data.meta?.relative_path
+  if (relativePath == null) return null
+  const name = sanitizeResultName(file.name)
+  // Adaptive video results use an empty directory for the master playlist.
+  if (relativePath === '') return name
+
+  const normalizedPath = relativePath.replaceAll('\\', '/')
+  if (
+    normalizedPath.includes('\u0000') ||
+    path.win32.isAbsolute(normalizedPath) ||
+    /^[a-z]:/i.test(normalizedPath) ||
+    normalizedPath.split('/').some((part) => part === '' || part === '.' || part === '..')
+  ) {
+    throw new Error('Assembly result has an unsafe relative path')
+  }
+
+  return path.join(normalizedPath, name)
 }
 
 interface AssemblyDownloadTarget {
+  bundleRoot?: string
   resultUrl: string
   targetPath: string | null
+}
+
+interface BundleDownloadTarget {
+  resultUrl: string
+  targetPath: string
+}
+
+interface StagedBundleDownloadTarget extends BundleDownloadTarget {
+  stagingPath: string
+}
+
+async function downloadResultBundle(
+  targets: BundleDownloadTarget[],
+  signal: AbortSignal,
+  isCurrent: () => boolean,
+  commits: PQueue,
+  onDownload: () => void,
+): Promise<void> {
+  const stagingDirs = new Map<string, string>()
+  const staged: StagedBundleDownloadTarget[] = []
+  try {
+    for (const [index, target] of targets.entries()) {
+      if (!isCurrent()) return
+      const parent = path.dirname(target.targetPath)
+      await fsp.mkdir(parent, { recursive: true })
+      let stagingDir = stagingDirs.get(parent)
+      if (stagingDir == null) {
+        // Stage beside each destination so publication also works across nested filesystems.
+        stagingDir = await fsp.mkdtemp(path.join(parent, '.transloadit-bundle-'))
+        stagingDirs.set(parent, stagingDir)
+      }
+      const stagingPath = path.join(stagingDir, String(index))
+      staged.push({ ...target, stagingPath })
+      onDownload()
+      await downloadResultToFile(target.resultUrl, stagingPath, signal, () => true)
+    }
+    await commits.add(async () => {
+      if (!isCurrent()) return
+      // Finish publication once it starts, even if superseded. A failed newer job must not
+      // strand this playlist without its segments, and newer commits must wait for this one.
+      for (const { stagingPath, targetPath } of staged) {
+        await fsp.mkdir(path.dirname(targetPath), { recursive: true })
+        await fsp.rename(stagingPath, targetPath)
+      }
+    })
+  } finally {
+    await Promise.all(
+      [...stagingDirs.values()].map(
+        async (dir) => await fsp.rm(dir, { recursive: true, force: true }),
+      ),
+    )
+  }
+}
+
+async function assertNoOutputSymlinks(root: string, target: string): Promise<void> {
+  // Reject preexisting descendant symlinks; another process can still race filesystem checks.
+  const relativePath = path.relative(root, target)
+  // The caller explicitly selected the root; only descendants come from result/input metadata.
+  if (relativePath === '') return
+  if (
+    relativePath.startsWith(`..${path.sep}`) ||
+    relativePath === '..' ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error('Assembly result path escapes the output directory')
+  }
+
+  let current = root
+  for (const part of relativePath.split(path.sep)) {
+    current = path.join(current, part)
+    const [error, stats] = await tryCatch(fsp.lstat(current))
+    if (error) {
+      if (isErrnoException(error) && (error.code === 'ENOENT' || error.code === 'ENOTDIR')) return
+      throw error
+    }
+    if (stats.isSymbolicLink()) {
+      throw new Error('Assembly result path contains a symbolic link')
+    }
+  }
+}
+
+async function isDownloadPathTaken(
+  target: string,
+  reservedPaths: DownloadPathReservations,
+  owner: string,
+  directory = false,
+  overwriteExistingFile = false,
+): Promise<boolean> {
+  const key = downloadPathKey(target, reservedPaths)
+  if (directory && reservedPaths.directories.has(key)) return false
+  const existingOwner = reservedPaths.ownersByPath.get(key)
+  if (existingOwner != null) return existingOwner !== owner
+  if (reservedPaths.directories.has(key) || hasReservedFileAncestor(target, reservedPaths)) {
+    return true
+  }
+  const [error, stats] = await tryCatch(fsp.lstat(target))
+  if (isErrnoException(error) && error.code === 'ENOTDIR') return true
+  if (error && (!isErrnoException(error) || error.code !== 'ENOENT')) throw error
+  if (error != null) return false
+  if (directory) return !stats?.isDirectory()
+  return !overwriteExistingFile || !stats?.isFile()
+}
+
+async function prepareDownloadDirectory(
+  root: string,
+  target: string,
+  reservedPaths: DownloadPathReservations,
+): Promise<void> {
+  await assertNoOutputSymlinks(root, target)
+  if (hasReservedFileAncestor(target, reservedPaths)) {
+    throw new Error('Output directory conflicts with a result file')
+  }
+  await fsp.mkdir(target, { recursive: true })
 }
 
 const STALE_OUTPUT_GRACE_MS = 1000
@@ -631,31 +891,199 @@ function isMeaningfullyNewer(newer: Date, older: Date): boolean {
   return newer.getTime() - older.getTime() > STALE_OUTPUT_GRACE_MS
 }
 
+interface DirectoryResultFile {
+  file: NormalizedAssemblyResultFile
+  relativePath: string | null
+}
+
+interface DirectoryResultGroup {
+  directoryName: string | null
+  files: DirectoryResultFile[]
+  ownerKey: string | null
+  stepName: string
+}
+
+const resultSourceSchema = assemblyStatusResultSchema.pick({
+  original_basename: true,
+  original_id: true,
+  original_name: true,
+  original_path: true,
+})
+
+function groupDirectoryResults(allFiles: NormalizedAssemblyResultFile[]): DirectoryResultGroup[] {
+  const steps = new Map<string, DirectoryResultFile[]>()
+  for (const file of allFiles) {
+    const files = steps.get(file.stepName) ?? []
+    files.push({ file, relativePath: getResultRelativePath(file) })
+    steps.set(file.stepName, files)
+  }
+
+  const groups: DirectoryResultGroup[] = []
+  for (const [stepName, stepFiles] of steps) {
+    if (!stepFiles.some((file) => file.relativePath != null)) {
+      groups.push({ directoryName: null, files: stepFiles, ownerKey: null, stepName })
+      continue
+    }
+
+    const sources = new Map<
+      string,
+      { identity: string; name: string | null; files: DirectoryResultFile[] }
+    >()
+    for (const file of stepFiles) {
+      const parsed = resultSourceSchema.safeParse(file.file.file)
+      const source = parsed.success ? parsed.data : undefined
+      const sourceId = JSON.stringify(source?.original_id ?? null)
+      const name = source?.original_name ?? source?.original_basename ?? null
+      const group = sources.get(sourceId) ?? {
+        // original_path can be a shared directory, so the source filename is also required.
+        identity: JSON.stringify([source?.original_path ?? null, name]),
+        name,
+        files: [],
+      }
+      group.files.push(file)
+      sources.set(sourceId, group)
+    }
+
+    const sourceOccurrences = new Map<string, number>()
+    for (const { identity, name, files } of sources.values()) {
+      const occurrence = sourceOccurrences.get(identity) ?? 0
+      sourceOccurrences.set(identity, occurrence + 1)
+      // Ordinary files can be renamed independently, even when they share an HLS source.
+      for (const linked of [true, false]) {
+        const groupFiles = files.filter(({ relativePath }) => (relativePath != null) === linked)
+        if (groupFiles.length === 0) continue
+        groups.push({
+          directoryName:
+            sources.size > 1
+              ? sanitizeResultName(path.parse(name ?? stepName).name, stepName)
+              : null,
+          files: groupFiles,
+          // Upload IDs change between watch runs. Paths and names keep source ownership stable
+          // even when results arrive in a different order.
+          ownerKey: JSON.stringify([identity, occurrence, linked]),
+          stepName,
+        })
+      }
+    }
+  }
+  return groups
+}
+
 async function buildDirectoryDownloadTargets({
   allFiles,
   baseDir,
   groupByStep,
+  owner,
+  outputRoot,
+  overwritePath,
   reservedPaths,
 }: {
   allFiles: NormalizedAssemblyResultFile[]
   baseDir: string
   groupByStep: boolean
-  reservedPaths: Set<string>
+  owner: string
+  outputRoot: string
+  overwritePath?: string
+  reservedPaths: DownloadPathReservations
 }): Promise<AssemblyDownloadTarget[]> {
-  await fsp.mkdir(baseDir, { recursive: true })
+  await prepareDownloadDirectory(outputRoot, baseDir, reservedPaths)
 
   const targets: AssemblyDownloadTarget[] = []
-  for (const resultFile of allFiles) {
-    const targetDir = groupByStep ? path.join(baseDir, resultFile.stepName) : baseDir
-    await fsp.mkdir(targetDir, { recursive: true })
+  for (const { directoryName, files, ownerKey, stepName } of groupDirectoryResults(allFiles)) {
+    const safeStepName = sanitizeResultName(stepName)
+    let targetDir = groupByStep ? path.join(baseDir, safeStepName) : baseDir
+    if (directoryName != null) targetDir = path.join(targetDir, directoryName)
+    const linked = files.some((file) => file.relativePath != null)
+    const groupOwner = JSON.stringify([owner, stepName, ownerKey])
+    const selectedGroupDir = linked ? reservedPaths.pathsByOwner.get(groupOwner) : undefined
+    if (selectedGroupDir != null) targetDir = selectedGroupDir
+    const names = files.map(
+      ({ file, relativePath }) => relativePath ?? sanitizeResultName(file.name),
+    )
+    if (
+      linked &&
+      new Set(names.map((name) => downloadPathKey(path.join(targetDir, name), reservedPaths)))
+        .size !== names.length
+    ) {
+      // Merged Steps can hide distinct bundles sharing one upload (#619). Reject ambiguous
+      // linked paths rather than guessing bundle boundaries and overwriting their contents.
+      throw new Error('Assembly results have duplicate relative paths')
+    }
 
-    targets.push({
-      resultUrl: resultFile.url,
-      targetPath: await ensureUniquePath(
-        path.join(targetDir, getResultFileName(resultFile)),
-        reservedPaths,
-      ),
-    })
+    for (const name of names) {
+      await assertNoOutputSymlinks(outputRoot, path.join(targetDir, name))
+    }
+
+    if (linked) {
+      // Source folders share this parent, so changing their suffix cannot fix a blocked parent.
+      if (directoryName != null) {
+        await prepareDownloadDirectory(outputRoot, path.dirname(targetDir), reservedPaths)
+      }
+      const initialDir = targetDir
+      // Selection and reservation share the same lock as ordinary result paths. A bundle must
+      // move together on collisions, while later watch updates reuse its owned destinations.
+      targetDir = await ensureUniqueCounterValue({
+        initialValue: initialDir,
+        isTaken: async (candidate) => {
+          if (
+            candidate !== initialDir &&
+            (await isDownloadPathTaken(candidate, reservedPaths, groupOwner))
+          )
+            return true
+          const collisions = await Promise.all(
+            names.map((name) =>
+              isDownloadPathTaken(path.join(candidate, name), reservedPaths, groupOwner),
+            ),
+          )
+          const collides = collisions.some(Boolean)
+          // Moving an already downloaded bundle would leave its previous playlist stale.
+          if (collides && selectedGroupDir != null) {
+            throw new Error('Assembly result path conflicts with an existing download')
+          }
+          return collides
+        },
+        reserve: (candidate) => {
+          if (candidate !== initialDir)
+            reserveDownloadPath(candidate, groupOwner, reservedPaths, true)
+          for (const name of names) {
+            reserveDownloadPath(path.join(candidate, name), groupOwner, reservedPaths)
+          }
+          reservedPaths.pathsByOwner.set(groupOwner, candidate)
+        },
+        nextValue: (counter) => {
+          if (directoryName != null) {
+            return path.join(path.dirname(initialDir), `${directoryName}__${counter}`)
+          }
+          const suffix = groupByStep ? counter : counter - 1
+          return path.join(baseDir, suffix === 0 ? safeStepName : `${safeStepName}__${suffix}`)
+        },
+        scope: reservedPaths,
+      })
+    }
+
+    await prepareDownloadDirectory(outputRoot, targetDir, reservedPaths)
+    const nameOccurrences = new Map<string, number>()
+    for (const [index, { file }] of files.entries()) {
+      const name = names[index]
+      const occurrence = nameOccurrences.get(name) ?? 0
+      nameOccurrences.set(name, occurrence + 1)
+      const targetPath = path.join(targetDir, name)
+      const selectedPath = linked
+        ? targetPath
+        : await ensureUniquePath(
+            targetPath,
+            reservedPaths,
+            JSON.stringify([groupOwner, name, occurrence]),
+            false,
+            overwritePath != null && path.resolve(targetPath) === path.resolve(overwritePath),
+          )
+      await assertNoOutputSymlinks(outputRoot, selectedPath)
+      targets.push({
+        bundleRoot: linked ? targetDir : undefined,
+        resultUrl: file.url,
+        targetPath: selectedPath,
+      })
+    }
   }
 
   return targets
@@ -683,6 +1111,7 @@ async function resolveResultDownloadTargets({
   outputPath,
   outputRoot,
   outputRootIsDirectory,
+  owner,
   reservedPaths,
   singleAssembly,
 }: {
@@ -694,26 +1123,33 @@ async function resolveResultDownloadTargets({
   outputPath: string | null
   outputRoot: string
   outputRootIsDirectory: boolean
-  reservedPaths: Set<string>
+  owner: string
+  reservedPaths: DownloadPathReservations
   singleAssembly?: boolean
 }): Promise<AssemblyDownloadTarget[]> {
   const { allFiles, entries } = normalizedResults
+  const linked = allFiles.some((file) => getResultRelativePath(file) != null)
+  // Ordinary CLI outputs retain their input/Step layout. HLS uses linked result paths so
+  // playlist references remain reachable; moving those formerly broken outputs is intentional.
+  const keepInputStepLayout =
+    outputMode !== 'directory' && inPath != null && allFiles.length > 1 && !linked
   const shouldGroupByInput =
-    !singleAssembly && inPath != null && (hasDirectoryInput || inputs.length > 1)
+    !singleAssembly &&
+    inPath != null &&
+    (hasDirectoryInput ||
+      (inputs.length > 1 && (allFiles.length > 1 || outputMode === 'directory')))
 
   const resolveDirectoryBaseDir = (): string => {
-    if (!shouldGroupByInput || inPath == null) {
-      return outputRoot
+    if (outputPath != null && (keepInputStepLayout || hasDirectoryInput)) {
+      return allFiles.length === 1 && outputMode !== 'directory'
+        ? path.dirname(outputPath)
+        : path.join(path.dirname(outputPath), path.parse(outputPath).name)
     }
-
-    if (hasDirectoryInput && outputPath != null) {
-      const mappedRelative = path.relative(outputRoot, outputPath)
-      const mappedDir = path.dirname(mappedRelative)
-      const mappedStem = path.parse(mappedRelative).name
-      return path.join(outputRoot, mappedDir === '.' ? '' : mappedDir, mappedStem)
+    if (!linked && outputMode !== 'directory' && inPath != null && outputPath != null) {
+      return path.dirname(outputPath)
     }
-
-    return path.join(outputRoot, path.parse(path.basename(inPath)).name)
+    if (!shouldGroupByInput || inPath == null) return outputRoot
+    return path.join(outputRoot, path.parse(path.basename(outputPath ?? inPath)).name)
   }
 
   if (!outputRootIsDirectory) {
@@ -722,7 +1158,9 @@ async function resolveResultDownloadTargets({
         throw new Error('stdout can only receive a single result file')
       }
 
-      throw new Error('file outputs can only receive a single result file')
+      throw new Error(
+        'file outputs can only receive a single result file; use -o <dir>/ to write multiple results to a directory',
+      )
     }
 
     return getSingleResultDownloadTarget(allFiles, outputPath)
@@ -732,28 +1170,37 @@ async function resolveResultDownloadTargets({
     return await buildDirectoryDownloadTargets({
       allFiles,
       baseDir: outputRoot,
-      groupByStep: false,
+      groupByStep: inputs.length === 0,
+      owner,
+      outputRoot,
       reservedPaths,
     })
   }
 
-  if (outputMode === 'directory' || outputPath == null || inPath == null) {
-    return await buildDirectoryDownloadTargets({
-      allFiles,
-      baseDir: resolveDirectoryBaseDir(),
-      groupByStep: entries.length > 1,
+  let baseDir = resolveDirectoryBaseDir()
+  if (path.resolve(baseDir) !== path.resolve(outputRoot)) {
+    // Input grouping directories share the result namespace, including files already reserved
+    // by another Assembly. Reuse existing directories and suffix a conflicting filename.
+    await assertNoOutputSymlinks(outputRoot, baseDir)
+    await prepareDownloadDirectory(outputRoot, path.dirname(baseDir), reservedPaths)
+    baseDir = await ensureUniquePath(
+      baseDir,
       reservedPaths,
-    })
-  }
-
-  if (allFiles.length === 1) {
-    return getSingleResultDownloadTarget(allFiles, outputPath)
+      JSON.stringify([owner, 'input-directory']),
+      true,
+    )
   }
 
   return await buildDirectoryDownloadTargets({
     allFiles,
-    baseDir: path.join(path.dirname(outputPath), path.parse(outputPath).name),
-    groupByStep: true,
+    baseDir,
+    groupByStep: keepInputStepLayout || inPath == null || entries.length > 1,
+    owner,
+    outputRoot,
+    // The mapped single-file destination is also the historical freshness marker. Updating it
+    // lets an unchanged rerun skip processing; differently named results retain collision suffixes.
+    overwritePath:
+      inPath != null && allFiles.length === 1 && !linked ? (outputPath ?? undefined) : undefined,
     reservedPaths,
   })
 }
@@ -822,6 +1269,7 @@ async function materializeAssemblyResults({
   abortSignal,
   hasDirectoryInput,
   inPath,
+  isCurrent,
   inputs,
   normalizedResults,
   outputMode,
@@ -829,12 +1277,14 @@ async function materializeAssemblyResults({
   outputRoot,
   outputRootIsDirectory,
   outputctl,
+  owner,
   reservedPaths,
   singleAssembly,
 }: {
   abortSignal: AbortSignal
   hasDirectoryInput: boolean
   inPath: string | null
+  isCurrent: () => boolean
   inputs: string[]
   normalizedResults: NormalizedAssemblyResults
   outputMode?: 'directory' | 'file'
@@ -842,33 +1292,58 @@ async function materializeAssemblyResults({
   outputRoot: string | null
   outputRootIsDirectory: boolean
   outputctl: IOutputCtl
-  reservedPaths: Set<string>
+  owner: string
+  reservedPaths: DownloadPathReservations
   singleAssembly?: boolean
 }): Promise<void> {
   if (outputRoot == null) {
     return
   }
 
-  const targets = await resolveResultDownloadTargets({
-    hasDirectoryInput,
-    inPath,
-    inputs,
-    normalizedResults,
-    outputMode,
-    outputPath,
-    outputRoot,
-    outputRootIsDirectory,
-    reservedPaths,
-    singleAssembly,
-  })
+  // Directory creation and filename reservation must share a lock across concurrent jobs.
+  const targets = await reservedPaths.allocations.add(
+    async () =>
+      await resolveResultDownloadTargets({
+        hasDirectoryInput,
+        inPath,
+        inputs,
+        normalizedResults,
+        outputMode,
+        outputPath,
+        outputRoot,
+        outputRootIsDirectory,
+        owner,
+        reservedPaths,
+        singleAssembly,
+      }),
+  )
 
-  for (const { resultUrl, targetPath } of targets) {
-    outputctl.debug('DOWNLOADING')
-    const [dlErr] = await tryCatch(
-      targetPath == null
-        ? downloadResultToStdout(resultUrl, abortSignal)
-        : downloadResultToFile(resultUrl, targetPath, abortSignal),
+  const bundles = new Map<string, BundleDownloadTarget[]>()
+  const downloads: Array<() => Promise<void>> = []
+  for (const { bundleRoot, resultUrl, targetPath } of targets) {
+    if (bundleRoot != null && targetPath != null) {
+      const files = bundles.get(bundleRoot) ?? []
+      files.push({ resultUrl, targetPath })
+      bundles.set(bundleRoot, files)
+      continue
+    }
+    downloads.push(async () => {
+      outputctl.debug('DOWNLOADING')
+      if (targetPath == null) await downloadResultToStdout(resultUrl, abortSignal)
+      else await downloadResultToFile(resultUrl, targetPath, abortSignal, isCurrent)
+    })
+  }
+  for (const files of bundles.values()) {
+    downloads.push(
+      async () =>
+        await downloadResultBundle(files, abortSignal, isCurrent, reservedPaths.bundleCommits, () =>
+          outputctl.debug('DOWNLOADING'),
+        ),
     )
+  }
+
+  for (const download of downloads) {
+    const [dlErr] = await tryCatch(download())
     if (dlErr) {
       if (dlErr.name === 'AbortError') {
         continue
@@ -1171,7 +1646,8 @@ function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
   jobEmitter.on('end', () => Promise.all(pendingChecks).then(() => emitter.emit('end')))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
   jobEmitter.on('job', (job: Job) => {
-    if (job.inputPath == null || job.out == null) {
+    // An older download can finish after a watch change and have a misleading newer mtime.
+    if (job.watchEvent || job.inputPath == null || job.out == null) {
       emitter.emit('job', job)
       return
     }
@@ -1299,35 +1775,44 @@ export interface AssembliesCreateOptions {
   watch?: boolean
   recursive?: boolean
   inputs: string[]
+  /** Prepared URL/base64 uploads whose temporary parent paths must not enter the output layout. */
+  transientInputPaths?: string[]
   output?: string | null
   del?: boolean
   reprocessStale?: boolean
   singleAssembly?: boolean
   concurrency?: number
+  printUrls?: boolean
+  urlDownloadTimeoutMs?: number
 }
 
 const DEFAULT_CONCURRENCY = 5
+const DEFAULT_URL_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000
 
-// --- Main assembly create function ---
-export async function create(
+interface PreparedCreateOptions {
+  transientInputPaths?: Set<string>
+  effectiveStepsData: StepsInput | undefined
+  hasDirectoryInput: boolean
+  outstat: StatLike | undefined
+  resolvedOutput: string | null | undefined
+}
+
+function isUrlInput(input: string): boolean {
+  return /^https?:\/\//i.test(input)
+}
+
+async function prepareCreateOptions(
   outputctl: IOutputCtl,
-  client: Transloadit,
   {
     steps,
     stepsData,
-    template,
-    fields,
     outputMode,
-    watch: watchOption,
-    recursive,
-    inputs,
     output,
-    del,
-    reprocessStale,
+    inputs,
     singleAssembly,
-    concurrency = DEFAULT_CONCURRENCY,
+    transientInputPaths,
   }: AssembliesCreateOptions,
-): Promise<{ resultUrls: ResultUrlRow[]; results: unknown[]; hasFailures: boolean }> {
+): Promise<PreparedCreateOptions> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
   // Only default to stdout when output is undefined (not provided), not when explicitly null
   let resolvedOutput = output
@@ -1338,18 +1823,20 @@ export async function create(
   // to avoid zod adding default values that the API may reject
   let effectiveStepsData = stepsData
   if (steps) {
-    effectiveStepsData = await readStepsInputFile(steps)
+    effectiveStepsData = await readStepsInputFile(steps, outputctl)
   }
 
   // Determine output stat async before entering the Promise constructor
   let outstat: StatLike | undefined
   if (resolvedOutput != null) {
+    const isDirectoryOutput =
+      outputMode === 'directory' || resolvedOutput.endsWith('/') || resolvedOutput.endsWith('\\')
     const [err, stat] = await tryCatch(myStat(process.stdout, resolvedOutput))
     if (err && (!isErrnoException(err) || err.code !== 'ENOENT')) throw err
     outstat =
       stat ??
       ({
-        isDirectory: () => outputMode === 'directory',
+        isDirectory: () => isDirectoryOutput,
       } satisfies StatLike)
 
     if (outputMode === 'directory' && stat != null && !stat.isDirectory()) {
@@ -1361,7 +1848,9 @@ export async function create(
     if (!outstat.isDirectory() && inputs.length !== 0 && !singleAssembly) {
       const firstInput = inputs[0]
       if (firstInput) {
-        const firstInputStat = await myStat(process.stdin, firstInput)
+        const firstInputStat = isUrlInput(firstInput)
+          ? { isDirectory: () => false }
+          : await myStat(process.stdin, firstInput)
         if (inputs.length > 1 || firstInputStat.isDirectory()) {
           const msg = 'Output must be a directory when specifying multiple inputs'
           outputctl.error(msg)
@@ -1373,11 +1862,106 @@ export async function create(
 
   const inputStats = await Promise.all(
     inputs.map(async (input) => {
-      if (input === '-') return null
+      if (input === '-' || isUrlInput(input)) return null
       return await myStat(process.stdin, input)
     }),
   )
   const hasDirectoryInput = inputStats.some((stat) => stat?.isDirectory() === true)
+  return {
+    effectiveStepsData,
+    hasDirectoryInput,
+    outstat,
+    resolvedOutput,
+    transientInputPaths:
+      transientInputPaths == null
+        ? undefined
+        : new Set(transientInputPaths.map((inputPath) => path.resolve(inputPath))),
+  }
+}
+
+// --- Main assembly create function ---
+/** Create Assemblies after materializing URL inputs as temporary local uploads. */
+export async function create(
+  outputctl: IOutputCtl,
+  client: Transloadit,
+  options: AssembliesCreateOptions,
+): ReturnType<typeof createWithLocalInputs> {
+  const preparedOptions = await prepareCreateOptions(outputctl, options)
+  const urlDownloadTimeoutMs =
+    toPositiveInteger(options.urlDownloadTimeoutMs, '--url-download-timeout') ??
+    DEFAULT_URL_DOWNLOAD_TIMEOUT_MS
+  if (!options.inputs.some(isUrlInput))
+    return await createWithLocalInputs(outputctl, client, options, preparedOptions)
+  if (options.watch) throw new Error('--watch requires local inputs')
+
+  const preparedInputs: Array<Awaited<ReturnType<typeof prepareInputFiles>>> = []
+  const localInputs: string[] = []
+  const transientInputPaths = preparedOptions.transientInputPaths ?? new Set<string>()
+  try {
+    for (const [index, input] of options.inputs.entries()) {
+      if (!isUrlInput(input)) {
+        localInputs.push(input)
+        continue
+      }
+      const field = String(index)
+      // Separate staging roots protect case-only filenames and repeated URLs from aliasing.
+      const prepared = await prepareInputFiles({
+        inputFiles: [{ kind: 'url', field, url: input }],
+        allowPrivateUrls: false,
+        // Uploading preserves :original and Template semantics, just as Intents do.
+        urlStrategy: 'download',
+        urlDownloadTimeoutMs,
+      })
+      preparedInputs.push(prepared)
+      const localPath = prepared.files[field]
+      if (localPath == null) throw new Error('URL input could not be prepared')
+      localInputs.push(localPath)
+      transientInputPaths.add(path.resolve(localPath))
+    }
+    return await createWithLocalInputs(
+      outputctl,
+      client,
+      {
+        ...options,
+        inputs: localInputs,
+      },
+      { ...preparedOptions, transientInputPaths },
+    )
+  } finally {
+    await Promise.all(
+      preparedInputs.flatMap((prepared) => prepared.cleanup.map((cleanup) => cleanup())),
+    )
+  }
+}
+
+async function createWithLocalInputs(
+  outputctl: IOutputCtl,
+  client: Transloadit,
+  {
+    template,
+    fields,
+    outputMode,
+    watch: watchOption,
+    recursive,
+    inputs,
+    del,
+    reprocessStale,
+    singleAssembly,
+    concurrency = DEFAULT_CONCURRENCY,
+    printUrls = false,
+  }: AssembliesCreateOptions,
+  preparedOptions: PreparedCreateOptions,
+): Promise<{
+  assemblies: AssemblySummary[]
+  resultUrls: ResultUrlRow[]
+  results: unknown[]
+  hasFailures: boolean
+}> {
+  const { effectiveStepsData, hasDirectoryInput, outstat, resolvedOutput } = preparedOptions
+  const nameSensitivity =
+    resolvedOutput != null && outstat?.isDirectory()
+      ? await outputNameSensitivity(resolvedOutput)
+      : { caseSensitive: true, normalizationSensitive: true }
 
   return new Promise((resolve, reject) => {
     const params: CreateAssemblyParams = (
@@ -1393,7 +1977,7 @@ export async function create(
       resolvedOutput == null
         ? nullProvider()
         : outstat?.isDirectory()
-          ? dirProvider(resolvedOutput)
+          ? dirProvider(resolvedOutput, preparedOptions.transientInputPaths)
           : fileProvider(resolvedOutput)
 
     const emitter = makeJobEmitter(inputs, {
@@ -1408,8 +1992,16 @@ export async function create(
     // Use p-queue for concurrency management
     const queue = new PQueue({ concurrency })
     const results: unknown[] = []
+    const assemblies: AssemblySummary[] = []
     const resultUrls: ResultUrlRow[] = []
-    const reservedResultPaths = new Set<string>()
+    const reservedResultPaths: DownloadPathReservations = {
+      allocations: new PQueue({ concurrency: 1 }),
+      bundleCommits: new PQueue({ concurrency: 1 }),
+      ...nameSensitivity,
+      directories: new Set(),
+      ownersByPath: new Map(),
+      pathsByOwner: new Map(),
+    }
     const latestWatchJobTokenByOutputPath = new Map<string, number>()
     let hasFailures = false
     let nextWatchJobToken = 0
@@ -1459,11 +2051,40 @@ export async function create(
       assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
       assemblyId: string
     }> {
-      const result = await client.createAssembly(createOptions)
-      const assemblyId = result.assembly_id
-      if (!assemblyId) throw new Error('No assembly_id in result')
-      const assemblyUrl = result.assembly_ssl_url ?? result.assembly_url ?? null
-      const assemblyReference = formatAssemblyReference({ assemblyId, assemblyUrl })
+      let assemblyReference: string | undefined
+      function reportCreatedAssembly(rawAssembly: AssemblyStatus): void {
+        const assembly = assemblySummarySchema.parse(rawAssembly)
+        if (assemblyReference || !assembly.assembly_id) return
+        assemblyReference = formatAssemblyReference({
+          assemblyId: assembly.assembly_id,
+          assemblyUrl: assembly.assembly_ssl_url ?? assembly.assembly_url ?? null,
+        })
+        outputctl.notice(assemblyReference)
+      }
+
+      const creation = client.createAssembly({
+        ...createOptions,
+        onAssemblyCreated: reportCreatedAssembly,
+      })
+      const [creationError, result] = await tryCatch(creation)
+      if (creationError) {
+        if (!assemblyReference && creationError instanceof RequestError && creation.assemblyId) {
+          const requestUrl = creationError.options.url
+          assemblyReference = formatAssemblyReference({
+            assemblyId: creation.assemblyId,
+            assemblyUrl:
+              requestUrl instanceof URL ? `${requestUrl.origin}${requestUrl.pathname}` : null,
+          })
+        }
+        if (!assemblyReference) throw creationError
+        throw new Error(`${formatAPIError(creationError)} (${assemblyReference})`, {
+          cause: creationError,
+        })
+      }
+      reportCreatedAssembly(result)
+      const createdSummary = assemblySummarySchema.parse(result)
+      const assemblyId = createdSummary.assembly_id
+      if (!assemblyId || !assemblyReference) throw new Error('No assembly_id in result')
 
       let assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
       try {
@@ -1471,16 +2092,50 @@ export async function create(
           signal: abortController.signal,
           onPoll: () => true,
           onAssemblyProgress: (status) => {
-            outputctl.debug(`Assembly status: ${status.ok}`)
+            const summary = assemblySummarySchema.parse(status)
+            outputctl.debug(`Assembly status: ${summary.ok ?? 'unknown'}`)
           },
         })
       } catch (err) {
         const error = ensureError(err)
-        throw new Error(`${error.message} (${assemblyReference})`, { cause: error })
+        const message = error instanceof RequestError ? formatAPIError(error) : error.message
+        throw new Error(`${message} (${assemblyReference})`, { cause: error })
       }
 
+      const summary = assemblySummarySchema.parse(assembly)
+      summary.assembly_id = assemblyId
+      summary.assembly_url ??= createdSummary.assembly_url
+      summary.assembly_ssl_url ??= createdSummary.assembly_ssl_url
+      const ignoredErrors = summary.ignored_errors
+      const ignoredErrorCount = Math.max(summary.ignored_error_count, ignoredErrors.length)
+      summary.ignored_error_count = ignoredErrorCount
+      // Preserve stdout file bytes. URL mode combines all summaries with its existing JSON object.
+      if (resolvedOutput !== '-') {
+        if (printUrls) assemblies.push(summary)
+        else outputctl.print(undefined, summary)
+      }
+      if (ignoredErrorCount > 0) {
+        const details = ignoredErrors
+          .map((ignored) => {
+            const code = typeof ignored.error === 'string' ? ignored.error : ignored.error?.code
+            const message =
+              ignored.message ||
+              (typeof ignored.error === 'object' ? ignored.error.message : undefined)
+            return [ignored.step, code, message].filter(Boolean).join(': ')
+          })
+          .filter(Boolean)
+          .slice(0, 5)
+        outputctl.warn(
+          `${ignoredErrorCount} ignored error${ignoredErrorCount === 1 ? '' : 's'} (${assemblyReference})${details.length > 0 ? `: ${details.join('; ')}` : ''}`,
+        )
+      }
+
+      // Malformed error fields still signal failure, but only sanitized values enter the message.
       if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
-        const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok}, ${assemblyReference})`
+        const details =
+          [summary.error ?? summary.ok, summary.message].filter(Boolean).join(': ') ||
+          'Unknown Assembly error'
+        const msg = `Assembly failed: ${details} (${assemblyReference})`
         throw new Error(msg)
       }
 
@@ -1536,17 +2191,26 @@ export async function create(
         abortSignal: abortController.signal,
         hasDirectoryInput: singleAssemblyMode ? false : hasDirectoryInput,
         inPath,
-        inputs: inputPaths,
+        isCurrent: () => !isSupersededWatchJob(outputPlan?.path ?? null, outputToken),
+        inputs: singleAssemblyMode ? inputPaths : inputs,
         normalizedResults,
         outputMode,
         outputPath: outputPlan?.path ?? null,
         outputRoot: resolvedOutput ?? null,
         outputRootIsDirectory,
         outputctl,
+        // Only watch updates reuse destinations; independent Assemblies retain every result.
+        owner: JSON.stringify([
+          inPath,
+          singleAssemblyMode ? inputPaths : [],
+          watchOption ? null : assemblyId,
+        ]),
         reservedPaths: reservedResultPaths,
         singleAssembly: singleAssemblyMode,
       })
 
+      // Only the current watch job may delete its input; a failed newer job must retain it.
+      if (isSupersededWatchJob(outputPlan?.path ?? null, outputToken)) return assembly
       outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
 
       if (del) {
@@ -1575,7 +2239,7 @@ export async function create(
       const uploads =
         inPath === stdinWithPath.path
           ? {
-              in: createInputUploadStream(inPath),
+              in: process.stdin,
             }
           : undefined
 
@@ -1591,7 +2255,7 @@ export async function create(
     function handleEmitterError(err: Error): void {
       abortController.abort()
       queue.clear()
-      outputctl.error(err)
+      outputctl.error(formatAPIError(err))
       reject(err)
     }
 
@@ -1622,7 +2286,7 @@ export async function create(
           })
         ) {
           outputctl.debug(`SKIPPED STALE SINGLE ASSEMBLY ${resolvedOutput ?? 'null'}`)
-          resolve({ resultUrls, results: [], hasFailures: false })
+          resolve({ assemblies, resultUrls, results: [], hasFailures: false })
           return
         }
 
@@ -1643,7 +2307,7 @@ export async function create(
             scope: collection,
           })
           if (inPath === stdinWithPath.path) {
-            uploads[key] = createInputUploadStream(inPath)
+            uploads[key] = process.stdin
           } else {
             files[key] = inPath
           }
@@ -1670,10 +2334,10 @@ export async function create(
           results.push(assembly)
         } catch (err) {
           hasFailures = true
-          outputctl.error(err as Error)
+          outputctl.error(formatAPIError(err))
         }
 
-        resolve({ resultUrls, results, hasFailures })
+        resolve({ assemblies, resultUrls, results, hasFailures })
       })
     }
 
@@ -1692,13 +2356,13 @@ export async function create(
           })
           .catch((err: unknown) => {
             hasFailures = true
-            outputctl.error(err as Error)
+            outputctl.error(formatAPIError(err))
           })
       })
 
       emitter.on('end', async () => {
         await queue.onIdle()
-        resolve({ resultUrls, results, hasFailures })
+        resolve({ assemblies, resultUrls, results, hasFailures })
       })
     }
 
@@ -1785,6 +2449,8 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     details: `
       Create assemblies to process media files using Transloadit.
       You must specify either --steps or --template.
+      Without uploads, directory outputs are saved as <output>/<step>/<result name>.
+      Stdin is read with --input -, or implicitly with --steps when piped or redirected from a file.
     `,
     examples: [
       [
@@ -1794,6 +2460,10 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       [
         'Process with a template',
         'transloadit assemblies create --template TEMPLATE_ID -i input.jpg -o output/',
+      ],
+      [
+        'Download results from import-only or prompt-only steps',
+        'transloadit assemblies create --steps steps.json -o output/',
       ],
       [
         'Watch for changes',
@@ -1813,7 +2483,8 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
   inputs = inputPathsOption()
 
   outputPath = Option.String('--output,-o', {
-    description: 'Specify an output file or directory',
+    description:
+      'Specify an output file or directory; a trailing / or \\ creates a directory recursively',
   })
 
   fields = Option.Array('--field,-f', {
@@ -1832,6 +2503,10 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
 
   concurrency = concurrencyOption()
 
+  urlDownloadTimeoutMs = Option.String('--url-download-timeout', {
+    description: 'Maximum time per URL input download in milliseconds (default: 300000)',
+  })
+
   printUrls = printUrlsOption()
 
   protected async run(): Promise<number | undefined> {
@@ -1846,9 +2521,8 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
 
     const inputList = this.inputs ?? []
 
-    // Default to stdin only for `--steps` mode (common "pipe a file into a one-off assembly" use case).
-    // For `--template` mode, templates may be inputless or use /http/import, so stdin should be explicit (`--input -`).
-    if (this.steps && inputList.length === 0 && !process.stdin.isTTY) {
+    // Templates keep requiring explicit stdin; steps also accept pipes and redirected files.
+    if (this.steps && inputList.length === 0 && hasPipedStdin()) {
       inputList.push('-')
     }
 
@@ -1868,7 +2542,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const { hasFailures, resultUrls } = await create(this.output, this.client, {
+    const { assemblies, hasFailures, resultUrls } = await create(this.output, this.client, {
       steps: this.steps,
       template: this.template,
       fields: fieldsMap ?? {},
@@ -1880,9 +2554,12 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       reprocessStale: this.reprocessStale,
       singleAssembly: this.singleAssembly,
       concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      printUrls: this.printUrls,
+      urlDownloadTimeoutMs:
+        this.urlDownloadTimeoutMs == null ? undefined : Number(this.urlDownloadTimeoutMs),
     })
     if (this.printUrls) {
-      printResultUrls(this.output, resultUrls)
+      printResultUrls(this.output, resultUrls, assemblies)
     }
     return hasFailures ? 1 : undefined
   }
@@ -1932,7 +2609,8 @@ export class RunCommand extends AuthenticatedCommand {
   inputs = inputPathsOption()
 
   outputPath = Option.String('--output,-o', {
-    description: 'Specify an output file or directory',
+    description:
+      'Specify an output file or directory; a trailing / or \\ creates a directory recursively',
   })
 
   fields = Option.Array('--field,-f', {
@@ -1951,12 +2629,16 @@ export class RunCommand extends AuthenticatedCommand {
 
   concurrency = concurrencyOption()
 
+  urlDownloadTimeoutMs = Option.String('--url-download-timeout', {
+    description: 'Maximum time per URL input download in milliseconds (default: 300000)',
+  })
+
   printUrls = printUrlsOption()
 
   protected async run(): Promise<number | undefined> {
     const inputList = this.inputs ?? []
 
-    if (inputList.length === 0 && !process.stdin.isTTY) {
+    if (inputList.length === 0 && hasPipedStdin()) {
       inputList.push('-')
     }
 
@@ -1998,8 +2680,8 @@ export class RunCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const { hasFailures, resultUrls } = await create(this.output, this.client, {
-      stepsData: parseStepsInputJson(JSON.stringify(compiled.instructions.steps)),
+    const { assemblies, hasFailures, resultUrls } = await create(this.output, this.client, {
+      stepsData: parseStepsInputJson(JSON.stringify(compiled.instructions.steps), this.output),
       fields: fieldsMap ?? {},
       watch: this.watch,
       recursive: this.recursive,
@@ -2009,9 +2691,12 @@ export class RunCommand extends AuthenticatedCommand {
       reprocessStale: this.reprocessStale,
       singleAssembly: this.singleAssembly,
       concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      printUrls: this.printUrls,
+      urlDownloadTimeoutMs:
+        this.urlDownloadTimeoutMs == null ? undefined : Number(this.urlDownloadTimeoutMs),
     })
     if (this.printUrls) {
-      printResultUrls(this.output, resultUrls)
+      printResultUrls(this.output, resultUrls, assemblies)
     }
     return hasFailures ? 1 : undefined
   }

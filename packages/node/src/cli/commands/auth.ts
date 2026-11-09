@@ -17,10 +17,12 @@ import { mintBearerTokenWithCredentials } from '../../bearerToken.ts'
 import { Transloadit } from '../../Transloadit.ts'
 import {
   buildMissingCredentialsMessage,
+  cliSignatureAlgorithmSchema,
   readCliInput,
   requireCliCredentials,
   resolveCliConfig,
 } from '../helpers.ts'
+import { createCliStepsSchema } from '../stepsInput.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 type UrlParamPrimitive = string | number | boolean
@@ -110,16 +112,20 @@ function parseJsonObject<TSchema extends z.ZodTypeAny>(
 // Core logic for signature generation
 function generateSignature(
   input: string,
-  credentials: { authKey: string; authSecret: string },
+  credentials: CliKeySecretCredentials,
   algorithm?: string,
+  output: Pick<IOutputCtl, 'warn'> = console,
 ): OutputResult {
-  const { authKey, authSecret } = credentials
+  const { authKey } = credentials
   let params: CliSignatureParams
 
   if (input === '') {
     params = { auth: { key: authKey } }
   } else {
-    const parsedResult = parseJsonObject(input, cliSignatureParamsSchema)
+    const parsedResult = parseJsonObject(
+      input,
+      cliSignatureParamsSchema.extend({ steps: createCliStepsSchema(output).optional() }),
+    )
     if (!parsedResult.ok) {
       return { ok: false, error: parsedResult.error }
     }
@@ -136,7 +142,7 @@ function generateSignature(
     }
   }
 
-  const client = new Transloadit({ authKey, authSecret })
+  const client = new Transloadit(credentials)
   try {
     const signature = client.calcSignature(params as OptionalAuthParams, algorithm)
     return { ok: true, output: JSON.stringify(signature) }
@@ -286,6 +292,29 @@ export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<voi
   }
 }
 
+/** Auth group help lists command definitions once while preserving every invocation alias. */
+export class AuthHelpCommand extends Command {
+  // Explicit help paths avoid Clipanion's prefix matching, which lists each alias as a command.
+  static override paths = [['auth', '--help'], ['auth', '-h'], ['auth']]
+
+  override execute(): Promise<void> {
+    const commands = this.cli
+      .definitions()
+      .filter((command) => command.path.startsWith(`${this.cli.binaryName} auth `))
+    this.context.stdout.write(
+      [
+        'Authentication commands',
+        '',
+        ...commands.map((command) => `  ${command.path}\n    ${command.description ?? ''}`),
+        '',
+        'Use <command> --help for options.',
+        '',
+      ].join('\n'),
+    )
+    return Promise.resolve()
+  }
+}
+
 /**
  * Generate a signature for assembly params
  */
@@ -314,7 +343,7 @@ export class SignatureCommand extends UnauthenticatedCommand {
   })
 
   algorithm = Option.String('--algorithm,-a', {
-    description: 'Signature algorithm to use (sha1, sha256, sha384, sha512)',
+    description: `Signature algorithm to use (${cliSignatureAlgorithmSchema.options.join(', ')})`,
   })
 
   protected async run(): Promise<number | undefined> {
@@ -323,7 +352,7 @@ export class SignatureCommand extends UnauthenticatedCommand {
 
     const { content } = await readCliInput({ allowStdinWhenNoPath: true })
     const rawInput = (content ?? '').trim()
-    const result = generateSignature(rawInput, credentials, this.algorithm)
+    const result = generateSignature(rawInput, credentials, this.algorithm, this.output)
 
     if (result.ok) {
       process.stdout.write(`${result.output}\n`)

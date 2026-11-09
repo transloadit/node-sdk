@@ -1,12 +1,14 @@
 import type { RequestError } from 'got'
 
+import type { AssemblyStatusError } from './alphalib/types/assemblyStatus.ts'
+
 import { HTTPError } from 'got'
 
 export interface TransloaditErrorResponseBody {
   error?: string
   message?: string
-  reason?: string
-  assembly_ssl_url?: string
+  reason?: AssemblyStatusError['reason']
+  assembly_ssl_url?: string | null
   assembly_id?: string
 }
 
@@ -19,7 +21,11 @@ export class ApiError extends Error {
 
   rawMessage?: string
 
+  /** String reason when supplied by the API, preserving the longstanding SDK contract. */
   reason?: string
+
+  /** Original API reason, including structured diagnostics, without coercion. */
+  rawReason?: AssemblyStatusError['reason']
 
   assemblySslUrl?: string
 
@@ -41,9 +47,10 @@ export class ApiError extends Error {
 
     super(message)
     this.rawMessage = body.message
-    this.reason = body.reason
+    this.reason = typeof body.reason === 'string' ? body.reason : undefined
+    this.rawReason = body.reason
     this.assemblyId = body.assembly_id
-    this.assemblySslUrl = body.assembly_ssl_url
+    this.assemblySslUrl = body.assembly_ssl_url ?? undefined
     this.code = body.error
     this.cause = cause
   }

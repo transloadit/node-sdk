@@ -3,7 +3,13 @@ import { SevLogger } from '@transloadit/sev-logger'
 const baseLogger = new SevLogger({ breadcrumbs: ['mcp-server'] })
 
 const redactString = (value: string, secrets: string[]): string => {
-  let output = value.replace(/Bearer\s+[^\s]+/gi, 'Bearer [redacted]')
+  let output = value
+    .replace(/Bearer\s+[^\s]+/gi, 'Bearer [redacted]')
+    // The hosted upstream secret travels as a header; scrub it even when it was not listed.
+    .replace(
+      /Transloadit-Mcp-Upstream(["']?\s*[:=]\s*["']?)[^\s"',}]+/gi,
+      'Transloadit-Mcp-Upstream$1[redacted]',
+    )
   for (const secret of secrets) {
     if (!secret) continue
     output = output.split(secret).join('[redacted]')
@@ -33,3 +39,9 @@ export const buildRedactor = (secrets: Array<string | undefined>): ((value: unkn
 }
 
 export const getLogger = (): SevLogger => baseLogger
+
+// SevLogger writes warnings and errors to its stdout stream, which the stdio transport owns.
+const diagnosticsLogger = new SevLogger({ breadcrumbs: ['mcp-server'], stdout: process.stderr })
+
+/** Logs diagnostics from tool calls to stderr, so they cannot corrupt the stdio MCP stream. */
+export const getDiagnosticsLogger = (): SevLogger => diagnosticsLogger

@@ -1,45 +1,32 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { googleBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createStorageStoreExample,
+  defineRobotWithHiddenFields,
+  getGoogleCredentialsDescription,
+  googleBase,
+  robotBase,
+  robotStoreMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 6,
-  discount_factor: 0.15000150001500018,
-  discount_pct: 84.99984999849998,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/google/store',
-        use: ':original',
-        credentials: 'YOUR_GOOGLE_CREDENTIALS',
-        path: 'my_target_folder/${unique_prefix}/${file.url_name}',
-      },
-    },
-  },
-  example_code_description: 'Export uploaded files to `my_target_folder` on Google Storage:',
+  ...robotStoreMeta,
+  example_code: createStorageStoreExample('/google/store', 'YOUR_GOOGLE_CREDENTIALS'),
+  example_code_description:
+    'Export uploaded files to `my_target_folder` in a Google Cloud Storage bucket:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
-  purpose_sentence: 'exports encoding results to Google Storage',
-  purpose_verb: 'export',
-  purpose_word: 'Google Storage',
-  purpose_words: 'Export files to Google Storage',
-  service_slug: 'file-exporting',
-  slot_count: 10,
-  title: 'Export files to Google Storage',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
+  purpose_sentence: 'exports encoding results to Google Cloud Storage',
+  purpose_word: 'Google Cloud Storage',
+  purpose_words: 'Export files to Google Cloud Storage',
+  title: 'Export files to Google Cloud Storage',
   name: 'GoogleStoreRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotGoogleStoreInstructionsSchema = robotBase
@@ -53,19 +40,13 @@ The URL to the exported file in your Google bucket will be presented in the Tran
       .boolean()
       .optional()
       .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
-    credentials: z.string().describe(`
-Create a new [Google service account](https://cloud.google.com/storage/docs/authentication). Set its role to "Storage Object Creator". Choose "JSON" for the key file format and download it to your computer. You will need to upload this file when creating your <dfn>Template Credentials</dfn>.
+    credentials: z.string().describe(
+      getGoogleCredentialsDescription(`
+Grant the service account \`storage.objects.create\` on the bucket you want to export to. The “Storage Object Creator” role provides this permission for new objects, but does not allow overwriting existing objects. Add \`storage.objects.delete\` only if you need to overwrite existing objects. See [Google’s IAM roles for Cloud Storage](https://docs.cloud.google.com/storage/docs/access-control/iam-roles).
 
-Go back to your Google credentials project and enable the "Google Cloud Storage JSON API" for it. Wait around ten minutes for the action to propagate through the Google network. Grab the project ID from the dropdown menu in the header bar on the Google site. You will also need it later on.
-
-Now you can set up the \`storage.objects.create\` and \`storage.objects.delete\` permissions. The latter is optional and only required if you intend to overwrite existing paths.
-
-To do this from the Google Cloud console, navigate to "IAM &amp; Admin" and select "Roles". From here, click "Create Role", enter a name, set the role launch stage to _General availability,_ and set the permissions stated above.
-
-Next, go to Storage browser and select the ellipsis on your bucket to edit bucket permissions. From here, select "Add Member", enter your service account as a new member, and select your newly created role.
-
-Then, create your associated [Template Credentials](/c/template-credentials/) in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value.
+For overwrites, create a custom role in “IAM &amp; Admin” → “Roles” with \`storage.objects.create\` and \`storage.objects.delete\`, then grant it to the service account on your bucket.
 `),
+    ),
     path: z
       .string()
       .default('${unique_prefix}/${file.url_name}')
@@ -106,34 +87,33 @@ The SSL URL of the file in the result JSON. The following [Assembly variables](/
   })
   .strict()
 
-export const robotGoogleStoreInstructionsWithHiddenFieldsSchema =
-  robotGoogleStoreInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotGoogleStoreInstructionsSchema.shape.result])
-      .optional(),
-  })
+// Credential alternatives stay optional while Templates and Assembly overrides are merged.
+// GoogleStoreRobot validates the resolved values after credential injection.
+const hiddenFields = {
+  bucket: z.string().optional(),
+  credentials: robotGoogleStoreInstructionsSchema.shape.credentials.optional(),
+  key_file_contents: z.string().optional(),
+  project_id: z.string().optional(),
+}
 
-export type RobotGoogleStoreInstructions = z.infer<typeof robotGoogleStoreInstructionsSchema>
-export type RobotGoogleStoreInstructionsWithHiddenFields = z.infer<
-  typeof robotGoogleStoreInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotGoogleStoreInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotGoogleStoreInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotGoogleStoreInstructionsSchema = interpolateRobot(
-  robotGoogleStoreInstructionsSchema,
-)
-export type InterpolatableRobotGoogleStoreInstructions =
-  InterpolatableRobotGoogleStoreInstructionsInput
+export const {
+  withHiddenFields: robotGoogleStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotGoogleStoreInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotGoogleStoreInstructionsInput = z.input<
-  typeof interpolatableRobotGoogleStoreInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotGoogleStoreInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema
->
+export type RobotGoogleStoreInstructions = Instructions['output']
+export type RobotGoogleStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotGoogleStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotGoogleStoreInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

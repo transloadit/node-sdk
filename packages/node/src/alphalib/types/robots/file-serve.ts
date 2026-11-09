@@ -1,13 +1,20 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  defineRobot,
+  robotBase,
+  robotContentDeliveryMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 4,
-  discount_factor: 0.25,
-  discount_pct: 75,
+  ...robotContentDeliveryMeta,
   example_code: {
     steps: {
       resized: {
@@ -25,28 +32,16 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Serve transformed files with explicit browser and CDN cache duration:',
-  minimum_charge: 0,
-  output_factor: 1,
   purpose_sentence: 'serves files to web browsers',
   purpose_verb: 'serve',
   purpose_word: 'Serve files',
   purpose_words: 'Serve files to web browsers',
-  service_slug: 'content-delivery',
-  slot_count: 0,
   title: 'Serve files to web browsers',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'FileServeRobot',
   priceFactor: 4,
   minimumChargeUsd: 0.0000152587890625,
-  queueSlotCount: 0,
-  downloadInputFiles: false,
-  preserveInputFileUrls: true,
   isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
   isInternal: false,
-  stage: 'ga',
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotFileServeInstructionsSchema = robotBase
@@ -66,11 +61,11 @@ Also consider configuring caching headers and cache-control directives to contro
 You can leverage [signed Smart CDN URLs](/docs/api/authentication/#smart-cdn) to avoid abuse of our encoding platform. Below is a quick Node.js example using our Node SDK, but there are [examples for other languages and SDKs](/docs/api/authentication/#example-code) as well.
 
 \`\`\`javascript
-// yarn add transloadit
+// yarn add @transloadit/node
 // or
-// npm install --save transloadit
+// npm install --save @transloadit/node
 
-import { Transloadit } from 'transloadit'
+import { Transloadit } from '@transloadit/node'
 
 const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
@@ -108,6 +103,14 @@ An optional duration in seconds that the served file should be cached. When set,
 
 This is useful for controlling data retention in CDNs. For instance, if your temporary files are deleted after 24 hours, you can set \`cache_duration\` to \`86400\` to ensure cached copies also expire within that window.
 `),
+    download_name: z
+      .string()
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: reject header-injection control characters, not literal text.
+      .regex(/^[^/\\\u0000-\u001f\u007f-\u009f]{0,255}$/u)
+      .optional()
+      .describe(
+        'Serve as an attachment using this Unicode filename. Empty or omitted keeps inline delivery. Overrides a Content-Disposition header without changing the bytes or Range support.',
+      ),
     headers: z
       .record(z.string())
       .default({
@@ -131,32 +134,23 @@ The \`Accept-Ranges: bytes\` header advertises that HTTP range requests are supp
   })
   .strict()
 
-export const robotFileServeInstructionsWithHiddenFieldsSchema =
-  robotFileServeInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotFileServeInstructionsSchema.shape.result]).optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotFileServeInstructionsSchema.shape> =
+  defineRobot(meta, robotFileServeInstructionsSchema)
 
-export type RobotFileServeInstructions = z.infer<typeof robotFileServeInstructionsSchema>
-export type RobotFileServeInstructionsInput = z.input<typeof robotFileServeInstructionsSchema>
-export type RobotFileServeInstructionsWithHiddenFields = z.infer<
-  typeof robotFileServeInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotFileServeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotFileServeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotFileServeInstructionsSchema = interpolateRobot(
-  robotFileServeInstructionsSchema,
-)
-export type InterpolatableRobotFileServeInstructions = InterpolatableRobotFileServeInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotFileServeInstructionsInput = z.input<
-  typeof interpolatableRobotFileServeInstructionsSchema
->
-
-export const interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotFileServeInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotFileServeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotFileServeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema
->
+export type RobotFileServeInstructions = Instructions['output']
+export type RobotFileServeInstructionsInput = Instructions['input']
+export type RobotFileServeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotFileServeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotFileServeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotFileServeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotFileServeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

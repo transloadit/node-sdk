@@ -24,7 +24,7 @@ This is a **Node.js** SDK to make it easy to talk to the
 
 ## Requirements
 
-- [Node.js](https://nodejs.org/en/) version 20 or newer
+- [Node.js](https://nodejs.org/en/) version 20.10.0 or newer
 - [A Transloadit account](https://transloadit.com/signup/) ([free signup](https://transloadit.com/pricing/))
 - [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
 
@@ -45,37 +45,63 @@ npm install --save @transloadit/node
 The legacy npm package name `transloadit` is kept as an alias for backward compatibility, but
 `@transloadit/node` is the canonical package name.
 
+## Versioning and dependency updates
+
+The SDK surface follows strict SemVer. API contract types and schemas follow API2 and can change
+in minor releases, including type-breaking updates. See the
+[versioning policy](https://github.com/transloadit/node-sdk/blob/main/CONTRIBUTING.md#versioning-policy).
+
+- Commit your lockfile and type-check dependency update PRs.
+- Use `~` ranges for stable contract types within a minor; patch releases do not change contract
+  types. Use `^` to follow the API as it evolves.
+- Use input types for instructions you write, for example
+  `const params = { steps } satisfies CreateAssemblyParams`.
+- Narrow fields from responses and parsed output before use (`null`, `undefined`, unknown strings).
+- Do not depend on Zod internals such as wrapper classes, `.shape` or parse-time defaults.
+
 ## Command Line Interface (CLI)
 
 This package includes a full-featured CLI for interacting with Transloadit from your terminal.
 
 ### Quick Start
 
-Pick one auth setup and then run the CLI.
+Try Storage and Smart CDN with one maintained, runnable example:
 
-Use shell env vars:
+```bash
+npx @transloadit/node@latest init upload-once my-gallery
+cd my-gallery
+npm run demo
+```
+
+The initializer creates local files and installs dependencies; only `npm run demo` logs in and
+uploads. Change the sizes in `demo.ts` and rerun it without uploading the original again.
+See the [canonical example](./examples/upload-once/README.md) for requirements, credential scope
+and the path from a local demo to a real application. Existing projects are never overwritten.
+
+Log in through your browser, then run a command:
+
+```bash
+npx -y @transloadit/node auth login
+npx -y @transloadit/node auth status
+npx -y @transloadit/node --help
+```
+
+No account yet? Choose Sign up in the browser, create your workspace, then approve the code from
+your terminal. Login saves a dedicated CLI key in the owner-only `~/.transloadit/credentials` file.
+Use `auth login --no-browser` to open the printed link yourself; `auth login --stdin` imports dotenv
+credentials without browser approval. Existing saved credentials require `--replace`.
+
+### CI and manual credentials
+
+For automation, provide an appropriately scoped key through your CI secret manager:
 
 ```bash
 export TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
 export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
 ```
 
-Or create a reusable home credentials file:
-
-```bash
-mkdir -p ~/.transloadit
-cat > ~/.transloadit/credentials <<'EOF'
-TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
-TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
-EOF
-chmod 600 ~/.transloadit/credentials
-```
-
-Then see all available commands:
-
-```bash
-npx -y @transloadit/node --help
-```
+For application servers, provision a separate deployment key rather than copying your CLI login.
+`auth logout` revokes the saved CLI key; it should not interrupt a deployed application.
 
 The CLI binary is still called `transloadit`, so command examples below may use
 `npx transloadit ...`.
@@ -107,6 +133,118 @@ Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOA
 `TRANSLOADIT_SECRET`. Commands that mint bearer tokens or generate signatures still require
 `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`.
 
+### Run a Prompt
+
+`run` compiles a natural-language prompt into validated Assembly Instructions and runs them
+immediately:
+
+```bash
+npx -y @transloadit/node run "resize uploaded images to 400px wide" --input image.jpg --output result.jpg
+
+# Print result URLs instead of downloading the output
+npx -y @transloadit/node run "extract a waveform image from this audio" --input audio.mp3 --print-urls
+```
+
+Repeat `--input` for multiple files, or pass a directory. Use `--single-assembly` to process the
+inputs together. `run` also supports `--watch`, `--recursive`, `--concurrency`, and
+`--url-download-timeout` (milliseconds per URL input, default: `300000`).
+
+### Compile Assembly Instructions
+
+`assembly-instructions compile` prints validated Assembly Instructions JSON with a top-level
+`steps` property to stdout. Save it to inspect, lint, or reuse the instructions before processing
+files:
+
+```bash
+npx -y @transloadit/node assembly-instructions compile "resize uploaded images to 400px wide" > instructions.json
+npx -y @transloadit/node assemblies lint --steps instructions.json
+npx -y @transloadit/node assemblies create --steps instructions.json --input image.jpg --output result.jpg
+```
+
+`assemblies create --steps` accepts steps-only JSON or a wrapper containing only `steps`. Set
+Template fields separately with `--field NAME=VALUE`; other wrapper properties are rejected.
+
+Both prompt commands use the credential resolution above and support these compiler options:
+
+| Flag | Description |
+| --- | --- |
+| `--model` | Select the AI model used to compile the instructions. |
+| `--max-attempts` | Limit the number of validation attempts. |
+| `--timeout` | Set the compiler Assembly timeout in milliseconds. |
+| `--mcp-server` | Set the MCP server URL used for Robot documentation and instruction linting. |
+
+### Storage images for Next.js
+
+`@transloadit/viewer` is a published alpha. Follow the
+[Viewer Quickstart](https://github.com/transloadit/node-sdk/blob/main/packages/img/README.md)
+to install it. In a Next.js 16.3.3+ App Router project with Storage enabled, run:
+
+```bash
+yarn transloadit auth login
+yarn transloadit storage store ./hero.jpg website/hero.jpg --public --hashed
+yarn dev
+```
+
+Follow the image package Quickstart to add its Next plugin and import Image from the package.
+`--hashed` creates an immutable filename; use the printed JSX path, including its content hash.
+Start with `auth login` even without an account: choose Sign up in the browser it opens, then approve
+the CLI. For application-server uploads instead of CLI seeding, see [Store an image](#store-an-image).
+Login opens browser approval (on Windows, open the printed URL) and saves one combined Auth Key,
+workspace and signing algorithm in the owner-only credentials file. `--no-browser` prints the
+approval URL; `--stdin` accepts dotenv credentials for automation. Existing credentials require
+`--replace`. Login also checks Storage policy access with a bounded read-only request; if that
+fails, it saves the login and prints a Console link. This check does not prove upload availability.
+
+Store creates `transloadit.images.json` and derived `transloadit-images.d.ts`; commit both. The
+catalog carries workspace, public prefixes and image receipts: no public app env is needed.
+`--public` declares the destination directory recursively, including future uploads, after saving
+the receipt. Plain store never publishes. `image init website/ --example` is an optional example
+generator; private init (`image init uploads/ --private`) creates `transloadit.authorize.ts` and a
+route that denies access until you connect per-object authorization. Use a separate deployment key.
+Existing code/env files are never overwritten. Missing trailing directory slashes are accepted.
+
+Store uploads originals and appends validated receipts to `transloadit.images.json`; commit it.
+`storage store ./images/*.jpg website/` stores shell-expanded files, checkpointing each success.
+It prints `width={960}` (bounded by the original), with a filename-derived alt and a reminder.
+Images are never decoded locally. Add `--placeholder blur` to request a server ThumbHash;
+omission or `--placeholder empty` performs no extraction. Successful extraction adds metadata
+usage equal to 20% of the file's bytes. Viewer's separate `placeholder="blur"` opts into rendering.
+Extraction is best-effort: a missing hash does not fail the upload or trigger another one.
+For live user-upload galleries, use [dynamic React receipts](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/react-storage.md)
+instead of a committed catalog. Authorize preview access before returning a receipt's ThumbHash;
+the hash contains recognizable image data.
+An occupied path conflicts unless `--overwrite` is explicit; prefer `--hashed` for immutable
+filenames. Matching receipts skip repeat uploads; changed bytes get a new name.
+Storage receipts pin the returned `asset_id` and `version_id`. The image URL selects that exact
+retained version, including after rename or overwrite; `v` is a real version, not a cache-busting hash.
+Publication can also be managed explicitly:
+
+```bash
+yarn transloadit storage publish website/
+yarn transloadit storage publications
+yarn transloadit storage unpublish website/
+yarn transloadit auth status
+yarn transloadit auth logout
+```
+
+Logout revokes browser-login keys, including their use by any application. Imported (`--stdin`)
+and legacy keys are only forgotten locally; `auth logout --revoke` explicitly revokes those too.
+
+Unpublishing stops origin access but cannot recall cached/downloaded bytes. For lost metadata,
+restore the committed catalog or use the signed native catalog API with `dam:read` or `dam:write`.
+Older API deployments may not yet expose these reads; see [Recovery options and prerequisites](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#recovery).
+
+Storage commands report the selected credential source on stderr before operating. Ordinary
+commands retain shell → project `.env` → saved login precedence; init prefers the saved login.
+Store, list, sync and publication verify the selected key against the catalog workspace and stop
+before acting on a mismatch. An explicit `--workspace` opts out, but never mixes catalogs: use
+`--receipts` for a separate workspace's catalog. Status shows the saved workspace/key description;
+logout revokes that key before deleting the credentials file and preserves it if revocation fails.
+The endpoint stays bound to those credentials unless explicitly overridden. JSON result output
+stays on stdout; credentials are never printed. See the
+[image Quickstart](https://github.com/transloadit/node-sdk/blob/main/packages/img/README.md)
+and [reference](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md).
+
 ### Minting Bearer Tokens (Hosted MCP)
 
 If you want to connect an agent to the Transloadit-hosted MCP endpoint, mint a short-lived bearer
@@ -127,6 +265,19 @@ npx -y transloadit auth token --aud mcp --scope assemblies:write,templates:read
 ```
 
 ### Processing Media
+
+Assembly runs print their ID and status URL to stderr, including when processing fails.
+`--json` writes newline-delimited JSON summaries for terminal Assembly statuses, with their
+reference, final status, and `ignored_errors`. Ignored errors also produce a warning with their
+count and up to five details.
+If polling fails before a terminal status is retrieved, the error and known Assembly reference
+are reported on stderr.
+With `--print-urls`, JSON remains a single object containing `urls` and `assemblies`.
+This document is written after the batch finishes; an input or watch error that aborts the batch
+can prevent it from being written.
+`--output -` keeps Assembly summaries off stdout; the reference stays on stderr.
+When creating Assemblies, invalid Robot parameters and API failures produce a short diagnostic and
+a nonzero exit status.
 
 For common one-off tasks, prefer the intent-first commands:
 
@@ -238,7 +389,7 @@ npx transloadit image generate [--input <path|dir|url|->] [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--prompt` | `string` | yes | `"A red bicycle in a studio"` | The prompt describing the desired image content. |
-| `--model` | `string` | no | `google/nano-banana-2` | The AI model to use for image generation. Defaults to google/nano-banana-2. Backend-supported models include openai/gpt-image-2 and Google Nano Banana variants. |
+| `--model` | `string` | no | `openai/gpt-image-2.5-flare` | Defaults to openai/gpt-image-2.5-flare. Choose openai/gpt-image-2.5-sunburst for precision. Explicit older models remain supported. |
 | `--format` | `string` | no | `jpg` | Format of the generated image. |
 | `--seed` | `number` | no | — | Seed for the random number generator. |
 | `--aspect-ratio` | `string` | no | — | Aspect ratio of the generated image. |
@@ -252,8 +403,8 @@ npx transloadit image generate [--input <path|dir|url|->] [options]
 ```bash
 # Generate an image from text
 transloadit image generate --prompt "A red bicycle in a studio" --output output.png
-# Generate with OpenAI gpt-image-2
-transloadit image generate --model openai/gpt-image-2 --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png
+# Generate with OpenAI Images 2.5 Sunburst
+transloadit image generate --model openai/gpt-image-2.5-sunburst --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png
 # Guide generation with one input image
 transloadit image generate --input subject.jpg --prompt "Place subject.jpg on a magazine cover" --output output.png
 # Guide generation with multiple input images
@@ -289,6 +440,7 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--format` | `string` | no | `jpg` | The output format for the generated thumbnail image. If a short video clip is generated using the clip strategy, its format is defined by clip_format. |
+| `--quality` | `number` | no | `1` | Compression quality for still previews, from 1 to 100. When specified, the final image resize encodes directly into the requested format at this quality and strips embedded… |
 | `--width` | `number` | no | `1` | Width of the thumbnail, in pixels. |
 | `--height` | `number` | no | `1` | Height of the thumbnail, in pixels. |
 | `--resize-strategy` | `string` | no | `crop` | To achieve the desired dimensions of the preview thumbnail, the Robot might have to resize the generated image. |
@@ -305,11 +457,11 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 | `--icon-text-color` | `string` | no | `value` | The color of the text used in the icon. The format is #rrggbb[aa]. Only used if the icon strategy is applied. |
 | `--icon-text-font` | `string` | no | `value` | The font family of the text used in the icon. Only used if the icon strategy is applied. Here is a list of all supported fonts. |
 | `--icon-text-content` | `string` | no | `extension` | The content of the text box in generated icons. Only used if the icon_style parameter is set to with-text. The default value, extension, adds the file extension (e.g. MP4, JPEG)… |
-| `--optimize` | `boolean` | no | `true` | Specifies whether the generated preview image should be optimized to reduce the image's file size while keeping their quaility. |
+| `--optimize` | `boolean` | no | `true` | Specifies whether the generated preview image should be optimized to reduce its file size while maintaining visual quality. |
 | `--optimize-priority` | `string` | no | `compression-ratio` | Specifies whether conversion speed or compression ratio is prioritized when optimizing images. |
 | `--optimize-progressive` | `boolean` | no | `true` | Specifies whether images should be interlaced, which makes the result image load progressively in browsers. |
 | `--clip-format` | `string` | no | `apng` | The animated image format for the generated video clip. Only used if the clip strategy for video files is applied. Please consult the MDN Web Docs for detailed information about… |
-| `--clip-offset` | `number` | no | `1` | The start position in seconds of where the clip is cut. Only used if the clip strategy for video files is applied. Be aware that for larger video only the first few MBs of the… |
+| `--clip-offset` | `number` | no | `1` | The start position in seconds of where the clip is cut. Only used if the clip strategy for video files is applied. For large videos, only portions of the file may be imported to… |
 | `--clip-duration` | `number` | no | `1` | The duration in seconds of the generated video clip. Only used if the clip strategy for video files is applied. Be aware that a longer clip duration also results in a larger file… |
 | `--clip-framerate` | `number` | no | `1` | The framerate of the generated video clip. Only used if the clip strategy for video files is applied. Be aware that a higher framerate appears smoother but also results in a… |
 | `--clip-loop` | `boolean` | no | `true` | Specifies whether the generated animated image should loop forever (true) or stop after playing the animation once (false). |
@@ -350,7 +502,7 @@ npx transloadit image remove-background --input <path|dir|url|-> [options]
 | --- | --- | --- | --- | --- |
 | `--select` | `string` | no | `foreground` | Region to select and keep in the image. The other region is removed. |
 | `--format` | `string` | no | `png` | Format of the generated image. Defaults to PNG when not provided. |
-| `--provider` | `string` | no | `aws` | Provider to use for removing the background. |
+| `--provider` | `string` | no | `aws` | Chooses the best provider based on your request. Select a specific provider to override automatic selection. |
 | `--model` | `string` | no | `value` | Provider-specific model to use for removing the background. Mostly intended for testing and evaluation. |
 
 **Examples**
@@ -388,14 +540,19 @@ npx transloadit image merge --input <path|dir|url|-> [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--format` | `string` | no | `jpg` | The output format for the modified image. |
-| `--direction` | `string` | no | `horizontal` | Specifies the direction which the images are displayed. Only applies to the default spritesheet layout. Ignored when effect is set to polaroid-stack or mosaic, as those effects… |
+| `--direction` | `string` | no | `horizontal` | Specifies the direction which the images are displayed. Use grid to arrange inputs left-to-right and top-to-bottom. Only applies to the default spritesheet layout. Ignored when… |
 | `--effect` | `string` | no | `mosaic` | Applies a styled collage layout instead of a plain horizontal or vertical spritesheet. |
+| `--columns` | `number` | no | `1` | Number of columns in the grid layout. Only applies when direction is grid. If omitted, columns are calculated automatically from the number of inputs and requested rows. |
+| `--rows` | `number` | no | `1` | Number of rows in the grid layout. Only applies when direction is grid. If omitted, rows are calculated automatically from the number of inputs and requested columns. |
+| `--cell-width` | `number` | no | `1` | Uniform width for each grid cell in pixels. Only applies when direction is grid. Images are resized to fit within the cell while preserving aspect ratio. |
+| `--cell-height` | `number` | no | `1` | Uniform height for each grid cell in pixels. Only applies when direction is grid. Images are resized to fit within the cell while preserving aspect ratio. |
 | `--border` | `number` | no | `1` | An integer value which defines the gap between images on the spritesheet. |
 | `--background` | `string` | no | `transparent` | Either the hexadecimal code or name of the color used to fill the background (only shown with a border > 1). |
 | `--width` | `number` | no | `1` | The output canvas width in pixels. This is mainly used by styled effects such as polaroid-stack and mosaic. |
 | `--height` | `number` | no | `1` | The output canvas height in pixels. This is mainly used by styled effects such as polaroid-stack and mosaic. |
 | `--seed` | `number` | no | `1` | Optional deterministic seed used by styled effects such as polaroid-stack and mosaic. |
 | `--shuffle` | `boolean` | no | `true` | Whether styled effects such as polaroid-stack and mosaic may shuffle the input order before laying out the canvas. |
+| `--sort-by` | `string` | no | `auto` | Controls how bundled inputs are ordered when no explicit numbered alias for the input type is used. |
 | `--coverage` | `number` | no | `1` | Area-coverage multiplier for the polaroid-stack effect. Controls how large each polaroid is relative to the canvas and consequently how much of the canvas is covered by photos.… |
 | `--adaptive-filtering` | `boolean` | no | `true` | Controls the image compression for PNG images. Setting to true results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled. |
 | `--quality` | `number` | no | `1` | Controls the image compression for JPG, PNG, and WebP images. Please also take a look at 🤖/image/optimize. |
@@ -480,7 +637,7 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 | `--resize-strategy` | `string` | no | `crop` | See the list of available resize strategies. |
 | `--zoom` | `boolean` | no | `true` | If this is set to false, smaller images will not be stretched to the desired width and height. |
 | `--crop` | `auto` | no | `value` | Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original image(s). |
-| `--gravity` | `string` | no | `bottom` | The direction from which the image is to be cropped, when "resize_strategy" is set to "crop", but no crop coordinates are defined. |
+| `--gravity` | `string` | no | `bottom` | Sets crop direction for crop or fillcrop without explicit coordinates. |
 | `--strip` | `boolean` | no | `true` | Strips all metadata from the image. This is useful to keep thumbnails as small as possible. |
 | `--alpha` | `string` | no | `Activate` | Gives control of the alpha/matte channel of an image. |
 | `--preclip-alpha` | `string` | no | `Activate` | Gives control of the alpha/matte channel of an image before applying the clipping path via clip: true. |
@@ -500,7 +657,7 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 | `--brightness` | `number` | no | `1` | Increases or decreases the brightness of the image by using a multiplier. For example 1.5 would increase the brightness by 50%, and 0.75 would decrease the brightness by 25%. |
 | `--saturation` | `number` | no | `1` | Increases or decreases the saturation of the image by using a multiplier. For example 1.5 would increase the saturation by 50%, and 0.75 would decrease the saturation by 25%. |
 | `--hue` | `number` | no | `1` | Changes the hue by rotating the color of the image. The value 100 would produce no change whereas 0 and 200 will negate the colors in the image. |
-| `--contrast` | `number` | no | `1` | Adjusts the contrast of the image. A value of 1 produces no change. Values below 1 decrease contrast (with 0 being minimum contrast), and values above 1 increase contrast (with 2… |
+| `--contrast` | `number` | no | `1` | Adjusts the contrast of the image. A value of 1 produces no change. Values below 1 decrease contrast, and values above 1 increase it. Start with small adjustments, such as 0.9 or… |
 | `--watermark-url` | `string` | no | `value` | A URL indicating a PNG image to be overlaid above this image. |
 | `--watermark-position` | `string[]` | no | `bottom` | The position at which the watermark is placed. The available options are "center", "top", "bottom", "left", and "right". You can also combine options, such as "bottom-right". An… |
 | `--watermark-x-offset` | `number` | no | `1` | The x-offset in number of pixels at which the watermark will be placed in relation to the position it has due to watermark_position. |
@@ -555,9 +712,9 @@ npx transloadit image upscale --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--model` | `string` | no | `nightmareai/real-esrgan` | The AI model to use for image upscaling. Defaults to nightmareai/real-esrgan. |
-| `--scale` | `number` | no | `2` | Upscale factor. Defaults to 2. |
-| `--face-enhance` | `boolean` | no | `true` | Enable face enhancement for better face restoration. Defaults to false. |
+| `--model` | `string` | no | `nightmareai/real-esrgan` | The AI model to use for image upscaling. Defaults to nightmareai/real-esrgan. Real-ESRGAN inputs exceeding 2,096,704 pixels are resized proportionally before upscaling. |
+| `--scale` | `number` | no | `2` | Upscale factor, applied after any input resizing. Defaults to 2. GFPGAN results are resized after restoration to match this factor. |
+| `--face-enhance` | `boolean` | no | `true` | Enable face enhancement with Real-ESRGAN or face upsampling with CodeFormer. GFPGAN always performs face restoration and ignores this parameter. Defaults to false. |
 
 **Examples**
 
@@ -598,7 +755,7 @@ npx transloadit document convert --input <path|dir|url|-> [options]
 | `--markdown-theme` | `string` | no | `bare` | This parameter overhauls your Markdown files styling based on several canned presets. |
 | `--pdf-margin` | `string` | no | `value` | PDF Paper margins, separated by , and with units. We support the following unit values: px, in, cm, mm. Currently this parameter is only supported when converting from html. |
 | `--pdf-print-background` | `boolean` | no | `true` | Print PDF background graphics. Currently this parameter is only supported when converting from html. |
-| `--pdf-format` | `string` | no | `A0` | PDF paper format. Currently this parameter is only supported when converting from html. |
+| `--pdf-format` | `string` | no | `A0` | PDF paper format. Values are case-insensitive. Currently this parameter is only supported when converting from html. |
 | `--pdf-display-header-footer` | `boolean` | no | `true` | Display PDF header and footer. Currently this parameter is only supported when converting from html. |
 | `--pdf-header-template` | `string` | no | `value` | HTML template for the PDF print header. Should be valid HTML markup with following classes used to inject printing values into them: - date formatted print date - title document… |
 | `--pdf-footer-template` | `string` | no | `value` | HTML template for the PDF print footer. Should use the same format as the pdf_header_template. Currently this parameter is only supported when converting from html, and requires… |
@@ -805,6 +962,8 @@ Transcribe speech in audio or video files
 
 Runs `/speech/transcribe` with a text-first default and writes the transcript to `--output`.
 
+`--target-language`: Sets the spoken language hint for the `"replicate"` provider. Omit this parameter to detect the spoken language automatically. Set it to the full lowercase English language name, such as `"french"`, when the spoken language is known. Despite its name, this parameter does not translate speech. For the `"aws"` and `"gcp"` providers, use `--source-language` instead.
+
 **Usage**
 
 ```bash
@@ -827,10 +986,12 @@ npx transloadit speech transcribe --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--provider` | `string` | no | `replicate` | Provider to use for transcription. Defaults to replicate. |
+| `--provider` | `string` | no | `replicate` | Provider to use for transcription. Defaults to replicate, or to aws with --speaker-labels. |
 | `--format` | `string` | no | `text` | Output format. Defaults to text. |
 | `--source-language` | `string` | no | `en-US` | Spoken language as a BCP-47 code, for providers that support explicit source languages. |
-| `--target-language` | `string` | no | `en-US` | Target written language for providers that support translation. |
+| `--target-language` | `string` | no | `french` | Sets the spoken language hint for the "replicate" provider. Omit this parameter to detect the spoken language automatically. Set it to the full lowercase English language name,… |
+| `--speaker-labels` | `boolean` | no | — | Label who is speaking: one paragraph per speaker in text, voice spans in WebVTT. Uses aws or gcp. |
+| `--max-speakers` | `number` | no | — | Maximum number of speakers to label, from 1 to 10. Requires --speaker-labels. |
 
 **Examples**
 
@@ -839,6 +1000,8 @@ npx transloadit speech transcribe --input <path|dir|url|-> [options]
 transloadit speech transcribe --input voice.opus --output voice.txt
 # Generate subtitles
 transloadit speech transcribe --input clip.mp4 --format webvtt --output captions.vtt
+# Label who is speaking in an interview
+transloadit speech transcribe --input interview.mp4 --speaker-labels --output interview.txt
 ```
 
 #### `text speak`
@@ -870,7 +1033,7 @@ npx transloadit text speak [--input <path|dir|url|->] [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--prompt` | `string` | no | `"A red bicycle in a studio"` | Which text to speak. You can also set this to null and supply an input text file. |
-| `--provider` | `string` | yes | `aws` | Which AI provider to leverage. Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information… |
+| `--provider` | `string` | no | `aws` | Chooses the best provider based on your request. Select a specific provider to override automatic selection. |
 | `--target-language` | `string` | no | `en-US` | The written language of the document. This will also be the language of the spoken text. The language should be specified in the BCP-47 format, such as "en-GB", "de-DE" or… |
 | `--voice` | `string` | no | `female-1` | The gender to be used for voice synthesis. Please consult the list of supported languages and voices. |
 | `--ssml` | `boolean` | no | `true` | Supply Speech Synthesis Markup Language instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations. |
@@ -878,7 +1041,7 @@ npx transloadit text speak [--input <path|dir|url|->] [options]
 **Examples**
 
 ```bash
-transloadit text speak --input input.pdf --provider aws --output output.mp3
+transloadit text speak --input input.pdf --output output.mp3
 ```
 
 #### `video thumbs`
@@ -913,12 +1076,14 @@ npx transloadit video thumbs --input <path|dir|url|-> [options]
 | `--count` | `number` | no | `1` | The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of… |
 | `--offsets` | `auto` | no | `value` | An array of offsets representing seconds of the file duration, such as [ 2, 45, 120 ]. |
 | `--format` | `string` | no | `jpg` | The format of the extracted thumbnail. Supported values are "jpg", "jpeg" and "png". Even if you specify the format to be "jpeg" the resulting thumbnails will have a "jpg" file… |
-| `--width` | `number` | no | `1` | The width of the thumbnail, in pixels. Defaults to the original width of the video. |
-| `--height` | `number` | no | `1` | The height of the thumbnail, in pixels. Defaults to the original height of the video. |
+| `--width` | `number` | no | `1` | The width of the thumbnail, in pixels. Omit or use null for the original width of the video. |
+| `--height` | `number` | no | `1` | The thumbnail height in pixels, capped like width. Omit or use null for the original height. |
 | `--resize-strategy` | `string` | no | `crop` | One of the available resize strategies. |
-| `--background` | `string` | no | `value` | The background color of the resulting thumbnails in the "rrggbbaa" format (red, green, blue, alpha) when used with the "pad" resize strategy. The default color is black. |
+| `--background` | `string` | no | `value` | The background color of the resulting thumbnails in the "rrggbbaa" format (red, green, blue, alpha) when used with the "pad" resize strategy. The default color is opaque black. |
 | `--rotate` | `number` | no | `0` | Forces the video to be rotated by the specified degree integer. |
 | `--input-codec` | `string` | no | `value` | Specifies the input codec to use when decoding the video. This is useful for videos with special codecs that require specific decoders. |
+| `--smart` | `boolean` | no | `true` | When set to true, enables AI-powered smart thumbnail selection. |
+| `--smart-max-candidates` | `number` | no | `1` | The maximum size of the candidate pool when smart is true. The Robot analyzes up to three candidates per requested thumbnail, capped by this value, but it will never analyze… |
 
 **Examples**
 
@@ -1166,11 +1331,17 @@ For full control, create Assemblies directly using Assembly Instructions (steps)
 # Process a file using a steps file
 npx transloadit assemblies create --steps steps.json --input image.jpg --output result.jpg
 
+# Download results from import-only or prompt-only Steps (no local upload)
+npx transloadit assemblies create --steps steps.json --output out/
+
 # Process using a Template
 npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input image.jpg --output result.jpg
 
 # Process with custom fields
 npx transloadit assemblies create --template YOUR_TEMPLATE_ID --field size=100 --input image.jpg --output thumb.jpg
+
+# Save every result from a Template, creating the output directory
+npx transloadit assemblies create --template builtin/caption-video@0.0.2 --field style=social --field vocabulary=Transloadit --input video.mp4 --output out/
 
 # Process a directory of files
 npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/
@@ -1350,7 +1521,29 @@ All commands support these common options:
 
 The `assemblies create` command additionally supports:
 
+- `--output, -o` - Write to a file or directory, or use `-` for stdout. A trailing `/` or `\`
+  marks a directory and creates it recursively when needed. Existing directories accept all results.
+  A missing path without a trailing separator stays a single-file output; if the Template returns
+  multiple results, use `-o <dir>/`. Stdout accepts a single result.
+  Without uploads (for example, `/vimeo/import`, `/http/import`, or prompt-only `/image/generate`
+  Steps), results are saved as `<dir>/<step>/<result name>`, with no input folder, including with
+  `--single-assembly`.
+  Downloaded filenames come from the Assembly results, including their extensions. Ordinary
+  downloads retain the existing input-relative directories and `<input>/<step>/…` layout for
+  multiple results. Directory inputs retain subfolders relative to that directory. Existing
+  time-based checks skip inputs with newer outputs; use `--reprocess-stale` to process them again.
+  HLS results retain the directories in `meta.relative_path`, so playlists can find their
+  renditions and segments. Multiple HLS bundles in one Step get separate source folders. On
+  collisions, a linked bundle moves together to a new folder, preserving playlist references.
+  Watch updates refresh their existing result files.
+- `--input, -i` - Provide a local upload or a public HTTP(S) URL, or use `-i -` to read stdin explicitly.
+  URLs are downloaded to temporary files for upload and cleaned up after processing; `--watch`
+  requires local inputs. When `--steps` is used without `-i`, stdin is read only when it is a pipe
+  or a redirected file. Other non-TTY stdin (such as an agent shell or `/dev/null`) runs the Assembly
+  without uploads. With `--template`, stdin always requires `-i -`.
 - `--single-assembly` - Pass all input files to a single assembly instead of one assembly per file
+- `--url-download-timeout` - Limit each URL input download to this many milliseconds (default:
+  `300000`, or five minutes). DNS checks and redirects share the same deadline.
 
 #### Log Levels
 
@@ -1379,7 +1572,185 @@ npx transloadit assemblies list -l 7
 
 ## SDK Usage
 
-The following code will upload an image and resize it to a thumbnail:
+### Migrating Assembly and Robot schema consumers
+
+The updated Assembly schemas accept historical responses with null URLs and identity fields,
+reserved uploads, and numeric metadata. These are breaking TypeScript changes for consumers of
+`@transloadit/node`, `transloadit`, `@transloadit/types`, and `@transloadit/zod` (both Zod versions).
+
+- Check Assembly URLs, account/instance identifiers, and `bytes_usage` for null or undefined before
+  using them. Some upload names can also be null, and historical upload fields can be absent.
+- Distinguish reserved uploads with `upload.id !== undefined` before treating an entry as a
+  completed upload. A reservation can contain only `original_id`.
+- Narrow metadata before string operations: fields such as `album`, `artist`, and `create_date`
+  can be numbers; `creator` can also contain string arrays, and `keywords` can contain booleans
+  in arrays. Validate individual `user_meta` values before accessing their properties.
+- Check `typeof assembly.reason === 'string'` before string operations on Assembly errors.
+  Stored reasons can also be null, numbers, booleans, arrays, or objects. Ignored errors can omit
+  `phase`, `message`, and `error`, and their `step` can be null.
+
+`ApiError.reason` remains `string | undefined`; existing string consumers need no migration.
+Use the additive `ApiError.rawReason` property when you need the original structured diagnostic.
+
+Robot metadata no longer exposes `bytescount`, `discount_factor`, `discount_pct`, `minimum_charge`,
+`minimum_charge_usd`, `minimum_charge_usd_note`, `output_factor`, or `slot_count`. Remove code that
+depends on these billing estimates. Existing camelCase metadata fields, where present, are not
+equivalent replacements for the removed pricing values. Validate `example_code` before accessing
+its properties because its type is now `unknown`.
+
+Update Robot category filters from `image-manipulation` to `image-processing`, including calls to
+`listRobots()` and the MCP `transloadit_list_robots` tool.
+
+For `/ai/chat`, use whole-value model interpolation such as `${fields.model}`, with the variable
+containing the complete provider/model value. Partial expressions such as `openai/${fields.model}`
+are now rejected, matching the API. `vendorModelSchema` is a finite enum rather than a refined
+string, so consumers inspecting Zod schema classes or validation issues must handle native enum
+validation. The exported `MODEL_CAPABILITIES` registry is read-only and frozen at the top level;
+do not mutate its entries.
+
+### Store an image
+
+`storeImage()` uploads one local image and returns a verified receipt ready for `Image`.
+Install `@transloadit/node` as a runtime dependency for server uploads; a dev dependency is enough
+when you only use its CLI. Use an Assembly-enabled application key in your server environment,
+not a signing-only image-delivery key or the disposable login key that `auth logout` revokes.
+New combined Smart CDN/Assembly keys use SHA-256, as selected below; use your configured algorithm
+for an existing key.
+
+In an authenticated server handler, `user` is your verified session user and `saveImage` is your
+application's database helper, not an SDK function:
+
+```ts
+import { randomUUID } from 'node:crypto'
+import { Transloadit } from '@transloadit/node'
+
+const { TRANSLOADIT_KEY: authKey, TRANSLOADIT_SECRET: authSecret } = process.env
+if (!authKey || !authSecret) {
+  throw new Error('Set TRANSLOADIT_KEY and TRANSLOADIT_SECRET on the server')
+}
+const client = new Transloadit({
+  authKey,
+  authSecret,
+  signatureAlgorithm: 'sha256',
+})
+const receipt = await client.storeImage('./hero.jpg', {
+  path: `uploads/${randomUUID()}/hero.jpg`,
+})
+await saveImage({ ...receipt, ownerId: user.id })
+```
+
+Choose the destination on the server and save the complete receipt with its owner ID. An occupied
+path is refused unless you explicitly pass `overwrite: true`. This helper does not publish a
+directory or update the CLI's catalog. Pass the saved receipt as `src` in an authorized application;
+see [user uploads, private access and trusted receipt recovery with `getStoredImageReceipt()`](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#images-uploaded-by-your-users)
+for the Uppy/notification flow and recovery without another upload.
+
+For an optional blur preview, pass `placeholder: 'blur'` to `storeImage()`. The original upload
+Step requests `output_meta: { thumbhash: true }`; the SDK does not install or run a native image
+decoder. The receipt includes `thumbhash` and `has_alpha` when extraction succeeds, and native
+get/list, Assembly recovery and batch results preserve them. Metadata usage is 20% of the file's
+bytes only when a hash is produced. Large or unsupported images can omit it without failing storage.
+Treat a hash as image data: authorize it with the original, and keep private receipts private.
+See [blur rendering and recovery](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#responsive)
+for alpha handling and existing images without placeholders.
+
+### Read and reuse stored assets
+
+Save the complete stored result from `results[producingStep][i]` after `ASSEMBLY_COMPLETED`, including
+its Workspace and returned path. Collision handling can rename the requested destination.
+`storeImage()` returns this canonical record plus verified image metadata; other media use the
+same `StoredAsset` contract without requiring image dimensions.
+
+```ts
+const page = await client.listStoredAssets({ prefix: 'uploads/', limit: 100 })
+// Continue with { prefix: 'uploads/', cursor: page.next_cursor } while next_cursor is not null.
+const current = await client.getStoredAsset(receipt.asset_id)
+const pinned = await client.getStoredAsset(receipt.asset_id, { version_id: receipt.version_id })
+```
+
+These signed, bounded metadata reads require `dam:read` or `dam:write`, use the key's Workspace,
+and return checksums and dimensions when available. No S3 credentials or per-file HEADs are needed.
+
+For a multi-file or mixed-media Assembly, fetch its retained results on your server:
+
+```ts
+// Load this upload from your database after checking the current user's access.
+const outputs = await client.getStoredAssemblyResults({
+  assemblyId: upload.assemblyId,
+  workspace: upload.workspace,
+})
+for (const output of outputs) {
+  // Use a unique database key (assembly_id, step, result_id) so notification retries are harmless.
+  await registerMedia({ ...output, ownerId: upload.ownerId })
+}
+```
+
+Each output contains `asset` (the canonical record), `assembly_id`, `step`, `result_id`, and
+`original_id` when the producing result supplies it. One input can produce an image, video and
+poster; combined inputs can have an array of original IDs. Do not correlate by filename or array
+position. Ordinary temporary results are omitted; malformed or cross-Workspace Storage records
+fail the whole read. Failed/incomplete Assemblies are not reported as successful batches, even
+if some writes already happened. This helper verifies authoritative metadata, **not application
+ownership**: never use an unchecked browser/notification Assembly ID in place of `upload`.
+
+Rename/move with the native API to keep saved asset/version references working:
+
+```ts
+const renamed = await client.moveStoredAsset(receipt.asset_id, { filename: 'ceremony.jpg' })
+// Supply destination_folder_id to change folders; null selects the Workspace root.
+const deletion = await client.deleteStoredAsset(renamed.asset_id)
+```
+
+Mutations need `dam:write`. `moveStoredAsset()` returns the canonical record from the transaction
+(checksums may be omitted), with the same identity and version. It never implements a move as
+S3 copy/delete. A native folder move also keeps its descendants' identities.
+
+### Original media, playback and downloads
+
+`getStoredAssetUrl()` signs **exact original bytes**, not an image preview or a video transcode.
+It accepts the canonical record for any media type, without requiring image dimensions:
+
+```ts
+// In a server route, authenticate and load this exact saved reference from your own database.
+const media = await loadMediaAuthorizedForUser(user, mediaId)
+const url = client.getStoredAssetUrl(media.asset, { download: true })
+return new Response(null, {
+  status: 307,
+  headers: { Location: url, 'Cache-Control': 'private, no-store', Vary: 'Cookie' },
+})
+```
+
+`download: true` uses the receipt's filename; a string overrides it safely. Omit `download` for
+inline playback. The attachment header comes from the CDN response, including for cross-origin
+links: no `fetch().blob()`, application byte proxy or whole-video memory allocation is needed.
+Range requests support seeking when the original format/codecs work in that browser; generate
+and store a separate compatible playback rendition when they do not. Use Viewer for previews.
+
+These URLs use signed `builtin/storage-serve@0.0.3` (deploy the matching API2 version first).
+The signing key needs `smart_cdn:sign` or the Workspace's legacy Smart CDN-enabled key permission.
+`lifetimeMs` defaults to a maximum of five minutes (allowed: one second to 48 hours). Signing
+rotates at most once a minute and never more slowly than half the lifetime, so a new URL retains
+at least half its requested lifetime. Bunny includes the full query in its cache key: each
+rotation starts a separate cache entry. An issued URL remains usable until expiry even if the
+application session is revoked. Reauthorize every redirect; do not cache private redirects in
+a shared cache. A download filename changes the signed URL/cache key but never the selected bytes.
+
+For a later Assembly, choose exactly one `/transloadit/import` selector:
+
+- `{ robot: '/transloadit/import', path: receipt.path }` reads the current bytes at that location.
+- `{ robot: '/transloadit/import', asset_id: receipt.asset_id }` follows the logical asset after moves.
+- `{ robot: '/transloadit/import', asset_id: receipt.asset_id, version_id: receipt.version_id }`
+  selects the exact retained bytes. It never falls back to the current version.
+
+Authenticate for the saved Workspace. Deleting the asset or removing that retained version makes
+the reference unavailable; an ID is neither a backup nor authorization. Use the actual stored IDs,
+not a filename or digest, and keep application ownership associated with the stable asset ID.
+
+### Process an image
+
+The following code will upload an image and resize it to a thumbnail. New Console-created combined
+Smart CDN/Assembly keys use SHA-256, so this example selects it explicitly; the SDK's legacy default
+remains SHA-384 for existing keys.
 
 ```javascript
 import { Transloadit } from '@transloadit/node'
@@ -1387,6 +1758,7 @@ import { Transloadit } from '@transloadit/node'
 const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
   authSecret: 'YOUR_TRANSLOADIT_SECRET',
+  signatureAlgorithm: 'sha256',
 })
 
 try {
@@ -1486,13 +1858,31 @@ Table of contents:
 
 Returns a new instance of the client.
 
+```typescript
+const transloadit = new Transloadit({
+  authKey: 'YOUR_TRANSLOADIT_KEY',
+  authSecret: 'YOUR_TRANSLOADIT_SECRET',
+  signatureAlgorithm: 'sha256',
+})
+```
+
+Select SHA-256 for new Console-created combined Smart CDN/Assembly keys; omitting it retains
+the SHA-384 default for existing keys and can produce `INVALID_SIGNATURE` with a combined key.
+
 The `options` object can contain the following keys:
 
 - `authKey` **(required)** - see [requirements](#requirements)
 - `authSecret` **(required)** - see [requirements](#requirements)
+- `signatureAlgorithm` (default `'sha384'`) - API signing algorithm configured on this Auth Key.
+  Use `'sha256'` for combined Smart CDN-enabled keys. Browser CLI login saves and applies this
+  setting automatically; explicit `calcSignature(params, algorithm)` calls still override it.
 - `endpoint` (default `'https://api2.transloadit.com'`)
 - `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `gotRetry` (default `0`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
+- `followRedirects` (default `true`) - follow HTTP redirects from API requests. Set to `false`
+  when serving untrusted callers; the original JSON object is returned without visiting the
+  redirect target, and redirects without a JSON object are rejected. This option does not affect
+  file downloads or tus uploads.
 - `timeout` (default `60000`: 1 minute) - the timeout (in milliseconds) for all requests (except `createAssembly`)
 - `validateResponses` (default `false`)
 
@@ -1816,9 +2206,9 @@ Retrieves the billing data for a given `date` string with format `YYYY-MM`. See 
 
 #### calcSignature(params)
 
-Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
+Calculates a signature for a `params` object without modifying it or its nested `auth` object. Missing `auth.key` and `auth.expires` values default to the client’s Auth Key and a fresh expiration one day from now. Explicit values are preserved.
 
-This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
+Returns `{ signature, params }`, where `params` is the exact JSON string that was signed, including the auth defaults. Send this returned string together with its signature; do not serialize the input object instead.
 
 See [Signature Generation](#signature-generation) in the CLI section for command-line usage.
 
@@ -1855,7 +2245,8 @@ Any errors originating from Node.js will be passed on and we use [GOT](https://g
 
 - `code` (`string`) - [The Transloadit API error code](https://transloadit.com/docs/api/response-codes/#error-codes).
 - `rawMessage` (`string`) - A textual representation of the Transloadit API error.
-- `reason` (`string`) - Additional information about the Transloadit API error.
+- `reason` (`string | undefined`) - Additional information when the API supplies a string reason.
+- `rawReason` - The original API reason, including structured diagnostics, without coercion.
 - `assemblyId`: (`string`) - If the request is related to an assembly, this will be the ID of the assembly.
 - `assemblySslUrl` (`string`) - If the request is related to an assembly, this will be the SSL URL to the assembly .
 
@@ -1934,8 +2325,4 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
-
-
-
-
 

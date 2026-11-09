@@ -36,11 +36,22 @@ export type CreateAssemblyParams = Omit<AssemblyInstructionsInput, 'auth'> & Opt
 
 export type ListAssembliesParams = OptionalAuthParams & {
   page?: number
+  /** At most 5000. */
   pagesize?: number
   type?: 'all' | 'uploading' | 'executing' | 'canceled' | 'completed' | 'failed' | 'request_aborted'
   fromdate?: string
   todate?: string
-  keywords?: string[]
+  /**
+   * One search term of at least 3 characters. API2 stringifies the value, so an array only
+   * works with a single element.
+   */
+  keywords?: string | string[]
+  /** Only Assemblies created from this Template. */
+  template_id?: string
+  /** Only Assemblies that ran in this region, for example `us-east-1`. */
+  region?: string
+  sort?: 'created' | 'created_ts' | 'updated'
+  order?: 'asc' | 'desc'
 }
 
 export type ReplayAssemblyParams = Pick<
@@ -100,6 +111,8 @@ export type ListTemplatesParams = OptionalAuthParams & {
   todate?: string
   keywords?: string[]
   include_builtin?: 'all' | 'latest' | 'exclusively-all' | 'exclusively-latest'
+  /** Template columns to return, such as `['id', 'account_id']`; API2's default omits some. */
+  fields?: string[]
 }
 
 interface TemplateResponseBase {

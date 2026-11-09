@@ -1,13 +1,15 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
+import { defineRobot, robotBase, robotProcessingMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
+  ...robotProcessingMeta,
   example_code: {
     steps: {
       ':original': {
@@ -21,8 +23,6 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Handle uploads and export the uploaded files to S3:',
-  minimum_charge: 0,
-  output_factor: 1,
   override_lvl1: 'Handling Uploads',
   purpose_sentence:
     'receives uploads that your users throw at you from browser or apps, or that you throw at us programmatically',
@@ -30,10 +30,7 @@ export const meta: RobotMetaInput = {
   purpose_word: 'handle uploads',
   purpose_words: 'Handle uploads',
   service_slug: 'handling-uploads',
-  slot_count: 0,
   title: 'Handle uploads',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'UploadHandleRobot',
   priceFactor: 10,
   queueSlotCount: 0,
@@ -41,9 +38,6 @@ export const meta: RobotMetaInput = {
   preserveInputFileUrls: true,
   isAllowedForUrlTransform: false,
   trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotUploadHandleInstructionsSchema = robotBase
@@ -62,34 +56,22 @@ There are **3 important constraints** when using this <dfn>Robot</dfn>:
   })
   .strict()
 
-export const robotUploadHandleInstructionsWithHiddenFieldsSchema =
-  robotUploadHandleInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotUploadHandleInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotUploadHandleInstructionsSchema.shape> =
+  defineRobot(meta, robotUploadHandleInstructionsSchema)
 
-export type RobotUploadHandleInstructions = z.infer<typeof robotUploadHandleInstructionsSchema>
-export type RobotUploadHandleInstructionsWithHiddenFields = z.infer<
-  typeof robotUploadHandleInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotUploadHandleInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotUploadHandleInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotUploadHandleInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotUploadHandleInstructionsSchema = interpolateRobot(
-  robotUploadHandleInstructionsSchema,
-)
-export type InterpolatableRobotUploadHandleInstructions =
-  InterpolatableRobotUploadHandleInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotUploadHandleInstructionsInput = z.input<
-  typeof interpolatableRobotUploadHandleInstructionsSchema
->
-
-export const interpolatableRobotUploadHandleInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotUploadHandleInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotUploadHandleInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotUploadHandleInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotUploadHandleInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotUploadHandleInstructionsWithHiddenFieldsSchema
->
+export type RobotUploadHandleInstructions = Instructions['output']
+export type RobotUploadHandleInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotUploadHandleInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotUploadHandleInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotUploadHandleInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotUploadHandleInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -1,31 +1,30 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { zodStableJsonDefault, zodWithJsonInputSchema } from '../../lib/zodInputSemantics.ts'
 import {
   color_with_alpha,
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
+  robotAudioEncodingMeta,
   robotBase,
   robotFFmpeg,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      waveformed: {
-        robot: '/audio/waveform',
-        use: ':original',
-        width: 400,
-        height: 200,
-        outer_color: '0099ccff',
-        center_color: '0099ccff',
-      },
-    },
-  },
+  ...robotAudioEncodingMeta,
+  example_code: createProcessingExample('waveformed', '/audio/waveform', {
+    width: 400,
+    height: 200,
+    outer_color: '0099ccff',
+    center_color: '0099ccff',
+  }),
   example_code_description:
     'Generate a 400×200 waveform in `#0099cc` color from an uploaded audio file:',
   extended_description: `
@@ -35,29 +34,15 @@ Here is an example waveform image:
 
 <img src="{{hotDemo.data.generated_outputs.waveformed["audio-encoding-generate-a-waveform-image-from-an-audio-file-waveformed-joakim_karud-rock_angel-0.png"].ssl_url}}" width="300" alt="Example waveform image">
 `,
-  minimum_charge: 1048576,
-  output_factor: 0.07,
-  override_lvl1: 'Audio Encoding',
   purpose_sentence:
     'generates waveform images for your audio files and allows you to change their colors and dimensions',
   purpose_verb: 'generate',
   purpose_word: 'generate waveforms',
   purpose_words: 'Generate waveform images from audio',
-  service_slug: 'audio-encoding',
-  slot_count: 20,
   title: 'Generate waveform images from audio',
-  typical_file_size_mb: 3.8,
-  typical_file_type: 'audio file',
   name: 'AudioWaveformRobot',
   priceFactor: 1,
-  queueSlotCount: 20,
   minimumCharge: 1048576,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 // Base schema with common fields
@@ -110,16 +95,21 @@ The color used in the outer parts of the gradient. The format is "rrggbbaa" (red
 `),
   })
 
-const styleSchema = z.preprocess(
-  (val) => {
+const styleValueSchema = z.enum(['v0', 'v1', 'spectrogram'])
+const styleInputSchema = zodStableJsonDefault(
+  z.union([styleValueSchema, z.literal(0), z.literal(1), z.literal('0'), z.literal('1')]),
+  'v0',
+)
+const styleSchema = zodWithJsonInputSchema(
+  z.preprocess((val) => {
     // Backwards compatibility: historically this robot used numeric styles 0/1.
     // The new API is `style: "v0" | "v1" | "spectrogram"`.
     if (val === 'v1' || val === 1 || val === '1') return 'v1'
     if (val === 'v0' || val === 0 || val === '0') return 'v0'
     if (val === 'spectrogram') return 'spectrogram'
     return val
-  },
-  z.enum(['v0', 'v1', 'spectrogram']).default('v0'),
+  }, styleValueSchema.default('v0')),
+  styleInputSchema,
 )
 
 // Color maps for spectrogram visualization
@@ -331,36 +321,23 @@ Available when style is \`"spectrogram"\`. Orientation of the spectrogram. \`"ho
   })
   .strict()
 
-export const robotAudioWaveformInstructionsWithHiddenFieldsSchema =
-  robotAudioWaveformInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotAudioWaveformInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotAudioWaveformInstructionsSchema.shape> =
+  defineRobot(meta, robotAudioWaveformInstructionsSchema)
 
-export type RobotAudioWaveformInstructions = z.infer<typeof robotAudioWaveformInstructionsSchema>
-export type RobotAudioWaveformInstructionsWithHiddenFields = z.infer<
-  typeof robotAudioWaveformInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotAudioWaveformInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotAudioWaveformInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotAudioWaveformInstructionsSchema = interpolateRobot(
-  robotAudioWaveformInstructionsSchema,
-)
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotAudioWaveformInstructions = z.input<
-  typeof interpolatableRobotAudioWaveformInstructionsSchema
->
-export type InterpolatableRobotAudioWaveformInstructionsInput = z.input<
-  typeof interpolatableRobotAudioWaveformInstructionsSchema
->
-
-export const interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotAudioWaveformInstructionsWithHiddenFieldsSchema,
-)
-
-export type InterpolatableRobotAudioWaveformInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotAudioWaveformInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema
->
+export type RobotAudioWaveformInstructions = Instructions['output']
+export type RobotAudioWaveformInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotAudioWaveformInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotAudioWaveformInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotAudioWaveformInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotAudioWaveformInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']
