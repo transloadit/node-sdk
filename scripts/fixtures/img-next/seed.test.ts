@@ -346,7 +346,10 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   await cp(directory, join(originalCwd, 'app/cli-empty'), { recursive: true })
   await writeFile('hero.jpg', bytes)
   await cli.main(['storage', 'store', './hero.jpg', 'website/hero.jpg'])
-  assert.equal(process.exitCode, undefined)
+  // The generic CLI requires original bytes, but the completed write is still recoverable.
+  // Rendering that actual receipt must not require a duplicate upload or accepting a false match.
+  assert.equal(process.exitCode, 1)
+  process.exitCode = undefined
   const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
   assert.equal(catalog.images[stored.path].md5hash, stored.md5hash)
   assert.equal(catalog.images[stored.path].size, stored.size)
