@@ -1632,8 +1632,10 @@ The existing CLI accepts shell-expanded local files of different types:
 transloadit storage store ./photo.jpg ./clip.mp4 ./guide.pdf website/blog-previews/
 ```
 
-Both use `transloadit.images.json` (or `--receipts`): dimensioned images remain in `images`, and
-other media go into `files`. Viewer uses only `images`. Each successful upload is checkpointed;
+Both use `transloadit.images.json` (or `--receipts`): dimensioned receipts with an `image/*` MIME
+type go into `images`; other media and unknown MIME types go into `files`. Viewer uses only
+`images`. Existing catalogs remain readable; sync reclassifies matching entries from current metadata.
+Each successful upload is checkpointed;
 rerunning skips paths whose saved receipt matches the local bytes. Changed bytes require a new
 name or deliberate `--overwrite`; `--hashed` chooses content-addressed names instead. Sync
 recovers mixed prefixes atomically and preserves unmatched entries; use this CLI version or
@@ -1642,7 +1644,9 @@ newer for mixed prefixes. A receipt mismatch stops the batch but preserves the a
 Replay skips compare local bytes with the saved receipt, not current server existence or access.
 Use `storage receipts sync` to refresh a stale catalog after server-side moves or replacements.
 Legacy entries without byte hashes or a verified API origin need recovery before replay; the CLI
-does not guess. Images without dimensions remain recoverable in `files`, but are not Viewer sources.
+does not guess. Sync cannot generate a missing checksum: if none is available, choose a fresh name
+or deliberately use `--overwrite` (never with `--hashed`). Images without dimensions remain
+recoverable in `files`, but are not Viewer sources.
 `--placeholder blur` explicitly requests server metadata extraction for every input in that command;
 use a separate image-only batch when other files do not need it. Successful extraction adds metadata
 usage of 20% of the input bytes.

@@ -362,7 +362,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
                 const previous = hashedReceiptSchema.safeParse(candidate)
                 if (!previous.success || previous.data.path !== destination)
                   throw new Error(
-                    `Catalog receipt for ${JSON.stringify(destination)} is incomplete or does not match this file. Run transloadit storage receipts sync ${quoteCliArgument(destination)} --receipts ${quoteCliArgument(this.receipts)}${this.endpoint === undefined ? '' : ` --endpoint ${quoteCliArgument(this.endpoint)}`} to recover version identity from the same API environment, then retry; nothing uploaded.`,
+                    `Catalog receipt for ${JSON.stringify(destination)} is incomplete or does not match this file. Run transloadit storage receipts sync ${quoteCliArgument(destination)} --receipts ${quoteCliArgument(this.receipts)}${this.endpoint === undefined ? '' : ` --endpoint ${quoteCliArgument(this.endpoint)}`} to recover version identity and any available checksum from the same API environment. If the checksum remains unavailable, ${this.hashed ? 'choose another destination basename' : 'choose a fresh name or use --overwrite only to deliberately replace it'}; sync cannot generate a missing checksum. Nothing uploaded.`,
                   )
                 if (previous.data.apiOrigin !== apiOrigin)
                   throw new Error(

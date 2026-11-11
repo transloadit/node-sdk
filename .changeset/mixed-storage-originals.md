@@ -19,4 +19,6 @@ when deliberately accepting transformed image bytes.
 
 Plain and hashed replays both trust the local receipt's byte hash and do not verify live existence.
 Refresh stale catalogs with `storage receipts sync`; incomplete legacy receipts require recovery
-before replay. Dimensionless files, including images, remain in `files` outside Viewer's typed map.
+before replay. Sync cannot generate a missing checksum. Dimensionless files and unknown MIME types
+remain in `files` outside Viewer's typed map; new uploads and sync require an explicit image MIME
+type to classify an entry as a Viewer image. Existing catalogs remain readable.

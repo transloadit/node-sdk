@@ -653,16 +653,19 @@ test.each([
   expect(await readFile('images.json', 'utf8')).toBe(previous)
 })
 
-test('retains dimensioned legacy images when catalog MIME is null', async () => {
+test('sync classifies dimensioned receipts with unknown MIME as files', async () => {
+  await writeFile('images.json', catalogJson({ [asset.path]: { ...recovered, mime: null } }))
   listed([storedAsset({ mime: null })])
   await runSync()
   expect(process.exitCode).toBeUndefined()
   const catalog = JSON.parse(await readFile('images.json', 'utf8'))
-  expect(catalog.images[asset.path]).toMatchObject({
+  expect(catalog.images).toEqual({})
+  expect(catalog.files[asset.path]).toMatchObject({
     mime: null,
     width: asset.width,
     height: asset.height,
   })
+  expect(await readFile('transloadit-images.d.ts', 'utf8')).not.toContain('@transloadit/viewer')
 })
 
 test('recovers dimensionless files without losing the images or existing receipts', async () => {

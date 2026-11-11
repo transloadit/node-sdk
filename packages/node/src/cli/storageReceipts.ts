@@ -88,8 +88,8 @@ const imageReceiptSchema = storedAssetSchema.extend({
 /** Only image receipts with intrinsic dimensions belong in the Viewer map. */
 export function isStorageImageReceipt(value: unknown): value is z.infer<typeof imageReceiptSchema> {
   const result = imageReceiptSchema.safeParse(value)
-  // Legacy dimensioned image receipts can have null MIME; known video types stay out of Viewer.
-  return result.success && (result.data.mime == null || result.data.mime.startsWith('image/'))
+  // Dimensions also describe videos; an unknown MIME type cannot establish a Viewer image.
+  return result.success && result.data.mime?.startsWith('image/') === true
 }
 
 const legacyTypesHeader =

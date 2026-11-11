@@ -94,12 +94,24 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
-  test('keeps dimensioned legacy images without MIME in the Viewer map', async () => {
-    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({ ...receipt, mime: null })
-    await runStore()
+  test.each([
+    'legacy.jpg',
+    'clip.mp4',
+  ])('keeps dimensioned %s with unknown MIME out of Viewer', async (name) => {
+    const path = `website/${name}`
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({
+      ...receipt,
+      path,
+      mime: null,
+    })
+    await runStore(path)
     expect(process.exitCode).toBeUndefined()
     const catalog = JSON.parse(await readFile('images.json', 'utf8'))
-    expect(catalog.images[receipt.path]).toMatchObject({ mime: null, width: 800, height: 600 })
+    expect(catalog.images).toEqual({})
+    expect(catalog.files[path]).toMatchObject({ mime: null, width: 800, height: 600 })
+    const declarations = await readFile('transloadit-images.d.ts', 'utf8')
+    expect(declarations).toContain('export {}')
+    expect(declarations).not.toContain('@transloadit/viewer')
   })
 
   test('file-only catalogs emit standalone declarations without a Viewer dependency', async () => {
@@ -493,6 +505,43 @@ describe('storage store', () => {
       expect.stringContaining('no upload needed'),
       { ...current, apiOrigin: 'https://api2.transloadit.com', uploaded: false },
     )
+  })
+
+  test.each([
+    false,
+    true,
+  ])('explains recovery when a saved receipt has no checksum (hashed=%s)', async (hashed) => {
+    const bytes = Buffer.from('original bytes without a stored checksum')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    const destination = 'website/hero.jpg'
+    const path = hashed ? `website/hero.${md5hash.slice(0, 8)}.jpg` : destination
+    const previous = catalogJson({
+      [path]: { ...receipt, path, size: bytes.length, md5hash: undefined },
+    })
+    await writeFile('hero.jpg', bytes)
+    await writeFile('transloadit.images.json', previous)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
+    await main(['storage', 'store', './hero.jpg', destination, ...(hashed ? ['--hashed'] : [])])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('If the checksum remains unavailable'),
+    )
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining(
+        hashed ? 'choose another destination basename' : 'choose a fresh name',
+      ),
+    )
+    if (hashed) {
+      expect(OutputCtl.prototype.error).not.toHaveBeenCalledWith(
+        expect.stringContaining('--overwrite'),
+      )
+    } else {
+      expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+        expect.stringContaining('--overwrite only to deliberately replace it'),
+      )
+    }
   })
 
   test.each([
