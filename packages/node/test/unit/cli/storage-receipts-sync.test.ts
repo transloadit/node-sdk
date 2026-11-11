@@ -619,6 +619,32 @@ test.each([
 })
 
 test.each([
+  'image/jpeg',
+  'application/pdf',
+])('keeps catalog order when refreshing %s', async (mime) => {
+  const current = { ...storedAsset({ mime }), apiOrigin: 'http://storage.invalid' }
+  const following = storedAsset({ path: 'website/later.jpg', mime })
+  const entries = { [current.path]: current, [following.path]: following }
+  const category = mime === 'image/jpeg' ? 'images' : 'files'
+  await writeFile(
+    'images.json',
+    JSON.stringify({
+      apiOrigin: 'http://storage.invalid',
+      workspace: current.workspace,
+      public: [],
+      images: {},
+      [category]: entries,
+    }),
+  )
+  listed([storedAsset({ mime, version_id: 'C'.repeat(21) + 'A' })])
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+  expect(Object.keys(catalog[category])).toEqual([current.path, following.path])
+  expect(catalog[category][current.path].version_id).toBe('C'.repeat(21) + 'A')
+})
+
+test.each([
   'application/pdf',
   null,
 ])('syncs native file paths without Viewer delimiters (%s)', async (mime) => {

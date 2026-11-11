@@ -2,6 +2,10 @@ import type { SmartCdnUrlParams } from './smartCdn.ts'
 
 import { getSmartCdnUrl } from './smartCdn.ts'
 
+const previewFormats = ['avif', 'gif', 'jpeg', 'jpg', 'png', 'webp'] as const
+const previewResizeStrategies = ['crop', 'fit', 'fillcrop', 'pad', 'stretch'] as const
+const previewPresets = ['auto', 'frame', 'icon'] as const
+
 /** Immutable identity from a verified Storage receipt. A URL never publishes an asset. */
 export interface PublicStoredAssetReference {
   workspace: string
@@ -14,10 +18,10 @@ export interface PublicStoredAssetPreview {
   width?: number
   height?: number
   quality?: number
-  format?: 'avif' | 'gif' | 'jpeg' | 'jpg' | 'png' | 'webp'
-  resizeStrategy?: 'crop' | 'fit' | 'fillcrop' | 'pad' | 'stretch'
+  format?: (typeof previewFormats)[number]
+  resizeStrategy?: (typeof previewResizeStrategies)[number]
   background?: string
-  preset?: 'auto' | 'frame' | 'icon'
+  preset?: (typeof previewPresets)[number]
 }
 
 /** Choose original bytes (optionally downloaded) or one still preview, never both. */
@@ -40,6 +44,8 @@ export function getPublicStoredAssetUrl(
   asset: PublicStoredAssetReference,
   options: PublicStoredAssetUrlOptions = {},
 ): string {
+  // Utils is dependency-free and cannot import the Node CLI's Zod catalog schema.
+  // Keep this small URL-boundary check local rather than making that schema a browser dependency.
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(asset.workspace)) {
     throw new TypeError('workspace must be a valid Workspace slug')
   }
@@ -71,17 +77,14 @@ export function getPublicStoredAssetUrl(
     boundedInteger(preview.width, 'width', 4096)
     boundedInteger(preview.height, 'height', 4096)
     boundedInteger(preview.quality, 'quality', 85)
-    if (
-      preview.format !== undefined &&
-      !['avif', 'gif', 'jpeg', 'jpg', 'png', 'webp'].includes(preview.format)
-    )
+    if (preview.format !== undefined && !previewFormats.includes(preview.format))
       throw new TypeError('Unsupported preview format')
     if (
       preview.resizeStrategy !== undefined &&
-      !['crop', 'fit', 'fillcrop', 'pad', 'stretch'].includes(preview.resizeStrategy)
+      !previewResizeStrategies.includes(preview.resizeStrategy)
     )
       throw new TypeError('Unsupported preview resize strategy')
-    if (preview.preset !== undefined && !['auto', 'frame', 'icon'].includes(preview.preset))
+    if (preview.preset !== undefined && !previewPresets.includes(preview.preset))
       throw new TypeError('Unsupported preview preset')
     if (
       preview.background !== undefined &&

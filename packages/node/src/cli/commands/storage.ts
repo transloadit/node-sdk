@@ -446,11 +446,14 @@ export class StorageStoreCommand extends StorageProjectCommand {
             if (unchanged) return receipts
             let images = { ...receipts?.images }
             let files = { ...receipts?.files }
-            delete images[destination]
-            delete files[destination]
-            if (isStorageImageReceipt(stored.receipt))
+            // Updating an existing key preserves catalog order; remove only a former category.
+            if (isStorageImageReceipt(stored.receipt)) {
+              delete files[destination]
               images = { ...images, [destination]: stored.receipt }
-            else files = { ...files, [destination]: stored.receipt }
+            } else {
+              delete images[destination]
+              files = { ...files, [destination]: stored.receipt }
+            }
             return {
               ...receipts,
               workspace,
@@ -791,10 +794,13 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
         const images = new Map(Object.entries(previous?.images ?? {}))
         const files = new Map(Object.entries(previous?.files ?? {}))
         for (const [path, receipt] of Object.entries(synced)) {
-          images.delete(path)
-          files.delete(path)
-          if (isStorageImageReceipt(receipt)) images.set(path, receipt)
-          else files.set(path, receipt)
+          if (isStorageImageReceipt(receipt)) {
+            files.delete(path)
+            images.set(path, receipt)
+          } else {
+            images.delete(path)
+            files.set(path, receipt)
+          }
         }
         if (policy.public_prefixes.length === 0)
           this.output.notice(

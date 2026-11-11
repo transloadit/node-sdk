@@ -1490,6 +1490,42 @@ describe('storage store', () => {
     )
   })
 
+  test.each([
+    'image/jpeg',
+    'application/pdf',
+  ])('keeps catalog order when replacing %s', async (mime) => {
+    const current = { ...receipt, mime }
+    const following = { ...current, path: 'website/later.jpg' }
+    const entries = { [current.path]: current, [following.path]: following }
+    const category = mime === 'image/jpeg' ? 'images' : 'files'
+    await writeFile(
+      'images.json',
+      JSON.stringify({
+        workspace: current.workspace,
+        public: [],
+        images: {},
+        [category]: entries,
+      }),
+    )
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({
+      ...current,
+      version_id: 'C'.repeat(21) + 'A',
+    })
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      current.path,
+      '--receipts',
+      'images.json',
+      '--overwrite',
+    ])
+    expect(process.exitCode).toBeUndefined()
+    const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+    expect(Object.keys(catalog[category])).toEqual([current.path, following.path])
+    expect(catalog[category][current.path].version_id).toBe('C'.repeat(21) + 'A')
+  })
+
   test('overwrites only when explicitly requested', async () => {
     const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main([
