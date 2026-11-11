@@ -24,6 +24,11 @@ export type {
   SmartCdnImageSource,
   SmartCdnImageSourceDimensions,
 } from './smartCdnImage.ts'
+export type {
+  PublicStoredAssetPreview,
+  PublicStoredAssetReference,
+  PublicStoredAssetUrlOptions,
+} from './storagePublicUrl.ts'
 
 export * from './assemblyInstructionsCompiler.ts'
 export { getSmartCdnUrl, parseSmartCdnUrl, stripSmartCdnAuth } from './smartCdn.ts'
@@ -35,6 +40,7 @@ export {
   smartCdnImageMaxDimension,
 } from './smartCdnImage.ts'
 export { validateStoragePath, validateStoragePathPrefix } from './storagePath.ts'
+export { getPublicStoredAssetUrl } from './storagePublicUrl.ts'
 
 const algorithmMap = {
   sha1: 'SHA-1',

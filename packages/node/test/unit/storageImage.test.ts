@@ -501,9 +501,10 @@ test.each([
   ['non-finite height', { ...receipt, height: Number.POSITIVE_INFINITY }],
 ])('rejects a receipt with %s after writing', async (_name, invalid) => {
   const { client, create } = fixture({ ...completed, results: { ':original': [invalid] } })
-  await expect(client.storeImage(filePath, { path: receipt.path })).rejects.toThrow(
-    InconsistentResponseError,
-  )
+  await expect(client.storeImage(filePath, { path: receipt.path })).rejects.toMatchObject({
+    name: 'InconsistentResponseError',
+    cause: { assemblyId: 'completed-assembly' },
+  })
   expect(create).toHaveBeenCalledOnce()
   vi.spyOn(client, 'getAssembly').mockResolvedValue({
     ...completed,

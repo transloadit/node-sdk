@@ -585,12 +585,11 @@ test.each([
 })
 
 test.each([
-  undefined,
   0,
   -1,
   1.5,
   Number.MAX_SAFE_INTEGER + 1,
-])('fails atomically for missing/invalid image dimensions %j', async (width) => {
+])('fails atomically for invalid supplied image dimensions %j', async (width) => {
   const previous = catalogJson({ unrelated: { keep: true } })
   await writeFile('images.json', previous)
   const api = listed([{ ...asset, width }])
@@ -654,14 +653,33 @@ test.each([
   expect(await readFile('images.json', 'utf8')).toBe(previous)
 })
 
-test('does not save an earlier image when a later image lacks height', async () => {
+test('retains dimensioned legacy images when catalog MIME is null', async () => {
+  listed([storedAsset({ mime: null })])
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+  expect(catalog.images[asset.path]).toMatchObject({
+    mime: null,
+    width: asset.width,
+    height: asset.height,
+  })
+})
+
+test('recovers dimensionless files without losing the images or existing receipts', async () => {
   const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
   await writeFile('images.json', previous)
   listed([asset, storedAsset({ path: 'website/b.jpg', height: undefined })])
   await runSync()
-  expect(process.exitCode).toBe(1)
-  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('website/b.jpg'))
-  expect(await readFile('images.json', 'utf8')).toBe(previous)
+  expect(process.exitCode).toBeUndefined()
+  const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+  expect(catalog.images[asset.path]).toEqual(recovered)
+  expect(catalog.images.keep).toEqual({ ...recovered, path: 'keep' })
+  expect(catalog.files['website/b.jpg']).toMatchObject({
+    path: 'website/b.jpg',
+    asset_id: asset.asset_id,
+    version_id: asset.version_id,
+  })
+  expect(catalog.images['website/b.jpg']).toBeUndefined()
 })
 
 test('rejects duplicate paths instead of choosing arbitrary version metadata', async () => {

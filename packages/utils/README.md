@@ -40,6 +40,18 @@ const url = await getSignedSmartCdnUrl({
 
 ### Smart CDN URL grammar
 
+For a verified Storage receipt under an explicitly published prefix, use
+`getPublicStoredAssetUrl(receipt, options?)`. No secret, network request or publication is involved.
+Omit options for the original; use `{ download: true }` to download with its stored filename, or
+`{ preview: { width: 960, preset: 'frame' } }` for a still preview. Presets are `auto`, `frame`,
+and `icon`; width/height are bounded at 4096 and quality at 85. `format`, `resizeStrategy`, and
+`background` expose the existing bounded public preview controls. Download and preview are
+mutually exclusive; public custom filenames, clip controls and unknown options are rejected.
+Identity comes only from `workspace`, `asset_id`, and `version_id`, never a mutable path. The
+helper requires API2 `public-serve@0.0.3` / `public-preview@0.0.4`; use signed delivery for
+private assets. A generated public URL is not proof of publication or authorization, and
+unpublishing does not recall cached bytes.
+
 The URL builders and parser share one grammar, so a URL built here parses back into the options
 that built it (and vice versa):
 

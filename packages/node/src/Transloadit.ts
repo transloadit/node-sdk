@@ -55,6 +55,11 @@ import type {
   LintAssemblyInstructionsResult,
 } from './lintAssemblyInstructions.ts'
 import type {
+  GetStoredAssetReceiptOptions,
+  StoreAssetOptions,
+  StoredAssetReceipt,
+} from './storageAsset.ts'
+import type {
   GetStoredImageReceiptOptions,
   StoredImageReceipt,
   StoreImageOptions,
@@ -108,6 +113,7 @@ import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
+import { getStoredAssetReceipt, storeAsset } from './storageAsset.ts'
 import { getStoredImageReceipt, storeImage } from './storageImage.ts'
 import {
   normalizeStoragePublicPrefix,
@@ -151,6 +157,12 @@ export type {
   RobotListResult,
   RobotParamHelp,
 } from './robots.ts'
+export type {
+  GetStoredAssetReceiptOptions,
+  StoreAssetOptions,
+  StoredAssetExpectation,
+  StoredAssetReceipt,
+} from './storageAsset.ts'
 export type {
   GetStoredImageReceiptOptions,
   StoredImageExpectation,
@@ -571,6 +583,16 @@ export class Transloadit {
 
   setDefaultTimeout(timeout: number): void {
     this._defaultTimeout = timeout
+  }
+
+  /** Stores one byte-identical local original of any media type and returns its verified receipt. */
+  storeAsset(filePath: string, options: StoreAssetOptions): Promise<StoredAssetReceipt> {
+    return storeAsset(this, filePath, options)
+  }
+
+  /** Recovers a generic original receipt without uploading or accepting changed bytes. */
+  getStoredAssetReceipt(options: GetStoredAssetReceiptOptions): Promise<StoredAssetReceipt> {
+    return getStoredAssetReceipt(this, options)
   }
 
   /** Stores one local original at an explicit path and returns its verified image metadata. */
