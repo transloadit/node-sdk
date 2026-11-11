@@ -308,6 +308,11 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
     output.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString())
     return true
   })
+  const errors: string[] = []
+  t.mock.method(process.stderr, 'write', (chunk: string | Uint8Array) => {
+    errors.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString())
+    return true
+  })
   // Exercise the packed CLI and real receipt validation, including an older backend's
   // pre-Storage transformation. Only the remote Assembly response is simulated here.
   const stored = {
@@ -378,9 +383,11 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   const page = await readFile('app/storage-image-example/page.tsx', 'utf8')
   assert.match(page, /width=\{960\}\s+preload/)
   assert(
-    printed.includes(
-      'Render it with <Image storage src="website/hero.jpg" alt="hero" width={960} />',
-    ),
+    errors
+      .join('')
+      .includes(
+        'Receipt saved in transloadit.images.json. No further files were uploaded. Do not re-upload this object.',
+      ),
   )
   assert(!printed.includes('export default function Page'))
   assert(page.includes("from '@transloadit/viewer/next'"))
