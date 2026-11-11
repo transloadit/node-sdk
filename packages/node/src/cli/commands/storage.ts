@@ -679,8 +679,9 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
     details: `
       Uses native catalog pages and dam:write scope to also recover declared public prefixes.
       Adds or refreshes matched paths; never prunes unmatched entries. Local placeholder metadata
-      survives only for the same retained version. Images with dimensions enter images; other
-      media enter files in the same catalog. Mixed prefixes require this CLI version or newer.
+      survives only for the same retained version. Known image MIME types with dimensions enter
+      images; other media and unknown MIME types enter files in the same catalog.
+      Mixed prefixes require this CLI version or newer.
       Any failure preserves the previous file. No Assembly, original download or remote write occurs.
     `,
     examples: [['Recover website images', 'transloadit storage receipts sync website/']],
@@ -717,14 +718,6 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
               assertStorageCatalogOrigin(previous, endpoint, this.receipts)
             const assets = await listStorageAssets(client, workspace, this.prefix, signal)
             const entries = assets.map((asset) => {
-              try {
-                validateStoragePath(asset.path)
-              } catch (cause) {
-                throw new Error(
-                  `Storage path ${JSON.stringify(asset.path)} is valid for listing but unsupported by the image renderer. Rename it before recovering an image catalog.`,
-                  { cause },
-                )
-              }
               const evidence = uploadEvidenceSchema.safeParse(
                 previous?.workspace === workspace && Object.hasOwn(previous.images, asset.path)
                   ? previous.images[asset.path]
@@ -745,6 +738,18 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
                 apiOrigin: endpoint,
               }
               if (asset.has_alpha !== undefined) delete merged.hasAlpha
+              // Listing already validates native paths. Only Viewer images use path-based delivery;
+              // generic files use asset/version IDs and may contain renderer delimiters such as |.
+              if (isStorageImageReceipt(merged)) {
+                try {
+                  validateStoragePath(asset.path)
+                } catch (cause) {
+                  throw new Error(
+                    `Storage path ${JSON.stringify(asset.path)} is valid for listing but unsupported by the image renderer. Rename it before recovering an image catalog.`,
+                    { cause },
+                  )
+                }
+              }
               return [asset.path, merged]
             })
             count = entries.length

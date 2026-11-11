@@ -619,6 +619,44 @@ test.each([
 })
 
 test.each([
+  'application/pdf',
+  null,
+])('syncs native file paths without Viewer delimiters (%s)', async (mime) => {
+  const file = storedAsset({ path: 'website/report|final.pdf', mime })
+  listed([file])
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+  expect(catalog.images).toEqual({})
+  expect(catalog.files[file.path]).toMatchObject(file)
+  expect(await readFile('transloadit-images.d.ts', 'utf8')).not.toContain('@transloadit/viewer')
+})
+
+test('still refuses renderer delimiters for Viewer images without changing the catalog', async () => {
+  const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
+  await writeFile('images.json', previous)
+  listed([storedAsset({ path: 'website/photo|final.jpg' })])
+  await runSync()
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('unsupported by the image renderer'),
+  )
+  expect(await readFile('images.json', 'utf8')).toBe(previous)
+})
+
+test('still refuses unsafe native paths for non-image files', async () => {
+  const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
+  await writeFile('images.json', previous)
+  listed([storedAsset({ path: 'website/../report.pdf', mime: 'application/pdf' })])
+  await runSync()
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('invalid asset path'),
+  )
+  expect(await readFile('images.json', 'utf8')).toBe(previous)
+})
+
+test.each([
   'other/a.jpg',
   'website/../a.jpg',
 ])('rejects an unexpected or unsafe listed path %s without writing', async (path) => {
