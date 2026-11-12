@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.8.7
+
+### Patch Changes
+
+- 17ea841: Storage requests (`getStoredAsset`, `listStoredAssets`, `moveStoredAsset` and `deleteStoredAsset`) now sign their HTTP method and URL path into `params.auth` as `method` and `path`, as the Transloadit API requires for Storage requests.
+- Updated dependencies [17ea841]
+  - @transloadit/node@6.8.0
+
 ## 0.8.6
 
 ### Patch Changes
