@@ -37,7 +37,7 @@ import {
   selectBuiltinInputUrls,
   validateBuiltinFields,
 } from './builtin-shortcuts.ts'
-import { getTransloaditDoc, searchTransloaditDocs } from './docs.ts'
+import { getTransloaditDocHelp, listTransloaditDocs } from './docs.ts'
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
 import { buildRedactor, getDiagnosticsLogger } from './logger.ts'
 import { assertServerOptions } from './options.ts'
@@ -174,13 +174,13 @@ const toolMessageSchema = z.object({
   path: z.string().optional(),
 })
 
-const searchDocsInputSchema = z.object({
-  query: z.string().min(2),
+const listDocsInputSchema = z.object({
+  search: z.string().trim().min(2).optional(),
   scope: z.enum(['all', 'api', 'faq', 'robots', 'sdks']).default('all'),
   limit: z.number().int().min(1).max(20).default(8),
 })
 
-const searchDocsOutputSchema = z.object({
+const listDocsOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   results: z
     .array(
@@ -194,12 +194,12 @@ const searchDocsOutputSchema = z.object({
   errors: z.array(toolMessageSchema).optional(),
 })
 
-const getDocInputSchema = z.object({
+const getDocHelpInputSchema = z.object({
   path_or_url: z.string().min(1),
   max_chars: z.number().int().min(1_000).max(100_000).default(50_000),
 })
 
-const getDocOutputSchema = z.object({
+const getDocHelpOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   document: z
     .object({
@@ -1405,12 +1405,12 @@ export const createTransloaditMcpServer = (
 
   // Builtin templates supersede the old golden template tool; no legacy alias by design.
   register(
-    'transloadit_search_docs',
-    searchDocsInputSchema,
-    searchDocsOutputSchema,
-    async ({ query, scope, limit }) => {
+    'transloadit_list_docs',
+    listDocsInputSchema,
+    listDocsOutputSchema,
+    async ({ search, scope, limit }) => {
       try {
-        const results = await searchTransloaditDocs(query, scope, limit)
+        const results = await listTransloaditDocs(search, scope, limit)
         return buildToolResponse({ status: 'ok', results })
       } catch {
         return buildToolError(
@@ -1422,12 +1422,12 @@ export const createTransloaditMcpServer = (
   )
 
   register(
-    'transloadit_get_doc',
-    getDocInputSchema,
-    getDocOutputSchema,
+    'transloadit_get_doc_help',
+    getDocHelpInputSchema,
+    getDocHelpOutputSchema,
     async ({ path_or_url, max_chars }) => {
       try {
-        const document = await getTransloaditDoc(path_or_url, max_chars)
+        const document = await getTransloaditDocHelp(path_or_url, max_chars)
         if (document === undefined) {
           return buildToolError(
             'mcp_invalid_docs_url',

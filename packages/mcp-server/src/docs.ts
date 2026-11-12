@@ -16,7 +16,6 @@ export interface DocsPage {
 const docsOrigin = 'https://transloadit.com'
 const docsFetchTimeoutMs = 10_000
 const docsIndexMaxChars = 500_000
-const rootDocsIndexUrl = `${docsOrigin}/llms.txt`
 const docsIndexUrls: Record<DocsScope, readonly string[]> = {
   all: [
     `${docsOrigin}/docs/llms.txt`,
@@ -36,10 +35,14 @@ function normalizeDocsUrl(value: string): URL | undefined {
   if (!URL.canParse(value, docsOrigin)) return
 
   const url = new URL(value, docsOrigin)
-  if (url.origin !== docsOrigin) return
+  if (url.origin !== docsOrigin || url.username || url.password) return
   url.hash = ''
   url.search = ''
   if (url.pathname === '/llms.txt') return url
+  if (['/docs', '/docs/', '/docs.md'].includes(url.pathname)) {
+    url.pathname = '/docs.md'
+    return url
+  }
   if (!url.pathname.startsWith('/docs/')) return
 
   if (!url.pathname.endsWith('.md') && !url.pathname.endsWith('.txt')) {
@@ -90,6 +93,7 @@ async function fetchDocsText(
 ): Promise<DocsTextResponse> {
   const response = await fetcher(url, {
     headers: { Accept: 'text/markdown, text/plain;q=0.9' },
+    redirect: 'error',
     signal: AbortSignal.timeout(docsFetchTimeoutMs),
   })
   if (!response.ok) {
@@ -102,22 +106,8 @@ async function fetchDocsText(
   return readBoundedResponseText(response, maxChars)
 }
 
-async function fetchSearchIndexes(
-  scope: DocsScope,
-  fetcher: typeof fetch,
-): Promise<DocsTextResponse[]> {
-  try {
-    return await Promise.all(
-      docsIndexUrls[scope].map((url) => fetchDocsText(url, docsIndexMaxChars, fetcher)),
-    )
-  } catch {
-    // Keep search available if the MCP package deploys before the scoped content routes.
-    return [await fetchDocsText(rootDocsIndexUrl, docsIndexMaxChars, fetcher)]
-  }
-}
-
 function parseIndex(index: string): DocsSearchResult[] {
-  const results: DocsSearchResult[] = []
+  const results = new Map<string, DocsSearchResult>()
   for (const line of index.split('\n')) {
     const match = markdownLinkPattern.exec(line.trim())
     if (match === null) continue
@@ -125,10 +115,10 @@ function parseIndex(index: string): DocsSearchResult[] {
     const [, title, rawUrl, description] = match
     if (title === undefined || rawUrl === undefined) continue
     const url = normalizeDocsUrl(rawUrl)
-    if (url === undefined || !url.pathname.startsWith('/docs/')) continue
-    results.push({ title, url: url.toString(), description })
+    if (url === undefined || !url.pathname.endsWith('.md')) continue
+    if (!results.has(url.href)) results.set(url.href, { title, url: url.href, description })
   }
-  return results
+  return [...results.values()]
 }
 
 function matchesScope(result: DocsSearchResult, scope: DocsScope): boolean {
@@ -136,28 +126,44 @@ function matchesScope(result: DocsSearchResult, scope: DocsScope): boolean {
   return new URL(result.url).pathname.startsWith(`/docs/${scope}/`)
 }
 
-function getSearchScore(result: DocsSearchResult, terms: string[]): number {
+function getSearchScore(
+  result: DocsSearchResult,
+  terms: string[],
+): { matches: number; weight: number } {
   const title = result.title.toLowerCase()
   const description = result.description?.toLowerCase() ?? ''
   const url = result.url.toLowerCase()
 
-  return terms.reduce((score, term) => {
-    if (title.includes(term)) return score + 5
-    if (description.includes(term)) return score + 2
-    if (url.includes(term)) return score + 1
-    return score
-  }, 0)
+  let matches = 0
+  let weight = 0
+  for (const term of terms) {
+    const score = title.includes(term)
+      ? 5
+      : description.includes(term)
+        ? 2
+        : url.includes(term)
+          ? 1
+          : 0
+    if (score === 0) continue
+    matches++
+    weight += score
+  }
+  return { matches, weight }
 }
 
-/** Search the public Transloadit documentation index without requiring account credentials. */
-export async function searchTransloaditDocs(
-  query: string,
+/** List public documentation pages, optionally ranked by search text, without account credentials. */
+export async function listTransloaditDocs(
+  search: string | undefined,
   scope: DocsScope,
   limit: number,
   fetcher: typeof fetch = fetch,
 ): Promise<DocsSearchResult[]> {
-  const terms = query.toLowerCase().split(/\s+/u).filter(Boolean)
-  const indexResponses = await fetchSearchIndexes(scope, fetcher)
+  const terms = search?.toLowerCase().split(/\s+/u).filter(Boolean) ?? []
+  // The scoped indexes are deployed. Fail explicitly if one is unavailable rather than
+  // silently replacing it with the incomplete root index and presenting missing results.
+  const indexResponses = await Promise.all(
+    docsIndexUrls[scope].map((url) => fetchDocsText(url, docsIndexMaxChars, fetcher)),
+  )
   if (indexResponses.some(({ truncated }) => truncated)) {
     throw new Error('A documentation index exceeded the maximum supported size.')
   }
@@ -166,17 +172,19 @@ export async function searchTransloaditDocs(
   return parseIndex(index)
     .filter((result) => matchesScope(result, scope))
     .map((result) => ({ result, score: getSearchScore(result, terms) }))
-    .filter(({ score }) => score > 0)
+    .filter(({ score }) => terms.length === 0 || score.matches > 0)
     .sort(
       (left, right) =>
-        right.score - left.score || left.result.title.localeCompare(right.result.title),
+        right.score.matches - left.score.matches ||
+        right.score.weight - left.score.weight ||
+        left.result.title.localeCompare(right.result.title),
     )
     .slice(0, limit)
     .map(({ result }) => result)
 }
 
 /** Fetch one public Transloadit documentation page as bounded Markdown. */
-export async function getTransloaditDoc(
+export async function getTransloaditDocHelp(
   pathOrUrl: string,
   maxChars: number,
   fetcher: typeof fetch = fetch,

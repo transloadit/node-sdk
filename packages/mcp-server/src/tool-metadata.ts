@@ -15,8 +15,8 @@ export type ToolSecurityScheme = { type: 'noauth' } | { type: 'oauth2'; scopes: 
 
 export const toolNames = [
   'transloadit_lint_assembly_instructions',
-  'transloadit_search_docs',
-  'transloadit_get_doc',
+  'transloadit_list_docs',
+  'transloadit_get_doc_help',
   'transloadit_create_assembly',
   'transloadit_get_assembly_status',
   'transloadit_wait_for_assembly',
@@ -94,18 +94,18 @@ export const widgetToolNames: readonly ToolName[] = [
  * server and the static server card so the two never drift.
  */
 const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
-  transloadit_search_docs: {
-    title: 'Search Transloadit documentation',
+  transloadit_list_docs: {
+    title: 'List Transloadit documentation',
     description:
-      'Search the public Transloadit documentation index. This read-only tool does not require account credentials.',
+      'List public documentation pages about the API, SDKs, FAQs, Robots and integration concepts, optionally filtered by search text and scope. Returns titles, Markdown URLs and summaries, without fetching page bodies.',
     annotations: readOnly,
     access: 'public',
     scopes: [],
   },
-  transloadit_get_doc: {
-    title: 'Get Transloadit documentation',
+  transloadit_get_doc_help: {
+    title: 'Get documentation help',
     description:
-      'Fetch one public Transloadit documentation page as Markdown. Accepts a /docs path or transloadit.com docs URL.',
+      'Read one public documentation page as bounded Markdown for API authentication, SDK setup, troubleshooting or integration guidance. Accepts a /docs path or transloadit.com documentation URL. Robot parameter help is a separate structured reference.',
     annotations: readOnly,
     access: 'public',
     scopes: [],

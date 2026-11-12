@@ -350,8 +350,8 @@ The JSON config accepts the same keys as `createTransloaditMcpHttpHandler()`, in
 | Tool                                     | Account | OAuth scopes                         | Notes                                           |
 | ---------------------------------------- | ------- | ------------------------------------ | ----------------------------------------------- |
 | `transloadit_lint_assembly_instructions` | no      | none                                 | read-only                                       |
-| `transloadit_search_docs` | no | none | read-only; public documentation |
-| `transloadit_get_doc` | no | none | read-only; public documentation |
+| `transloadit_list_docs` | no | none | read-only; public documentation |
+| `transloadit_get_doc_help` | no | none | read-only; public documentation |
 | `transloadit_list_robots`                | no      | none                                 | read-only                                       |
 | `transloadit_get_robot_help`             | no      | none                                 | read-only                                       |
 | `transloadit_create_assembly`            | yes     | `assemblies:write`, `templates:read` | destructive, open-world (URL imports), widget   |
@@ -408,13 +408,24 @@ For a sandbox file, set `expected_uploads`, run the returned upload command, the
 - `include_builtin`: `all`, `latest`, `exclusively-all`, `exclusively-latest`
 - `include_content`: include parsed `steps` in each template item
 
-Use `transloadit_search_docs` to discover relevant pages, then `transloadit_get_doc` to retrieve bounded Markdown. These tools fetch public documentation without account credentials.
-
 Builtin items also carry `fields_schema` unchanged, including conservative-fidelity metadata
 and null for older Builtins without a declared schema. Workspace Templates omit that property.
 
 `transloadit_get_profile` returns `{ id, name?, nickname? }` for the Workspace behind the current
 credentials, derived from the Workspace's own Assemblies or Templates.
+
+### Documentation and Robot help
+
+| Discovery | Help | Coverage |
+| --- | --- | --- |
+| `transloadit_list_robots` | `transloadit_get_robot_help` | Structured Robot summaries, required/optional parameters and examples for writing Assembly Steps. |
+| `transloadit_list_docs` | `transloadit_get_doc_help` | Public Markdown documentation for API authentication and endpoints, SDK setup, FAQs, integration concepts and full Robot articles. |
+
+The existing Robot tools keep their names and behavior. Documentation tools add the broader guides and prose that a Robot parameter reference does not cover. Like `transloadit_list_robots`, `transloadit_list_docs` accepts an optional `search` filter. It also accepts `scope` (`all`, `api`, `faq`, `robots`, `sdks`) and `limit` (1–20, default 8); omitting `search` lists pages alphabetically. Search prioritizes pages matching more of the search terms and returns each Markdown URL once.
+
+`transloadit_get_doc_help` accepts `path_or_url` from a listing or a public documentation path, plus `max_chars` (1,000–100,000, default 50,000). It returns `{ title, url, markdown, truncated }`. It reads the response as a bounded stream, rejects non-documentation URLs and redirects, and reports temporary documentation failures without returning upstream diagnostics.
+
+The tools use the live `/docs/llms.txt` and scoped API/FAQ/Robot/SDK indexes. Unavailable or oversized indexes produce an explicit error instead of silently searching an incomplete root catalog. They fetch only public documentation and need no account credentials in caller-credentials mode; hosted deployments still apply the OAuth policy described above.
 
 ### Result widget
 
