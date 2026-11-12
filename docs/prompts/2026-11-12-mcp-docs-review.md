@@ -11,3 +11,5 @@ Live checks on November 12, 2026 at 14:08 UTC passed for API/authentication, FAQ
 The MCP workspace typecheck, all 363 MCP unit tests, root `yarn check`, and both stdio integration tests pass. A real in-memory MCP client also listed and fetched the live authentication guide without account credentials. CI is recorded in the PR’s validation section.
 
 Independent review limitation: `council-review` is not installed. A read-only Claude CLI review was attempted, but its OAuth session is expired and could not be refreshed. No independent review is claimed.
+
+GitHub prohibits force pushes to the existing PR branch. The changes were rebased locally and validated; publication retains the previous PR head as a merge parent, preserving that history without changing the tested implementation.
