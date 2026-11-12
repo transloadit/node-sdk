@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 6.8.0
+
+### Minor Changes
+
+- 17ea841: Storage requests (`getStoredAsset`, `listStoredAssets`, `moveStoredAsset` and `deleteStoredAsset`) now sign their HTTP method and URL path into `params.auth` as `method` and `path`, as the Transloadit API requires for Storage requests.
+
 ## 6.7.0
 
 ### Minor Changes
