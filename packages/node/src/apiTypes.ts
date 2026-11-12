@@ -10,7 +10,14 @@ export {
 export { assemblyInstructionsSchema } from './alphalib/types/template.ts'
 
 export interface OptionalAuthParams {
-  auth?: { key?: string; expires?: string }
+  auth?: {
+    key?: string
+    expires?: string
+    /** HTTP method of the request these params are signed for, in upper case. */
+    method?: string
+    /** URL path of the request these params are signed for, without the query string. */
+    path?: string
+  }
 }
 
 // todo make zod schemas for these types in the backend for these too (in alphalib?)
