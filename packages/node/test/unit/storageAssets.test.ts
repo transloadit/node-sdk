@@ -176,6 +176,85 @@ test('soft-deletes by identity and returns the deletion receipt', async () => {
   })
 })
 
+/** The signed `auth` of a multipart Storage mutation. */
+function formAuth(body: unknown): unknown {
+  const params = /name="params"\r\n\r\n([^\r\n]+)/.exec(String(body))?.[1]
+  return params === undefined ? undefined : JSON.parse(params).auth
+}
+
+test('signs every Storage request for its own method and path', async () => {
+  const signedFor: unknown[] = []
+  const queryAuth = (query: Record<string, unknown>) => {
+    signedFor.push(JSON.parse(String(query.params)).auth)
+    return true
+  }
+  const found = { ok: 'DAM_ASSET_FOUND', message: 'Found', asset }
+  nock(origin).get(`/dam/assets/${asset.asset_id}`).query(queryAuth).reply(200, found)
+  nock(origin).get('/dam/assets').query(queryAuth).reply(200, {
+    ok: 'DAM_ASSETS_LISTED',
+    message: 'Listed',
+    workspace: asset.workspace,
+    assets: [],
+    next_cursor: null,
+  })
+  nock(origin)
+    .patch(`/dam/assets/${asset.asset_id}`, (body) => signedFor.push(formAuth(body)) > 0)
+    .reply(200, { ok: 'DAM_ASSET_MOVED', message: 'Moved', asset })
+  nock(origin)
+    .delete(`/dam/assets/${asset.asset_id}`, (body) => signedFor.push(formAuth(body)) > 0)
+    .reply(200, {
+      ok: 'DAM_ASSET_DELETED',
+      message: 'Deleted',
+      asset_id: asset.asset_id,
+      deleted_at: '2026-09-17T12:00:00.000Z',
+    })
+
+  await client.getStoredAsset(asset.asset_id)
+  await client.listStoredAssets({ prefix: 'photos/' })
+  await client.moveStoredAsset(asset.asset_id, { filename: 'renamed.jpg' })
+  await client.deleteStoredAsset(asset.asset_id)
+
+  const assetPath = `/dam/assets/${asset.asset_id}`
+  expect(signedFor).toEqual([
+    expect.objectContaining({ key: 'key', method: 'GET', path: assetPath }),
+    expect.objectContaining({ key: 'key', method: 'GET', path: '/dam/assets' }),
+    expect.objectContaining({ key: 'key', method: 'PATCH', path: assetPath }),
+    expect.objectContaining({ key: 'key', method: 'DELETE', path: assetPath }),
+  ])
+})
+
+test('signs the path the API receives when the endpoint has a base path', async () => {
+  const proxied = new Transloadit({
+    authKey: 'key',
+    authSecret: 'secret',
+    endpoint: `${origin}/transloadit`,
+  })
+  const request = nock(origin)
+    .get('/transloadit/dam/assets')
+    .query((query) => JSON.parse(String(query.params)).auth.path === '/transloadit/dam/assets')
+    .reply(200, {
+      ok: 'DAM_ASSETS_LISTED',
+      message: 'Listed',
+      workspace: asset.workspace,
+      assets: [],
+      next_cursor: null,
+    })
+  await proxied.listStoredAssets()
+  expect(request.isDone()).toBe(true)
+})
+
+test('leaves the method and path out of other signed requests', async () => {
+  const request = nock(origin)
+    .get('/bill/2026-11')
+    .query((query) => {
+      const { auth } = JSON.parse(String(query.params))
+      return auth.key === 'key' && !('method' in auth) && !('path' in auth)
+    })
+    .reply(200, { ok: 'BILL_FOUND' })
+  await client.getBill('2026-11')
+  expect(request.isDone()).toBe(true)
+})
+
 test('rejects an empty move and identifiers before sending a mutation', async () => {
   await expect(client.moveStoredAsset(asset.asset_id, {})).rejects.toThrow()
   await expect(client.moveStoredAsset('../escape', { filename: 'photo.jpg' })).rejects.toThrow()
