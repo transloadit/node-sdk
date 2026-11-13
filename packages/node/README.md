@@ -1608,7 +1608,71 @@ string, so consumers inspecting Zod schema classes or validation issues must han
 validation. The exported `MODEL_CAPABILITIES` registry is read-only and frozen at the top level;
 do not mutate its entries.
 
-### Store an image
+### Mixed-media originals
+
+`storeAsset()` stores one original of any media type without a conversion step:
+
+```ts
+const asset = await client.storeAsset('./beach-waves.mp4', {
+  path: 'website/blog-previews/beach-waves.mp4',
+})
+await saveAsset(asset)
+```
+
+It verifies the returned size and MD5 against the local file; dimensions are optional. Existing
+paths fail unless `overwrite: true` is deliberate. If stored bytes differ, the call rejects with
+the completed receipt and Assembly ID in the error's `cause`; `onReceipt` also receives them.
+That is a completed write, not a reason to retry. `getStoredAssetReceipt({ assemblyId, expected:
+{ path, size, md5hash } })` recovers a receipt without uploading and verifies the same byte facts.
+Neither method publishes files or edits a local catalog.
+
+The existing CLI accepts shell-expanded local files of different types:
+
+```console
+transloadit storage store ./photo.jpg ./clip.mp4 ./guide.pdf website/blog-previews/
+```
+
+Both use `transloadit.images.json` (or `--receipts`): dimensioned receipts with an `image/*` MIME
+type go into `images`; other media and unknown MIME types go into `files`. Viewer uses only
+`images`. Existing catalogs remain readable; sync reclassifies matching entries from current metadata.
+Each successful upload is checkpointed;
+rerunning skips paths whose saved receipt matches the local bytes. Changed bytes require a new
+name or deliberate `--overwrite`; `--hashed` chooses content-addressed names instead. Sync
+recovers mixed prefixes atomically and preserves unmatched entries; use this CLI version or
+newer for mixed prefixes. A receipt mismatch stops the batch but preserves the actual write.
+
+Replay skips compare local bytes with the saved receipt, not current server existence or access.
+Use `storage receipts sync` to refresh a stale catalog after server-side moves or replacements.
+Legacy entries without byte hashes or a verified API origin need recovery before replay; the CLI
+does not guess. Sync cannot generate a missing checksum: if none is available, choose a fresh name
+or deliberately use `--overwrite` (never with `--hashed`). Images without dimensions remain
+recoverable in `files`, but are not Viewer sources.
+`--placeholder blur` explicitly requests server metadata extraction for every input in that command;
+use a separate image-only batch when other files do not need it. Successful extraction adds metadata
+usage of 20% of the input bytes.
+
+If the workspace transforms uploads (for example, adding a watermark), replacing or renaming a file
+does not bypass that policy. Use an original-preserving plan or the SDK `storeImage()` API when you
+deliberately accept transformed image bytes; its completed receipt describes the stored image.
+
+For a **deliberately published** directory, Utils builds original or preview links from the receipt:
+
+```ts
+import { getPublicStoredAssetUrl } from '@transloadit/utils'
+
+const playbackUrl = getPublicStoredAssetUrl(asset)
+const downloadUrl = getPublicStoredAssetUrl(asset, { download: true })
+const posterUrl = getPublicStoredAssetUrl(asset, { preview: { width: 960, preset: 'frame' } })
+```
+
+This helper does not publish or check current access. Public downloads use the stored filename;
+previews offer `auto`, `frame` or `icon`, not animated clips or arbitrary transforms. HTML/XML/SVG
+originals download rather than execute inline; image/video/audio remain inline-capable. These
+URLs require API2's `public-serve@0.0.3` / `public-preview@0.0.4` deployment before adoption.
+Do not put private receipts or placeholder pixels in public catalogs. Unpublishing cannot recall
+bytes already cached by a browser or CDN. Keep source originals and license/attribution records.
+
+### Image receipts
 
 `storeImage()` uploads one local image and returns a verified receipt ready for `Image`.
 Install `@transloadit/node` as a runtime dependency for server uploads; a dev dependency is enough
@@ -1658,8 +1722,8 @@ for alpha handling and existing images without placeholders.
 
 Save the complete stored result from `results[producingStep][i]` after `ASSEMBLY_COMPLETED`, including
 its Workspace and returned path. Collision handling can rename the requested destination.
-`storeImage()` returns this canonical record plus verified image metadata; other media use the
-same `StoredAsset` contract without requiring image dimensions.
+`storeImage()` returns this canonical record plus verified image metadata; `storeAsset()` supports
+the same `StoredAsset` contract without requiring image dimensions.
 
 ```ts
 const page = await client.listStoredAssets({ prefix: 'uploads/', limit: 100 })

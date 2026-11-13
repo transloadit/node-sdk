@@ -308,6 +308,11 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
     output.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString())
     return true
   })
+  const errors: string[] = []
+  t.mock.method(process.stderr, 'write', (chunk: string | Uint8Array) => {
+    errors.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString())
+    return true
+  })
   // Exercise the packed CLI and real receipt validation, including an older backend's
   // pre-Storage transformation. Only the remote Assembly response is simulated here.
   const stored = {
@@ -346,7 +351,10 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   await cp(directory, join(originalCwd, 'app/cli-empty'), { recursive: true })
   await writeFile('hero.jpg', bytes)
   await cli.main(['storage', 'store', './hero.jpg', 'website/hero.jpg'])
-  assert.equal(process.exitCode, undefined)
+  // The generic CLI requires original bytes, but the completed write is still recoverable.
+  // Rendering that actual receipt must not require a duplicate upload or accepting a false match.
+  assert.equal(process.exitCode, 1)
+  process.exitCode = undefined
   const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
   assert.equal(catalog.images[stored.path].md5hash, stored.md5hash)
   assert.equal(catalog.images[stored.path].size, stored.size)
@@ -375,9 +383,11 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   const page = await readFile('app/storage-image-example/page.tsx', 'utf8')
   assert.match(page, /width=\{960\}\s+preload/)
   assert(
-    printed.includes(
-      'Render it with <Image storage src="website/hero.jpg" alt="hero" width={960} />',
-    ),
+    errors
+      .join('')
+      .includes(
+        'Receipt saved in transloadit.images.json. No further files were uploaded. Do not re-upload this object.',
+      ),
   )
   assert(!printed.includes('export default function Page'))
   assert(page.includes("from '@transloadit/viewer/next'"))

@@ -585,12 +585,11 @@ test.each([
 })
 
 test.each([
-  undefined,
   0,
   -1,
   1.5,
   Number.MAX_SAFE_INTEGER + 1,
-])('fails atomically for missing/invalid image dimensions %j', async (width) => {
+])('fails atomically for invalid supplied image dimensions %j', async (width) => {
   const previous = catalogJson({ unrelated: { keep: true } })
   await writeFile('images.json', previous)
   const api = listed([{ ...asset, width }])
@@ -616,6 +615,70 @@ test.each([
   expect(process.exitCode).toBe(1)
   expect(api.isDone()).toBe(true)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('cursor'))
+  expect(await readFile('images.json', 'utf8')).toBe(previous)
+})
+
+test.each([
+  'image/jpeg',
+  'application/pdf',
+])('keeps catalog order when refreshing %s', async (mime) => {
+  const current = { ...storedAsset({ mime }), apiOrigin: 'http://storage.invalid' }
+  const following = storedAsset({ path: 'website/later.jpg', mime })
+  const entries = { [current.path]: current, [following.path]: following }
+  const category = mime === 'image/jpeg' ? 'images' : 'files'
+  await writeFile(
+    'images.json',
+    JSON.stringify({
+      apiOrigin: 'http://storage.invalid',
+      workspace: current.workspace,
+      public: [],
+      images: {},
+      [category]: entries,
+    }),
+  )
+  listed([storedAsset({ mime, version_id: 'C'.repeat(21) + 'A' })])
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+  expect(Object.keys(catalog[category])).toEqual([current.path, following.path])
+  expect(catalog[category][current.path].version_id).toBe('C'.repeat(21) + 'A')
+})
+
+test.each([
+  'application/pdf',
+  null,
+])('syncs native file paths without Viewer delimiters (%s)', async (mime) => {
+  const file = storedAsset({ path: 'website/report|final.pdf', mime })
+  listed([file])
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+  expect(catalog.images).toEqual({})
+  expect(catalog.files[file.path]).toMatchObject(file)
+  expect(await readFile('transloadit-images.d.ts', 'utf8')).not.toContain('@transloadit/viewer')
+})
+
+test('still refuses renderer delimiters for Viewer images without changing the catalog', async () => {
+  const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
+  await writeFile('images.json', previous)
+  listed([storedAsset({ path: 'website/photo|final.jpg' })])
+  await runSync()
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('unsupported by the image renderer'),
+  )
+  expect(await readFile('images.json', 'utf8')).toBe(previous)
+})
+
+test('still refuses unsafe native paths for non-image files', async () => {
+  const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
+  await writeFile('images.json', previous)
+  listed([storedAsset({ path: 'website/../report.pdf', mime: 'application/pdf' })])
+  await runSync()
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('invalid asset path'),
+  )
   expect(await readFile('images.json', 'utf8')).toBe(previous)
 })
 
@@ -654,14 +717,36 @@ test.each([
   expect(await readFile('images.json', 'utf8')).toBe(previous)
 })
 
-test('does not save an earlier image when a later image lacks height', async () => {
+test('sync classifies dimensioned receipts with unknown MIME as files', async () => {
+  await writeFile('images.json', catalogJson({ [asset.path]: { ...recovered, mime: null } }))
+  listed([storedAsset({ mime: null })])
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+  expect(catalog.images).toEqual({})
+  expect(catalog.files[asset.path]).toMatchObject({
+    mime: null,
+    width: asset.width,
+    height: asset.height,
+  })
+  expect(await readFile('transloadit-images.d.ts', 'utf8')).not.toContain('@transloadit/viewer')
+})
+
+test('recovers dimensionless files without losing the images or existing receipts', async () => {
   const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
   await writeFile('images.json', previous)
   listed([asset, storedAsset({ path: 'website/b.jpg', height: undefined })])
   await runSync()
-  expect(process.exitCode).toBe(1)
-  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('website/b.jpg'))
-  expect(await readFile('images.json', 'utf8')).toBe(previous)
+  expect(process.exitCode).toBeUndefined()
+  const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+  expect(catalog.images[asset.path]).toEqual(recovered)
+  expect(catalog.images.keep).toEqual({ ...recovered, path: 'keep' })
+  expect(catalog.files['website/b.jpg']).toMatchObject({
+    path: 'website/b.jpg',
+    asset_id: asset.asset_id,
+    version_id: asset.version_id,
+  })
+  expect(catalog.images['website/b.jpg']).toBeUndefined()
 })
 
 test('rejects duplicate paths instead of choosing arbitrary version metadata', async () => {

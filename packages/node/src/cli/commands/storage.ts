@@ -1,4 +1,4 @@
-import type { StoredImageReceipt } from '../../storageImage.ts'
+import type { StoredAssetReceipt } from '../../storageAsset.ts'
 
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
@@ -25,6 +25,7 @@ import {
   assertStorageCatalogOrigin,
   assertStorageWorkspace,
   defaultStorageCatalog,
+  isStorageImageReceipt,
   readStorageCatalog,
   storageCatalogDelivery,
   storageTypesPath,
@@ -40,7 +41,7 @@ abstract class StorageProjectCommand extends AuthenticatedCommand {
       .origin
   }
   receipts = Option.String('--receipts', defaultStorageCatalog, {
-    description: 'Committed project catalog with workspace, public prefixes and image receipts',
+    description: 'Project catalog with workspace, public prefixes and asset receipts',
   })
   workspace = Option.String('--workspace', {
     description:
@@ -203,12 +204,12 @@ export class StoragePublicationsCommand extends AuthenticatedCommand {
   }
 }
 
-interface CliStoredImageReceipt extends StoredImageReceipt {
+interface CliStoredAssetReceipt extends StoredAssetReceipt {
   source?: string
   apiOrigin?: string
 }
 
-async function hashImageFile(
+async function hashAssetFile(
   file: string,
   signal: AbortSignal,
 ): Promise<{ md5hash: string; size: number }> {
@@ -219,7 +220,7 @@ async function hashImageFile(
     hash.update(chunk)
     size += chunk.length
   }
-  if (size === 0) throw new Error('Cannot store an empty image')
+  if (size === 0) throw new Error('Cannot store an empty file')
   signal.throwIfAborted()
   return { md5hash: hash.digest('hex'), size }
 }
@@ -230,7 +231,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
 
   static override usage = Command.Usage({
     category: 'Storage',
-    description: 'Store original images and save verified metadata for Image',
+    description: 'Store original files and save verified, version-pinned asset receipts',
     details: `
       Uses the CLI's Assembly credentials (environment, .env or ~/.transloadit/credentials).
       Storage writes must be enabled. Existing Storage paths conflict unless --overwrite is explicit.
@@ -239,7 +240,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
       --json includes uploaded for each receipt: false means this file reused a verified receipt.
       --placeholder blur requests server metadata on new uploads. Successful extraction adds
       metadata usage of 20% of the file bytes. Missing placeholders never retry a completed upload.
-      The project catalog binds workspace, published prefixes and image receipts. Each successful
+      The project catalog binds workspace, public prefixes, images and other files. Each successful
       upload is saved atomically before the next. Do not run two writers against the same catalog.
       The catalog defaults to transloadit.images.json; --receipts selects another file.
     `,
@@ -247,6 +248,10 @@ export class StorageStoreCommand extends StorageProjectCommand {
       ['Store a hero image', 'transloadit storage store ./hero.jpg website/hero.jpg'],
       ['Store a content-addressed image', 'transloadit storage store ./hero.jpg website/ --hashed'],
       ['Store a directory of originals', 'transloadit storage store ./images/*.jpg website/'],
+      [
+        'Store mixed media',
+        'transloadit storage store ./photo.jpg ./clip.mp4 ./guide.pdf website/media/',
+      ],
     ],
   })
 
@@ -267,7 +272,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
   })
   protected async run(): Promise<number | undefined> {
     const file = resolve(this.receipts)
-    let stored: { receipt?: CliStoredImageReceipt } = {}
+    let stored: { receipt?: CliStoredAssetReceipt } = {}
     let destination = this.destination
     let workspace: string | undefined
     let saved = false
@@ -282,9 +287,9 @@ export class StorageStoreCommand extends StorageProjectCommand {
           '--hashed cannot be combined with --overwrite; changed bytes get a new name',
         )
       const apiOrigin = this.apiOrigin
-      const uploaded = new Map<string, CliStoredImageReceipt>()
+      const uploaded = new Map<string, CliStoredAssetReceipt>()
       if (this.files.length > 1 && !this.destination.endsWith('/'))
-        throw new Error('Multiple images need a directory destination ending in /')
+        throw new Error('Multiple files need a directory destination ending in /')
       const inputs = this.files.map((input) => ({
         file: input,
         path: this.destination.endsWith('/')
@@ -293,14 +298,14 @@ export class StorageStoreCommand extends StorageProjectCommand {
       }))
       for (const input of inputs) {
         if (file === resolve(input.file))
-          throw new Error('The receipts file cannot be the input image')
+          throw new Error('The receipts file cannot be the input file')
         if (resolve(storageTypesPath(file)) === resolve(input.file))
-          throw new Error('The generated declarations file cannot be the input image')
+          throw new Error('The generated declarations file cannot be the input file')
         validateStoragePath(input.path)
       }
       if (!this.hashed && new Set(inputs.map((input) => input.path)).size !== inputs.length)
         throw new Error(
-          'Input image basenames collide in the destination directory; rename them first',
+          'Input file basenames collide in the destination directory; rename them first',
         )
       const publicPrefix = this.publicDelivery
         ? normalizeStoragePublicPrefix(
@@ -311,6 +316,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
       for (const input of inputs) {
         let publicImage = false
         let unchanged = false
+        let uploadFailure: Error | undefined
         destination = input.path
         stored = {}
         saved = false
@@ -327,24 +333,36 @@ export class StorageStoreCommand extends StorageProjectCommand {
             if (receipts?.workspace === workspace)
               assertStorageCatalogOrigin(receipts, apiOrigin, this.receipts)
             signal.throwIfAborted()
-            if (this.hashed) {
-              // This pass chooses the path and deduplicates. storeImage independently verifies its
+            if (
+              !this.overwrite &&
+              (this.hashed ||
+                uploaded.has(destination) ||
+                (receipts?.workspace === workspace &&
+                  (Object.hasOwn(receipts.images, destination) ||
+                    Object.hasOwn(receipts.files ?? {}, destination))))
+            ) {
+              // Hash only to choose a hashed path or compare an existing receipt. storeAsset verifies its
               // upload input; sharing a caller-supplied checksum would need an immutable-file contract.
-              const { md5hash, size } = await hashImageFile(input.file, signal)
-              const extension = posix.extname(destination)
-              destination = `${destination.slice(0, destination.length - extension.length)}.${md5hash.slice(0, 8)}${extension}`
+              const { md5hash, size } = await hashAssetFile(input.file, signal)
+              if (this.hashed) {
+                const extension = posix.extname(destination)
+                destination = `${destination.slice(0, destination.length - extension.length)}.${md5hash.slice(0, 8)}${extension}`
+              }
               validateStoragePath(destination)
               // Explicit workspace overrides leave the catalog alone; still deduplicate this batch.
               const candidate =
                 uploaded.get(destination) ??
                 (receipts?.workspace === workspace && Object.hasOwn(receipts.images, destination)
                   ? receipts.images[destination]
-                  : undefined)
+                  : receipts?.workspace === workspace &&
+                      Object.hasOwn(receipts.files ?? {}, destination)
+                    ? receipts.files?.[destination]
+                    : undefined)
               if (candidate !== undefined) {
                 const previous = hashedReceiptSchema.safeParse(candidate)
                 if (!previous.success || previous.data.path !== destination)
                   throw new Error(
-                    `Catalog receipt for ${JSON.stringify(destination)} is incomplete or does not match this file. Run transloadit storage receipts sync ${quoteCliArgument(destination)} --receipts ${quoteCliArgument(this.receipts)}${this.endpoint === undefined ? '' : ` --endpoint ${quoteCliArgument(this.endpoint)}`} to recover version identity from the same API environment, then retry; nothing uploaded.`,
+                    `Catalog receipt for ${JSON.stringify(destination)} is incomplete or does not match this file. Run transloadit storage receipts sync ${quoteCliArgument(destination)} --receipts ${quoteCliArgument(this.receipts)}${this.endpoint === undefined ? '' : ` --endpoint ${quoteCliArgument(this.endpoint)}`} to recover version identity and any available checksum from the same API environment. If the checksum remains unavailable, ${this.hashed ? 'choose another destination basename' : 'choose a fresh name or use --overwrite only to deliberately replace it'}; sync cannot generate a missing checksum. Nothing uploaded.`,
                   )
                 if (previous.data.apiOrigin !== apiOrigin)
                   throw new Error(
@@ -352,39 +370,60 @@ export class StorageStoreCommand extends StorageProjectCommand {
                   )
                 if (previous.data.md5hash !== md5hash || previous.data.size !== size)
                   throw new Error(
-                    `Stored bytes for ${JSON.stringify(destination)} differ from this file. An older deployment may have transformed the upload, or the short hashes collided. Restoring the same receipt will not help; choose another destination basename. Nothing uploaded or replaced.`,
+                    this.hashed
+                      ? `Stored bytes for ${JSON.stringify(destination)} differ from this file. An older deployment may have transformed the upload, or the short hashes collided. Restoring the same receipt will not help; choose another destination basename. Nothing uploaded or replaced.`
+                      : `Stored bytes for ${JSON.stringify(destination)} differ from this file. Choose a fresh name or use --overwrite only to deliberately replace it. Nothing uploaded or replaced.`,
                   )
                 stored.receipt = previous.data
                 unchanged = true
               }
             }
-            stored.receipt ??= await this.client.storeImage(input.file, {
-              path: destination,
-              ...(placeholder === undefined ? {} : { placeholder }),
-              signal,
-              onReceipt: (receipt, expected, assemblyId) => {
-                const sizeMatches = receipt.size === expected.size
-                const md5Matches = receipt.md5hash === expected.md5hash
-                this.output.debug(
-                  JSON.stringify({
-                    assemblyId,
-                    result: receipt,
-                    input: expected,
-                    sizeMatches,
-                    md5Matches,
-                  }),
-                )
-                if (!sizeMatches || !md5Matches) {
-                  const difference = sizeMatches
-                    ? 'same size, different MD5'
-                    : `${expected.size.toLocaleString('en-US')} → ${receipt.size.toLocaleString('en-US')} bytes`
-                  this.output.warn(
-                    `Stored bytes differ from ${input.file} (${difference}); the workspace plan may have transformed the upload (for example, a Community-plan watermark on older deployments). The receipt describes the stored image.`,
+            stored.receipt ??= await this.client
+              .storeAsset(input.file, {
+                path: destination,
+                ...(placeholder === undefined ? {} : { placeholder }),
+                signal,
+                onReceipt: (receipt, expected, assemblyId) => {
+                  // Receipt identity is validated before byte fidelity; retain an actual write even
+                  // when the server transformed the original and storeAsset subsequently rejects.
+                  stored.receipt = receipt
+                  const sizeMatches = receipt.size === expected.size
+                  const md5Matches = receipt.md5hash === expected.md5hash
+                  this.output.debug(
+                    JSON.stringify({
+                      assemblyId,
+                      result: receipt,
+                      input: expected,
+                      sizeMatches,
+                      md5Matches,
+                    }),
                   )
-                }
-              },
-              ...(this.overwrite ? { overwrite: true } : {}),
-            })
+                  if (!sizeMatches || !md5Matches) {
+                    const difference = sizeMatches
+                      ? 'same size, different MD5'
+                      : `${expected.size.toLocaleString('en-US')} → ${receipt.size.toLocaleString('en-US')} bytes`
+                    this.output.warn(
+                      `Stored bytes differ from ${input.file} (${difference}); the workspace plan may have transformed the upload (for example, a Community-plan watermark on older deployments). The receipt describes the stored file.`,
+                    )
+                  }
+                },
+                ...(this.overwrite ? { overwrite: true } : {}),
+              })
+              .catch((error: unknown) => {
+                // The error owns recovery evidence; the optional observer need not have run.
+                const completed = z
+                  .object({
+                    receipt: storedAssetSchema.extend({
+                      md5hash: storedAssetSchema.shape.md5hash.unwrap(),
+                    }),
+                  })
+                  .safeParse(error instanceof InconsistentResponseError ? error.cause : undefined)
+                if (completed.success && completed.data.receipt.path === destination)
+                  stored.receipt = completed.data.receipt
+                if (stored.receipt === undefined) throw error
+                uploadFailure = ensureError(error)
+                return stored.receipt
+              })
             if (stored.receipt.workspace !== workspace)
               throw new Error(
                 `The stored receipt belongs to Workspace ${stored.receipt.workspace}, not ${workspace}. The project catalog was not changed; inspect the Assembly before retrying.`,
@@ -395,7 +434,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
                 ...(this.hashed ? { source: basename(input.file) } : {}),
                 apiOrigin,
               }
-            if (this.hashed) uploaded.set(destination, stored.receipt)
+            uploaded.set(destination, stored.receipt)
             if (receipts !== undefined && receipts.workspace !== workspace) {
               this.output.notice(
                 `Catalog ${this.receipts} was not changed; it belongs to ${receipts.workspace}. Use --receipts for a separate catalog.`,
@@ -405,6 +444,16 @@ export class StorageStoreCommand extends StorageProjectCommand {
             publicImage = receipts?.public.some((prefix) => destination.startsWith(prefix)) ?? false
             // Replays must not reorder fields or discard application metadata from a saved receipt.
             if (unchanged) return receipts
+            let images = { ...receipts?.images }
+            let files = { ...receipts?.files }
+            // Updating an existing key preserves catalog order; remove only a former category.
+            if (isStorageImageReceipt(stored.receipt)) {
+              delete files[destination]
+              images = { ...images, [destination]: stored.receipt }
+            } else {
+              delete images[destination]
+              files = { ...files, [destination]: stored.receipt }
+            }
             return {
               ...receipts,
               workspace,
@@ -413,7 +462,8 @@ export class StorageStoreCommand extends StorageProjectCommand {
                 receipts?.delivery ??
                 storageCatalogDelivery(this.endpoint ?? this.cliConfig.endpoint),
               public: receipts?.public ?? [],
-              images: { ...receipts?.images, [stored.receipt.path]: stored.receipt },
+              images,
+              ...(Object.keys(files).length > 0 || receipts?.files !== undefined ? { files } : {}),
             }
           },
           () => {
@@ -421,6 +471,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
           },
         )
         if (stored.receipt === undefined) throw new Error('Storage did not return a receipt')
+        if (uploadFailure) throw uploadFailure
         if (publicPrefix !== undefined && published === undefined) {
           this.output.notice(
             `Publishing ${publicPrefix} recursively: all current and future objects under this prefix will be public.`,
@@ -440,6 +491,13 @@ export class StorageStoreCommand extends StorageProjectCommand {
           })
         }
         const receipt = stored.receipt
+        if (!isStorageImageReceipt(receipt)) {
+          this.output.print(
+            `${unchanged ? `Unchanged ${receipt.path}; no upload needed.\n` : ''}${saved ? `Saved ${receipt.path} in ${this.receipts}.` : `Stored ${receipt.path}; the different-workspace catalog was left unchanged.`}\nUse the asset/version receipt for original delivery or a Smart CDN preview.`,
+            { ...receipt, uploaded: !unchanged },
+          )
+          continue
+        }
         if (placeholder === 'blur' && receipt.thumbhash === undefined) {
           this.output.notice(
             unchanged
@@ -613,8 +671,6 @@ const uploadEvidenceSchema = storedAssetSchema.extend({
 
 const hashedReceiptSchema = uploadEvidenceSchema.extend({
   md5hash: storedAssetSchema.shape.md5hash.unwrap(),
-  width: storedAssetSchema.shape.width.unwrap(),
-  height: storedAssetSchema.shape.height.unwrap(),
 })
 
 /** Recovers pinned receipts from bounded native catalog pages without downloading originals. */
@@ -626,7 +682,9 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
     details: `
       Uses native catalog pages and dam:write scope to also recover declared public prefixes.
       Adds or refreshes matched paths; never prunes unmatched entries. Local placeholder metadata
-      survives only for the same retained version. Every matched image must have catalog dimensions.
+      survives only for the same retained version. Known image MIME types with dimensions enter
+      images; other media and unknown MIME types enter files in the same catalog.
+      Mixed prefixes require this CLI version or newer.
       Any failure preserves the previous file. No Assembly, original download or remote write occurs.
     `,
     examples: [['Recover website images', 'transloadit storage receipts sync website/']],
@@ -663,23 +721,13 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
               assertStorageCatalogOrigin(previous, endpoint, this.receipts)
             const assets = await listStorageAssets(client, workspace, this.prefix, signal)
             const entries = assets.map((asset) => {
-              try {
-                validateStoragePath(asset.path)
-              } catch (cause) {
-                throw new Error(
-                  `Storage path ${JSON.stringify(asset.path)} is valid for listing but unsupported by the image renderer. Rename it before recovering an image catalog.`,
-                  { cause },
-                )
-              }
-              if (asset.width === undefined || asset.height === undefined) {
-                throw new Error(
-                  `Storage image ${JSON.stringify(asset.path)} needs positive catalog width and height. Select an image-only prefix and backfill missing dimensions before retrying.`,
-                )
-              }
               const evidence = uploadEvidenceSchema.safeParse(
                 previous?.workspace === workspace && Object.hasOwn(previous.images, asset.path)
                   ? previous.images[asset.path]
-                  : undefined,
+                  : previous?.workspace === workspace &&
+                      Object.hasOwn(previous.files ?? {}, asset.path)
+                    ? previous.files?.[asset.path]
+                    : undefined,
               )
               const retained =
                 evidence.success &&
@@ -693,6 +741,18 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
                 apiOrigin: endpoint,
               }
               if (asset.has_alpha !== undefined) delete merged.hasAlpha
+              // Listing already validates native paths. Only Viewer images use path-based delivery;
+              // generic files use asset/version IDs and may contain renderer delimiters such as |.
+              if (isStorageImageReceipt(merged)) {
+                try {
+                  validateStoragePath(asset.path)
+                } catch (cause) {
+                  throw new Error(
+                    `Storage path ${JSON.stringify(asset.path)} is valid for listing but unsupported by the image renderer. Rename it before recovering an image catalog.`,
+                    { cause },
+                  )
+                }
+              }
               return [asset.path, merged]
             })
             count = entries.length
@@ -731,6 +791,17 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
             )
           })
         catalogUpdated = true
+        const images = new Map(Object.entries(previous?.images ?? {}))
+        const files = new Map(Object.entries(previous?.files ?? {}))
+        for (const [path, receipt] of Object.entries(synced)) {
+          if (isStorageImageReceipt(receipt)) {
+            files.delete(path)
+            images.set(path, receipt)
+          } else {
+            images.delete(path)
+            files.set(path, receipt)
+          }
+        }
         if (policy.public_prefixes.length === 0)
           this.output.notice(
             'No public prefixes are declared on the server. For public delivery, deliberately publish a directory with storage publish; otherwise configure authorize for private images. Sync never publishes files.',
@@ -743,7 +814,10 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
             previous?.delivery ??
             storageCatalogDelivery(this.endpoint ?? config.credentialsEndpoint),
           public: policy.public_prefixes.map(({ prefix }) => prefix),
-          images: { ...previous?.images, ...synced },
+          images: Object.fromEntries(images),
+          ...(files.size > 0 || previous?.files !== undefined
+            ? { files: Object.fromEntries(files) }
+            : {}),
         }
       })
       this.output.print(
