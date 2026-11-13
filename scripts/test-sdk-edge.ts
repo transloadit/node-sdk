@@ -36,6 +36,16 @@ async function main(): Promise<void> {
   const temporary = await mkdtemp(join(tmpdir(), 'transloadit-sdk-edge-'))
   try {
     await execa('docker', ['pull', edgeImage], { stdio: 'inherit' })
+    const localDependencies: string[] = []
+    if (values.version === undefined) {
+      // A version PR must test this checkout's Utils before that version exists on npm.
+      const utils = join(temporary, 'utils.tgz')
+      await execa('corepack', ['yarn', 'workspace', '@transloadit/utils', 'pack', '--out', utils], {
+        cwd: repoRoot,
+        stdio: 'inherit',
+      })
+      localDependencies.push(utils)
+    }
     for (const name of ['@transloadit/node', 'transloadit']) {
       const label = name === 'transloadit' ? 'legacy' : 'node'
       const consumer = join(temporary, label)
@@ -50,10 +60,25 @@ async function main(): Promise<void> {
       }
       await writeFile(join(consumer, 'package.json'), '{"private":true,"type":"module"}\n')
       // Do not omit optional dependencies: that would hide the original customer regression.
-      await execa('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', source], {
-        cwd: consumer,
-        stdio: 'inherit',
-      })
+      await execa(
+        'npm',
+        ['install', '--ignore-scripts', '--no-audit', '--no-fund', source, ...localDependencies],
+        {
+          cwd: consumer,
+          stdio: 'inherit',
+        },
+      )
+      if (values.version === undefined) {
+        const lock = z
+          .object({
+            packages: z.record(z.string(), z.object({ resolved: z.string().optional() })),
+          })
+          .parse(JSON.parse(await readFile(join(consumer, 'package-lock.json'), 'utf8')))
+        assert(
+          lock.packages['node_modules/@transloadit/utils']?.resolved?.startsWith('file:'),
+          'The packed Edge fixture must exercise this checkout’s Utils, including unreleased versions',
+        )
+      }
       await cp(join(repoRoot, 'scripts/fixtures/sdk-edge/index.ts'), join(consumer, 'index.ts'))
       await writeFile(
         join(consumer, 'deno.json'),
