@@ -785,20 +785,21 @@ same-page sign-in/refresh needs an explicit retry identity. See [When it breaks]
 
 ### Receipt integrity and recovery
 
-Older deployments may watermark Community-plan uploads. The CLI reports changed bytes and saves
-metadata for the actual stored image; it does not suggest overwriting that completed upload.
+With Node SDK/CLI 6.9.0 or newer, `storage store` uses `client.storeAsset()` to store originals of
+any media type, not only images. It verifies the returned size and MD5 against the local file.
+If the stored bytes differ, the CLI checkpoints the actual completed receipt and stops with an
+error. This is a completed write, not an invitation to retry or overwrite it. The Node SDK's
+[mixed-media originals contract](../../node/README.md#mixed-media-originals) owns byte verification,
+replay, recovery and overwrite behavior.
 
-The store command wraps `client.storeImage()`, waits for completion and validates `asset_id`,
-the exact destination, stored byte count/MD5 and positive EXIF-oriented display dimensions.
-The receipt lands in `results[':original']`, not `results.stored`. Older deployments can apply
-Community-plan watermarks before Storage runs; newer API2 deployments preserve stored originals.
-The receipt describes the stored bytes, not an assumption that they equal the local file.
-The CLI warns about a changed size or checksum and saves that authoritative receipt normally.
-`--log-level debug` adds the Assembly ID, bounded receipt summary and input comparison, never
-raw Assembly responses or credentials. SDK callers can observe `(receipt, input, assemblyId)`
-through the optional `onReceipt` callback. Observers are not awaited; synchronous exceptions and
-asynchronous rejections do not discard completed writes.
-Rendering requires no metadata lookup.
+The catalog keeps dimensioned `image/*` receipts in `images` and other media, unknown MIME types
+and images without usable dimensions in `files`. Only `images` are Viewer sources; do not invent
+dimensions or infer an image MIME type from dimensions alone. Rendering uses saved metadata,
+without a runtime metadata lookup.
+
+`storeImage()` remains available to SDK callers that deliberately accept transformed image bytes.
+It is not the CLI's original-preserving upload contract. If a workspace applies a watermark,
+renaming or overwriting the destination does not bypass that policy.
 
 `storage store ./images/*.jpg website/` accepts shell-expanded files and a directory destination.
 Each successful upload is checkpointed before the next; a later failure preserves earlier receipts.
@@ -807,8 +808,8 @@ by content (identical bytes reuse the first receipt, even during an explicit wor
 The printed snippet uses a
 filename-derived alt; replace it with an accurate description, or an empty alt for a decorative image.
 
-The CLI atomically appends to the catalog's `images` object keyed by Storage path, preserving earlier receipts
-on failure. Parent directories must exist. A sibling lock prevents concurrent writers from losing
+The CLI atomically updates the catalog's `images` and `files` objects keyed by Storage path,
+preserving earlier receipts on failure. Parent directories must exist. A sibling lock prevents concurrent writers from losing
 each other's records. Ctrl-C cancels active uploads and catalog reads, releases the lock, and checkpoints
 any receipt that already returned before stopping. An accepted Assembly may still finish remotely:
 check Storage or sync receipts before retrying a write. A forced exit or crash can leave a lock;
@@ -819,11 +820,10 @@ Receipt validation occurs after the Storage write, not as a rollback. Do not re-
 `--overwrite` to fix missing metadata. Existing paths conflict by default.
 `storage store --overwrite` explicitly replaces an occupied path; it is never the default. Prefer
 [hashed filenames](#cache-and-markup-cost) for repository organization; delivery pins the actual
-asset version, and cached bytes can outlive deletion or revocation. On older deployments that transform uploaded
-bytes, the CLI still saves the authoritative receipt; a differing checksum makes a hashed replay
-fail without uploading or replacing anything. Restoring that same transformed receipt cannot fix
-the mismatch. Choose a fresh destination basename; hashed replay requires an origin that preserves
-the uploaded bytes. The same refusal protects against a short-hash collision.
+asset version, and cached bytes can outlive deletion or revocation. A differing checksum makes a
+hashed replay fail without uploading or replacing anything. Restoring that same transformed receipt
+cannot fix the mismatch; use an original-preserving upload policy. The same refusal protects against
+a short-hash collision.
 
 ### Recovery
 
@@ -859,7 +859,7 @@ for private delivery. The CLI and factory explain this missing delivery choice.
 The server returns the same canonical shape as storing: `workspace`, `asset_id`, `version_id`,
 final `path`, `size`, `mime`, available `md5hash`/`sha256`, version-specific `width`/`height`, and
 optional server `thumbhash`/`has_alpha` metadata.
-Sync records the verified `apiOrigin` on the catalog and every recovered image and refuses to mix environments.
+Sync records the verified `apiOrigin` on the catalog and every recovered asset and refuses to mix environments.
 Unbound legacy catalogs must be recovered into a new `--receipts` file and reviewed before replacing
 the old catalog. A custom delivery host is preserved separately, never treated as API provenance.
 Sync recovers real version identities, not a path-only approximation. Local `source`,
@@ -869,11 +869,13 @@ alias is then removed. A fresh sync recovers these fields when the server versio
 without downloading original bytes or generating new hashes. Otherwise they remain absent.
 Changed versions drop stale local evidence even if their MD5 matches.
 
-Sync adds or refreshes matching paths and never prunes unmatched entries. Any missing/invalid
-dimensions, failed page or incomplete listing leaves the existing file intact; a failed atomic
-replacement retains the complete temporary catalog for recovery. Choose an image-only prefix;
-older objects without dimensions need a catalog backfill. Storage records EXIF-oriented display
-dimensions for new image uploads, so sync matches `storeImage` receipts for rotated photos too.
+Sync adds or refreshes matching paths and never prunes unmatched entries. Node SDK/CLI 6.9.0 or
+newer supports mixed-media prefixes and classifies recovered receipts into `images` or `files` by
+their current metadata. Missing image dimensions do not prevent recovery: that asset stays in
+`files`, unavailable to Viewer until usable image metadata exists. Failed pages or incomplete
+listings leave the existing catalog intact; a failed atomic replacement retains the complete
+temporary catalog for recovery. Storage records EXIF-oriented display dimensions for new image
+uploads, so Viewer can use recovered receipts for rotated photos too.
 Commit `transloadit.images.json` before building so rendering needs no runtime metadata lookup; it can now
 be regenerated from Storage rather than being the only copy of rendering metadata.
 

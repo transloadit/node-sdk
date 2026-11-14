@@ -423,7 +423,6 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(quickstart).toContain('transloadit.images.json')
   expect(quickstart).toContain('Start with `auth login` even without an account')
   expect(quickstart).toContain('create a free workspace')
-  expect(readme).toContain('Older deployments may watermark Community-plan uploads')
   expect(quickstart).toContain('npm run dev')
   expect(quickstart).not.toContain('authorize:')
   const login = readme.indexOf('npx transloadit auth login')
