@@ -291,6 +291,8 @@ async function main(): Promise<void> {
       ],
       { cwd: coreDir, stdio: 'inherit', timeout: 180_000 },
     )
+    // npm just wrote this lockfile in our fresh fixture directory. Malformed output must abort;
+    // the assertions below check the exact artifacts rather than accepting registry substitutes.
     const coreLock = JSON.parse(await readFile(resolve(coreDir, 'package-lock.json'), 'utf8'))
     for (const name of ['viewer', 'utils']) {
       const installed = coreLock.packages[`node_modules/@transloadit/${name}`]?.resolved
