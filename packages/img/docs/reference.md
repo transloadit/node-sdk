@@ -2,6 +2,87 @@
 
 Start with the [Quickstart](../README.md). This reference covers policy, advanced layouts and operations.
 
+## Framework-neutral core
+
+The package has separate entry points, not a single all-purpose gallery component:
+
+| Entry | Use |
+| --- | --- |
+| `@transloadit/viewer` | Serializable responsive image model; no React or Next.js dependency |
+| `@transloadit/viewer/server` | Server-only Web `Request`/`Response` handlers with explicit authorization |
+| `@transloadit/viewer/react` | React image components for canonical receipts; no Next.js dependency |
+| `@transloadit/viewer/next` | Next.js rendering and catalog integration |
+
+React and Next.js are optional peers. The config plugin and automatic catalog bindings are
+Next.js-specific; another framework supplies its own rendering and application data. Viewer does
+not own album membership, routing or gallery order.
+
+For a public image in plain JavaScript, install the packages you import directly:
+
+```bash
+npm install --save-exact @transloadit/viewer@0.1.0 @transloadit/utils@4.11.0
+```
+
+Use a canonical image receipt returned by your upload or read from your application's trusted
+metadata. Its `workspace`, `asset_id`, `version_id`, `path`, `width` and `height` identify one
+retained image. The example assumes `receipt` is that record, not a path string:
+
+```ts
+import { getSmartCdnUrl } from '@transloadit/utils'
+import {
+  createTransloaditImageModel,
+  transloaditPublicStoragePreviewTemplate,
+} from '@transloadit/viewer'
+
+const model = createTransloaditImageModel(
+  {
+    src: receipt,
+    expiresAt: undefined,
+    template: transloaditPublicStoragePreviewTemplate,
+    widths: [320, 640, 960],
+  },
+  ({ input, template, urlParams }) =>
+    getSmartCdnUrl({ workspace: receipt.workspace, input, template, urlParams }),
+)
+```
+
+This only builds URLs. It neither uploads nor publishes anything: the server must already declare
+the image's directory public. Do not use it as a fallback when private delivery is denied.
+Public URLs require no application signing key. A browser can render the model with native elements:
+
+```ts
+const picture = document.createElement('picture')
+for (const source of model.sources) {
+  const element = document.createElement('source')
+  element.type = `image/${source.format}`
+  element.srcset = source.candidates.map(({ url, width }) => `${url} ${width}w`).join(', ')
+  element.sizes = '(max-width: 960px) 100vw, 960px'
+  picture.append(element)
+}
+const image = document.createElement('img')
+image.src = model.fallbackUrl
+image.alt = 'A canal house beside the water'
+image.width = Math.min(receipt.width, 960)
+image.height = Math.round(image.width * receipt.height / receipt.width)
+image.loading = 'lazy'
+image.style.maxWidth = '100%'
+image.style.height = 'auto'
+picture.append(image)
+document.body.append(picture)
+```
+
+Replace the alt text and layout hints for your page. With a bundler, these browser imports need
+neither React nor Next.js. A server renderer can consume the same model using its own escaped HTML
+templates instead of DOM methods.
+
+The model's URL resolver is synchronous. Private Node rendering can use the synchronous signer in
+`@transloadit/utils/node`, exclusively on the server after authorization. Do not pass the async
+root signer as this callback or put signing secrets in browser code. For per-request access checks,
+`createStorageRoute` from `/server` returns standard `GET` and `HEAD` handlers; the
+[authorized delivery recipe](./react-storage.md) describes the receipt and permission contract.
+These handlers do not provide a complete non-React gallery or a client route-URL builder. The
+Next.js adapter's runtime restrictions do not apply to the pure model.
+
 ## Next.js plugin and catalog convention
 
 `Image` from `@transloadit/viewer/next` is an App Router Server Component. Wrap the existing
@@ -785,20 +866,21 @@ same-page sign-in/refresh needs an explicit retry identity. See [When it breaks]
 
 ### Receipt integrity and recovery
 
-Older deployments may watermark Community-plan uploads. The CLI reports changed bytes and saves
-metadata for the actual stored image; it does not suggest overwriting that completed upload.
+With Node SDK/CLI 6.9.0 or newer, `storage store` uses `client.storeAsset()` to store originals of
+any media type, not only images. It verifies the returned size and MD5 against the local file.
+If the stored bytes differ, the CLI checkpoints the actual completed receipt and stops with an
+error. This is a completed write, not an invitation to retry or overwrite it. The Node SDK's
+[mixed-media originals contract](https://github.com/transloadit/node-sdk/blob/main/packages/node/README.md#mixed-media-originals) owns byte verification,
+replay, recovery and overwrite behavior.
 
-The store command wraps `client.storeImage()`, waits for completion and validates `asset_id`,
-the exact destination, stored byte count/MD5 and positive EXIF-oriented display dimensions.
-The receipt lands in `results[':original']`, not `results.stored`. Older deployments can apply
-Community-plan watermarks before Storage runs; newer API2 deployments preserve stored originals.
-The receipt describes the stored bytes, not an assumption that they equal the local file.
-The CLI warns about a changed size or checksum and saves that authoritative receipt normally.
-`--log-level debug` adds the Assembly ID, bounded receipt summary and input comparison, never
-raw Assembly responses or credentials. SDK callers can observe `(receipt, input, assemblyId)`
-through the optional `onReceipt` callback. Observers are not awaited; synchronous exceptions and
-asynchronous rejections do not discard completed writes.
-Rendering requires no metadata lookup.
+The catalog keeps dimensioned `image/*` receipts in `images` and other media, unknown MIME types
+and images without usable dimensions in `files`. Only `images` are Viewer sources; do not invent
+dimensions or infer an image MIME type from dimensions alone. Rendering uses saved metadata,
+without a runtime metadata lookup.
+
+`storeImage()` remains available to SDK callers that deliberately accept transformed image bytes.
+It is not the CLI's original-preserving upload contract. If a workspace applies a watermark,
+renaming or overwriting the destination does not bypass that policy.
 
 `storage store ./images/*.jpg website/` accepts shell-expanded files and a directory destination.
 Each successful upload is checkpointed before the next; a later failure preserves earlier receipts.
@@ -807,8 +889,8 @@ by content (identical bytes reuse the first receipt, even during an explicit wor
 The printed snippet uses a
 filename-derived alt; replace it with an accurate description, or an empty alt for a decorative image.
 
-The CLI atomically appends to the catalog's `images` object keyed by Storage path, preserving earlier receipts
-on failure. Parent directories must exist. A sibling lock prevents concurrent writers from losing
+The CLI atomically updates the catalog's `images` and `files` objects keyed by Storage path,
+preserving earlier receipts on failure. Parent directories must exist. A sibling lock prevents concurrent writers from losing
 each other's records. Ctrl-C cancels active uploads and catalog reads, releases the lock, and checkpoints
 any receipt that already returned before stopping. An accepted Assembly may still finish remotely:
 check Storage or sync receipts before retrying a write. A forced exit or crash can leave a lock;
@@ -819,11 +901,12 @@ Receipt validation occurs after the Storage write, not as a rollback. Do not re-
 `--overwrite` to fix missing metadata. Existing paths conflict by default.
 `storage store --overwrite` explicitly replaces an occupied path; it is never the default. Prefer
 [hashed filenames](#cache-and-markup-cost) for repository organization; delivery pins the actual
-asset version, and cached bytes can outlive deletion or revocation. On older deployments that transform uploaded
-bytes, the CLI still saves the authoritative receipt; a differing checksum makes a hashed replay
-fail without uploading or replacing anything. Restoring that same transformed receipt cannot fix
-the mismatch. Choose a fresh destination basename; hashed replay requires an origin that preserves
-the uploaded bytes. The same refusal protects against a short-hash collision.
+asset version, and cached bytes can outlive deletion or revocation. A differing checksum makes a
+hashed replay fail without uploading or replacing anything. Restoring that same transformed receipt
+cannot fix the mismatch. After ensuring that the upload policy preserves originals, choose a fresh
+destination basename for the new upload; changing the policy alone does not fix the saved receipt,
+and `--hashed` cannot be combined with `--overwrite`. The same refusal protects against a short-hash
+collision.
 
 ### Recovery
 
@@ -859,7 +942,7 @@ for private delivery. The CLI and factory explain this missing delivery choice.
 The server returns the same canonical shape as storing: `workspace`, `asset_id`, `version_id`,
 final `path`, `size`, `mime`, available `md5hash`/`sha256`, version-specific `width`/`height`, and
 optional server `thumbhash`/`has_alpha` metadata.
-Sync records the verified `apiOrigin` on the catalog and every recovered image and refuses to mix environments.
+Sync records the verified `apiOrigin` on the catalog and every recovered asset and refuses to mix environments.
 Unbound legacy catalogs must be recovered into a new `--receipts` file and reviewed before replacing
 the old catalog. A custom delivery host is preserved separately, never treated as API provenance.
 Sync recovers real version identities, not a path-only approximation. Local `source`,
@@ -869,11 +952,13 @@ alias is then removed. A fresh sync recovers these fields when the server versio
 without downloading original bytes or generating new hashes. Otherwise they remain absent.
 Changed versions drop stale local evidence even if their MD5 matches.
 
-Sync adds or refreshes matching paths and never prunes unmatched entries. Any missing/invalid
-dimensions, failed page or incomplete listing leaves the existing file intact; a failed atomic
-replacement retains the complete temporary catalog for recovery. Choose an image-only prefix;
-older objects without dimensions need a catalog backfill. Storage records EXIF-oriented display
-dimensions for new image uploads, so sync matches `storeImage` receipts for rotated photos too.
+Sync adds or refreshes matching paths and never prunes unmatched entries. Node SDK/CLI 6.9.0 or
+newer supports mixed-media prefixes and classifies recovered receipts into `images` or `files` by
+their current metadata. Missing image dimensions do not prevent recovery: that asset stays in
+`files`, unavailable to Viewer until usable image metadata exists. Failed pages or incomplete
+listings leave the existing catalog intact; a failed atomic replacement retains the complete
+temporary catalog for recovery. Storage records EXIF-oriented display dimensions for new image
+uploads, so Viewer can use recovered receipts for rotated photos too.
 Commit `transloadit.images.json` before building so rendering needs no runtime metadata lookup; it can now
 be regenerated from Storage rather than being the only copy of rendering metadata.
 
@@ -1007,8 +1092,7 @@ the workspace and private signing pair on first use; it loads no files and uses 
 unless the complete Smart CDN override pair is supplied. The factory accepts a trusted compatible `template`,
 `baseUrl` and transport `urlParams`. Never derive these signing policies from request input.
 
-`@transloadit/viewer` exposes `createTransloaditImageModel` and serializable model types for other
-framework adapters. `@transloadit/viewer/next` renders a resolved model without owning credentials.
+For rendering outside React/Next.js, see the [framework-neutral core](#framework-neutral-core).
 
 “Native props” means serializable image attributes such as `alt`, `className`, `aria-*`, `data-*`,
 `decoding` and `referrerPolicy`. Event callbacks and refs do not cross this Server Component
