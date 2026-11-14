@@ -789,7 +789,7 @@ With Node SDK/CLI 6.9.0 or newer, `storage store` uses `client.storeAsset()` to 
 any media type, not only images. It verifies the returned size and MD5 against the local file.
 If the stored bytes differ, the CLI checkpoints the actual completed receipt and stops with an
 error. This is a completed write, not an invitation to retry or overwrite it. The Node SDK's
-[mixed-media originals contract](../../node/README.md#mixed-media-originals) owns byte verification,
+[mixed-media originals contract](https://github.com/transloadit/node-sdk/blob/main/packages/node/README.md#mixed-media-originals) owns byte verification,
 replay, recovery and overwrite behavior.
 
 The catalog keeps dimensioned `image/*` receipts in `images` and other media, unknown MIME types
@@ -822,8 +822,10 @@ Receipt validation occurs after the Storage write, not as a rollback. Do not re-
 [hashed filenames](#cache-and-markup-cost) for repository organization; delivery pins the actual
 asset version, and cached bytes can outlive deletion or revocation. A differing checksum makes a
 hashed replay fail without uploading or replacing anything. Restoring that same transformed receipt
-cannot fix the mismatch; use an original-preserving upload policy. The same refusal protects against
-a short-hash collision.
+cannot fix the mismatch. After ensuring that the upload policy preserves originals, choose a fresh
+destination basename for the new upload; changing the policy alone does not fix the saved receipt,
+and `--hashed` cannot be combined with `--overwrite`. The same refusal protects against a short-hash
+collision.
 
 ### Recovery
 
