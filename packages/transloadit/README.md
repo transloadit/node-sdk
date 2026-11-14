@@ -196,7 +196,9 @@ approval URL; `--stdin` accepts dotenv credentials for automation. Existing cred
 fails, it saves the login and prints a Console link. This check does not prove upload availability.
 
 Store creates `transloadit.images.json` and derived `transloadit-images.d.ts`; commit both. The
-catalog carries workspace, public prefixes and image receipts: no public app env is needed.
+catalog carries workspace, public prefixes, image receipts and other file receipts: no public
+app env is needed. Viewer reads its `images` entries; see [Mixed-media originals](#mixed-media-originals)
+for other media and the original-byte verification contract.
 `--public` declares the destination directory recursively, including future uploads, after saving
 the receipt. Plain store never publishes. `image init website/ --example` is an optional example
 generator; private init (`image init uploads/ --private`) creates `transloadit.authorize.ts` and a
@@ -2389,4 +2391,3 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
-
