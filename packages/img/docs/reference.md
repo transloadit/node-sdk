@@ -2,6 +2,87 @@
 
 Start with the [Quickstart](../README.md). This reference covers policy, advanced layouts and operations.
 
+## Framework-neutral core
+
+The package has separate entry points, not a single all-purpose gallery component:
+
+| Entry | Use |
+| --- | --- |
+| `@transloadit/viewer` | Serializable responsive image model; no React or Next.js dependency |
+| `@transloadit/viewer/server` | Server-only Web `Request`/`Response` handlers with explicit authorization |
+| `@transloadit/viewer/react` | React image components for canonical receipts; no Next.js dependency |
+| `@transloadit/viewer/next` | Next.js rendering and catalog integration |
+
+React and Next.js are optional peers. The config plugin and automatic catalog bindings are
+Next.js-specific; another framework supplies its own rendering and application data. Viewer does
+not own album membership, routing or gallery order.
+
+For a public image in plain JavaScript, install the packages you import directly:
+
+```bash
+npm install --save-exact @transloadit/viewer@0.1.0 @transloadit/utils@4.11.0
+```
+
+Use a canonical image receipt returned by your upload or read from your application's trusted
+metadata. Its `workspace`, `asset_id`, `version_id`, `path`, `width` and `height` identify one
+retained image. The example assumes `receipt` is that record, not a path string:
+
+```ts
+import { getSmartCdnUrl } from '@transloadit/utils'
+import {
+  createTransloaditImageModel,
+  transloaditPublicStoragePreviewTemplate,
+} from '@transloadit/viewer'
+
+const model = createTransloaditImageModel(
+  {
+    src: receipt,
+    expiresAt: undefined,
+    template: transloaditPublicStoragePreviewTemplate,
+    widths: [320, 640, 960],
+  },
+  ({ input, template, urlParams }) =>
+    getSmartCdnUrl({ workspace: receipt.workspace, input, template, urlParams }),
+)
+```
+
+This only builds URLs. It neither uploads nor publishes anything: the server must already declare
+the image's directory public. Do not use it as a fallback when private delivery is denied.
+Public URLs require no application signing key. A browser can render the model with native elements:
+
+```ts
+const picture = document.createElement('picture')
+for (const source of model.sources) {
+  const element = document.createElement('source')
+  element.type = `image/${source.format}`
+  element.srcset = source.candidates.map(({ url, width }) => `${url} ${width}w`).join(', ')
+  element.sizes = '(max-width: 960px) 100vw, 960px'
+  picture.append(element)
+}
+const image = document.createElement('img')
+image.src = model.fallbackUrl
+image.alt = 'A canal house beside the water'
+image.width = Math.min(receipt.width, 960)
+image.height = Math.round(image.width * receipt.height / receipt.width)
+image.loading = 'lazy'
+image.style.maxWidth = '100%'
+image.style.height = 'auto'
+picture.append(image)
+document.body.append(picture)
+```
+
+Replace the alt text and layout hints for your page. With a bundler, these browser imports need
+neither React nor Next.js. A server renderer can consume the same model using its own escaped HTML
+templates instead of DOM methods.
+
+The model's URL resolver is synchronous. Private Node rendering can use the synchronous signer in
+`@transloadit/utils/node`, exclusively on the server after authorization. Do not pass the async
+root signer as this callback or put signing secrets in browser code. For per-request access checks,
+`createStorageRoute` from `/server` returns standard `GET` and `HEAD` handlers; the
+[authorized delivery recipe](./react-storage.md) describes the receipt and permission contract.
+These handlers do not provide a complete non-React gallery or a client route-URL builder. The
+Next.js adapter's runtime restrictions do not apply to the pure model.
+
 ## Next.js plugin and catalog convention
 
 `Image` from `@transloadit/viewer/next` is an App Router Server Component. Wrap the existing
@@ -1011,8 +1092,7 @@ the workspace and private signing pair on first use; it loads no files and uses 
 unless the complete Smart CDN override pair is supplied. The factory accepts a trusted compatible `template`,
 `baseUrl` and transport `urlParams`. Never derive these signing policies from request input.
 
-`@transloadit/viewer` exposes `createTransloaditImageModel` and serializable model types for other
-framework adapters. `@transloadit/viewer/next` renders a resolved model without owning credentials.
+For rendering outside React/Next.js, see the [framework-neutral core](#framework-neutral-core).
 
 “Native props” means serializable image attributes such as `alt`, `className`, `aria-*`, `data-*`,
 `decoding` and `referrerPolicy`. Event callbacks and refs do not cross this Server Component

@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs'
-import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { setTimeout } from 'node:timers/promises'
+import { parseArgs } from 'node:util'
 import { brotliCompressSync, gzipSync } from 'node:zlib'
 
 import { execa } from 'execa'
@@ -232,6 +233,7 @@ async function runImageBenchmark(
 }
 
 async function main(): Promise<void> {
+  const { values } = parseArgs({ options: { 'core-only': { type: 'boolean', default: false } } })
   const repoRoot = resolve(import.meta.dirname, '..')
   const seed = await readFile(resolve(import.meta.dirname, 'fixtures/img-next/seed.ts'), 'utf8')
   const dogfoodPath = resolve(repoRoot, 'docs/img-dogfood.md')
@@ -253,7 +255,10 @@ async function main(): Promise<void> {
     ])
     const tarballs: string[] = []
     // Package builds share dependencies, so pack sequentially to avoid racing their dist cleanup.
-    for (const name of ['viewer', 'node', 'types', 'utils']) {
+    const packages = values['core-only']
+      ? ['viewer', 'utils']
+      : ['viewer', 'node', 'types', 'utils']
+    for (const name of packages) {
       const tarball = resolve(packDir, `transloadit-${name}.tgz`)
       await execa(
         'corepack',
@@ -265,6 +270,46 @@ async function main(): Promise<void> {
       )
       tarballs.push(tarball)
     }
+
+    // A sibling install outside the monorepo cannot borrow hoisted React/Next dependencies.
+    const coreDir = resolve(temporaryRoot, 'core-only')
+    await mkdir(coreDir)
+    await writeFile(resolve(coreDir, 'package.json'), '{"private":true,"type":"module"}\n')
+    await cp(
+      resolve(import.meta.dirname, 'fixtures/viewer-core.test.ts'),
+      resolve(coreDir, 'viewer-core.test.ts'),
+    )
+    await execa(
+      'npm',
+      [
+        'install',
+        '--ignore-scripts',
+        '--no-audit',
+        '--no-fund',
+        resolve(packDir, 'transloadit-viewer.tgz'),
+        resolve(packDir, 'transloadit-utils.tgz'),
+      ],
+      { cwd: coreDir, stdio: 'inherit', timeout: 180_000 },
+    )
+    const coreLock = JSON.parse(await readFile(resolve(coreDir, 'package-lock.json'), 'utf8'))
+    for (const name of ['viewer', 'utils']) {
+      const installed = coreLock.packages[`node_modules/@transloadit/${name}`]?.resolved
+      assert(
+        typeof installed === 'string' && installed.startsWith('file:'),
+        `${name} did not install from a local tarball`,
+      )
+      assert(
+        resolve(coreDir, installed.slice(5)) === resolve(packDir, `transloadit-${name}.tgz`),
+        `${name} installed a different artifact`,
+      )
+    }
+    await execa(process.execPath, ['--test', 'viewer-core.test.ts'], {
+      cwd: coreDir,
+      stdio: 'inherit',
+      timeout: 30_000,
+    })
+    if (values['core-only']) return
+
     await execa('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], {
       cwd: fixtureDir,
       stdio: 'inherit',

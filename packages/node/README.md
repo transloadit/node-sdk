@@ -180,9 +180,9 @@ Both prompt commands use the credential resolution above and support these compi
 to install it. In a Next.js 16.3.3+ App Router project with Storage enabled, run:
 
 ```bash
-yarn transloadit auth login
-yarn transloadit storage store ./hero.jpg website/hero.jpg --public --hashed
-yarn dev
+npx @transloadit/node@6.9.0 auth login
+npx @transloadit/node@6.9.0 storage store ./hero.jpg website/hero.jpg --public --hashed
+npm run dev
 ```
 
 Follow the image package Quickstart to add its Next plugin and import Image from the package.
