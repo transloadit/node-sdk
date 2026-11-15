@@ -2,7 +2,6 @@ import type { Readable } from 'node:stream'
 
 import type { IOutputCtl } from './OutputCtl.ts'
 
-import { AsyncLocalStorage } from 'node:async_hooks'
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import { homedir, userInfo } from 'node:os'
@@ -15,9 +14,6 @@ import { z } from 'zod'
 
 import { ApiError } from '../ApiError.ts'
 import { isAPIError } from './types.ts'
-
-/** Exact credentials held by the current CLI invocation, isolated from other invocations. */
-export const cliDiagnosticSecrets = new AsyncLocalStorage<Set<string>>()
 
 /** API signing algorithms supported by CLI credentials and device authorization. */
 export const cliSignatureAlgorithmSchema = z.enum(['sha1', 'sha256', 'sha384'])
@@ -280,7 +276,6 @@ function getSourceCredentials(
   const authKey = getSourceValue(source, ['TRANSLOADIT_KEY', 'TRANSLOADIT_AUTH_KEY'])
   const authSecret = getSourceValue(source, ['TRANSLOADIT_SECRET', 'TRANSLOADIT_AUTH_SECRET'])
   if (authKey == null || authSecret == null) return undefined
-  cliDiagnosticSecrets.getStore()?.add(authKey).add(authSecret)
 
   const algorithm = cliSignatureAlgorithmSchema
     .optional()
@@ -297,7 +292,6 @@ function getSourceCredentials(
 function getSourceAuthToken(source: CliEnvSource): CliAuthToken | undefined {
   const authToken = getSourceValue(source, ['TRANSLOADIT_AUTH_TOKEN'])
   if (authToken == null) return undefined
-  cliDiagnosticSecrets.getStore()?.add(authToken)
 
   return { authToken }
 }
@@ -545,43 +539,17 @@ export async function readCliInput(options: ReadCliInputOptions): Promise<CliInp
 
 const apiReasonSchema = z.object({ reason: z.string().trim().min(1) })
 
-function sanitizeAPIErrorText(messages: string[]): string {
-  const secrets = [...(cliDiagnosticSecrets.getStore() ?? [])]
-    .filter(Boolean)
-    .map((secret) => Buffer.from(secret).toString('utf8'))
-  const replacements = [...secrets]
-  let text = ''
-  for (const message of messages) {
-    const normalized = stripVTControlCharacters(Buffer.from(message).toString('utf8'))
-      .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' ')
-      .trim()
-    const characters = [...normalized]
-    const kept = characters.length > 2000 ? characters.slice(0, 1999).join('') : normalized
-    if (characters.length > 2000) {
-      const unbounded = `${text}${normalized}`
-      const cut = text.length + kept.length
-      // An exact match crossing the cut protects its retained prefix, including across fields.
-      for (const secret of secrets) {
-        const start = unbounded.indexOf(secret, Math.max(0, cut - secret.length + 1))
-        if (start >= 0 && start < cut) replacements.push(`${unbounded.slice(start, cut)}…`)
-      }
-    }
-    text += `${kept}${characters.length > 2000 ? '…' : ''} `
-  }
-  text = text.trimEnd()
-  // Redaction is last: no encoding repair, joining or truncation may change the returned text.
-  const hidden = new Uint8Array(text.length)
-  for (const secret of replacements)
-    for (let start = text.indexOf(secret); start >= 0; start = text.indexOf(secret, start + 1))
-      hidden.fill(1, start, start + secret.length)
-  let redacted = ''
-  for (let index = 0; index < text.length; index++)
-    redacted += hidden[index] ? (hidden[index - 1] ? '' : '[redacted]') : text[index]
-  return replacements.some((secret) => redacted.includes(secret)) ? '' : redacted
+function sanitizeAPIErrorText(message: string): string {
+  const normalized = stripVTControlCharacters(Buffer.from(message).toString('utf8'))
+    .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' ')
+    .trim()
+  const characters = [...normalized]
+  return characters.length > 2000 ? `${characters.slice(0, 1999).join('')}…` : normalized
 }
 
-/** Render bounded CLI diagnostics without changing SDK errors or exposing known credentials. */
+/** Render bounded, terminal-safe CLI diagnostics without changing SDK errors. */
 export function formatAPIError(error: unknown, message = formatAPIErrorMessage(error)): string {
+  const text = sanitizeAPIErrorText(message)
   const visited = new Set<unknown>()
   let current = error
   while (current != null && !visited.has(current)) {
@@ -590,14 +558,12 @@ export function formatAPIError(error: unknown, message = formatAPIErrorMessage(e
       current instanceof RequestError ? current.response?.body : current,
     )
     if (parsed.success) {
-      const reason = parsed.data.reason
-      return sanitizeAPIErrorText(
-        message.includes(sanitizeAPIErrorText([reason])) ? [message] : [message, reason],
-      )
+      const reason = sanitizeAPIErrorText(parsed.data.reason)
+      return text.includes(reason) ? text : `${text} ${reason}`
     }
     current = current instanceof Error ? current.cause : undefined
   }
-  return sanitizeAPIErrorText([message])
+  return text
 }
 
 function formatAPIErrorMessage(err: unknown): string {

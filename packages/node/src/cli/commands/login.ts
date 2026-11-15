@@ -12,7 +12,6 @@ import { tryCatch } from '../../alphalib/tryCatch.ts'
 import { Transloadit } from '../../Transloadit.ts'
 import { deviceLogin } from '../deviceLogin.ts'
 import {
-  cliDiagnosticSecrets,
   cliSignatureAlgorithmSchema,
   formatAPIError,
   getConfiguredCredentialsFilePath,
@@ -140,7 +139,6 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
             ? {}
             : { signatureAlgorithm: input.data.TRANSLOADIT_SIGNATURE_ALGORITHM }),
         }
-        cliDiagnosticSecrets.getStore()?.add(credentials.authKey).add(credentials.authSecret)
         const client = new Transloadit({
           ...credentials,
           endpoint: origin,
@@ -154,7 +152,6 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           )
         })
       } else credentials = await deviceLogin(origin, this.output, this.noBrowser)
-      cliDiagnosticSecrets.getStore()?.add(credentials.authKey).add(credentials.authSecret)
       loginWorkspace = credentials.workspace
       const fields = {
         TRANSLOADIT_KEY: credentials.authKey,
@@ -190,15 +187,14 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
       }
       // A signed read checks dam:write access and catalog readiness without publishing anything.
       // It does not prove that the worker's object store can accept a later upload.
-      const [storagePolicyError, policy] = await tryCatch(
-        new Transloadit({
-          ...credentials,
-          endpoint: origin,
-          maxRetries: 0,
-          timeout: 10_000,
-        }).listPublicStoragePrefixes(),
-      )
-      const storagePolicyAccess = policy !== null
+      const storageClient = new Transloadit({
+        ...credentials,
+        endpoint: origin,
+        maxRetries: 0,
+        timeout: 10_000,
+      })
+      const [storagePolicyError] = await tryCatch(storageClient.listPublicStoragePrefixes())
+      const storagePolicyAccess = storagePolicyError === null
       if (!storagePolicyAccess) {
         const workspace =
           credentials.workspace !== undefined &&

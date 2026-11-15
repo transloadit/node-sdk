@@ -1,10 +1,9 @@
 import type { TransloaditErrorResponseBody } from '../../../src/ApiError.ts'
 
 import fs from 'node:fs'
-import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Readable } from 'node:stream'
 import { format } from 'node:util'
 
 import nock from 'nock'
@@ -59,14 +58,14 @@ async function report(body: TransloaditErrorResponseBody): Promise<string> {
     .join('\n')
 }
 
-test('redacts invocation credentials in the response message and a signed URL reason', async () => {
+test('prints an ordinary API reason unchanged', async () => {
   const output = await report({
-    error: 'INVALID_SIGNATURE',
-    message: 'Rejected invocation-key using invocation-secret and invocation-token.',
-    reason: 'Request rejected: https://example.test/file?sig=invocation-token&other=unknown-value',
+    error: 'INVALID_FORM_DATA',
+    message: 'The form contained bad data.',
+    reason: 'Use --field text_method=native for page granularity.',
   })
   expect(output).toBe(
-    'err     API error INVALID_SIGNATURE: Rejected [redacted] using [redacted] and [redacted]. Request rejected: https://example.test/file?sig=[redacted]&other=unknown-value',
+    'err     API error INVALID_FORM_DATA: The form contained bad data. Use --field text_method=native for page granularity.',
   )
 })
 
@@ -81,185 +80,41 @@ test('removes ANSI and OSC sequences and flattens controls in the message and re
   )
 })
 
-test('prints an ordinary reason unchanged', async () => {
+test.each([
+  'x',
+  '📝',
+])('bounds a very long reason without splitting characters (%s)', async (character) => {
   const output = await report({
     error: 'INVALID_FORM_DATA',
-    message: 'The form contained bad data.',
-    reason: 'Use --field text_method=native for page granularity.',
+    message: 'Request refused.',
+    reason: character.repeat(4000),
   })
   expect(output).toBe(
-    'err     API error INVALID_FORM_DATA: The form contained bad data. Use --field text_method=native for page granularity.',
+    `err     API error INVALID_FORM_DATA: Request refused. ${character.repeat(1999)}…`,
   )
 })
 
-test('bounds long reasons before redacting credentials', async () => {
+test('omits a structured reason from the error line', async () => {
   const output = await report({
     error: 'INVALID_FORM_DATA',
-    message: 'The form contained bad data.',
-    reason: `invocation-secret: ${'x'.repeat(4000)}`,
-  })
-  expect(output).toContain('The form contained bad data. [redacted]: ')
-  expect(output.length).toBeLessThanOrEqual(2100)
-  expect(output.endsWith('…')).toBe(true)
-})
-
-test('redacts a credential completed by the truncation ellipsis', async () => {
-  vi.stubEnv('TRANSLOADIT_SECRET', 'invocation-secret…')
-  const prefix = 'API error INVALID_SIGNATURE: '
-  const padding = 'x'.repeat(1999 - prefix.length - 'invocation-secret'.length)
-  const output = await report({
-    error: 'INVALID_SIGNATURE',
-    message: `${padding}invocation-secret extra`,
-  })
-  expect(output).toBe(`err     ${prefix}${padding}[redacted]`)
-})
-
-test('normalizes malformed Unicode before redacting the message and reason', async () => {
-  vi.stubEnv('TRANSLOADIT_SECRET', 'synthetic-secret\uFFFD')
-  const output = await report({
-    error: 'INVALID_SIGNATURE',
-    message: 'Rejected synthetic-secret\uD800.',
-    reason: 'Use synthetic-secret\uD800.',
-  })
-  expect(output).toBe('err     API error INVALID_SIGNATURE: Rejected [redacted]. Use [redacted].')
-})
-
-test('redacts a secret prefix retained at the reason cut', async () => {
-  const padding = 'x'.repeat(1999 - 'invocation-'.length)
-  const output = await report({
-    error: 'INVALID_SIGNATURE',
     message: 'Request refused.',
-    reason: `${padding}invocation-secret`,
+    reason: { field: 'text_format', details: ['Use md.'] },
   })
-  expect(output).toBe(`err     API error INVALID_SIGNATURE: Request refused. ${padding}[redacted]`)
+  expect(output).toBe('err     API error INVALID_FORM_DATA: Request refused.')
 })
 
-test('redacts a cut secret that starts in the preceding response message', async () => {
-  vi.stubEnv('TRANSLOADIT_SECRET', `joined ${'x'.repeat(1998)}tail`)
-  const output = await report({
-    error: 'INVALID_SIGNATURE',
-    message: 'Rejected joined',
-    reason: `${'x'.repeat(1998)}tail`,
-  })
-  expect(output).toBe('err     API error INVALID_SIGNATURE: Rejected [redacted]')
-})
-
-test('redacts overlapping full and cut matches together', async () => {
-  vi.stubEnv('TRANSLOADIT_SECRET', 'abcdefgh')
-  const reason = 'overlap'.repeat(10)
-  vi.stubEnv('TRANSLOADIT_AUTH_SECRET', `cde… ${reason}`)
-  const prefix = 'API error INVALID_SIGNATURE: '
-  const padding = 'x'.repeat(1999 - prefix.length - 'abcde'.length)
-  const output = await report({
-    error: 'INVALID_SIGNATURE',
-    message: `${padding}abcdefgh extra`,
-    reason,
-  })
-  expect(output).toBe(`err     ${prefix}${padding}[redacted]`)
-})
-
-test('keeps Unicode characters whole at the cut before final redaction', async () => {
-  vi.stubEnv('TRANSLOADIT_SECRET', 'cut-secret\uFFFD')
-  const prefix = 'API error INVALID_SIGNATURE: '
-  const padding = 'x'.repeat(1998 - prefix.length - 'cut-secret'.length)
-  const output = await report({
-    error: 'INVALID_SIGNATURE',
-    message: `${padding}cut-secret😀 extra`,
-  })
-  expect(output).toBe(`err     ${prefix}${padding}cut-secret😀…`)
-})
-
-test('does not truncate replacement markers after final redaction', async () => {
-  vi.stubEnv('TRANSLOADIT_SECRET', 'xy')
-  const output = await report({
-    error: 'INVALID_SIGNATURE',
+test('notification replay shows the API reason through the shared formatter', async () => {
+  const body = {
+    error: 'INVALID_FORM_DATA',
     message: 'Request refused.',
-    reason: 'xy '.repeat(2000),
-  })
-  expect(output).toBe(
-    `err     API error INVALID_SIGNATURE: Request refused. ${'[redacted] '.repeat(666)}[redacted]`,
+    reason: 'Use a different notification URL.',
+  } satisfies TransloaditErrorResponseBody
+  vi.spyOn(Transloadit.prototype, 'replayAssemblyNotification').mockRejectedValue(
+    new ApiError({ body }),
   )
-})
-
-test('withholds a diagnostic when the redaction marker is itself a credential', async () => {
-  vi.stubEnv('TRANSLOADIT_SECRET', '[redacted]')
-  const output = await report({ error: 'INVALID_SIGNATURE', message: 'Rejected [redacted].' })
-  expect(output).toBe('err     ')
-})
-
-test('sanitizes response messages when there is no text reason', async () => {
-  const output = await report({
-    error: 'INVALID_SIGNATURE',
-    message: 'Rejected \u001b[2Jinvocation-secret\nagain.',
-  })
-  expect(output).toBe('err     API error INVALID_SIGNATURE: Rejected [redacted] again.')
-})
-
-test('redacts credentials rejoined when terminal formatting is removed', async () => {
-  const output = await report({
-    error: 'INVALID_SIGNATURE',
-    message: 'Request refused.',
-    reason: 'Use invocation-\u001b[31msecret\u001b[0m.',
-  })
-  expect(output).toBe('err     API error INVALID_SIGNATURE: Request refused. Use [redacted].')
-})
-
-test('redacts a credential completed by joining the response message and reason', async () => {
-  vi.stubEnv('TRANSLOADIT_SECRET', 'joined credential')
-  vi.spyOn(Transloadit.prototype, 'getTemplate').mockRejectedValue(
-    new ApiError({
-      body: { error: 'INVALID_SIGNATURE', message: 'Rejected joined', reason: 'credential.' },
-    }),
-  )
-  await main(['templates', 'get', 'template', '-l', 'err'])
-  expect(process.exitCode).toBe(1)
+  await main(['notifications', 'replay', 'assembly', '-l', 'err'])
   expect(console.error).toHaveBeenCalledExactlyOnceWith(
     'err    ',
-    'API error INVALID_SIGNATURE: Rejected [redacted].',
-  )
-})
-
-test('redacts stdin credentials when verification fails', async () => {
-  vi.spyOn(process.stdin, Symbol.asyncIterator).mockImplementation(() =>
-    Readable.from([Buffer.from('TRANSLOADIT_KEY=stdin-key\nTRANSLOADIT_SECRET=stdin-secret\n')])[
-      Symbol.asyncIterator
-    ](),
-  )
-  vi.spyOn(Transloadit.prototype, 'listTemplates').mockRejectedValue(
-    new ApiError({
-      body: {
-        error: 'INVALID_SIGNATURE',
-        message: 'Rejected stdin-secret.',
-        reason: 'Use stdin-key with stdin-secret.',
-      },
-    }),
-  )
-  await main(['auth', 'login', '--stdin', '--endpoint', 'http://127.0.0.1:3020', '-l', 'err'])
-  expect(process.exitCode).toBe(1)
-  expect(console.error).toHaveBeenCalledExactlyOnceWith(
-    'err    ',
-    expect.stringContaining('Nothing was saved. Use [redacted] with [redacted].'),
-  )
-})
-
-test('redacts selected file credentials through the Storage wrapper', async () => {
-  vi.stubEnv('TRANSLOADIT_KEY', '')
-  vi.stubEnv('TRANSLOADIT_SECRET', '')
-  vi.stubEnv('TRANSLOADIT_AUTH_TOKEN', '')
-  await writeFile('credentials', 'TRANSLOADIT_KEY=file-key\nTRANSLOADIT_SECRET=file-secret\n')
-  vi.spyOn(Transloadit.prototype, 'listStoredAssets').mockRejectedValue(
-    new ApiError({
-      body: {
-        error: 'INVALID_SIGNATURE',
-        message: 'The request was refused.',
-        reason: 'Rejected file-key using file-secret.',
-      },
-    }),
-  )
-  await main(['storage', 'ls', 'website/', '--endpoint', 'http://storage.invalid', '-l', 'err'])
-  expect(process.exitCode).toBe(1)
-  expect(console.error).toHaveBeenCalledExactlyOnceWith(
-    'err    ',
-    'Storage listing failed. Check the Storage API at http://storage.invalid and the Auth Key dam:read or dam:write scope. Rejected [redacted] using [redacted].',
+    'API error INVALID_FORM_DATA: Request refused. Use a different notification URL.',
   )
 })

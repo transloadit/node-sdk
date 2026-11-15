@@ -9,7 +9,6 @@ import { execa } from 'execa'
 import nock from 'nock'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { ApiError } from '../../../src/ApiError.ts'
 import { requireCliCredentials, resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
@@ -60,10 +59,10 @@ const stdoutListeners = process.stdout.listeners('error')
 const stderrListeners = process.stderr.listeners('error')
 let directory: string
 
-test('browser login shows the API refusal reason without response credentials', async () => {
+test('browser login shows the API refusal reason', async () => {
   const body = {
     error: 'CLI_DEVICE_AUTHORIZATION_DENIED',
-    message: 'unsafe combined-key',
+    message: 'Login refused.',
     reason: 'Your account does not allow CLI access.',
   } satisfies TransloaditErrorResponseBody
   const api = createDevice().post('/cli/device_authorizations/token').reply(403, body)
@@ -225,38 +224,6 @@ function createDevice(response = created): nock.Scope {
     )
     .reply(200, response)
 }
-
-test('redacts the device token echoed in a refusal reason', async () => {
-  const body = {
-    error: 'CLI_DEVICE_AUTHORIZATION_DENIED',
-    reason: 'Token fake-device-secret was refused.',
-  } satisfies TransloaditErrorResponseBody
-  const api = createDevice().post('/cli/device_authorizations/token').reply(403, body)
-  await login(['--no-browser'])
-  expect(api.isDone()).toBe(true)
-  expect(process.exitCode).toBe(1)
-  expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith(
-    'The login was denied in the browser. Token [redacted] was refused.',
-  )
-})
-
-test('redacts newly issued credentials echoed by Storage preflight', async () => {
-  const api = createDevice().post('/cli/device_authorizations/token').reply(200, authorized)
-  vi.mocked(Transloadit.prototype.listPublicStoragePrefixes).mockRejectedValue(
-    new ApiError({
-      body: {
-        error: 'INVALID_SIGNATURE',
-        reason: 'Rejected combined-key using never-print-this-secret.',
-      },
-    }),
-  )
-  await login(['--no-browser'])
-  expect(api.isDone()).toBe(true)
-  expect(process.exitCode).toBeUndefined()
-  expect(OutputCtl.prototype.warn).toHaveBeenCalledExactlyOnceWith(
-    expect.stringContaining('Rejected [redacted] using [redacted].'),
-  )
-})
 
 test('a concurrent login preserves the winner and explains that the approved key was not saved', async () => {
   const winner =

@@ -8,7 +8,7 @@ import { execa } from 'execa'
 import got from 'got'
 import { z } from 'zod'
 
-import { cliDiagnosticSecrets, cliSignatureAlgorithmSchema, formatAPIError } from './helpers.ts'
+import { cliSignatureAlgorithmSchema, formatAPIError } from './helpers.ts'
 
 const deviceSchema = z.object({
   ok: z.literal('CLI_DEVICE_AUTHORIZATION_CREATED'),
@@ -91,7 +91,6 @@ export async function deviceLogin(
     if (!parsed.success)
       throw new Error('The API returned an invalid device authorization; nothing was saved')
     const device = parsed.data
-    cliDiagnosticSecrets.getStore()?.add(device.device_code)
     const target = new URL(device.verification_url)
     if (
       target.username ||

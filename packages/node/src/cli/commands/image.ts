@@ -5,7 +5,7 @@ import { validateStoragePathPrefix } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
 import { z } from 'zod'
 
-import { noticeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
+import { formatAPIError, noticeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
 import { resolveStorageWorkspace } from '../storageCatalog.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
@@ -17,7 +17,7 @@ import {
   updateStorageReceipts,
 } from '../storageReceipts.ts'
 import { nextAppRoot, storageImageEnvBlock, storageImagePage } from '../storageSnippets.ts'
-import { ensureError, isErrnoException } from '../types.ts'
+import { isErrnoException } from '../types.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 /** Scaffolds the Node-runtime Next.js integration without overwriting code or env files. */
@@ -274,7 +274,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         })
       }
       this.output.error(
-        `${ensureError(error).message}${published === undefined ? '' : ` The server prefix ${published} remains public; use storage unpublish deliberately if needed.`}`,
+        `${formatAPIError(error)}${published === undefined ? '' : ` The server prefix ${published} remains public; use storage unpublish deliberately if needed.`}`,
       )
       return 1
     }
