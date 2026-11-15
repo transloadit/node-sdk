@@ -120,6 +120,21 @@ test('redacts credentials rejoined when terminal formatting is removed', async (
   expect(output).toBe('err     API error INVALID_SIGNATURE: Request refused. Use [redacted].')
 })
 
+test('redacts a credential completed by joining the response message and reason', async () => {
+  vi.stubEnv('TRANSLOADIT_SECRET', 'joined credential')
+  vi.spyOn(Transloadit.prototype, 'getTemplate').mockRejectedValue(
+    new ApiError({
+      body: { error: 'INVALID_SIGNATURE', message: 'Rejected joined', reason: 'credential.' },
+    }),
+  )
+  await main(['templates', 'get', 'template', '-l', 'err'])
+  expect(process.exitCode).toBe(1)
+  expect(console.error).toHaveBeenCalledExactlyOnceWith(
+    'err    ',
+    'API error INVALID_SIGNATURE: Rejected [redacted].',
+  )
+})
+
 test('redacts stdin credentials when verification fails', async () => {
   vi.spyOn(process.stdin, Symbol.asyncIterator).mockImplementation(() =>
     Readable.from([Buffer.from('TRANSLOADIT_KEY=stdin-key\nTRANSLOADIT_SECRET=stdin-secret\n')])[
