@@ -2133,13 +2133,13 @@ async function createWithLocalInputs(
         )
       }
 
-      // Malformed error fields still signal failure, but only sanitized values enter the message.
+      // Retain the response so final formatting can show its reason after bounding a long message.
       if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
         const details =
           [summary.error ?? summary.ok, summary.message].filter(Boolean).join(': ') ||
           'Unknown Assembly error'
-        const msg = `Assembly failed: ${formatAPIError(assembly, details)} (${assemblyReference})`
-        throw new Error(msg)
+        const msg = `Assembly failed: ${details} (${assemblyReference})`
+        throw new Error(msg, { cause: assembly })
       }
 
       return { assembly, assemblyId }

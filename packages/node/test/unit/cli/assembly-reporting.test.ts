@@ -165,8 +165,23 @@ describe('Assembly reporting', () => {
     expect(result.code).toBe(1)
     expect(result.stdout).toBe('')
     expect(result.stderr).toBe(
-      `err     Assembly failed: INVALID_FORM_DATA: The form contained bad data. Choose text_method=native for page granularity. (Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl})`,
+      `err     Assembly failed: INVALID_FORM_DATA: The form contained bad data. (Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl}) Choose text_method=native for page granularity.`,
     )
+  })
+
+  it('keeps a failed Assembly reason when its message reaches the output limit', async () => {
+    mockAssembly()
+    vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
+      error: 'INVALID_FORM_DATA',
+      message: 'x'.repeat(1964),
+      reason: 'Use native extraction.',
+    })
+
+    const result = await run(['--template', 'template', '-l', 'err'])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toContain('… Use native extraction.')
   })
 
   it('reports the reason at the shared command boundary without duplicating the message', async () => {
