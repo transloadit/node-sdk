@@ -536,7 +536,32 @@ export async function readCliInput(options: ReadCliInputOptions): Promise<CliInp
   return { content: null, isStdin: false }
 }
 
+const apiReasonSchema = z.object({ reason: z.string().trim().min(1) })
+
+/** Keep textual API diagnostics through CLI wrappers without inspecting request metadata. */
+export function appendAPIErrorReason(message: string, error: unknown): string {
+  const visited = new Set<unknown>()
+  let current = error
+  while (current != null && !visited.has(current)) {
+    visited.add(current)
+    const parsed = apiReasonSchema.safeParse(
+      current instanceof RequestError ? current.response?.body : current,
+    )
+    if (parsed.success) {
+      const reason = parsed.data.reason
+      return message.includes(reason) ? message : `${message} ${reason}`
+    }
+    current = current instanceof Error ? current.cause : undefined
+  }
+  return message
+}
+
+/** Format API failures for the CLI while preserving the SDK's Error.message contract. */
 export function formatAPIError(err: unknown): string {
+  return appendAPIErrorReason(formatAPIErrorMessage(err), err)
+}
+
+function formatAPIErrorMessage(err: unknown): string {
   if (err instanceof RequestError) {
     // ParseError messages contain response fragments and signed request URLs.
     if (err instanceof ParseError) return `${err.code}: The API returned invalid JSON.`

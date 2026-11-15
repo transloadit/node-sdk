@@ -49,7 +49,7 @@ import {
   validateSharedFileProcessingOptions,
   watchOption,
 } from '../fileProcessingOptions.ts'
-import { formatAPIError, readCliInput } from '../helpers.ts'
+import { appendAPIErrorReason, formatAPIError, readCliInput } from '../helpers.ts'
 import { normalizeAssemblyResults } from '../resultFiles.ts'
 import { collectNormalizedResultUrlRows, printResultUrls } from '../resultUrls.ts'
 import { parseStepsInputJson, readStepsInputFile } from '../stepsInput.ts'
@@ -308,7 +308,7 @@ export async function lint(
       })
     }
   } catch (error) {
-    output.error(ensureError(error).message)
+    output.error(formatAPIError(error))
     return 1
   }
 
@@ -2098,7 +2098,10 @@ async function createWithLocalInputs(
         })
       } catch (err) {
         const error = ensureError(err)
-        const message = error instanceof RequestError ? formatAPIError(error) : error.message
+        const message =
+          error instanceof RequestError
+            ? formatAPIError(error)
+            : appendAPIErrorReason(error.message, error)
         throw new Error(`${message} (${assemblyReference})`, { cause: error })
       }
 
@@ -2135,7 +2138,7 @@ async function createWithLocalInputs(
         const details =
           [summary.error ?? summary.ok, summary.message].filter(Boolean).join(': ') ||
           'Unknown Assembly error'
-        const msg = `Assembly failed: ${details} (${assemblyReference})`
+        const msg = `Assembly failed: ${appendAPIErrorReason(details, summary)} (${assemblyReference})`
         throw new Error(msg)
       }
 

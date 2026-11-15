@@ -11,14 +11,16 @@ import { z } from 'zod'
 import { Transloadit } from '../../Transloadit.ts'
 import { deviceLogin } from '../deviceLogin.ts'
 import {
+  appendAPIErrorReason,
   cliSignatureAlgorithmSchema,
+  formatAPIError,
   getConfiguredCredentialsFilePath,
   parseCliLoginSnapshot,
   readCliInput,
   resolveCliConfig,
 } from '../helpers.ts'
 import { quoteCredential } from '../secretInput.ts'
-import { ensureError, isErrnoException } from '../types.ts'
+import { isErrnoException } from '../types.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 const credentialSchema = z
@@ -185,6 +187,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
       }
       // A signed read checks dam:write access and catalog readiness without publishing anything.
       // It does not prove that the worker's object store can accept a later upload.
+      let storagePolicyError: unknown
       const storagePolicyAccess = await new Transloadit({
         ...credentials,
         endpoint: origin,
@@ -194,7 +197,10 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
         .listPublicStoragePrefixes()
         .then(
           () => true,
-          () => false,
+          (error: unknown) => {
+            storagePolicyError = error
+            return false
+          },
         )
       if (!storagePolicyAccess) {
         const workspace =
@@ -203,7 +209,10 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
             ? credentials.workspace
             : '<workspace>'
         this.output.warn(
-          `Login saved, but Storage policy access could not be verified. Before uploading, check Storage availability and the Auth Key dam:write scope at https://transloadit.com/c/${workspace}/template-credentials/. A temporary network failure can also prevent this check; retry with transloadit storage publications.`,
+          appendAPIErrorReason(
+            `Login saved, but Storage policy access could not be verified. Before uploading, check Storage availability and the Auth Key dam:write scope at https://transloadit.com/c/${workspace}/template-credentials/. A temporary network failure can also prevent this check; retry with transloadit storage publications.`,
+            storagePolicyError,
+          ),
         )
       }
       const message =
@@ -231,7 +240,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
                 : `Review it in Console → Credentials: https://transloadit.com/c/${loginWorkspace ?? '<workspace>'}/template-credentials/; revoke it there if no longer needed.`,
               'Be careful: auth logout would use the saved login, not this unsaved one.',
             ].join('\n')
-          : ensureError(error).message,
+          : formatAPIError(error),
       )
       return 1
     } finally {
@@ -365,7 +374,7 @@ export class AuthLogoutCommand extends UnauthenticatedCommand {
       this.output.error(
         isErrnoException(error) && error.code === 'ENOENT'
           ? 'Not logged in; no saved credentials file.'
-          : ensureError(error).message,
+          : formatAPIError(error),
       )
       return 1
     }

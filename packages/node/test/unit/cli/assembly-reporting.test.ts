@@ -10,6 +10,7 @@ import { Options, RequestError } from 'got'
 import nock from 'nock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ApiError } from '../../../src/ApiError.ts'
 import { AssembliesCreateCommand } from '../../../src/cli/commands/assemblies.ts'
 import {
   TemplatesCreateCommand,
@@ -18,6 +19,7 @@ import {
   TemplatesModifyCommand,
   TemplatesSyncCommand,
 } from '../../../src/cli/commands/templates.ts'
+import { formatAPIError } from '../../../src/cli/helpers.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
 
 const assemblyId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -87,6 +89,127 @@ function mockAssembly(): void {
 }
 
 describe('Assembly reporting', () => {
+  it.each([
+    {
+      reason:
+        'Invalid Builtin Template field “fields.text_granularity”: The page text_granularity is only supported for native text extraction.',
+      detail:
+        ' Invalid Builtin Template field “fields.text_granularity”: The page text_granularity is only supported for native text extraction.',
+    },
+    { reason: undefined, detail: '' },
+    { reason: '', detail: '' },
+    { reason: '   ', detail: '' },
+    { reason: { signature: 'private-signature', auth: { key: 'private-key' } }, detail: '' },
+    { reason: ['private-request-body'], detail: '' },
+    { reason: false, detail: '' },
+    { reason: 12, detail: '' },
+  ])('reports only a text API reason on stderr: $reason', async ({ reason, detail }) => {
+    const error = new ApiError({
+      body: {
+        error: 'INVALID_FORM_DATA',
+        message: 'The form contained bad data, which cannot be parsed.',
+        reason,
+        assembly_ssl_url: assemblyUrl,
+      },
+      cause: new RequestError(
+        'private-request-body',
+        { code: 'ERR_NON_2XX_3XX_RESPONSE' },
+        new Options(`${assemblyUrl}?signature=private-signature&auth_key=private-key`),
+      ),
+    })
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockRejectedValue(error)
+
+    const result = await run(['--template', 'builtin/extract-text', '-l', 'err'])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe(
+      `err     API error INVALID_FORM_DATA: The form contained bad data, which cannot be parsed. ${assemblyUrl}${detail}`,
+    )
+    expect(error.message).toBe(
+      `API error INVALID_FORM_DATA: The form contained bad data, which cannot be parsed. ${assemblyUrl}`,
+    )
+  })
+
+  it('preserves the API reason when polling fails after creation', async () => {
+    mockAssembly()
+    vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockRejectedValue(
+      new ApiError({
+        body: {
+          error: 'ASSEMBLY_NOT_FOUND',
+          message: 'Cannot access Assembly.',
+          reason: 'Use a key from the owning workspace.',
+        },
+      }),
+    )
+
+    const result = await run(['--template', 'template', '-l', 'err'])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe(
+      `err     API error ASSEMBLY_NOT_FOUND: Cannot access Assembly. Use a key from the owning workspace. (Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl})`,
+    )
+  })
+
+  it('reports the text reason of a failed Assembly status', async () => {
+    mockAssembly()
+    vi.spyOn(Transloadit.prototype, 'awaitAssemblyCompletion').mockResolvedValue({
+      error: 'INVALID_FORM_DATA',
+      message: 'The form contained bad data.',
+      reason: 'Choose text_method=native for page granularity.',
+    })
+
+    const result = await run(['--template', 'template', '-l', 'err'])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe(
+      `err     Assembly failed: INVALID_FORM_DATA: The form contained bad data. Choose text_method=native for page granularity. (Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl})`,
+    )
+  })
+
+  it('reports the reason at the shared command boundary without duplicating the message', async () => {
+    vi.spyOn(Transloadit.prototype, 'getTemplate').mockRejectedValue(
+      new ApiError({
+        body: {
+          error: 'AUTH_DENIED',
+          message: 'Choose a key with read scope.',
+          reason: 'Choose a key with read scope.',
+        },
+      }),
+    )
+
+    const result = await runCommand(['templates', 'get', 'template'])
+
+    expect(result.code).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toBe('err     API error AUTH_DENIED: Choose a key with read scope.')
+  })
+
+  it('formats plain API responses without stringifying structured reasons', () => {
+    expect(
+      formatAPIError({
+        error: 'INVALID_FORM_DATA',
+        message: 'Invalid fields.',
+        reason: 'Use native extraction.',
+      }),
+    ).toBe('INVALID_FORM_DATA: Invalid fields. Use native extraction.')
+    expect(
+      formatAPIError({
+        error: 'INVALID_FORM_DATA',
+        message: 'Invalid fields.',
+        reason: { signature: 'private-signature' },
+      }),
+    ).toBe('INVALID_FORM_DATA: Invalid fields.')
+  })
+
+  it('keeps reason lookup bounded for cyclic error causes', () => {
+    const error = new Error('Local failure.')
+    error.cause = error
+    expect(formatAPIError(error)).toBe('Local failure.')
+  })
+
   it('reports the Assembly reference on stderr while preserving stdout', async () => {
     mockAssembly()
 
