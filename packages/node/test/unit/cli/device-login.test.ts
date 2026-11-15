@@ -76,6 +76,34 @@ test('browser login shows the API refusal reason', async () => {
   )
 })
 
+test.each([
+  ['CLI_DEVICE_AUTHORIZATION_DENIED', 403, 'The login was denied in the browser.'],
+  [
+    'CLI_DEVICE_AUTHORIZATION_NOT_FOUND',
+    404,
+    'Device authorization expired or was already used. Run transloadit auth login again.',
+  ],
+  [
+    'LOGIN_REFUSED',
+    400,
+    'Browser login was refused. Run transloadit auth login again; nothing was saved.',
+  ],
+])('formats %s reasons once at the final output boundary', async (error, status, message) => {
+  const reason = `${'x'.repeat(1964)} Use a key with CLI access.`
+  const body = {
+    error,
+    message: 'Login refused.',
+    reason: `\u001b[31m${reason}\u001b[0m`,
+  } satisfies TransloaditErrorResponseBody
+  const api = createDevice().post('/cli/device_authorizations/token').reply(status, body)
+
+  await login(['--no-browser'])
+
+  expect(api.isDone()).toBe(true)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith(`${message} ${reason}`)
+})
+
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'device-login-'))
   userHome.mockReturnValue(directory)

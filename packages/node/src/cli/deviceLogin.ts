@@ -8,7 +8,7 @@ import { execa } from 'execa'
 import got from 'got'
 import { z } from 'zod'
 
-import { cliSignatureAlgorithmSchema, formatAPIError } from './helpers.ts'
+import { cliSignatureAlgorithmSchema } from './helpers.ts'
 
 const deviceSchema = z.object({
   ok: z.literal('CLI_DEVICE_AUTHORIZATION_CREATED'),
@@ -179,7 +179,7 @@ export async function deviceLogin(
         error.success &&
         error.data.error === 'CLI_DEVICE_AUTHORIZATION_DENIED'
       )
-        throw new Error(formatAPIError(token.body, 'The login was denied in the browser.'))
+        throw new Error('The login was denied in the browser.', { cause: token.body })
       if (token.statusCode === 429 || (error.success && error.data.error === 'slow_down')) {
         const seconds = Number(token.headers['retry-after'])
         // Longer waits are pointless after the authorization deadline and can overflow Node's
@@ -191,13 +191,11 @@ export async function deviceLogin(
         continue
       }
       if (error.success && error.data.error === 'CLI_DEVICE_AUTHORIZATION_NOT_FOUND')
-        throw new Error(formatAPIError(token.body, expiredMessage))
+        throw new Error(expiredMessage, { cause: token.body })
       if (token.statusCode < 200 || token.statusCode >= 300)
         throw new Error(
-          formatAPIError(
-            token.body,
-            'Browser login was refused. Run transloadit auth login again; nothing was saved.',
-          ),
+          'Browser login was refused. Run transloadit auth login again; nothing was saved.',
+          { cause: token.body },
         )
       const pending = pendingSchema.safeParse(token.body)
       if (pending.success) {
