@@ -6,6 +6,7 @@ import { signParamsSync } from '@transloadit/utils/node'
 import nock from 'nock'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import { ApiError } from '../../../src/ApiError.ts'
 import { resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
@@ -22,6 +23,25 @@ const declared = {
   created_at: '2026-09-13T00:00:00Z',
   created: true,
 }
+
+test('publication errors keep their reason without printing the remote message', async () => {
+  vi.spyOn(Transloadit.prototype, 'listPublicStoragePrefixes').mockRejectedValue(
+    new ApiError({
+      body: {
+        error: 'INVALID_SIGNATURE',
+        message: 'unsafe local-secret',
+        reason: 'Sign the method and path.',
+      },
+    }),
+  )
+
+  await main(['storage', 'publications'])
+
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith(
+    'Could not update or list public Storage prefixes. Check the API endpoint and Auth Key dam:write scope, then retry. Sign the method and path.',
+  )
+})
 let directory: string
 
 beforeEach(async () => {

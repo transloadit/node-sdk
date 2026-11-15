@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import { homedir, userInfo } from 'node:os'
 import path from 'node:path'
+import { stripVTControlCharacters } from 'node:util'
 
 import { parse as parseDotenv } from 'dotenv'
 import { ParseError, RequestError } from 'got'
@@ -536,7 +537,36 @@ export async function readCliInput(options: ReadCliInputOptions): Promise<CliInp
   return { content: null, isStdin: false }
 }
 
-export function formatAPIError(err: unknown): string {
+const apiReasonSchema = z.object({ reason: z.string().trim().min(1) })
+
+function sanitizeAPIErrorText(message: string): string {
+  const normalized = stripVTControlCharacters(Buffer.from(message).toString('utf8'))
+    .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' ')
+    .trim()
+  const characters = [...normalized]
+  return characters.length > 2000 ? `${characters.slice(0, 1999).join('')}…` : normalized
+}
+
+/** Render bounded, terminal-safe CLI diagnostics without changing SDK errors. */
+export function formatAPIError(error: unknown, message = formatAPIErrorMessage(error)): string {
+  const text = sanitizeAPIErrorText(message)
+  const visited = new Set<unknown>()
+  let current = error
+  while (current != null && !visited.has(current)) {
+    visited.add(current)
+    const parsed = apiReasonSchema.safeParse(
+      current instanceof RequestError ? current.response?.body : current,
+    )
+    if (parsed.success) {
+      const reason = sanitizeAPIErrorText(parsed.data.reason)
+      return text.includes(reason) ? text : `${text} ${reason}`
+    }
+    current = current instanceof Error ? current.cause : undefined
+  }
+  return text
+}
+
+function formatAPIErrorMessage(err: unknown): string {
   if (err instanceof RequestError) {
     // ParseError messages contain response fragments and signed request URLs.
     if (err instanceof ParseError) return `${err.code}: The API returned invalid JSON.`

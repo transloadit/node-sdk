@@ -14,7 +14,12 @@ import InconsistentResponseError from '../../InconsistentResponseError.ts'
 import { storageImagePlaceholderSchema } from '../../storageImage.ts'
 import { normalizeStoragePublicPrefix } from '../../storagePublicPrefixes.ts'
 import { Transloadit } from '../../Transloadit.ts'
-import { noticeCliCredentialSource, quoteCliArgument, resolveCliConfig } from '../helpers.ts'
+import {
+  formatAPIError,
+  noticeCliCredentialSource,
+  quoteCliArgument,
+  resolveCliConfig,
+} from '../helpers.ts'
 import {
   listStorageAssets,
   resolveStorageWorkspace,
@@ -120,7 +125,7 @@ export class StoragePublishCommand extends StorageProjectCommand {
       })
       return undefined
     } catch (error) {
-      this.output.error(ensureError(error).message)
+      this.output.error(formatAPIError(error))
       return 1
     }
   }
@@ -173,7 +178,7 @@ export class StorageUnpublishCommand extends StorageProjectCommand {
       })
       return undefined
     } catch (error) {
-      this.output.error(ensureError(error).message)
+      this.output.error(formatAPIError(error))
       return 1
     }
   }
@@ -544,7 +549,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
       if (stored.receipt !== undefined) {
         this.output.error(
           [
-            failure.message,
+            formatAPIError(failure),
             ...(published === undefined
               ? []
               : [
@@ -584,7 +589,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
         ].join(' ')
         this.output.error(
           [
-            failure.message,
+            formatAPIError(failure),
             `Destination: ${JSON.stringify(destination)}`,
             `Assembly ID: ${JSON.stringify(recovery.data.assemblyId)}`,
             ...(recovery.data.receiptCheck === undefined
@@ -602,13 +607,16 @@ export class StorageStoreCommand extends StorageProjectCommand {
       }
       if (failure instanceof ApiError && failure.code === 'TRANSLOADIT_STORE_CONFLICT') {
         this.output.error(
-          this.hashed
-            ? `Storage destination ${JSON.stringify(destination)} already exists, but no matching catalog receipt proves its contents. Restore its catalog receipt or choose another destination basename; the object was not replaced.`
-            : `Storage destination ${JSON.stringify(destination)} already exists. Choose a fresh name; use --overwrite only if you deliberately want to replace that object.`,
+          formatAPIError(
+            failure,
+            this.hashed
+              ? `Storage destination ${JSON.stringify(destination)} already exists, but no matching catalog receipt proves its contents. Restore its catalog receipt or choose another destination basename; the object was not replaced.`
+              : `Storage destination ${JSON.stringify(destination)} already exists. Choose a fresh name; use --overwrite only if you deliberately want to replace that object.`,
+          ),
         )
         return 1
       }
-      this.output.error(failure.message)
+      this.output.error(formatAPIError(failure))
       return 1
     }
   }
@@ -656,7 +664,7 @@ export class StorageListCommand extends UnauthenticatedCommand {
       )
       return undefined
     } catch (error) {
-      this.output.error(ensureError(error).message)
+      this.output.error(formatAPIError(error))
       return 1
     }
   }
@@ -828,7 +836,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
       )
       return undefined
     } catch (error) {
-      this.output.error(ensureError(error).message)
+      this.output.error(formatAPIError(error))
       return 1
     }
   }

@@ -308,7 +308,7 @@ export async function lint(
       })
     }
   } catch (error) {
-    output.error(ensureError(error).message)
+    output.error(formatAPIError(error))
     return 1
   }
 
@@ -2098,7 +2098,10 @@ async function createWithLocalInputs(
         })
       } catch (err) {
         const error = ensureError(err)
-        const message = error instanceof RequestError ? formatAPIError(error) : error.message
+        const message =
+          error instanceof RequestError
+            ? formatAPIError(error)
+            : formatAPIError(error, error.message)
         throw new Error(`${message} (${assemblyReference})`, { cause: error })
       }
 
@@ -2130,13 +2133,13 @@ async function createWithLocalInputs(
         )
       }
 
-      // Malformed error fields still signal failure, but only sanitized values enter the message.
+      // Retain the response so final formatting can show its reason after bounding a long message.
       if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
         const details =
           [summary.error ?? summary.ok, summary.message].filter(Boolean).join(': ') ||
           'Unknown Assembly error'
         const msg = `Assembly failed: ${details} (${assemblyReference})`
-        throw new Error(msg)
+        throw new Error(msg, { cause: assembly })
       }
 
       return { assembly, assemblyId }
