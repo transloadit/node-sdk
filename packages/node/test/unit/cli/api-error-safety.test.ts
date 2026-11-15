@@ -144,6 +144,20 @@ test('redacts a cut secret that starts in the preceding response message', async
   expect(output).toBe('err     API error INVALID_SIGNATURE: Rejected [redacted]')
 })
 
+test('redacts overlapping full and cut matches together', async () => {
+  vi.stubEnv('TRANSLOADIT_SECRET', 'abcdefgh')
+  const reason = 'overlap'.repeat(10)
+  vi.stubEnv('TRANSLOADIT_AUTH_SECRET', `cde… ${reason}`)
+  const prefix = 'API error INVALID_SIGNATURE: '
+  const padding = 'x'.repeat(1999 - prefix.length - 'abcde'.length)
+  const output = await report({
+    error: 'INVALID_SIGNATURE',
+    message: `${padding}abcdefgh extra`,
+    reason,
+  })
+  expect(output).toBe(`err     ${prefix}${padding}[redacted]`)
+})
+
 test('keeps Unicode characters whole at the cut before final redaction', async () => {
   vi.stubEnv('TRANSLOADIT_SECRET', 'cut-secret\uFFFD')
   const prefix = 'API error INVALID_SIGNATURE: '
@@ -160,10 +174,10 @@ test('does not truncate replacement markers after final redaction', async () => 
   const output = await report({
     error: 'INVALID_SIGNATURE',
     message: 'Request refused.',
-    reason: 'xy'.repeat(2000),
+    reason: 'xy '.repeat(2000),
   })
   expect(output).toBe(
-    `err     API error INVALID_SIGNATURE: Request refused. ${'[redacted]'.repeat(1000)}`,
+    `err     API error INVALID_SIGNATURE: Request refused. ${'[redacted] '.repeat(666)}[redacted]`,
   )
 })
 

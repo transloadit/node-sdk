@@ -570,10 +570,14 @@ function sanitizeAPIErrorText(messages: string[]): string {
   }
   text = text.trimEnd()
   // Redaction is last: no encoding repair, joining or truncation may change the returned text.
-  for (const secret of replacements.sort((a, b) => b.length - a.length))
-    text = text.replaceAll(secret, '[redacted]')
-  // Withhold output if a marker or a replacement boundary still contains a protected value.
-  return replacements.some((secret) => text.includes(secret)) ? '' : text
+  const hidden = new Uint8Array(text.length)
+  for (const secret of replacements)
+    for (let start = text.indexOf(secret); start >= 0; start = text.indexOf(secret, start + 1))
+      hidden.fill(1, start, start + secret.length)
+  let redacted = ''
+  for (let index = 0; index < text.length; index++)
+    redacted += hidden[index] ? (hidden[index - 1] ? '' : '[redacted]') : text[index]
+  return replacements.some((secret) => redacted.includes(secret)) ? '' : redacted
 }
 
 /** Render bounded CLI diagnostics without changing SDK errors or exposing known credentials. */
@@ -587,7 +591,6 @@ export function formatAPIError(error: unknown, message = formatAPIErrorMessage(e
     )
     if (parsed.success) {
       const reason = parsed.data.reason
-      // Avoid repeating a reason already rendered by a command-specific wrapper.
       return sanitizeAPIErrorText(
         message.includes(sanitizeAPIErrorText([reason])) ? [message] : [message, reason],
       )
