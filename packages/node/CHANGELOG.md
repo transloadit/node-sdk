@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 6.9.1
+
+### Patch Changes
+
+- 4034475: Show textual API error reasons in CLI diagnostics, including wrapped Storage and authentication failures. Keep structured reasons out of error lines, sanitize terminal controls, and bound error text while preserving the SDK's `ApiError.message`.
+
 ## 6.9.0
 
 ### Minor Changes
