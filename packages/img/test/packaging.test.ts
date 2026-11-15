@@ -19,6 +19,7 @@ test('React and Utils install no new runtime schema or SDK dependencies', async 
 })
 
 test.each([
+  ['@transloadit/viewer', 'neutral', 20_000, 7_000],
   ['@transloadit/viewer/react', 'browser', 24_000, 8_000],
   ['@transloadit/viewer/react/video', 'browser', 12_000, 4_000],
   ['@transloadit/viewer/server', 'neutral', 20_000, 7_000],
@@ -31,7 +32,9 @@ test.each([
     platform,
     minify: true,
     metafile: true,
-    external: ['react', 'react-dom', 'react/jsx-runtime'],
+    external: entry.startsWith('@transloadit/viewer/react')
+      ? ['react', 'react-dom', 'react/jsx-runtime']
+      : [],
     define: { 'process.env.NODE_ENV': '"production"' },
   })
   const output = bundled.outputFiles[0]?.contents

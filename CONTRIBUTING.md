@@ -58,6 +58,14 @@ yarn test:unit
 
 This will also generate a coverage report in the `coverage` directory.
 
+### Viewer without a framework
+
+`yarn test:img:fixture --core-only` packs Viewer and Utils, installs them with npm in an isolated
+consumer, and exercises the public model, synchronous server signing and authorized Web handlers.
+It verifies that React, React DOM and Next.js are absent. npm registry access is required, but no
+service credentials or media requests. The ordinary `test:img:fixture` CI job runs this check before its Next.js/browser tests;
+`--core-only` skips those heavier tests for focused work.
+
 ### SDK Edge packaging regression
 
 `yarn test:sdk:edge` packs both SDK names, installs each in a fresh consumer without omitting

@@ -6,14 +6,23 @@ Native responsive images from Smart CDN (`<workspace>.tlcdn.com`); bytes bypass 
 
 - **Build-time Next images:** use the catalog Quickstart below.
 - **Live uploads, gallery previews and private video:** [React receipts](docs/react-storage.md) (video requires 0.0.8+).
+- **Plain JavaScript or another framework:** [framework-neutral core](docs/reference.md#framework-neutral-core).
 - **HTTP/S3 assets:** use a [restricted Template](#existing-http-or-s3-assets).
 
 ## Quickstart
 
 Next.js 16.3.3+ App Router, React 19, Node.js runtime.
-`npm install @transloadit/viewer@alpha && npm install --save-dev @transloadit/node`.
-pnpm: `pnpm add @transloadit/viewer@alpha && pnpm add -D @transloadit/node`;
-Yarn: `yarn add @transloadit/viewer@alpha && yarn add -D @transloadit/node`.
+Install the tested versions in your existing app:
+
+```bash
+npm install --save-exact @transloadit/viewer@0.1.0
+npm install --save-dev --save-exact @transloadit/node@6.9.0
+```
+
+Keep your project's package manager and lockfile: Yarn uses `yarn add --exact` and
+`yarn add --dev --exact`; pnpm uses `pnpm add --save-exact` and `pnpm add --save-dev --save-exact`.
+For a newer alpha, explicitly select `@transloadit/viewer@alpha` with `--save-exact` and test it
+before updating. A bare Viewer install currently selects the older `latest` release.
 Storage needs a matching API2 deployment; [existing HTTP/S3 assets](#existing-http-or-s3-assets) do not.
 
 Run beside `package.json`. Start with `auth login` even without an account: choose Sign up in the
@@ -22,8 +31,8 @@ browser it opens, create a free workspace, and approve the CLI. For `./hero.jpg`
 Prefer `--hashed` for images you will replace; use the printed JSX path with its immutable filename.
 
 ```bash
-npx transloadit auth login
-npx transloadit storage store ./hero.jpg website/hero.jpg --public --hashed
+npx @transloadit/node@6.9.0 auth login
+npx @transloadit/node@6.9.0 storage store ./hero.jpg website/hero.jpg --public --hashed
 ```
 
 `--public` publishes the directory recursively, including future uploads. In `next.config.ts`:
