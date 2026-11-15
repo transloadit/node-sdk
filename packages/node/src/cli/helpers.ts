@@ -545,24 +545,39 @@ export async function readCliInput(options: ReadCliInputOptions): Promise<CliInp
 
 const apiReasonSchema = z.object({ reason: z.string().trim().min(1) })
 
-function sanitizeAPIErrorText(message: string, limit = 2000): string {
+function sanitizeAPIErrorText(messages: string[]): string {
   const secrets = [...(cliDiagnosticSecrets.getStore() ?? [])]
     .filter(Boolean)
-    .sort((a, b) => b.length - a.length)
-  let text = message
-  for (const secret of secrets) text = text.replaceAll(secret, '[redacted]')
-  text = stripVTControlCharacters(text).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' ')
-  // Removing escape sequences can rejoin an exact credential that was split by formatting.
-  for (const secret of secrets) text = text.replaceAll(secret, '[redacted]')
-  text = text.length > limit ? `${text.slice(0, limit - 1)}…` : text.trim()
-  for (const secret of secrets) text = text.replaceAll(secret, '[redacted]')
-  // Fail closed if replacement text or a replacement boundary still contains a credential.
-  return secrets.some((secret) => text.includes(secret)) ? '' : text.slice(0, limit)
+    .map((secret) => Buffer.from(secret).toString('utf8'))
+  const replacements = [...secrets]
+  let text = ''
+  for (const message of messages) {
+    const normalized = stripVTControlCharacters(Buffer.from(message).toString('utf8'))
+      .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' ')
+      .trim()
+    const characters = [...normalized]
+    const kept = characters.length > 2000 ? characters.slice(0, 1999).join('') : normalized
+    if (characters.length > 2000) {
+      const unbounded = `${text}${normalized}`
+      const cut = text.length + kept.length
+      // An exact match crossing the cut protects its retained prefix, including across fields.
+      for (const secret of secrets) {
+        const start = unbounded.indexOf(secret, Math.max(0, cut - secret.length + 1))
+        if (start >= 0 && start < cut) replacements.push(`${unbounded.slice(start, cut)}…`)
+      }
+    }
+    text += `${kept}${characters.length > 2000 ? '…' : ''} `
+  }
+  text = text.trimEnd()
+  // Redaction is last: no encoding repair, joining or truncation may change the returned text.
+  for (const secret of replacements.sort((a, b) => b.length - a.length))
+    text = text.replaceAll(secret, '[redacted]')
+  // Withhold output if a marker or a replacement boundary still contains a protected value.
+  return replacements.some((secret) => text.includes(secret)) ? '' : text
 }
 
 /** Render bounded CLI diagnostics without changing SDK errors or exposing known credentials. */
 export function formatAPIError(error: unknown, message = formatAPIErrorMessage(error)): string {
-  const text = sanitizeAPIErrorText(message)
   const visited = new Set<unknown>()
   let current = error
   while (current != null && !visited.has(current)) {
@@ -571,13 +586,15 @@ export function formatAPIError(error: unknown, message = formatAPIErrorMessage(e
       current instanceof RequestError ? current.response?.body : current,
     )
     if (parsed.success) {
-      const reason = sanitizeAPIErrorText(parsed.data.reason)
-      // Joining response fields can also complete an exact credential.
-      return text.includes(reason) ? text : sanitizeAPIErrorText(`${text} ${reason}`, 4001)
+      const reason = parsed.data.reason
+      // Avoid repeating a reason already rendered by a command-specific wrapper.
+      return sanitizeAPIErrorText(
+        message.includes(sanitizeAPIErrorText([reason])) ? [message] : [message, reason],
+      )
     }
     current = current instanceof Error ? current.cause : undefined
   }
-  return text
+  return sanitizeAPIErrorText([message])
 }
 
 function formatAPIErrorMessage(err: unknown): string {

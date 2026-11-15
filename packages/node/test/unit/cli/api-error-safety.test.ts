@@ -92,7 +92,7 @@ test('prints an ordinary reason unchanged', async () => {
   )
 })
 
-test('bounds long reasons after redacting credentials', async () => {
+test('bounds long reasons before redacting credentials', async () => {
   const output = await report({
     error: 'INVALID_FORM_DATA',
     message: 'The form contained bad data.',
@@ -112,6 +112,59 @@ test('redacts a credential completed by the truncation ellipsis', async () => {
     message: `${padding}invocation-secret extra`,
   })
   expect(output).toBe(`err     ${prefix}${padding}[redacted]`)
+})
+
+test('normalizes malformed Unicode before redacting the message and reason', async () => {
+  vi.stubEnv('TRANSLOADIT_SECRET', 'synthetic-secret\uFFFD')
+  const output = await report({
+    error: 'INVALID_SIGNATURE',
+    message: 'Rejected synthetic-secret\uD800.',
+    reason: 'Use synthetic-secret\uD800.',
+  })
+  expect(output).toBe('err     API error INVALID_SIGNATURE: Rejected [redacted]. Use [redacted].')
+})
+
+test('redacts a secret prefix retained at the reason cut', async () => {
+  const padding = 'x'.repeat(1999 - 'invocation-'.length)
+  const output = await report({
+    error: 'INVALID_SIGNATURE',
+    message: 'Request refused.',
+    reason: `${padding}invocation-secret`,
+  })
+  expect(output).toBe(`err     API error INVALID_SIGNATURE: Request refused. ${padding}[redacted]`)
+})
+
+test('redacts a cut secret that starts in the preceding response message', async () => {
+  vi.stubEnv('TRANSLOADIT_SECRET', `joined ${'x'.repeat(1998)}tail`)
+  const output = await report({
+    error: 'INVALID_SIGNATURE',
+    message: 'Rejected joined',
+    reason: `${'x'.repeat(1998)}tail`,
+  })
+  expect(output).toBe('err     API error INVALID_SIGNATURE: Rejected [redacted]')
+})
+
+test('keeps Unicode characters whole at the cut before final redaction', async () => {
+  vi.stubEnv('TRANSLOADIT_SECRET', 'cut-secret\uFFFD')
+  const prefix = 'API error INVALID_SIGNATURE: '
+  const padding = 'x'.repeat(1998 - prefix.length - 'cut-secret'.length)
+  const output = await report({
+    error: 'INVALID_SIGNATURE',
+    message: `${padding}cut-secret😀 extra`,
+  })
+  expect(output).toBe(`err     ${prefix}${padding}cut-secret😀…`)
+})
+
+test('does not truncate replacement markers after final redaction', async () => {
+  vi.stubEnv('TRANSLOADIT_SECRET', 'xy')
+  const output = await report({
+    error: 'INVALID_SIGNATURE',
+    message: 'Request refused.',
+    reason: 'xy'.repeat(2000),
+  })
+  expect(output).toBe(
+    `err     API error INVALID_SIGNATURE: Request refused. ${'[redacted]'.repeat(1000)}`,
+  )
 })
 
 test('withholds a diagnostic when the redaction marker is itself a credential', async () => {
