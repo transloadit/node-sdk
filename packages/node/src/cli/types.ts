@@ -30,7 +30,6 @@ export const assemblySummarySchema = z.object({
   ok: z.string().nullable().optional().catch(undefined),
   error: z.string().optional().catch(undefined),
   message: z.string().optional().catch(undefined),
-  reason: z.string().trim().min(1).optional().catch(undefined),
   ignored_error_count: z.number().finite().int().nonnegative().default(0).catch(0),
   ignored_errors: z.array(ignoredErrorSummarySchema).default([]).catch([]),
 })

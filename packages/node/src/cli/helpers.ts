@@ -2,10 +2,12 @@ import type { Readable } from 'node:stream'
 
 import type { IOutputCtl } from './OutputCtl.ts'
 
+import { AsyncLocalStorage } from 'node:async_hooks'
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import { homedir, userInfo } from 'node:os'
 import path from 'node:path'
+import { stripVTControlCharacters } from 'node:util'
 
 import { parse as parseDotenv } from 'dotenv'
 import { ParseError, RequestError } from 'got'
@@ -13,6 +15,9 @@ import { z } from 'zod'
 
 import { ApiError } from '../ApiError.ts'
 import { isAPIError } from './types.ts'
+
+/** Exact credentials held by the current CLI invocation, isolated from other invocations. */
+export const cliDiagnosticSecrets = new AsyncLocalStorage<Set<string>>()
 
 /** API signing algorithms supported by CLI credentials and device authorization. */
 export const cliSignatureAlgorithmSchema = z.enum(['sha1', 'sha256', 'sha384'])
@@ -275,6 +280,7 @@ function getSourceCredentials(
   const authKey = getSourceValue(source, ['TRANSLOADIT_KEY', 'TRANSLOADIT_AUTH_KEY'])
   const authSecret = getSourceValue(source, ['TRANSLOADIT_SECRET', 'TRANSLOADIT_AUTH_SECRET'])
   if (authKey == null || authSecret == null) return undefined
+  cliDiagnosticSecrets.getStore()?.add(authKey).add(authSecret)
 
   const algorithm = cliSignatureAlgorithmSchema
     .optional()
@@ -291,6 +297,7 @@ function getSourceCredentials(
 function getSourceAuthToken(source: CliEnvSource): CliAuthToken | undefined {
   const authToken = getSourceValue(source, ['TRANSLOADIT_AUTH_TOKEN'])
   if (authToken == null) return undefined
+  cliDiagnosticSecrets.getStore()?.add(authToken)
 
   return { authToken }
 }
@@ -538,8 +545,21 @@ export async function readCliInput(options: ReadCliInputOptions): Promise<CliInp
 
 const apiReasonSchema = z.object({ reason: z.string().trim().min(1) })
 
-/** Keep textual API diagnostics through CLI wrappers without inspecting request metadata. */
-export function appendAPIErrorReason(message: string, error: unknown): string {
+function sanitizeAPIErrorText(message: string): string {
+  const secrets = [...(cliDiagnosticSecrets.getStore() ?? [])]
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+  let text = message
+  for (const secret of secrets) text = text.replaceAll(secret, '[redacted]')
+  text = stripVTControlCharacters(text).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' ')
+  // Removing escape sequences can rejoin an exact credential that was split by formatting.
+  for (const secret of secrets) text = text.replaceAll(secret, '[redacted]')
+  return text.length > 2000 ? `${text.slice(0, 1999)}…` : text.trim()
+}
+
+/** Render bounded CLI diagnostics without changing SDK errors or exposing known credentials. */
+export function formatAPIError(error: unknown, message = formatAPIErrorMessage(error)): string {
+  const text = sanitizeAPIErrorText(message)
   const visited = new Set<unknown>()
   let current = error
   while (current != null && !visited.has(current)) {
@@ -548,17 +568,12 @@ export function appendAPIErrorReason(message: string, error: unknown): string {
       current instanceof RequestError ? current.response?.body : current,
     )
     if (parsed.success) {
-      const reason = parsed.data.reason
-      return message.includes(reason) ? message : `${message} ${reason}`
+      const reason = sanitizeAPIErrorText(parsed.data.reason)
+      return text.includes(reason) ? text : `${text} ${reason}`
     }
     current = current instanceof Error ? current.cause : undefined
   }
-  return message
-}
-
-/** Format API failures for the CLI while preserving the SDK's Error.message contract. */
-export function formatAPIError(err: unknown): string {
-  return appendAPIErrorReason(formatAPIErrorMessage(err), err)
+  return text
 }
 
 function formatAPIErrorMessage(err: unknown): string {

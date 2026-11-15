@@ -4,4 +4,4 @@
 '@transloadit/mcp-server': patch
 ---
 
-Show textual API error reasons in CLI diagnostics, including wrapped Storage and authentication failures, while keeping structured reasons out of error lines and preserving the SDK's `ApiError.message`.
+Show textual API error reasons in CLI diagnostics, including wrapped Storage and authentication failures. Keep structured reasons out of error lines, sanitize terminal controls, and redact exact credentials known to the CLI invocation while preserving the SDK's `ApiError.message`.

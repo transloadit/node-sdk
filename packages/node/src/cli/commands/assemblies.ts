@@ -49,7 +49,7 @@ import {
   validateSharedFileProcessingOptions,
   watchOption,
 } from '../fileProcessingOptions.ts'
-import { appendAPIErrorReason, formatAPIError, readCliInput } from '../helpers.ts'
+import { formatAPIError, readCliInput } from '../helpers.ts'
 import { normalizeAssemblyResults } from '../resultFiles.ts'
 import { collectNormalizedResultUrlRows, printResultUrls } from '../resultUrls.ts'
 import { parseStepsInputJson, readStepsInputFile } from '../stepsInput.ts'
@@ -2101,7 +2101,7 @@ async function createWithLocalInputs(
         const message =
           error instanceof RequestError
             ? formatAPIError(error)
-            : appendAPIErrorReason(error.message, error)
+            : formatAPIError(error, error.message)
         throw new Error(`${message} (${assemblyReference})`, { cause: error })
       }
 
@@ -2138,7 +2138,7 @@ async function createWithLocalInputs(
         const details =
           [summary.error ?? summary.ok, summary.message].filter(Boolean).join(': ') ||
           'Unknown Assembly error'
-        const msg = `Assembly failed: ${appendAPIErrorReason(details, summary)} (${assemblyReference})`
+        const msg = `Assembly failed: ${formatAPIError(assembly, details)} (${assemblyReference})`
         throw new Error(msg)
       }
 

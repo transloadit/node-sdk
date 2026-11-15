@@ -15,7 +15,6 @@ import { storageImagePlaceholderSchema } from '../../storageImage.ts'
 import { normalizeStoragePublicPrefix } from '../../storagePublicPrefixes.ts'
 import { Transloadit } from '../../Transloadit.ts'
 import {
-  appendAPIErrorReason,
   formatAPIError,
   noticeCliCredentialSource,
   quoteCliArgument,
@@ -608,11 +607,11 @@ export class StorageStoreCommand extends StorageProjectCommand {
       }
       if (failure instanceof ApiError && failure.code === 'TRANSLOADIT_STORE_CONFLICT') {
         this.output.error(
-          appendAPIErrorReason(
+          formatAPIError(
+            failure,
             this.hashed
               ? `Storage destination ${JSON.stringify(destination)} already exists, but no matching catalog receipt proves its contents. Restore its catalog receipt or choose another destination basename; the object was not replaced.`
               : `Storage destination ${JSON.stringify(destination)} already exists. Choose a fresh name; use --overwrite only if you deliberately want to replace that object.`,
-            failure,
           ),
         )
         return 1

@@ -8,7 +8,7 @@ import { execa } from 'execa'
 import got from 'got'
 import { z } from 'zod'
 
-import { appendAPIErrorReason, cliSignatureAlgorithmSchema } from './helpers.ts'
+import { cliDiagnosticSecrets, cliSignatureAlgorithmSchema, formatAPIError } from './helpers.ts'
 
 const deviceSchema = z.object({
   ok: z.literal('CLI_DEVICE_AUTHORIZATION_CREATED'),
@@ -91,6 +91,7 @@ export async function deviceLogin(
     if (!parsed.success)
       throw new Error('The API returned an invalid device authorization; nothing was saved')
     const device = parsed.data
+    cliDiagnosticSecrets.getStore()?.add(device.device_code)
     const target = new URL(device.verification_url)
     if (
       target.username ||
@@ -179,7 +180,7 @@ export async function deviceLogin(
         error.success &&
         error.data.error === 'CLI_DEVICE_AUTHORIZATION_DENIED'
       )
-        throw new Error(appendAPIErrorReason('The login was denied in the browser.', token.body))
+        throw new Error(formatAPIError(token.body, 'The login was denied in the browser.'))
       if (token.statusCode === 429 || (error.success && error.data.error === 'slow_down')) {
         const seconds = Number(token.headers['retry-after'])
         // Longer waits are pointless after the authorization deadline and can overflow Node's
@@ -191,12 +192,12 @@ export async function deviceLogin(
         continue
       }
       if (error.success && error.data.error === 'CLI_DEVICE_AUTHORIZATION_NOT_FOUND')
-        throw new Error(appendAPIErrorReason(expiredMessage, token.body))
+        throw new Error(formatAPIError(token.body, expiredMessage))
       if (token.statusCode < 200 || token.statusCode >= 300)
         throw new Error(
-          appendAPIErrorReason(
-            'Browser login was refused. Run transloadit auth login again; nothing was saved.',
+          formatAPIError(
             token.body,
+            'Browser login was refused. Run transloadit auth login again; nothing was saved.',
           ),
         )
       const pending = pendingSchema.safeParse(token.body)

@@ -5,7 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { loadProjectDotenvIntoProcessEnv } from './cli/helpers.ts'
+import { cliDiagnosticSecrets, loadProjectDotenvIntoProcessEnv } from './cli/helpers.ts'
 import { ensureError } from './cli/types.ts'
 
 const currentFile = realpathSync(fileURLToPath(import.meta.url))
@@ -29,7 +29,14 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   loadProjectDotenvIntoProcessEnv()
   const { createCli } = await import('./cli/commands/index.ts')
   const cli = createCli()
-  const exitCode = await cli.run(args)
+  const secrets = [
+    process.env.TRANSLOADIT_KEY,
+    process.env.TRANSLOADIT_AUTH_KEY,
+    process.env.TRANSLOADIT_SECRET,
+    process.env.TRANSLOADIT_AUTH_SECRET,
+    process.env.TRANSLOADIT_AUTH_TOKEN,
+  ].filter((value) => typeof value === 'string')
+  const exitCode = await cliDiagnosticSecrets.run(new Set(secrets), () => cli.run(args))
   if (exitCode !== 0) {
     process.exitCode = exitCode
   }
