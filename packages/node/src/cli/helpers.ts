@@ -554,7 +554,10 @@ function sanitizeAPIErrorText(message: string, limit = 2000): string {
   text = stripVTControlCharacters(text).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' ')
   // Removing escape sequences can rejoin an exact credential that was split by formatting.
   for (const secret of secrets) text = text.replaceAll(secret, '[redacted]')
-  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text.trim()
+  text = text.length > limit ? `${text.slice(0, limit - 1)}…` : text.trim()
+  for (const secret of secrets) text = text.replaceAll(secret, '[redacted]')
+  // Fail closed if replacement text or a replacement boundary still contains a credential.
+  return secrets.some((secret) => text.includes(secret)) ? '' : text.slice(0, limit)
 }
 
 /** Render bounded CLI diagnostics without changing SDK errors or exposing known credentials. */

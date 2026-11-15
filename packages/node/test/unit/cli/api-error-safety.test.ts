@@ -103,6 +103,23 @@ test('bounds long reasons after redacting credentials', async () => {
   expect(output.endsWith('…')).toBe(true)
 })
 
+test('redacts a credential completed by the truncation ellipsis', async () => {
+  vi.stubEnv('TRANSLOADIT_SECRET', 'invocation-secret…')
+  const prefix = 'API error INVALID_SIGNATURE: '
+  const padding = 'x'.repeat(1999 - prefix.length - 'invocation-secret'.length)
+  const output = await report({
+    error: 'INVALID_SIGNATURE',
+    message: `${padding}invocation-secret extra`,
+  })
+  expect(output).toBe(`err     ${prefix}${padding}[redacted]`)
+})
+
+test('withholds a diagnostic when the redaction marker is itself a credential', async () => {
+  vi.stubEnv('TRANSLOADIT_SECRET', '[redacted]')
+  const output = await report({ error: 'INVALID_SIGNATURE', message: 'Rejected [redacted].' })
+  expect(output).toBe('err     ')
+})
+
 test('sanitizes response messages when there is no text reason', async () => {
   const output = await report({
     error: 'INVALID_SIGNATURE',
