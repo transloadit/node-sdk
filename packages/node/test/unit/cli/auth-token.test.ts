@@ -184,10 +184,12 @@ describe('cli auth token', () => {
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     await main(['auth', 'token', '--aud', 'nope', '-l', 'err'])
     expect(stdoutSpy).not.toHaveBeenCalled()
+    // Supported Node versions strip OSC payload text differently; guidance and terminal safety matter.
     expect(stderrSpy).toHaveBeenCalledExactlyOnceWith(
       'err    ',
-      'TOKEN_INVALID_AUDIENCE: Invalid audience. Use api2.',
+      expect.stringContaining('TOKEN_INVALID_AUDIENCE: Invalid audience. Use api2.'),
     )
+    expect(stderrSpy.mock.calls[0]?.[1]).not.toMatch(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u)
     expect(process.exitCode).toBe(1)
   })
 
