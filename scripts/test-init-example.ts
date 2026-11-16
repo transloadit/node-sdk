@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 
 import { execa } from 'execa'
 
+import { parsePackResult } from './parse-pack-result.ts'
+
 const root = fileURLToPath(new URL('../', import.meta.url))
 
 async function main(): Promise<void> {
@@ -22,7 +24,8 @@ async function main(): Promise<void> {
       '--pack-destination',
       directory,
     ])
-    const [packed] = JSON.parse(stdout)
+    const packed = parsePackResult(stdout)
+    assert(Array.isArray(packed.files))
     assert(
       packed.files.some((file: { path: string }) => file.path === 'examples/upload-once/demo.ts'),
     )
@@ -38,7 +41,7 @@ async function main(): Promise<void> {
       '--pack-destination',
       directory,
     ])
-    const [utils] = JSON.parse(utilsPack.stdout)
+    const utils = parsePackResult(utilsPack.stdout)
     await command(process.execPath, ['scripts/prepare-transloadit.ts'], {
       env: { TRANSLOADIT_PUBLISH_PREBUILT_NODE: 'true' },
     })
@@ -50,7 +53,8 @@ async function main(): Promise<void> {
       '--pack-destination',
       directory,
     ])
-    const [legacy] = JSON.parse(legacyPack.stdout)
+    const legacy = parsePackResult(legacyPack.stdout)
+    assert(Array.isArray(legacy.files))
     // The linked release group ships both names together; init pins that same SDK version.
     assert.equal(legacy.version, packed.version, 'CLI distributions must retain version parity')
     assert(

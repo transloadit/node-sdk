@@ -6,7 +6,38 @@ import { promisify } from 'node:util'
 
 import { expect, it } from 'vitest'
 
+import { parsePackResult } from './parse-pack-result.ts'
+
 const execute = promisify(execFile)
+
+const metadata = {
+  filename: 'fixture.tgz',
+  version: '1.0.0',
+  files: [{ path: 'README.md' }],
+}
+
+it.each([
+  [metadata],
+  { '@transloadit/node': metadata },
+  metadata,
+])('reads one npm pack result and preserves its metadata: %j', (response) => {
+  expect(parsePackResult(JSON.stringify(response))).toEqual(metadata)
+})
+
+it.each([
+  [],
+  {},
+  null,
+  [metadata, metadata],
+  { first: metadata, second: metadata },
+  [{ version: '1.0.0' }],
+  [{ filename: '' }],
+  [{ filename: 42 }],
+])('rejects missing or ambiguous npm pack metadata: %j', (response) => {
+  expect(() => parsePackResult(JSON.stringify(response))).toThrow(
+    'npm pack did not return exactly one package with a tarball filename',
+  )
+})
 
 it.each([
   [{ filename: 'fixture.tgz' }],
