@@ -350,8 +350,8 @@ The JSON config accepts the same keys as `createTransloaditMcpHttpHandler()`, in
 | Tool                                     | Account | OAuth scopes                         | Notes                                           |
 | ---------------------------------------- | ------- | ------------------------------------ | ----------------------------------------------- |
 | `transloadit_lint_assembly_instructions` | no      | none                                 | read-only                                       |
-| `transloadit_list_docs` | no | none | read-only; public documentation |
-| `transloadit_get_doc_help` | no | none | read-only; public documentation |
+| `transloadit_search_docs`                | no      | none                                 | read-only; public documentation                 |
+| `transloadit_get_doc`                    | no      | none                                 | read-only; public documentation                 |
 | `transloadit_list_robots`                | no      | none                                 | read-only                                       |
 | `transloadit_get_robot_help`             | no      | none                                 | read-only                                       |
 | `transloadit_create_assembly`            | yes     | `assemblies:write`, `templates:read` | destructive, open-world (URL imports), widget   |
@@ -416,16 +416,37 @@ credentials, derived from the Workspace's own Assemblies or Templates.
 
 ### Documentation and Robot help
 
-| Discovery | Help | Coverage |
-| --- | --- | --- |
+| Discovery                 | Page or parameter help       | Coverage                                                                                          |
+| ------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------- |
 | `transloadit_list_robots` | `transloadit_get_robot_help` | Structured Robot summaries, required/optional parameters and examples for writing Assembly Steps. |
-| `transloadit_list_docs` | `transloadit_get_doc_help` | Public Markdown documentation for API authentication and endpoints, SDK setup, FAQs, integration concepts and full Robot articles. |
+| `transloadit_search_docs` | `transloadit_get_doc`        | Public documentation for the API, SDKs, FAQs, integration concepts and full Robot articles.       |
 
-The existing Robot tools keep their names and behavior. Documentation tools add the broader guides and prose that a Robot parameter reference does not cover. Like `transloadit_list_robots`, `transloadit_list_docs` accepts an optional `search` filter. It also accepts `scope` (`all`, `api`, `faq`, `robots`, `sdks`) and `limit` (1–20, default 8); omitting `search` lists pages alphabetically. Search prioritizes pages matching more of the search terms and returns each Markdown URL once.
+`transloadit_search_docs` searches the website’s full-text documentation index through
+`https://transloadit.com/api/docs/search/`. It accepts `query` (trimmed, 2–200 characters),
+an optional `section` passed through to the website, and `limit` (1–20, default 8).
+It returns `{ status, results, next_steps }`. Each result contains `title`, `url` (including
+any heading anchor), `markdown_url`, `excerpt` and `section`. Results suggest reading the page;
+Robot results also suggest structured parameter help. An empty search returns no next steps.
 
-`transloadit_get_doc_help` accepts `path_or_url` from a listing or a public documentation path, plus `max_chars` (1,000–100,000, default 50,000). It returns `{ title, url, markdown, truncated }`. It reads the response as a bounded stream, rejects non-documentation URLs and redirects, and reports temporary documentation failures without returning upstream diagnostics.
+`transloadit_get_doc` accepts `url` as a public `/docs/` path or a transloadit.com documentation
+URL, including `www.` and `http://` URLs. It normalizes to `https://transloadit.com`, removes
+query strings and fragments, and fetches Markdown. It follows at most three redirects within
+the HTTPS docs origin and refuses redirects outside `/docs/`.
 
-The tools use the live `/docs/llms.txt` and scoped API/FAQ/Robot/SDK indexes. Unavailable or oversized indexes produce an explicit error instead of silently searching an incomplete root catalog. They fetch only public documentation and need no account credentials in caller-credentials mode; hosted deployments still apply the OAuth policy described above.
+Page reads accept `start_index` (nonnegative, default 0) and `max_chars` (1,000–50,000,
+default 15,000). The result contains `{ status, document, next_steps }`, with
+`document: { title, url, markdown, start_index, next_start_index, truncated }`.
+Pass `next_start_index` back as `start_index` to continue; `null` means the page is complete.
+Offsets and page sizes count Unicode code points, so multibyte text stays intact across pages.
+Reads skip the prefix while streaming and retain only bounded text. Robot articles also suggest
+structured parameter help.
+
+Both tools time out after 10 seconds. Invalid search requests return `mcp_invalid_docs_query`
+with the endpoint’s validation message. Invalid page URLs return `mcp_invalid_docs_url`;
+missing pages and redirects outside the docs return `mcp_doc_not_found`. Network, timeout,
+server and unexpected-response failures return `mcp_docs_unavailable` with a sanitized message.
+The tools need no account credentials in caller-credentials mode; hosted deployments apply
+the OAuth policy described above.
 
 ### Result widget
 
