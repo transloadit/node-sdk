@@ -37,6 +37,12 @@ import {
   selectBuiltinInputUrls,
   validateBuiltinFields,
 } from './builtin-shortcuts.ts'
+import {
+  DocsError,
+  docsSearchResultSchema,
+  getTransloaditDoc,
+  searchTransloaditDocs,
+} from './docs.ts'
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
 import { buildRedactor, getDiagnosticsLogger } from './logger.ts'
 import { assertServerOptions } from './options.ts'
@@ -171,6 +177,41 @@ const toolMessageSchema = z.object({
   message: z.string(),
   hint: z.string().optional(),
   path: z.string().optional(),
+})
+
+const searchDocsInputSchema = z.object({
+  query: z.string().trim().min(2).max(200),
+  section: z.string().optional(),
+  limit: z.number().int().min(1).max(20).default(8),
+})
+
+const searchDocsOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  results: z.array(docsSearchResultSchema).optional(),
+  next_steps: z.array(z.string()).optional(),
+  errors: z.array(toolMessageSchema).optional(),
+})
+
+const getDocInputSchema = z.object({
+  url: z.string().min(1),
+  start_index: z.number().int().nonnegative().default(0),
+  max_chars: z.number().int().min(1_000).max(50_000).default(15_000),
+})
+
+const getDocOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  document: z
+    .object({
+      title: z.string(),
+      url: z.string(),
+      markdown: z.string(),
+      start_index: z.number().int().nonnegative(),
+      next_start_index: z.number().int().nonnegative().nullable(),
+      truncated: z.boolean(),
+    })
+    .optional(),
+  next_steps: z.array(z.string()).optional(),
+  errors: z.array(toolMessageSchema).optional(),
 })
 
 const listRobotsInputSchema = z.object({
@@ -1324,6 +1365,7 @@ export const createTransloaditMcpServer = (
 ): McpServer => {
   assertServerOptions(options)
   const logger = (options.logger ?? getDiagnosticsLogger()).nest('assemblies')
+  const docsLogger = (options.logger ?? getDiagnosticsLogger()).nest('docs')
   const redactError = buildRedactor([options.authSecret, options.upstreamSecret, options.mcpToken])
   const server = new McpServer(
     {
@@ -1364,7 +1406,66 @@ export const createTransloaditMcpServer = (
     return callback
   }
 
-  // Builtin templates supersede the old golden template tool; no legacy alias by design.
+  const docsToolError = (error: unknown, operation: 'search' | 'page'): CallToolResult => {
+    // Upstream errors can contain query strings or response bodies. Log only known categories.
+    const diagnostic =
+      error instanceof DocsError
+        ? error.diagnostic
+        : error instanceof z.ZodError
+          ? 'invalid_response'
+          : error instanceof SyntaxError
+            ? 'invalid_json'
+            : error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)
+              ? 'timeout'
+              : 'network_or_stream_failure'
+    docsLogger.warn('Documentation %s failed: %s', operation, diagnostic)
+    const response =
+      error instanceof DocsError
+        ? buildToolError(error.code, error.message)
+        : buildToolError(
+            'mcp_docs_unavailable',
+            operation === 'search'
+              ? 'Documentation search is temporarily unavailable.'
+              : 'The requested Transloadit documentation page is temporarily unavailable.',
+          )
+    return { ...response, isError: true }
+  }
+
+  register(
+    'transloadit_search_docs',
+    searchDocsInputSchema,
+    searchDocsOutputSchema,
+    async ({ query, section, limit }) => {
+      try {
+        const results = await searchTransloaditDocs(query, section, limit)
+        const nextSteps = results.length > 0 ? ['transloadit_get_doc'] : []
+        if (results.some((result) => new URL(result.url).pathname.startsWith('/docs/robots/'))) {
+          nextSteps.push('transloadit_get_robot_help')
+        }
+        return buildToolResponse({ status: 'ok', results, next_steps: nextSteps })
+      } catch (error) {
+        return docsToolError(error, 'search')
+      }
+    },
+  )
+
+  register(
+    'transloadit_get_doc',
+    getDocInputSchema,
+    getDocOutputSchema,
+    async ({ url, start_index, max_chars }) => {
+      try {
+        const document = await getTransloaditDoc(url, start_index, max_chars)
+        const nextSteps = new URL(document.url).pathname.startsWith('/docs/robots/')
+          ? ['transloadit_get_robot_help']
+          : []
+        return buildToolResponse({ status: 'ok', document, next_steps: nextSteps })
+      } catch (error) {
+        return docsToolError(error, 'page')
+      }
+    },
+  )
+
   register(
     'transloadit_lint_assembly_instructions',
     lintAssemblyInputSchema,
@@ -1950,6 +2051,7 @@ export const createTransloaditMcpServer = (
   const shortcutInputSchema = createAssemblyInputSchema
     .omit({ instructions: true, assembly_url: true })
     .strict()
+  // Builtin templates supersede the old golden template tool; no legacy alias by design.
   for (const { id, name } of builtinShortcuts) {
     register(name, shortcutInputSchema, createAssemblyOutputSchema, async (args, extra) => {
       const startedAt = performance.now()
