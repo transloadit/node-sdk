@@ -134,6 +134,8 @@ describe('tool surface', () => {
   // The hosted endpoint answers every unauthenticated request with the OAuth challenge, so even
   // the documentation tools are declared oauth2 there, with no scopes.
   it.each([
+    ['transloadit_search_docs', [{ type: 'oauth2', scopes: [] }]],
+    ['transloadit_get_doc', [{ type: 'oauth2', scopes: [] }]],
     ['transloadit_list_robots', [{ type: 'oauth2', scopes: [] }]],
     ['transloadit_get_robot_help', [{ type: 'oauth2', scopes: [] }]],
     ['transloadit_lint_assembly_instructions', [{ type: 'oauth2', scopes: [] }]],
@@ -339,6 +341,8 @@ describe('security schemes outside hosted mode', () => {
   it('declares the documentation tools noauth and the account tools oauth2 without credentials', async () => {
     const schemes = schemesByName(await listRawTools({}))
 
+    expect(schemes.transloadit_search_docs).toEqual([{ type: 'noauth' }])
+    expect(schemes.transloadit_get_doc).toEqual([{ type: 'noauth' }])
     expect(schemes.transloadit_list_robots).toEqual([{ type: 'noauth' }])
     expect(schemes.transloadit_get_robot_help).toEqual([{ type: 'noauth' }])
     expect(schemes.transloadit_lint_assembly_instructions).toEqual([{ type: 'noauth' }])

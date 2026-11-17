@@ -1,183 +1,220 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { getTransloaditDocHelp, listTransloaditDocs } from '../../src/docs.ts'
+import { getTransloaditDoc, searchTransloaditDocs } from '../../src/docs.ts'
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('MCP documentation retrieval', () => {
-  it('searches and scopes the public documentation index', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          [
-            '# Transloadit',
-            '- [Resize images](https://transloadit.com/docs/robots/image-resize.md): Resize and crop images.',
-            '- [Authentication](https://transloadit.com/docs/api/authentication.md): Sign API requests.',
-            '- [External](https://example.com/docs/image.md): Must not be returned.',
-          ].join('\n'),
-          { status: 200 },
-        ),
-      )
-    vi.stubGlobal('fetch', fetchMock)
+  it.each([
+    '/docs/api/authentication',
+    'https://transloadit.com/docs/api/authentication/',
+    'https://www.transloadit.com/docs/api/authentication/?secret=redact#heading',
+    'http://transloadit.com/docs/api/authentication/',
+    'http://www.transloadit.com/docs/api/authentication.md?secret=redact#heading',
+  ])('normalizes %s to the canonical Markdown URL', async (url) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('# Authentication\n'))
+    const page = await getTransloaditDoc(url, 0, 1_000, fetchMock)
 
-    const results = await listTransloaditDocs('resize image', 'robots', 5)
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://transloadit.com/docs/robots/llms.txt',
-      expect.anything(),
-    )
-    expect(results).toEqual([
-      {
-        title: 'Resize images',
-        url: 'https://transloadit.com/docs/robots/image-resize.md',
-        description: 'Resize and crop images.',
-      },
-    ])
-  })
-
-  it('reports a missing scoped index instead of silently searching an incomplete root index', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 404 }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    await expect(listTransloaditDocs('authentication', 'api', 5)).rejects.toThrow('HTTP 404')
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
-      'https://transloadit.com/docs/api/llms.txt',
-      expect.anything(),
+      'https://transloadit.com/docs/api/authentication.md',
+      expect.objectContaining({
+        headers: { Accept: 'text/markdown, text/plain;q=0.9' },
+        redirect: 'manual',
+        signal: expect.any(AbortSignal),
+      }),
     )
+    expect(page).toEqual({
+      title: 'Authentication',
+      url: 'https://transloadit.com/docs/api/authentication.md',
+      markdown: '# Authentication\n',
+      start_index: 0,
+      next_start_index: null,
+      truncated: false,
+    })
   })
 
-  it.each(['api', 'faq', 'robots', 'sdks'] as const)('reads the %s scoped index', async (scope) => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(''))
-    await listTransloaditDocs(undefined, scope, 8, fetchMock)
-    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
-      `https://transloadit.com/docs/${scope}/llms.txt`,
-      expect.objectContaining({ redirect: 'error' }),
-    )
-  })
-
-  it('deduplicates today’s overlapping indexes and omits links to other indexes', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockImplementation(
-        () =>
-          new Response(
-            [
-              '- [Documentation overview](https://transloadit.com/docs.md): Choose an integration path.',
-              '- [Authentication](https://transloadit.com/docs/api/authentication.md): Sign API requests.',
-              '- [Authentication duplicate](https://transloadit.com/docs/api/authentication.md): Sign API requests.',
-              '- [API endpoints](https://transloadit.com/docs/api/llms.txt): Endpoint catalog.',
-            ].join('\n'),
-          ),
-      )
-    const results = await listTransloaditDocs(undefined, 'all', 8, fetchMock)
-    expect(fetchMock).toHaveBeenCalledTimes(5)
-    expect(results.map(({ title, url }) => ({ title, url }))).toEqual([
-      { title: 'Authentication', url: 'https://transloadit.com/docs/api/authentication.md' },
-      { title: 'Documentation overview', url: 'https://transloadit.com/docs.md' },
-    ])
-  })
-
-  it('ranks results matching both search terms before a title matching only one', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          [
-            '- [Are Assembly IDs secure?](https://transloadit.com/docs/faq/uuid.md): Assembly identifiers.',
-            '- [Are there limits for upload time or processing time?](https://transloadit.com/docs/faq/assembly-expiry.md): An Assembly expires after its time limit.',
-          ].join('\n'),
-        ),
-      )
-    const results = await listTransloaditDocs('assembly expiry', 'faq', 1, fetchMock)
-    expect(results[0]?.url).toBe('https://transloadit.com/docs/faq/assembly-expiry.md')
-  })
-
-  it('rejects an oversized index instead of presenting incomplete results', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response('x'.repeat(500_001)))
-    await expect(listTransloaditDocs(undefined, 'faq', 8, fetchMock)).rejects.toThrow(
-      'index exceeded',
-    )
-  })
-
-  it('normalizes the documentation overview linked by today’s index', async () => {
+  it('preserves support for the documentation overview', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('# Documentation\n'))
-    expect(await getTransloaditDocHelp('/docs/', 1000, fetchMock)).toMatchObject({
+    expect(await getTransloaditDoc('/docs/', 0, 1_000, fetchMock)).toMatchObject({
       url: 'https://transloadit.com/docs.md',
       title: 'Documentation',
       truncated: false,
     })
-    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
-      'https://transloadit.com/docs.md',
-      expect.anything(),
-    )
   })
 
-  it('normalizes an HTML docs URL and returns bounded Markdown', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response('# Image resize\n\nDetailed documentation.', {
-        status: 200,
-      }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    const page = await getTransloaditDocHelp(
-      'https://transloadit.com/docs/robots/image-resize/',
-      20,
-    )
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://transloadit.com/docs/robots/image-resize.md',
-      expect.objectContaining({
-        headers: { Accept: 'text/markdown, text/plain;q=0.9' },
-      }),
-    )
-    expect(page).toEqual({
-      title: 'Image resize',
-      url: 'https://transloadit.com/docs/robots/image-resize.md',
-      markdown: '# Image resize\n\nDeta',
-      truncated: true,
+  it.each([
+    'https://example.com/docs/secrets/',
+    'https://transloadit.com/pricing/',
+    'https://transloadit.com:8443/docs/api/',
+    'https://user:password@transloadit.com/docs/api/',
+    'https://transloadit.com/docs/../../secrets/',
+    'ftp://transloadit.com/docs/api/',
+    'not a URL',
+  ])('rejects invalid input %s without fetching', async (url) => {
+    const fetchMock = vi.fn()
+    await expect(getTransloaditDoc(url, 0, 1_000, fetchMock)).rejects.toMatchObject({
+      code: 'mcp_invalid_docs_url',
     })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('streams and truncates oversized Markdown without buffering the full response', async () => {
-    const response = new Response(`# Large page\n\n${'x'.repeat(2_000)}`, {
+  it('paginates Unicode characters across byte chunks without losing text or the title', async () => {
+    const markdown = `# Unicode\n${'é界🙂'.repeat(400)}`
+    const bytes = new TextEncoder().encode(markdown)
+    const fetchMock = vi.fn().mockImplementation(() => {
+      let offset = 0
+      return new Response(
+        new ReadableStream({
+          pull(controller) {
+            if (offset === bytes.length) {
+              controller.close()
+              return
+            }
+            // Three-byte chunks split both the two-byte and four-byte UTF-8 characters.
+            controller.enqueue(bytes.subarray(offset, offset + 3))
+            offset = Math.min(offset + 3, bytes.length)
+          },
+        }),
+        { headers: { 'Content-Type': 'text/markdown' } },
+      )
+    })
+
+    const first = await getTransloaditDoc('/docs/unicode/', 0, 1_000, fetchMock)
+    expect(first.next_start_index).toBe(1_000)
+    expect(first.truncated).toBe(true)
+    expect([...first.markdown]).toHaveLength(1_000)
+    if (first.next_start_index === null) throw new Error('Expected a second page.')
+    const second = await getTransloaditDoc(
+      '/docs/unicode/',
+      first.next_start_index,
+      1_000,
+      fetchMock,
+    )
+    expect(second).toMatchObject({
+      title: 'Unicode',
+      start_index: 1_000,
+      next_start_index: null,
+      truncated: false,
+    })
+    expect(first.markdown + second.markdown).toBe(markdown)
+  })
+
+  it('skips a large prefix and cancels the stream once the page and lookahead are read', async () => {
+    const cancel = vi.fn()
+    const pull = vi.fn((controller: ReadableStreamDefaultController<Uint8Array>) => {
+      controller.enqueue(new TextEncoder().encode('x'.repeat(1_000)))
+    })
+    const response = new Response(new ReadableStream({ pull, cancel }), {
       headers: { 'Content-Type': 'text/markdown' },
-      status: 200,
     })
     const text = vi.spyOn(response, 'text')
     const fetchMock = vi.fn().mockResolvedValue(response)
-    vi.stubGlobal('fetch', fetchMock)
 
-    const page = await getTransloaditDocHelp('/docs/large-page/', 1_000)
+    const page = await getTransloaditDoc('/docs/large/', 100_000, 1_000, fetchMock)
 
-    expect(page?.markdown).toHaveLength(1_000)
-    expect(page?.truncated).toBe(true)
+    expect(page.markdown).toBe('x'.repeat(1_000))
+    expect(page.next_start_index).toBe(101_000)
+    expect(page.truncated).toBe(true)
+    expect(pull.mock.calls.length).toBeLessThanOrEqual(103)
+    expect(cancel).toHaveBeenCalledOnce()
     expect(text).not.toHaveBeenCalled()
   })
 
-  it('rejects a successful HTML response instead of returning it as Markdown', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response('<!doctype html><title>Error</title>', {
-        headers: { 'Content-Type': 'text/html' },
-        status: 200,
-      }),
+  it('bounds output even when one upstream chunk contains the whole oversized page', async () => {
+    const response = new Response(`# Large page\n${'x'.repeat(1_000_000)}`)
+    const text = vi.spyOn(response, 'text')
+    const page = await getTransloaditDoc(
+      '/docs/large/',
+      0,
+      1_000,
+      vi.fn().mockResolvedValue(response),
     )
-    vi.stubGlobal('fetch', fetchMock)
-
-    await expect(getTransloaditDocHelp('/docs/error/', 1_000)).rejects.toThrow(
-      'unsupported content type',
-    )
+    expect(page.markdown).toHaveLength(1_000)
+    expect(page.truncated).toBe(true)
+    expect(text).not.toHaveBeenCalled()
   })
 
-  it('rejects non-Transloadit and non-documentation URLs without fetching', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
+  it.each([1_000, 1_001])('detects EOF after skipping to index %i', async (startIndex) => {
+    const page = await getTransloaditDoc(
+      '/docs/exhausted/',
+      startIndex,
+      1_000,
+      vi.fn().mockResolvedValue(new Response('x'.repeat(1_000))),
+    )
+    expect(page).toMatchObject({ markdown: '', next_start_index: null, truncated: false })
+  })
 
-    expect(await getTransloaditDocHelp('https://example.com/docs/secrets/', 1000)).toBeUndefined()
-    expect(await getTransloaditDocHelp('https://transloadit.com/pricing/', 1000)).toBeUndefined()
-    expect(fetchMock).not.toHaveBeenCalled()
+  it('does not mark an exact-size final page as truncated', async () => {
+    const page = await getTransloaditDoc(
+      '/docs/exact/',
+      0,
+      1_000,
+      vi.fn().mockResolvedValue(new Response('x'.repeat(1_000))),
+    )
+    expect(page).toMatchObject({ next_start_index: null, truncated: false })
+    expect(page.markdown).toHaveLength(1_000)
+  })
+
+  it('follows a same-origin docs redirect and returns the final Markdown URL', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 308,
+          headers: { Location: '/docs/api/webhooks/?q=redact#h' },
+        }),
+      )
+      .mockResolvedValueOnce(new Response('# Webhooks\n'))
+    const page = await getTransloaditDoc('/docs/api/old-webhooks/', 0, 1_000, fetchMock)
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://transloadit.com/docs/api/webhooks.md',
+      expect.objectContaining({ redirect: 'manual' }),
+    )
+    expect(page.url).toBe('https://transloadit.com/docs/api/webhooks.md')
+  })
+
+  it.each([
+    'https://example.com/docs/api/webhooks.md',
+    'https://transloadit.com/pricing/',
+    'https://www.transloadit.com/docs/api/webhooks.md',
+    'http://transloadit.com/docs/api/webhooks.md',
+    'https://user:secret@transloadit.com/docs/api/webhooks.md',
+  ])('refuses the redirect target %s', async (location) => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 302, headers: { Location: location } }))
+    await expect(getTransloaditDoc('/docs/old/', 0, 1_000, fetchMock)).rejects.toMatchObject({
+      code: 'mcp_doc_not_found',
+    })
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
+  it('follows at most three redirects', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(
+          new Response(null, { status: 301, headers: { Location: '/docs/loop.md' } }),
+        ),
+      )
+    await expect(getTransloaditDoc('/docs/loop/', 0, 1_000, fetchMock)).rejects.toMatchObject({
+      code: 'mcp_docs_unavailable',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('bounds search response bodies instead of buffering an oversized JSON response', async () => {
+    const response = new Response('x'.repeat(100_001), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const text = vi.spyOn(response, 'text')
+    await expect(
+      searchTransloaditDocs('webhook', undefined, 8, vi.fn().mockResolvedValue(response)),
+    ).rejects.toMatchObject({ code: 'mcp_docs_unavailable' })
+    expect(text).not.toHaveBeenCalled()
   })
 })

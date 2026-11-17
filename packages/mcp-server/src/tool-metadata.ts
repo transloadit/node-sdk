@@ -14,9 +14,9 @@ export const mcpScopes = {
 export type ToolSecurityScheme = { type: 'noauth' } | { type: 'oauth2'; scopes: string[] }
 
 export const toolNames = [
+  'transloadit_search_docs',
+  'transloadit_get_doc',
   'transloadit_lint_assembly_instructions',
-  'transloadit_list_docs',
-  'transloadit_get_doc_help',
   'transloadit_create_assembly',
   'transloadit_get_assembly_status',
   'transloadit_wait_for_assembly',
@@ -94,18 +94,19 @@ export const widgetToolNames: readonly ToolName[] = [
  * server and the static server card so the two never drift.
  */
 const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
-  transloadit_list_docs: {
-    title: 'List Transloadit documentation',
+  transloadit_search_docs: {
+    title: 'Search Transloadit documentation',
     description:
-      'List public documentation pages about the API, SDKs, FAQs, Robots and integration concepts, optionally filtered by search text and scope. Returns titles, Markdown URLs and summaries, without fetching page bodies.',
+      'Search public documentation about the API, SDKs, FAQs, Robots and integration concepts by relevance. Accepts a query, an optional section and a result limit. Returns titles, page URLs, Markdown URLs, excerpts and sections.',
+    // Fetches are restricted to Transloadit’s own docs origin.
     annotations: readOnly,
     access: 'public',
     scopes: [],
   },
-  transloadit_get_doc_help: {
-    title: 'Get documentation help',
+  transloadit_get_doc: {
+    title: 'Get Transloadit documentation',
     description:
-      'Read one public documentation page as bounded Markdown for API authentication, SDK setup, troubleshooting or integration guidance. Accepts a /docs path or transloadit.com documentation URL. Robot parameter help is a separate structured reference.',
+      'Read a public documentation page as paginated Markdown for API authentication, SDK setup, troubleshooting or integration guidance. Accepts a /docs path or transloadit.com URL, including www. and http URLs. Returns at most 15,000 Unicode characters by default, with a continuation offset when more text is available.',
     annotations: readOnly,
     access: 'public',
     scopes: [],

@@ -1,203 +1,293 @@
-export type DocsScope = 'all' | 'api' | 'faq' | 'robots' | 'sdks'
+import { z } from 'zod'
 
-export interface DocsSearchResult {
-  title: string
-  url: string
-  description?: string
-}
+/** One result from the public documentation search contract. Unknown fields are ignored. */
+export const docsSearchResultSchema = z.object({
+  title: z.string(),
+  url: z.url(),
+  markdown_url: z.url().refine((value) => new URL(value).pathname.endsWith('.md')),
+  excerpt: z.string().max(300),
+  section: z.string(),
+})
+
+const docsSearchResponseSchema = z.object({
+  version: z.literal(1),
+  query: z.string(),
+  results: z.array(docsSearchResultSchema).max(20),
+})
+
+const invalidQueryResponseSchema = z.object({
+  error: z.literal('invalid_request'),
+  message: z.string(),
+})
+
+export type DocsSearchResult = z.infer<typeof docsSearchResultSchema>
 
 export interface DocsPage {
   title: string
   url: string
   markdown: string
+  start_index: number
+  next_start_index: number | null
   truncated: boolean
+}
+
+type DocsErrorCode =
+  | 'mcp_invalid_docs_query'
+  | 'mcp_invalid_docs_url'
+  | 'mcp_doc_not_found'
+  | 'mcp_docs_unavailable'
+
+/** A sanitized tool error and a diagnostic that never contains an upstream body or input URL. */
+export class DocsError extends Error {
+  readonly code: DocsErrorCode
+  readonly diagnostic: string
+
+  constructor(code: DocsErrorCode, message: string, diagnostic: string) {
+    super(message)
+    this.code = code
+    this.diagnostic = diagnostic
+  }
 }
 
 const docsOrigin = 'https://transloadit.com'
 const docsFetchTimeoutMs = 10_000
-const docsIndexMaxChars = 500_000
-const docsIndexUrls: Record<DocsScope, readonly string[]> = {
-  all: [
-    `${docsOrigin}/docs/llms.txt`,
-    `${docsOrigin}/docs/api/llms.txt`,
-    `${docsOrigin}/docs/faq/llms.txt`,
-    `${docsOrigin}/docs/robots/llms.txt`,
-    `${docsOrigin}/docs/sdks/llms.txt`,
-  ],
-  api: [`${docsOrigin}/docs/api/llms.txt`],
-  faq: [`${docsOrigin}/docs/faq/llms.txt`],
-  robots: [`${docsOrigin}/docs/robots/llms.txt`],
-  sdks: [`${docsOrigin}/docs/sdks/llms.txt`],
-}
-const markdownLinkPattern = /^- \[([^\]]+)\]\(([^)]+)\)(?::\s*(.*))?$/u
+const docsSearchMaxChars = 100_000
+const docsTitleMaxChars = 1_000
+const docsMaxRedirects = 3
 
 function normalizeDocsUrl(value: string): URL | undefined {
+  if (!value.startsWith('/') && !/^https?:\/\//iu.test(value)) return
   if (!URL.canParse(value, docsOrigin)) return
 
   const url = new URL(value, docsOrigin)
-  if (url.origin !== docsOrigin || url.username || url.password) return
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    !['transloadit.com', 'www.transloadit.com'].includes(url.hostname) ||
+    url.port ||
+    url.username ||
+    url.password
+  ) {
+    return
+  }
+  url.protocol = 'https:'
+  url.hostname = 'transloadit.com'
   url.hash = ''
   url.search = ''
-  if (url.pathname === '/llms.txt') return url
   if (['/docs', '/docs/', '/docs.md'].includes(url.pathname)) {
     url.pathname = '/docs.md'
     return url
   }
   if (!url.pathname.startsWith('/docs/')) return
 
-  if (!url.pathname.endsWith('.md') && !url.pathname.endsWith('.txt')) {
-    url.pathname = `${url.pathname.replace(/\/$/u, '')}.md`
+  if (!url.pathname.endsWith('.md')) {
+    url.pathname = `${url.pathname.replace(/\/+$/u, '')}.md`
   }
   return url
 }
 
 interface DocsTextResponse {
   text: string
+  prefix: string
+  length: number
   truncated: boolean
 }
 
 async function readBoundedResponseText(
   response: Response,
   maxChars: number,
+  startIndex = 0,
 ): Promise<DocsTextResponse> {
   if (response.body === null) {
-    return { text: '', truncated: false }
+    throw new DocsError('mcp_docs_unavailable', 'Documentation is unavailable.', 'missing_body')
   }
 
-  const decoder = new TextDecoder()
+  const decoder = new TextDecoder('utf-8', { fatal: true })
   const reader = response.body.getReader()
   let text = ''
+  let prefix = ''
+  let length = 0
+  let skipped = 0
+  let prefixLength = 0
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) {
-      text += decoder.decode()
-      return {
-        text: text.slice(0, maxChars),
-        truncated: text.length > maxChars,
+  const consume = (chunk: string): boolean => {
+    // Count Unicode code points after decoding, so neither byte chunks nor pages split a character.
+    for (const character of chunk) {
+      if (prefixLength < docsTitleMaxChars) {
+        prefix += character
+        prefixLength++
+      }
+      if (skipped < startIndex) {
+        skipped++
+        continue
+      }
+      if (length === maxChars) return true
+      text += character
+      length++
+    }
+    return false
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        const truncated = consume(decoder.decode())
+        return { text, prefix, length, truncated }
+      }
+
+      // A fetch implementation can deliver a huge chunk. Decode only small windows, even then.
+      for (let offset = 0; offset < value.length; offset += 1_024) {
+        if (consume(decoder.decode(value.subarray(offset, offset + 1_024), { stream: true }))) {
+          return { text, prefix, length, truncated: true }
+        }
       }
     }
-
-    text += decoder.decode(value, { stream: true })
-    if (text.length <= maxChars) continue
-
+  } finally {
     await reader.cancel()
-    return { text: text.slice(0, maxChars), truncated: true }
+    reader.releaseLock()
   }
 }
 
-async function fetchDocsText(
-  url: string,
-  maxChars: number,
-  fetcher: typeof fetch,
-): Promise<DocsTextResponse> {
-  const response = await fetcher(url, {
-    headers: { Accept: 'text/markdown, text/plain;q=0.9' },
-    redirect: 'error',
-    signal: AbortSignal.timeout(docsFetchTimeoutMs),
-  })
-  if (!response.ok) {
-    throw new Error(`Documentation request failed with HTTP ${response.status}.`)
-  }
-  const contentType = response.headers.get('content-type') ?? ''
-  if (!contentType.includes('text/markdown') && !contentType.includes('text/plain')) {
-    throw new Error(`Documentation request returned unsupported content type: ${contentType}.`)
-  }
-  return readBoundedResponseText(response, maxChars)
+function hasContentType(response: Response, accepted: string[]): boolean {
+  const contentType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase()
+  return contentType !== undefined && accepted.includes(contentType)
 }
 
-function parseIndex(index: string): DocsSearchResult[] {
-  const results = new Map<string, DocsSearchResult>()
-  for (const line of index.split('\n')) {
-    const match = markdownLinkPattern.exec(line.trim())
-    if (match === null) continue
-
-    const [, title, rawUrl, description] = match
-    if (title === undefined || rawUrl === undefined) continue
-    const url = normalizeDocsUrl(rawUrl)
-    if (url === undefined || !url.pathname.endsWith('.md')) continue
-    if (!results.has(url.href)) results.set(url.href, { title, url: url.href, description })
-  }
-  return [...results.values()]
-}
-
-function matchesScope(result: DocsSearchResult, scope: DocsScope): boolean {
-  if (scope === 'all') return true
-  return new URL(result.url).pathname.startsWith(`/docs/${scope}/`)
-}
-
-function getSearchScore(
-  result: DocsSearchResult,
-  terms: string[],
-): { matches: number; weight: number } {
-  const title = result.title.toLowerCase()
-  const description = result.description?.toLowerCase() ?? ''
-  const url = result.url.toLowerCase()
-
-  let matches = 0
-  let weight = 0
-  for (const term of terms) {
-    const score = title.includes(term)
-      ? 5
-      : description.includes(term)
-        ? 2
-        : url.includes(term)
-          ? 1
-          : 0
-    if (score === 0) continue
-    matches++
-    weight += score
-  }
-  return { matches, weight }
-}
-
-/** List public documentation pages, optionally ranked by search text, without account credentials. */
-export async function listTransloaditDocs(
-  search: string | undefined,
-  scope: DocsScope,
+/** Search the website's public documentation index without account credentials. */
+export async function searchTransloaditDocs(
+  query: string,
+  section: string | undefined,
   limit: number,
   fetcher: typeof fetch = fetch,
 ): Promise<DocsSearchResult[]> {
-  const terms = search?.toLowerCase().split(/\s+/u).filter(Boolean) ?? []
-  // The scoped indexes are deployed. Fail explicitly if one is unavailable rather than
-  // silently replacing it with the incomplete root index and presenting missing results.
-  const indexResponses = await Promise.all(
-    docsIndexUrls[scope].map((url) => fetchDocsText(url, docsIndexMaxChars, fetcher)),
-  )
-  if (indexResponses.some(({ truncated }) => truncated)) {
-    throw new Error('A documentation index exceeded the maximum supported size.')
-  }
-  const index = indexResponses.map(({ text }) => text).join('\n')
-
-  return parseIndex(index)
-    .filter((result) => matchesScope(result, scope))
-    .map((result) => ({ result, score: getSearchScore(result, terms) }))
-    .filter(({ score }) => terms.length === 0 || score.matches > 0)
-    .sort(
-      (left, right) =>
-        right.score.matches - left.score.matches ||
-        right.score.weight - left.score.weight ||
-        left.result.title.localeCompare(right.result.title),
+  const url = new URL('/api/docs/search/', docsOrigin)
+  url.searchParams.set('q', query)
+  if (section !== undefined) url.searchParams.set('section', section)
+  url.searchParams.set('limit', String(limit))
+  const response = await fetcher(url.href, {
+    headers: { Accept: 'application/json' },
+    redirect: 'error',
+    signal: AbortSignal.timeout(docsFetchTimeoutMs),
+  })
+  if (!response.ok && response.status !== 400) {
+    await response.body?.cancel()
+    throw new DocsError(
+      'mcp_docs_unavailable',
+      'Documentation search is temporarily unavailable.',
+      `search_http_${response.status}`,
     )
-    .slice(0, limit)
-    .map(({ result }) => result)
+  }
+  if (!hasContentType(response, ['application/json'])) {
+    await response.body?.cancel()
+    throw new DocsError(
+      'mcp_docs_unavailable',
+      'Documentation search is temporarily unavailable.',
+      'search_content_type',
+    )
+  }
+  const { text, truncated } = await readBoundedResponseText(response, docsSearchMaxChars)
+  if (truncated) {
+    throw new DocsError(
+      'mcp_docs_unavailable',
+      'Documentation search is temporarily unavailable.',
+      'search_body_too_large',
+    )
+  }
+  const body: unknown = JSON.parse(text)
+  if (!response.ok) {
+    const { message } = invalidQueryResponseSchema.parse(body)
+    throw new DocsError('mcp_invalid_docs_query', message, 'search_invalid_request')
+  }
+  return docsSearchResponseSchema.parse(body).results
 }
 
-/** Fetch one public Transloadit documentation page as bounded Markdown. */
-export async function getTransloaditDocHelp(
+/** Fetch a bounded page of Markdown. Pagination offsets count Unicode code points. */
+export async function getTransloaditDoc(
   pathOrUrl: string,
+  startIndex: number,
   maxChars: number,
   fetcher: typeof fetch = fetch,
-): Promise<DocsPage | undefined> {
-  const url = normalizeDocsUrl(pathOrUrl)
-  if (url === undefined) return
+): Promise<DocsPage> {
+  let url = normalizeDocsUrl(pathOrUrl)
+  if (url === undefined) {
+    throw new DocsError(
+      'mcp_invalid_docs_url',
+      'Provide a public path under /docs or a transloadit.com documentation URL.',
+      'invalid_url',
+    )
+  }
 
-  const { text: markdown, truncated } = await fetchDocsText(url.toString(), maxChars, fetcher)
-  const title = markdown.match(/^#\s+(.+)$/mu)?.[1] ?? url.pathname
-  return {
-    title,
-    url: url.toString(),
-    markdown,
-    truncated,
+  const signal = AbortSignal.timeout(docsFetchTimeoutMs)
+  for (let redirects = 0; ; redirects++) {
+    const response = await fetcher(url.href, {
+      headers: { Accept: 'text/markdown, text/plain;q=0.9' },
+      redirect: 'manual',
+      signal,
+    })
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      await response.body?.cancel()
+      const location = response.headers.get('location')
+      const target = location && URL.canParse(location, url) ? new URL(location, url) : undefined
+      if (
+        target === undefined ||
+        target.origin !== docsOrigin ||
+        target.username ||
+        target.password ||
+        !target.pathname.startsWith('/docs/')
+      ) {
+        throw new DocsError(
+          'mcp_doc_not_found',
+          'The requested Transloadit documentation page was not found.',
+          'redirect_outside_docs',
+        )
+      }
+      if (redirects === docsMaxRedirects) {
+        throw new DocsError(
+          'mcp_docs_unavailable',
+          'The requested Transloadit documentation page is temporarily unavailable.',
+          'too_many_redirects',
+        )
+      }
+      url = normalizeDocsUrl(target.href)
+      if (url === undefined || !url.pathname.startsWith('/docs/')) {
+        throw new DocsError(
+          'mcp_doc_not_found',
+          'The requested Transloadit documentation page was not found.',
+          'redirect_outside_docs',
+        )
+      }
+      continue
+    }
+    if (!response.ok) {
+      await response.body?.cancel()
+      throw new DocsError(
+        response.status === 404 ? 'mcp_doc_not_found' : 'mcp_docs_unavailable',
+        response.status === 404
+          ? 'The requested Transloadit documentation page was not found.'
+          : 'The requested Transloadit documentation page is temporarily unavailable.',
+        `page_http_${response.status}`,
+      )
+    }
+    if (!hasContentType(response, ['text/markdown', 'text/plain'])) {
+      await response.body?.cancel()
+      throw new DocsError(
+        'mcp_docs_unavailable',
+        'The requested Transloadit documentation page is temporarily unavailable.',
+        'page_content_type',
+      )
+    }
+    const { text, prefix, length, truncated } = await readBoundedResponseText(
+      response,
+      maxChars,
+      startIndex,
+    )
+    return {
+      title: prefix.match(/^#\s+(.+)$/mu)?.[1] ?? url.pathname,
+      url: url.href,
+      markdown: text,
+      start_index: startIndex,
+      next_start_index: truncated ? startIndex + length : null,
+      truncated,
+    }
   }
 }
