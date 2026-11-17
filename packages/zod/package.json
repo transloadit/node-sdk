@@ -47,7 +47,7 @@
     "check": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.test.json && yarn test:unit"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@transloadit/types": "^6.5.0",
