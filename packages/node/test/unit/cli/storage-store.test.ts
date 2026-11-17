@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ApiError } from '../../../src/ApiError.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
-import { Transloadit } from '../../../src/Transloadit.ts'
+import { InconsistentResponseError, Transloadit } from '../../../src/Transloadit.ts'
 import { storagePage, storedAsset } from './storage-fixtures.ts'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -95,6 +95,152 @@ function runStore(path = receipt.path): Promise<void> {
 
 describe('storage store', () => {
   test.each([
+    'legacy.jpg',
+    'clip.mp4',
+  ])('keeps dimensioned %s with unknown MIME out of Viewer', async (name) => {
+    const path = `website/${name}`
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({
+      ...receipt,
+      path,
+      mime: null,
+    })
+    await runStore(path)
+    expect(process.exitCode).toBeUndefined()
+    const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+    expect(catalog.images).toEqual({})
+    expect(catalog.files[path]).toMatchObject({ mime: null, width: 800, height: 600 })
+    const declarations = await readFile('transloadit-images.d.ts', 'utf8')
+    expect(declarations).toContain('export {}')
+    expect(declarations).not.toContain('@transloadit/viewer')
+  })
+
+  test('file-only catalogs emit standalone declarations without a Viewer dependency', async () => {
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({
+      ...receipt,
+      path: 'media/guide.pdf',
+      mime: 'application/pdf',
+      width: undefined,
+      height: undefined,
+    })
+    await main(['storage', 'store', 'guide.pdf', 'media/guide.pdf'])
+    expect(process.exitCode).toBeUndefined()
+    const declarations = await readFile('transloadit-images.d.ts', 'utf8')
+    expect(declarations).toContain('export {}')
+    expect(declarations).not.toContain('@transloadit/viewer')
+  })
+
+  test('checkpoints a completed byte-mismatch receipt from the error without an observer callback', async () => {
+    const completed = { ...receipt, path: 'media/guide.pdf', mime: 'application/pdf' }
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockRejectedValue(
+      new InconsistentResponseError(
+        'Stored bytes differ from the original file; do not upload again',
+        {
+          cause: { assemblyId: 'completed', receipt: completed },
+        },
+      ),
+    )
+    await main(['storage', 'store', 'guide.pdf', 'media/guide.pdf'])
+    expect(process.exitCode).toBe(1)
+    expect(store).toHaveBeenCalledOnce()
+    const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+    expect(catalog.files[completed.path]).toMatchObject(completed)
+  })
+
+  test('stores mixed originals in one catalog, replays unchanged bytes and keeps Viewer image-only', async () => {
+    const bytes = Buffer.from('one unchanged original')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    await writeFile('photo.jpg', bytes)
+    await writeFile('clip.mp4', bytes)
+    await writeFile('guide.pdf', bytes)
+    const store = vi
+      .spyOn(Transloadit.prototype, 'storeAsset')
+      .mockImplementation(async (_file, options) => ({
+        ...receipt,
+        path: options.path,
+        md5hash,
+        size: bytes.length,
+        mime: options.path.endsWith('.jpg')
+          ? 'image/jpeg'
+          : options.path.endsWith('.mp4')
+            ? 'video/mp4'
+            : 'application/pdf',
+        width: options.path.endsWith('.pdf') ? undefined : 800,
+        height: options.path.endsWith('.pdf') ? undefined : 600,
+      }))
+    const argv = ['storage', 'store', 'photo.jpg', 'clip.mp4', 'guide.pdf', 'website/media/']
+    await main(argv)
+    expect(process.exitCode).toBeUndefined()
+    const first = await readFile('transloadit.images.json', 'utf8')
+    const catalog = JSON.parse(first)
+    expect(Object.keys(catalog.images)).toEqual(['website/media/photo.jpg'])
+    expect(Object.keys(catalog.files)).toEqual([
+      'website/media/clip.mp4',
+      'website/media/guide.pdf',
+    ])
+    expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain('website/media/photo.jpg')
+    expect(await readFile('transloadit-images.d.ts', 'utf8')).not.toContain('clip.mp4')
+    await main(argv)
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledTimes(3)
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(first)
+  })
+
+  test('checkpoints a generic original before a later upload fails', async () => {
+    const store = vi
+      .spyOn(Transloadit.prototype, 'storeAsset')
+      .mockResolvedValueOnce({
+        ...receipt,
+        path: 'media/a.mp4',
+        mime: 'video/mp4',
+        width: undefined,
+        height: undefined,
+      })
+      .mockRejectedValueOnce(new Error('upload interrupted'))
+    await main(['storage', 'store', 'a.mp4', 'b.pdf', 'media/'])
+    expect(process.exitCode).toBe(1)
+    expect(store).toHaveBeenCalledTimes(2)
+    const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+    expect(catalog.images).toEqual({})
+    expect(Object.keys(catalog.files)).toEqual(['media/a.mp4'])
+  })
+
+  test('stores prototype-looking file paths as ordinary JSON keys', async () => {
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({
+      ...receipt,
+      path: '__proto__',
+      mime: 'application/pdf',
+    })
+    await main(['storage', 'store', 'a.pdf', '__proto__'])
+    expect(process.exitCode).toBeUndefined()
+    const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+    expect(Object.keys(catalog.files)).toEqual(['__proto__'])
+    expect(catalog.files.__proto__.path).toBe('__proto__')
+  })
+
+  test('refuses a files-only catalog from another API origin before any upload', async () => {
+    const before = JSON.stringify({
+      workspace: 'my-app',
+      public: [],
+      images: {},
+      apiOrigin: 'https://other.invalid',
+      files: {
+        'media/a.pdf': {
+          ...receipt,
+          path: 'media/a.pdf',
+          mime: 'application/pdf',
+          apiOrigin: 'https://other.invalid',
+        },
+      },
+    })
+    await writeFile('transloadit.images.json', before)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
+    await main(['storage', 'store', 'new.pdf', 'media/new.pdf'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(before)
+  })
+
+  test.each([
     false,
     true,
   ])('opts into server extraction and saves canonical alpha %s', async (has_alpha) => {
@@ -108,7 +254,7 @@ describe('storage store', () => {
         images: {},
       }),
     )
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(enriched)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(enriched)
     await main([
       'storage',
       'store',
@@ -133,7 +279,7 @@ describe('storage store', () => {
   })
 
   test('a missing server hash is reported without hiding a completed store', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main([
       'storage',
       'store',
@@ -164,7 +310,7 @@ describe('storage store', () => {
     await writeFile('hero.jpg', bytes)
     const catalog = `${JSON.stringify(JSON.parse(catalogJson({ [previous.path]: previous })), null, 2)}\n`
     await writeFile('images.json', catalog)
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
     await main([
       'storage',
       'store',
@@ -185,14 +331,14 @@ describe('storage store', () => {
   })
 
   test('rejects an unknown placeholder before uploading', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
     await main(['storage', 'store', './hero.jpg', receipt.path, '--placeholder', 'surprise'])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
   })
 
   test('plain uploads record API provenance so recovery cannot mix matching Workspace slugs', async () => {
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue({
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({
       ...storedAsset(),
       path: receipt.path,
       width: 800,
@@ -209,7 +355,7 @@ describe('storage store', () => {
     await writeFile('hero.jpg', Buffer.from('image'))
     const previous = catalogJson({})
     await writeFile('images.json', previous)
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue({
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({
       ...receipt,
       workspace: 'other-app',
     })
@@ -291,7 +437,7 @@ describe('storage store', () => {
     }
     await writeFile('hero.jpg', bytes)
     const store = vi
-      .spyOn(Transloadit.prototype, 'storeImage')
+      .spyOn(Transloadit.prototype, 'storeAsset')
       .mockResolvedValueOnce(first)
       .mockResolvedValueOnce(second)
     const args = ['storage', 'store', './hero.jpg', 'website/', '--hashed']
@@ -335,7 +481,7 @@ describe('storage store', () => {
       'transloadit.images.json',
       catalogJson({ [path]: { path, md5hash, size: bytes.length, width: 800, height: 600 } }),
     )
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
     const args = ['storage', 'store', './hero.jpg', 'website/', '--hashed']
     await main(args)
     expect(process.exitCode).toBe(1)
@@ -362,6 +508,43 @@ describe('storage store', () => {
   })
 
   test.each([
+    false,
+    true,
+  ])('explains recovery when a saved receipt has no checksum (hashed=%s)', async (hashed) => {
+    const bytes = Buffer.from('original bytes without a stored checksum')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    const destination = 'website/hero.jpg'
+    const path = hashed ? `website/hero.${md5hash.slice(0, 8)}.jpg` : destination
+    const previous = catalogJson({
+      [path]: { ...receipt, path, size: bytes.length, md5hash: undefined },
+    })
+    await writeFile('hero.jpg', bytes)
+    await writeFile('transloadit.images.json', previous)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
+    await main(['storage', 'store', './hero.jpg', destination, ...(hashed ? ['--hashed'] : [])])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('If the checksum remains unavailable'),
+    )
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining(
+        hashed ? 'choose another destination basename' : 'choose a fresh name',
+      ),
+    )
+    if (hashed) {
+      expect(OutputCtl.prototype.error).not.toHaveBeenCalledWith(
+        expect.stringContaining('--overwrite'),
+      )
+    } else {
+      expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+        expect.stringContaining('--overwrite only to deliberately replace it'),
+      )
+    }
+  })
+
+  test.each([
     'checksum',
     'size',
     'path',
@@ -384,7 +567,7 @@ describe('storage store', () => {
     await writeFile('hero.jpg', bytes)
     const previous = catalogJson({ [path]: old })
     await writeFile('transloadit.images.json', previous)
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
     await main(['storage', 'store', './hero.jpg', 'website/hero.jpg', '--hashed'])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -396,7 +579,7 @@ describe('storage store', () => {
   })
 
   test('hashed and overwrite cannot be combined', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
     await main(['storage', 'store', './hero.jpg', receipt.path, '--hashed', '--overwrite'])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -417,7 +600,7 @@ describe('storage store', () => {
     })
     await writeFile('hero.jpg', bytes)
     await writeFile('transloadit.images.json', previous)
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
     await main(['storage', 'store', './hero.jpg', receipt.path, '--hashed'])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -440,7 +623,7 @@ describe('storage store', () => {
     await writeFile('a/hero.jpg', bytes)
     await writeFile('b/hero.jpg', bytes)
     const store = vi
-      .spyOn(Transloadit.prototype, 'storeImage')
+      .spyOn(Transloadit.prototype, 'storeAsset')
       .mockResolvedValueOnce({ ...receipt, path, md5hash, size: bytes.length })
       .mockRejectedValueOnce(new ApiError({ body: { error: 'TRANSLOADIT_STORE_CONFLICT' } }))
     await main([
@@ -477,7 +660,7 @@ describe('storage store', () => {
     const previous = catalogJson({ [path]: stored })
     await writeFile('hero.jpg', bytes)
     await writeFile('transloadit.images.json', previous)
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
     await main(['storage', 'store', './hero.jpg', receipt.path, '--hashed'])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -496,7 +679,7 @@ describe('storage store', () => {
   test('hashed destinations with conflicting remote objects never suggest overwriting', async () => {
     await writeFile('hero.jpg', 'original')
     const hash = createHash('md5').update('original').digest('hex').slice(0, 8)
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockRejectedValue(
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockRejectedValue(
       new ApiError({ body: { error: 'TRANSLOADIT_STORE_CONFLICT' } }),
     )
     await main(['storage', 'store', './hero.jpg', receipt.path, '--hashed'])
@@ -518,7 +701,7 @@ describe('storage store', () => {
     await writeFile('a/hero.jpg', 'a')
     await writeFile('b/hero.jpg', 'b')
     const store = vi
-      .spyOn(Transloadit.prototype, 'storeImage')
+      .spyOn(Transloadit.prototype, 'storeAsset')
       .mockImplementation(async (file, options) => ({
         ...receipt,
         path: options.path,
@@ -537,7 +720,7 @@ describe('storage store', () => {
 
   test('hash suffixes still respect the maximum Storage path length before uploading', async () => {
     await writeFile('hero.jpg', 'original')
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
     await main(['storage', 'store', './hero.jpg', `${'x'.repeat(1020)}.jpg`, '--hashed'])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -546,7 +729,7 @@ describe('storage store', () => {
 
   test('saves optional ThumbHash metadata without advising blur for a private image', async () => {
     const blurred = { ...receipt, hasAlpha: true, thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI' }
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(blurred)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(blurred)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('images.json', 'utf8')).images[receipt.path]).toEqual(blurred)
@@ -598,7 +781,7 @@ describe('storage store', () => {
       }),
     )
     const stored = { ...receipt, thumbhash, ...(hasAlpha ? { hasAlpha: true } : {}) }
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(stored)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(stored)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
@@ -608,7 +791,7 @@ describe('storage store', () => {
 
   test('private next steps name the files, application key and restart, using the custom catalog', async () => {
     await mkdir('src/app', { recursive: true })
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
@@ -630,7 +813,7 @@ describe('storage store', () => {
     const file = `next.config.${extension}`
     const source = 'throw new Error("the CLI must not execute this config")\n'
     await writeFile(file, source)
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
@@ -644,7 +827,7 @@ describe('storage store', () => {
 
   test('omits wrapper advice when a config already uses the plugin', async () => {
     await writeFile('next.config.ts', 'export default withTransloaditImages(nextConfig)\n')
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
@@ -655,7 +838,7 @@ describe('storage store', () => {
     const source = 'module.exports = { reactStrictMode: true }\n'
     await writeFile('next.config.js', source)
     await writeFile('package.json', '{"type":"commonjs"}\n')
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
@@ -668,7 +851,7 @@ describe('storage store', () => {
   test('does not infer destination privacy from a different workspace catalog left unchanged', async () => {
     const previous = JSON.stringify({ workspace: 'other-app', public: ['website/'], images: {} })
     await writeFile('images.json', previous)
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main([
       'storage',
       'store',
@@ -695,7 +878,7 @@ describe('storage store', () => {
 
   test('prints shared private setup and config advice once for a multi-file upload', async () => {
     await writeFile('next.config.ts', 'export default {}\n')
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockImplementation(async (_file, options) => ({
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockImplementation(async (_file, options) => ({
       ...receipt,
       path: options.path,
     }))
@@ -711,7 +894,7 @@ describe('storage store', () => {
     expect(output.split('is not wrapped yet')).toHaveLength(2)
   })
   test('generated declarations cannot overwrite the catalog or input image', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main([
       'storage',
       'store',
@@ -731,7 +914,7 @@ describe('storage store', () => {
   test('a handwritten declarations file is preserved before any upload', async () => {
     const previous = "declare module 'my-app' {}\n"
     await writeFile('transloadit-images.d.ts', previous)
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main(['storage', 'store', './hero.jpg', receipt.path])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -739,7 +922,7 @@ describe('storage store', () => {
   })
 
   test('upload output makes the declarations follow the catalog commit policy', async () => {
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
@@ -755,7 +938,7 @@ describe('storage store', () => {
   })
 
   test('generated Viewer types follow the catalog commit policy and upgrade the old header', async () => {
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const types = await readFile('transloadit-images.d.ts', 'utf8')
@@ -763,18 +946,58 @@ describe('storage store', () => {
     const legacyHeader =
       '// Generated by transloadit storage. Commit this file with the image catalog; do not edit.'
     await writeFile('transloadit-images.d.ts', types.replace(types.split('\n')[0], legacyHeader))
-    await runStore()
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      receipt.path,
+      '--receipts',
+      'images.json',
+      '--overwrite',
+    ])
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('transloadit-images.d.ts', 'utf8')).toBe(types)
   })
 
+  test('upgrades legacy empty Viewer declarations before a first upload', async () => {
+    await writeFile('images.json', JSON.stringify({ workspace: 'my-app', public: [], images: {} }))
+    await writeFile(
+      'transloadit-images.d.ts',
+      [
+        '// Generated by transloadit storage. Commit this file with the image catalog; do not edit.',
+        "import '@transloadit/viewer/next'",
+        '',
+        "declare module '@transloadit/viewer/next' {",
+        '  interface RegisteredStorageImages {',
+        '  }',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledOnce()
+    const types = await readFile('transloadit-images.d.ts', 'utf8')
+    expect(types).toContain('// Catalog: "images.json"')
+    expect(types).toContain('"website/hero.jpg":')
+  })
+
   test('accepts generated declarations after a Windows checkout converts them to CRLF', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const types = await readFile('transloadit-images.d.ts', 'utf8')
     await writeFile('transloadit-images.d.ts', types.replaceAll('\n', '\r\n'))
-    await runStore()
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      receipt.path,
+      '--receipts',
+      'images.json',
+      '--overwrite',
+    ])
     expect(process.exitCode).toBeUndefined()
     expect(store).toHaveBeenCalledTimes(2)
     expect(await readFile('transloadit-images.d.ts', 'utf8')).toBe(types)
@@ -784,7 +1007,7 @@ describe('storage store', () => {
     '\n',
     '\r\n',
   ])('upgrades headerless declarations with legacy alpha fields (%j)', async (eol) => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const types = await readFile('transloadit-images.d.ts', 'utf8')
@@ -800,7 +1023,15 @@ describe('storage store', () => {
     expect(legacy).toContain('thumbhash?: string; hasAlpha?: boolean')
     await writeFile('transloadit-images.d.ts', legacy)
 
-    await runStore()
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      receipt.path,
+      '--receipts',
+      'images.json',
+      '--overwrite',
+    ])
 
     expect(process.exitCode).toBeUndefined()
     expect(store).toHaveBeenCalledTimes(2)
@@ -808,7 +1039,7 @@ describe('storage store', () => {
   })
 
   test('the first public store creates a catalog and generated types without image init', async () => {
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     const publish = vi
       .spyOn(Transloadit.prototype, 'publishStoragePrefix')
       .mockImplementation(() => {
@@ -845,7 +1076,7 @@ describe('storage store', () => {
   })
 
   test('public store rejects a root object before any upload or policy change', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset')
     const publish = vi.spyOn(Transloadit.prototype, 'publishStoragePrefix')
     await main(['storage', 'store', './hero.jpg', 'hero.jpg', '--public'])
     expect(process.exitCode).toBe(1)
@@ -868,14 +1099,14 @@ describe('storage store', () => {
         delivery,
       }),
     )
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('images.json', 'utf8')).delivery).toEqual(delivery)
   })
 
   test('public store checkpoints a receipt even when publication is denied', async () => {
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     vi.spyOn(Transloadit.prototype, 'publishStoragePrefix').mockRejectedValue(new Error('denied'))
     await main(['storage', 'store', './hero.jpg', receipt.path, '--public'])
     expect(process.exitCode).toBe(1)
@@ -897,7 +1128,7 @@ describe('storage store', () => {
       'credentials',
       'TRANSLOADIT_KEY=saved-key\nTRANSLOADIT_SECRET=saved-secret\nTRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_WORKSPACE_VERIFIED=true\nTRANSLOADIT_ENDPOINT=http://127.0.0.1:32189\n',
     )
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main(['storage', 'store', './hero.jpg', receipt.path])
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).delivery).toEqual({
@@ -937,7 +1168,7 @@ describe('storage store', () => {
       },
     })
     await main(['storage', 'store', './hero.jpg', receipt.path])
-    expect(process.exitCode).toBeUndefined()
+    expect(process.exitCode).toBe(1)
     expect(OutputCtl.prototype.warn).toHaveBeenCalledWith(
       expect.stringContaining('same size, different MD5'),
     )
@@ -957,7 +1188,7 @@ describe('storage store', () => {
       },
     })
     await main(['storage', 'store', './hero.jpg', receipt.path, '--log-level', 'debug'])
-    expect(process.exitCode).toBeUndefined()
+    expect(process.exitCode).toBe(1)
     expect(
       JSON.parse(await readFile('transloadit.images.json', 'utf8')).images[receipt.path],
     ).toEqual(stored)
@@ -975,7 +1206,9 @@ describe('storage store', () => {
     expect(OutputCtl.prototype.debug).toHaveBeenCalledWith(
       expect.stringContaining('"md5Matches":false'),
     )
-    expect(OutputCtl.prototype.error).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('Do not re-upload'),
+    )
     expect(OutputCtl.prototype.warn).toHaveBeenCalledWith(
       expect.stringContaining('older deployments'),
     )
@@ -985,7 +1218,7 @@ describe('storage store', () => {
     const listeners = process.listeners('SIGINT')
     const previous = catalogJson({ 'website/earlier.jpg': receipt })
     await writeFile('images.json', previous)
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockImplementation((_file, options) => {
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockImplementation((_file, options) => {
       process.emit('SIGINT')
       expect(options.signal?.aborted).toBe(true)
       options.signal?.throwIfAborted()
@@ -1007,7 +1240,7 @@ describe('storage store', () => {
       process.emit('SIGINT')
       await replace(from, to)
     })
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main(['storage', 'store', './hero.jpg', './next.jpg', 'website/'])
     expect(process.exitCode).toBe(1)
     expect(store).toHaveBeenCalledTimes(1)
@@ -1035,7 +1268,7 @@ describe('storage store', () => {
       'transloadit.images.json',
       JSON.stringify({ workspace: 'project-app', public: [], images: {} }),
     )
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main(['storage', 'store', './hero.jpg', receipt.path])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -1046,7 +1279,7 @@ describe('storage store', () => {
 
   test('checkpoints earlier multi-file uploads if a later upload fails', async () => {
     const store = vi
-      .spyOn(Transloadit.prototype, 'storeImage')
+      .spyOn(Transloadit.prototype, 'storeAsset')
       .mockResolvedValueOnce({ ...receipt, path: 'website/a.jpg' })
       .mockRejectedValueOnce(new Error('Second upload failed'))
     await main(['storage', 'store', './a.jpg', './b.jpg', 'website/'])
@@ -1057,14 +1290,14 @@ describe('storage store', () => {
   })
 
   test('refuses duplicate destination basenames before the first upload', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main(['storage', 'store', './a/hero.jpg', './b/hero.jpg', 'website/'])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
   })
   test('stores multiple originals in a directory and commits both receipts', async () => {
     const store = vi
-      .spyOn(Transloadit.prototype, 'storeImage')
+      .spyOn(Transloadit.prototype, 'storeAsset')
       .mockImplementation(async (_file, options) => ({ ...receipt, path: options.path }))
     await main(['storage', 'store', './a.jpg', './b.jpg', 'website/'])
     expect(process.exitCode).toBeUndefined()
@@ -1084,7 +1317,7 @@ describe('storage store', () => {
   })
 
   test('refuses ambiguous multi-file destinations before uploading', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main(['storage', 'store', './a.jpg', './b.jpg', 'website/hero.jpg'])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -1092,7 +1325,7 @@ describe('storage store', () => {
   })
 
   test('the printed typed path has a readable filename alt', async () => {
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(text).toContain('alt="hero"')
@@ -1120,7 +1353,7 @@ describe('storage store', () => {
         '.env',
         'TRANSLOADIT_KEY=project-key\nTRANSLOADIT_SECRET=project-secret\nTRANSLOADIT_WORKSPACE=project-workspace\n',
       )
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockImplementation(() => {
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockImplementation(() => {
       if (setup === 'saved') expect(OutputCtl.prototype.notice).not.toHaveBeenCalled()
       else
         expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
@@ -1140,7 +1373,7 @@ describe('storage store', () => {
   test.each([
     '--private',
   ])('refuses the removed snippet-only flag %s before uploading', async (delivery) => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main(['storage', 'store', './hero.jpg', receipt.path, delivery])
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -1148,7 +1381,7 @@ describe('storage store', () => {
   })
   test('stores a root object without implicitly generating workspace-wide authorization', async () => {
     const rootReceipt = { ...receipt, path: 'hero.jpg' }
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(rootReceipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(rootReceipt)
     await runStore(rootReceipt.path)
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('images.json', 'utf8')).images['hero.jpg']).toEqual(
@@ -1167,7 +1400,7 @@ describe('storage store', () => {
     width,
     maxWidth,
   }) => {
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue({ ...receipt, width })
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({ ...receipt, width })
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
@@ -1180,7 +1413,7 @@ describe('storage store', () => {
 
   test('printed JSX preserves special characters in Storage paths', async () => {
     const path = 'website/a&"b.jpg'
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue({ ...receipt, path })
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({ ...receipt, path })
     await runStore(path)
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
@@ -1190,7 +1423,7 @@ describe('storage store', () => {
   })
 
   test('releases the writer lock even when temporary-file cleanup fails', async () => {
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     const remove = vi.mocked(rm).getMockImplementation()
     if (remove === undefined) throw new Error('Expected the real filesystem mock implementation')
     vi.mocked(rm).mockImplementation((path, options) => {
@@ -1207,7 +1440,7 @@ describe('storage store', () => {
   test('retains the complete receipt and previous catalog when atomic replacement fails', async () => {
     const previous = catalogJson({ 'website/earlier.jpg': receipt })
     await writeFile('images.json', previous)
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     vi.mocked(rename).mockRejectedValueOnce(
       Object.assign(new Error('EACCES: rename denied'), { code: 'EACCES' }),
     )
@@ -1228,7 +1461,7 @@ describe('storage store', () => {
   test('preserves an existing catalog mode across its atomic replacement', async () => {
     await writeFile('images.json', catalogJson({}))
     await chmod('images.json', 0o640)
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect((await stat('images.json')).mode & 0o777).toBe(0o640)
@@ -1236,7 +1469,7 @@ describe('storage store', () => {
 
   test('prints only the changed receipt for a src/app consumer', async () => {
     await mkdir('src/app', { recursive: true })
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
@@ -1249,7 +1482,7 @@ describe('storage store', () => {
     '.images.json',
   ])('stores a catalog named %s without printing an import', async (name) => {
     await mkdir('app')
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main(['storage', 'store', './hero.jpg', receipt.path, '--receipts', `app/${name}`])
     expect(process.exitCode).toBeUndefined()
     expect(vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]).toContain(
@@ -1257,8 +1490,44 @@ describe('storage store', () => {
     )
   })
 
+  test.each([
+    'image/jpeg',
+    'application/pdf',
+  ])('keeps catalog order when replacing %s', async (mime) => {
+    const current = { ...receipt, mime }
+    const following = { ...current, path: 'website/later.jpg' }
+    const entries = { [current.path]: current, [following.path]: following }
+    const category = mime === 'image/jpeg' ? 'images' : 'files'
+    await writeFile(
+      'images.json',
+      JSON.stringify({
+        workspace: current.workspace,
+        public: [],
+        images: {},
+        [category]: entries,
+      }),
+    )
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue({
+      ...current,
+      version_id: 'C'.repeat(21) + 'A',
+    })
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      current.path,
+      '--receipts',
+      'images.json',
+      '--overwrite',
+    ])
+    expect(process.exitCode).toBeUndefined()
+    const catalog = JSON.parse(await readFile('images.json', 'utf8'))
+    expect(Object.keys(catalog[category])).toEqual([current.path, following.path])
+    expect(catalog[category][current.path].version_id).toBe('C'.repeat(21) + 'A')
+  })
+
   test('overwrites only when explicitly requested', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await main([
       'storage',
       'store',
@@ -1289,9 +1558,8 @@ describe('storage store', () => {
         ':original': [
           {
             ...receipt,
-            height: undefined,
+            size: -1,
             md5hash: createHash('md5').update(bytes).digest('hex'),
-            size: bytes.length,
           },
         ],
       },
@@ -1373,7 +1641,7 @@ describe('storage store', () => {
   test('keeps a receipts-file permission error and names the file before uploading', async () => {
     const previous = catalogJson({ [receipt.path]: receipt })
     await writeFile('images.json', previous)
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     // Inject the OS error so this also exercises EACCES when the test process runs as root.
     vi.mocked(readFile).mockRejectedValueOnce(
       Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }),
@@ -1394,7 +1662,7 @@ describe('storage store', () => {
   ])('names a receipts %s without calling it invalid JSON', async (kind) => {
     if (kind === 'symlink') await symlink('credentials', 'images.json')
     else await mkdir('images.json')
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -1408,7 +1676,7 @@ describe('storage store', () => {
   test('preserves every existing path, including ordinary JSON prototype-looking keys', async () => {
     const earlier = { ...receipt, path: '__proto__' }
     await writeFile('images.json', catalogJson({ [earlier.path]: earlier }))
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({
       [earlier.path]: earlier,
@@ -1416,10 +1684,10 @@ describe('storage store', () => {
     })
   })
 
-  test('uses storeImage and appends a keyed receipt with a ready-to-render snippet', async () => {
+  test('uses storeAsset and appends a keyed receipt with a ready-to-render snippet', async () => {
     const earlier = { ...receipt, path: 'website/earlier.jpg' }
     await writeFile('images.json', catalogJson({ [earlier.path]: earlier }))
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(store).toHaveBeenCalledExactlyOnceWith('./hero.jpg', {
@@ -1447,8 +1715,9 @@ describe('storage store', () => {
     ])
   })
 
-  test('preserves the first receipt when a second store conflicts', async () => {
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValueOnce(receipt)
+  test('preserves the first receipt when changed local bytes conflict, without uploading', async () => {
+    await writeFile('hero.jpg', 'changed local file')
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValueOnce(receipt)
     await runStore()
     const previous = await readFile('images.json', 'utf8')
     store.mockRejectedValueOnce(new ApiError({ body: { error: 'TRANSLOADIT_STORE_CONFLICT' } }))
@@ -1457,17 +1726,18 @@ describe('storage store', () => {
     expect(await readFile('images.json', 'utf8')).toBe(previous)
     expect(await readdir(directory)).toEqual([
       'credentials',
+      'hero.jpg',
       'images.json',
       'transloadit-images.d.ts',
     ])
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-      'Storage destination "website/hero.jpg" already exists. Choose a fresh name; use --overwrite only if you deliberately want to replace that object.',
+      'Stored bytes for "website/hero.jpg" differ from this file. Choose a fresh name or use --overwrite only to deliberately replace it. Nothing uploaded or replaced.',
     )
   })
 
   test('leaves no receipts or temporary files after an upload failure', async () => {
     const store = vi
-      .spyOn(Transloadit.prototype, 'storeImage')
+      .spyOn(Transloadit.prototype, 'storeAsset')
       .mockRejectedValue(new Error('Offline'))
     await runStore()
     expect(store).toHaveBeenCalledOnce()
@@ -1483,7 +1753,7 @@ describe('storage store', () => {
     '{',
   ])('rejects invalid existing receipts before uploading (%j)', async (previous) => {
     await writeFile('images.json', previous)
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -1498,7 +1768,7 @@ describe('storage store', () => {
 
   test('refuses another writer before uploading instead of losing its receipts', async () => {
     await writeFile('images.json.lock', 'another-writer')
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
@@ -1514,7 +1784,7 @@ describe('storage store', () => {
     vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', 'delivery-key')
     vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'delivery-secret')
     await writeFile('credentials', 'TRANSLOADIT_KEY=stored-key\nTRANSLOADIT_SECRET=stored-secret\n')
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(store).toHaveBeenCalledOnce()
@@ -1527,7 +1797,7 @@ describe('storage store', () => {
     vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'delivery-secret')
     const previous = catalogJson({ [receipt.path]: receipt })
     await writeFile('images.json', previous)
-    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const store = vi.spyOn(Transloadit.prototype, 'storeAsset').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()

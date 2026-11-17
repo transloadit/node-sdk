@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import { Command, Option } from 'clipanion'
 
 import { sendTusRequest } from '../../tus.ts'
+import { formatAPIError } from '../helpers.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 export interface UploadOptions {
@@ -125,7 +126,7 @@ export class UploadCommand extends UnauthenticatedCommand {
       })
       return undefined
     } catch (err) {
-      this.output.error(err instanceof Error ? err.message : String(err))
+      this.output.error(formatAPIError(err))
       return 1
     }
   }

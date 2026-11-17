@@ -8,17 +8,19 @@ import { Command, Option } from 'clipanion'
 import { parse } from 'dotenv'
 import { z } from 'zod'
 
+import { tryCatch } from '../../alphalib/tryCatch.ts'
 import { Transloadit } from '../../Transloadit.ts'
 import { deviceLogin } from '../deviceLogin.ts'
 import {
   cliSignatureAlgorithmSchema,
+  formatAPIError,
   getConfiguredCredentialsFilePath,
   parseCliLoginSnapshot,
   readCliInput,
   resolveCliConfig,
 } from '../helpers.ts'
 import { quoteCredential } from '../secretInput.ts'
-import { ensureError, isErrnoException } from '../types.ts'
+import { isErrnoException } from '../types.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 const credentialSchema = z
@@ -185,17 +187,14 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
       }
       // A signed read checks dam:write access and catalog readiness without publishing anything.
       // It does not prove that the worker's object store can accept a later upload.
-      const storagePolicyAccess = await new Transloadit({
+      const storageClient = new Transloadit({
         ...credentials,
         endpoint: origin,
         maxRetries: 0,
         timeout: 10_000,
       })
-        .listPublicStoragePrefixes()
-        .then(
-          () => true,
-          () => false,
-        )
+      const [storagePolicyError] = await tryCatch(storageClient.listPublicStoragePrefixes())
+      const storagePolicyAccess = storagePolicyError === null
       if (!storagePolicyAccess) {
         const workspace =
           credentials.workspace !== undefined &&
@@ -203,7 +202,10 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
             ? credentials.workspace
             : '<workspace>'
         this.output.warn(
-          `Login saved, but Storage policy access could not be verified. Before uploading, check Storage availability and the Auth Key dam:write scope at https://transloadit.com/c/${workspace}/template-credentials/. A temporary network failure can also prevent this check; retry with transloadit storage publications.`,
+          formatAPIError(
+            storagePolicyError,
+            `Login saved, but Storage policy access could not be verified. Before uploading, check Storage availability and the Auth Key dam:write scope at https://transloadit.com/c/${workspace}/template-credentials/. A temporary network failure can also prevent this check; retry with transloadit storage publications.`,
+          ),
         )
       }
       const message =
@@ -231,7 +233,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
                 : `Review it in Console → Credentials: https://transloadit.com/c/${loginWorkspace ?? '<workspace>'}/template-credentials/; revoke it there if no longer needed.`,
               'Be careful: auth logout would use the saved login, not this unsaved one.',
             ].join('\n')
-          : ensureError(error).message,
+          : formatAPIError(error),
       )
       return 1
     } finally {
@@ -365,7 +367,7 @@ export class AuthLogoutCommand extends UnauthenticatedCommand {
       this.output.error(
         isErrnoException(error) && error.code === 'ENOENT'
           ? 'Not logged in; no saved credentials file.'
-          : ensureError(error).message,
+          : formatAPIError(error),
       )
       return 1
     }

@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os'
 import { relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
 
+import { parsePackResult } from './parse-pack-result.ts'
+
 const execFileAsync = promisify(execFile)
 
 const usage = (): void => {
@@ -126,21 +128,7 @@ const main = async (): Promise<void> => {
     packArgs.push('--ignore-scripts')
   }
   const { stdout } = await execFileAsync('npm', packArgs, { cwd, encoding: 'utf8' })
-  const packed: unknown = JSON.parse(stdout.trim())
-  // npm 12 keys pack results by package name; older versions return an array or one result.
-  const results: unknown[] = Array.isArray(packed)
-    ? packed
-    : packed !== null &&
-        typeof packed === 'object' &&
-        (!('filename' in packed) || typeof packed.filename !== 'string')
-      ? Object.values(packed)
-      : [packed]
-  const info = results.length === 1 ? results[0] : undefined
-  const filename =
-    info !== null && typeof info === 'object' && 'filename' in info ? info.filename : undefined
-  if (typeof filename !== 'string' || filename.length === 0) {
-    throw new Error('npm pack did not return a tarball filename')
-  }
+  const { filename } = parsePackResult(stdout)
 
   const tarballPath = resolve(cwd, filename)
   const tarballStat = await stat(tarballPath)

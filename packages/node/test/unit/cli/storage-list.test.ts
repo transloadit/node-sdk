@@ -6,8 +6,10 @@ import { signParamsSync } from '@transloadit/utils/node'
 import nock from 'nock'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import { ApiError } from '../../../src/ApiError.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
+import { Transloadit } from '../../../src/Transloadit.ts'
 import { storagePage, storedAsset } from './storage-fixtures.ts'
 
 const originalCwd = process.cwd()
@@ -194,5 +196,24 @@ test('sanitizes remote list errors without exposing signed requests', async () =
   expect(process.exitCode).toBe(1)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
     'Storage listing failed (HTTP 403). Check the Storage API at http://storage.invalid and the Auth Key dam:read or dam:write scope.',
+  )
+})
+
+test('keeps the API reason alongside the Storage listing hint', async () => {
+  vi.spyOn(Transloadit.prototype, 'listStoredAssets').mockRejectedValue(
+    new ApiError({
+      body: {
+        error: 'INVALID_SIGNATURE',
+        message: 'private-remote-message',
+        reason: 'Sign DAM requests for their method and path, in auth.method and auth.path.',
+      },
+    }),
+  )
+
+  await main(['storage', 'ls', 'website/', '--endpoint', 'http://storage.invalid'])
+
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith(
+    'Storage listing failed. Check the Storage API at http://storage.invalid and the Auth Key dam:read or dam:write scope. Sign DAM requests for their method and path, in auth.method and auth.path.',
   )
 })

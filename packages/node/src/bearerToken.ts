@@ -24,6 +24,8 @@ export type MintBearerTokenOptions = {
    */
   scope?: string[] | string
   timeoutMs?: number
+  /** Optional presentation of API refusals; omitted for the SDK's existing error strings. */
+  formatError?: (body: unknown, message: string) => string
 }
 
 export type MintBearerTokenResult =
@@ -208,17 +210,13 @@ export async function mintBearerTokenWithCredentials(
   }
 
   const parsedError = tokenErrorSchema.safeParse(parsedJson)
-  if (parsedError.success) {
-    return {
-      ok: false,
-      error: parsedError.data.message
-        ? `${parsedError.data.error}: ${parsedError.data.message}`
-        : parsedError.data.error,
-    }
-  }
-
+  const error = parsedError.success
+    ? parsedError.data.message
+      ? `${parsedError.data.error}: ${parsedError.data.message}`
+      : parsedError.data.error
+    : `Token request failed (${res.status}): ${trimmed || res.statusText}`
   return {
     ok: false,
-    error: `Token request failed (${res.status}): ${trimmed || res.statusText}`,
+    error: options.formatError?.(parsedJson, error) ?? error,
   }
 }

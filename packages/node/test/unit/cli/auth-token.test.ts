@@ -1,3 +1,5 @@
+import type { TransloaditErrorResponseBody } from '../../../src/ApiError.ts'
+
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -167,6 +169,27 @@ describe('cli auth token', () => {
     expect(stderrSpy).toHaveBeenCalled()
     const stderrText = stderrSpy.mock.calls.map((call) => call.map(String).join(' ')).join('\n')
     expect(stderrText).toContain('TOKEN_INVALID_AUDIENCE')
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('prints the API reason without terminal controls', async () => {
+    stubCreds()
+    const body = {
+      error: 'TOKEN_INVALID_AUDIENCE',
+      message: 'Invalid \u001b[31maudience\u001b[0m.',
+      reason: 'Use api2.\n\u001b]0;unsafe title\u0007',
+    } satisfies TransloaditErrorResponseBody
+    stubFetchJson(body, 400)
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await main(['auth', 'token', '--aud', 'nope', '-l', 'err'])
+    expect(stdoutSpy).not.toHaveBeenCalled()
+    // Supported Node versions strip OSC payload text differently; guidance and terminal safety matter.
+    expect(stderrSpy).toHaveBeenCalledExactlyOnceWith(
+      'err    ',
+      expect.stringContaining('TOKEN_INVALID_AUDIENCE: Invalid audience. Use api2.'),
+    )
+    expect(stderrSpy.mock.calls[0]?.[1]).not.toMatch(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u)
     expect(process.exitCode).toBe(1)
   })
 

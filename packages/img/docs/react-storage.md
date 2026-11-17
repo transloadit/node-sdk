@@ -326,7 +326,7 @@ yarn workspace @transloadit/viewer pack --out /tmp/transloadit-viewer-preview.tg
 In your React 19 application, install that tarball (packing runs the package's build):
 
 ```bash
-yarn add @transloadit/viewer@file:/tmp/transloadit-viewer-preview.tgz
+npm install --save-exact /tmp/transloadit-viewer-preview.tgz
 node --input-type=module -e "import('@transloadit/viewer/react/preview').then(m => console.log(Object.keys(m)))"
 ```
 

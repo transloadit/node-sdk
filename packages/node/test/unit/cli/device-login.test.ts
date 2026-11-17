@@ -1,3 +1,5 @@
+import type { TransloaditErrorResponseBody } from '../../../src/ApiError.ts'
+
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -56,6 +58,51 @@ const originalCwd = process.cwd()
 const stdoutListeners = process.stdout.listeners('error')
 const stderrListeners = process.stderr.listeners('error')
 let directory: string
+
+test('browser login shows the API refusal reason', async () => {
+  const body = {
+    error: 'CLI_DEVICE_AUTHORIZATION_DENIED',
+    message: 'Login refused.',
+    reason: 'Your account does not allow CLI access.',
+  } satisfies TransloaditErrorResponseBody
+  const api = createDevice().post('/cli/device_authorizations/token').reply(403, body)
+
+  await login(['--no-browser'])
+
+  expect(api.isDone()).toBe(true)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith(
+    'The login was denied in the browser. Your account does not allow CLI access.',
+  )
+})
+
+test.each([
+  ['CLI_DEVICE_AUTHORIZATION_DENIED', 403, 'The login was denied in the browser.'],
+  [
+    'CLI_DEVICE_AUTHORIZATION_NOT_FOUND',
+    404,
+    'Device authorization expired or was already used. Run transloadit auth login again.',
+  ],
+  [
+    'LOGIN_REFUSED',
+    400,
+    'Browser login was refused. Run transloadit auth login again; nothing was saved.',
+  ],
+])('formats %s reasons once at the final output boundary', async (error, status, message) => {
+  const reason = `${'x'.repeat(1964)} Use a key with CLI access.`
+  const body = {
+    error,
+    message: 'Login refused.',
+    reason: `\u001b[31m${reason}\u001b[0m`,
+  } satisfies TransloaditErrorResponseBody
+  const api = createDevice().post('/cli/device_authorizations/token').reply(status, body)
+
+  await login(['--no-browser'])
+
+  expect(api.isDone()).toBe(true)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith(`${message} ${reason}`)
+})
 
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'device-login-'))
@@ -439,13 +486,17 @@ test.each([
     .reply(status, {
       error: 'DAM_STORAGE_UNAVAILABLE',
       message: 'unsafe upstream never-print-this-secret',
-    })
+      reason: 'Storage is temporarily unavailable; retry later.',
+    } satisfies TransloaditErrorResponseBody)
   await login(['--no-browser'])
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
   expect((await stat('credentials')).mode & 0o777).toBe(0o600)
   expect(OutputCtl.prototype.warn).toHaveBeenCalledWith(
     expect.stringContaining('https://transloadit.com/c/my-app/'),
+  )
+  expect(OutputCtl.prototype.warn).toHaveBeenCalledWith(
+    expect.stringContaining('Storage is temporarily unavailable; retry later.'),
   )
   const output = JSON.stringify([
     ...vi.mocked(OutputCtl.prototype.warn).mock.calls,

@@ -18,6 +18,7 @@ import { Transloadit } from '../../Transloadit.ts'
 import {
   buildMissingCredentialsMessage,
   cliSignatureAlgorithmSchema,
+  formatAPIError,
   readCliInput,
   requireCliCredentials,
   resolveCliConfig,
@@ -455,6 +456,7 @@ export class TokenCommand extends UnauthenticatedCommand {
       endpoint: this.endpoint ?? resolved.config.credentialsEndpoint,
       aud: this.aud,
       scope: this.scope,
+      formatError: formatAPIError,
     })
 
     if (result.ok) {

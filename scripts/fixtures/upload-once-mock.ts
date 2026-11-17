@@ -41,7 +41,7 @@ Transloadit.prototype.listPublicStoragePrefixes = async () => ({
   ok: 'STORAGE_PUBLIC_PREFIXES_LISTED',
   public_prefixes: [],
 })
-Transloadit.prototype.storeImage = async (file: string, options: { path: string }) => {
+Transloadit.prototype.storeAsset = async (file: string, options: { path: string }) => {
   if (process.env.TRANSLOADIT_INIT_FIXTURE_FAIL_UPLOAD === 'true') {
     // Exercise the real storage command's stderr, not only the demo's top-level catch.
     throw new Error('Invalid response at https://example.test/?signature=fixture-signed-secret')
