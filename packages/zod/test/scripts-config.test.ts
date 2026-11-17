@@ -11,7 +11,7 @@ const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8')) as {
 }
 
 const scripts = packageJson.scripts ?? {}
-const requiredScripts = ['sync:v3', 'sync:v4', 'test:unit']
+const requiredScripts = ['codemod:v4', 'lint:sdk', 'sync:sdk', 'sync:v3', 'sync:v4', 'test:unit']
 
 for (const scriptName of requiredScripts) {
   const script = scripts[scriptName]

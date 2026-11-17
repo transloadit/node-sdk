@@ -1,0 +1,210 @@
+import { optionalWithV3Semantics } from '../../lib/sdkZodOptional.ts'
+
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import {
+  color_without_alpha_with_named,
+  defineRobot,
+  imageAdaptiveFilteringSchema,
+  imageQualityValueSchema,
+  inputSortBySchema,
+  robotBase,
+  robotImageProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
+
+export const meta: RobotMetaInput = {
+  ...robotImageProcessingMeta,
+  example_code: {
+    steps: {
+      merged: {
+        robot: '/image/merge',
+        use: {
+          steps: [':original'],
+          bundle_steps: true,
+        },
+        border: 5,
+      },
+    },
+  },
+  example_code_description:
+    'Merge uploaded images into one, with a 5px gap between them on the spritesheet:',
+  purpose_sentence: 'merges several images into a single spritesheet',
+  purpose_verb: 'merge',
+  purpose_word: 'merge',
+  purpose_words: 'Merge several images into one image',
+  title: 'Merge several images into a single image',
+  name: 'ImageMergeRobot',
+}
+
+export const robotImageMergeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
+    robot: z.literal('/image/merge').describe(`
+The final result will be a spritesheet, with the images displayed horizontally, vertically, or in a grid layout.
+
+It's recommended to use this Robot with
+[🤖/image/resize](/docs/robots/image-resize/) so your images are of a
+similar size before merging them.
+`),
+    format: z
+      .enum(['jpg', 'png', 'webp'])
+      .default('png')
+      .describe('The output format for the modified image.'),
+    direction: z
+      .enum(['horizontal', 'vertical', 'grid'])
+      .default('horizontal')
+      .describe(`
+Specifies the direction which the images are displayed.
+
+Use \`grid\` to arrange inputs left-to-right and top-to-bottom.
+
+Only applies to the default spritesheet layout. Ignored when \`effect\` is set to \`polaroid-stack\` or \`mosaic\`, as those effects use their own layout algorithms.
+`),
+    effect: optionalWithV3Semantics(z
+      .enum(['mosaic', 'polaroid-stack'])
+      )
+      .describe(`
+Applies a styled collage layout instead of a plain horizontal or vertical spritesheet.
+
+Currently supports \`polaroid-stack\`, which renders the inputs as overlapping instant photos on a canvas, and \`mosaic\`, which builds a justified tiled collage.
+`),
+    columns: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .min(1)
+      )
+      .describe(`
+Number of columns in the grid layout. Only applies when \`direction\` is \`grid\`.
+
+If omitted, columns are calculated automatically from the number of inputs and requested rows.
+`),
+    rows: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .min(1)
+      )
+      .describe(`
+Number of rows in the grid layout. Only applies when \`direction\` is \`grid\`.
+
+If omitted, rows are calculated automatically from the number of inputs and requested columns.
+`),
+    cell_width: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .min(1)
+      )
+      .describe(`
+Uniform width for each grid cell in pixels. Only applies when \`direction\` is \`grid\`.
+
+Images are resized to fit within the cell while preserving aspect ratio.
+`),
+    cell_height: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .min(1)
+      )
+      .describe(`
+Uniform height for each grid cell in pixels. Only applies when \`direction\` is \`grid\`.
+
+Images are resized to fit within the cell while preserving aspect ratio.
+`),
+    // TODO: default is not between 1 and 10
+    border: z
+      .number()
+      .int()
+      .default(0)
+      .describe(`
+An integer value which defines the gap between images on the spritesheet.
+
+A value of \`10\` would cause the images to have the largest gap between them, while a value of \`1\` would place the images side-by-side.
+
+When \`effect\` is \`polaroid-stack\`, this value is instead used as canvas padding so the outermost photos keep that many pixels of distance from the edge.
+
+When \`effect\` is \`mosaic\`, this value is used both as the outer canvas padding and as the gutter width between neighboring tiles.
+`),
+    background: color_without_alpha_with_named.default('#fff').describe(`
+Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (only shown with a border > 1).
+
+By default, the background of transparent images is changed to white. Set to \`none\` or \`transparent\` for a transparent canvas — set \`format\` to \`png\` or \`webp\` to preserve alpha.
+
+For details about how to preserve transparency across all image types, see [this demo](/demos/image-processing/properly-preserve-transparency-across-all-image-types/).
+`),
+    width: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .positive()
+      )
+      .describe(`
+The output canvas width in pixels.
+
+This is mainly used by styled effects such as \`polaroid-stack\` and \`mosaic\`.
+`),
+    height: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .positive()
+      )
+      .describe(`
+The output canvas height in pixels.
+
+This is mainly used by styled effects such as \`polaroid-stack\` and \`mosaic\`.
+`),
+    seed: optionalWithV3Semantics(z
+      .number()
+      .int()
+      )
+      .describe(`
+Optional deterministic seed used by styled effects such as \`polaroid-stack\` and \`mosaic\`.
+`),
+    shuffle: z
+      .boolean()
+      .default(false)
+      .describe(`
+Whether styled effects such as \`polaroid-stack\` and \`mosaic\` may shuffle the input order before laying out the canvas.
+`),
+    sort_by: inputSortBySchema,
+    coverage: optionalWithV3Semantics(z
+      .number()
+      .min(0.5)
+      .max(3)
+      )
+      .describe(`
+Area-coverage multiplier for the \`polaroid-stack\` effect. Controls how large each polaroid is relative to the canvas and consequently how much of the canvas is covered by photos.
+
+The default of \`1.5\` leaves a subtle beige border along some edges. Use \`2.0\`–\`2.5\` for edge-to-edge coverage (photos overlap more). Values below \`1.0\` produce smaller, more widely spaced polaroids.
+
+Has no effect on the \`mosaic\` style or on plain spritesheets.
+`),
+    adaptive_filtering: imageAdaptiveFilteringSchema,
+    quality: imageQualityValueSchema.default(100).describe(`
+Controls the image compression for JPG, PNG, and WebP images. Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
+`),
+  })
+  .strict()
+
+export const robotDefinition: RobotDefinition<typeof robotImageMergeInstructionsSchema.shape> =
+  defineRobot(meta, robotImageMergeInstructionsSchema)
+
+export const {
+  withHiddenFields: robotImageMergeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageMergeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
+
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotImageMergeInstructions = Instructions['output']
+export type RobotImageMergeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageMergeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageMergeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageMergeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageMergeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -1,0 +1,269 @@
+import { optionalWithV3Semantics } from '../../lib/sdkZodOptional.ts'
+
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import { imagemagickDensityPattern } from '../../imagemagickDensity.ts'
+import { zodWithConservativeJsonInputSchema } from '../../lib/zodInputSemantics.ts'
+import {
+  colorspaceSchema,
+  defineRobotWithHiddenFields,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotImagemagick,
+  robotUse,
+} from './_instructions-primitives.ts'
+
+const documentThumbsPageRangeWireSchema = z.string().regex(/^[0-9]+-[0-9]+$/u)
+
+export const meta: RobotMetaInput = {
+  ...robotDocumentProcessingMeta,
+  example_code: {
+    steps: {
+      thumbnailed: {
+        use: ':original',
+        robot: '/document/thumbs',
+        width: 200,
+        resize_strategy: 'fit',
+        trim_whitespace: false,
+      },
+    },
+  },
+  example_code_description: 'Convert all pages of a PDF document into separate 200px-wide images:',
+  purpose_sentence:
+    'generates an image for each page in a PDF file or an animated GIF file that loops through all pages',
+  purpose_verb: 'extract',
+  purpose_word: 'thumbnail',
+  purpose_words: 'Extract thumbnail images from documents',
+  title: 'Extract thumbnail images from documents',
+  uses_tools: ['imagemagick'],
+  name: 'DocumentThumbsRobot',
+  queueSlotCount: 60,
+  minimumCharge: 524288,
+  trackOutputFileSize: true,
+}
+
+export const robotDocumentThumbsInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotImagemagick)
+  .extend({
+    robot: z.literal('/document/thumbs').describe(`
+## Things to keep in mind
+
+- If you convert a multi-page PDF file into several images, all result images will be sorted with the first image being the thumbnail of the first document page, etc.
+- You can also check the \`meta.thumb_index\` key of each result image to find out which page it corresponds to. Keep in mind that these thumb indices **start at 0,** not at 1.
+`),
+    page: z
+      .number()
+      .int()
+      .nullable()
+      .default(null)
+      .describe(`
+The PDF page that you want to convert to an image. By default the value is \`null\` which means that all pages will be converted into images.
+`),
+    page_range: zodWithConservativeJsonInputSchema(
+      documentThumbsPageRangeWireSchema.refine(
+        (val) => {
+          const [start, end] = val.split('-').map(Number)
+          return start >= 1 && end >= start
+        },
+        {
+          message: 'Start must be ≥ 1 and end must be ≥ start (e.g. "1-20")',
+          params: { schemaRule: 'page-range-order' },
+        },
+      ),
+      documentThumbsPageRangeWireSchema,
+    )
+      .nullable()
+      .default(null)
+      .describe(`
+A page range to extract, in the format \`"start-end"\` (e.g., \`"1-20"\`). Extraction starts from the first page in the range and proceeds sequentially, stopping gracefully when a page does not exist. This is useful for PDFs where the total page count cannot be determined.
+
+The start must be at least \`1\`, and the end must be greater than or equal to the start.
+
+This parameter cannot be used together with \`page\`, and is not supported with GIF format. When \`page_range\` is set, the robot does not need to know the total page count upfront, making it robust for PDFs that fail page count detection.
+`),
+    format: z
+      .enum(['gif', 'jpeg', 'jpg', 'png'])
+      .default('png')
+      .describe(`
+The format of the extracted image(s).
+
+If you specify the value \`"gif"\`, then an animated gif cycling through all pages is created. Please check out [this demo](/demos/document-processing/convert-all-pages-of-a-document-into-an-animated-gif/) to learn more about this.
+`),
+    delay: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .min(0)
+      )
+      .describe(`
+If your output format is \`"gif"\` then this parameter sets the number of 100th seconds to pass before the next frame is shown in the animation. Set this to \`100\` for example to allow 1 second to pass between the frames of the animated gif.
+
+If your output format is not \`"gif"\`, then this parameter does not have any effect.
+`),
+    stack: optionalWithV3Semantics(z
+      .enum(['ghostscript', 'vips', 'pdfium'])
+      )
+      .describe(`
+Selects the PDF rendering stack. Defaults to Ghostscript.
+
+Use \`"pdfium"\` for page-specific or single-page high-DPI PDF rasterization when Ghostscript is too slow or exhausts scratch space, for example with high-resolution CAD, blueprint, or layered real-estate PDFs. This stack uses PDFium via the Python \`pypdfium2\` bindings and Pillow for final image encoding.
+
+Use \`"vips"\` only when you explicitly want libvips PDF loading. It is lower-overhead, but PDFium was faster in high-DPI floorplan tests while producing comparable output quality.
+
+The \`"pdfium"\` stack currently supports JPG/PNG output, \`resize_strategy: "fit"\`, a specific \`page\` or single-page PDFs, opaque hexadecimal backgrounds, \`antialiasing\`, and \`pdf_use_cropbox\`.
+
+The \`"vips"\` stack currently supports JPG/PNG output, \`resize_strategy: "fit"\`, a specific \`page\` or single-page PDFs, and hexadecimal or transparent backgrounds.
+`),
+    width: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .min(1)
+      .max(5000)
+      )
+      .describe(`
+Width of the new image, in pixels. If not specified, will default to the width of the input image
+`),
+    height: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .min(1)
+      .max(5000)
+      )
+      .describe(`
+Height of the new image, in pixels. If not specified, will default to the height of the input image
+`),
+    resize_strategy: z
+      .enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch'])
+      .default('pad')
+      .describe(`
+One of the [available resize strategies](/docs/topics/resize-strategies/).
+`),
+    // TODO: Determine the allowed colors
+    background: z
+      .string()
+      .default('#FFFFFF')
+      .describe(`
+Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (only used for the pad resize strategy).
+
+By default, the background of transparent images is changed to white. For details about how to preserve transparency across all image types, see [this demo](/demos/image-processing/properly-preserve-transparency-across-all-image-types/).
+`),
+    // TODO: Update options list. Why are they capitalized? They are lowercase in th ImageMagick docs.
+    alpha: optionalWithV3Semantics(z
+      .enum(['Remove', 'Set'])
+      )
+      .describe(`
+Change how the alpha channel of the resulting image should work. Valid values are \`"Set"\` to enable transparency and \`"Remove"\` to remove transparency.
+
+For a list of all valid values please check the ImageMagick documentation [here](http://www.imagemagick.org/script/command-line-options.php#alpha).
+`),
+    density: optionalWithV3Semantics(z
+      .string()
+      .regex(imagemagickDensityPattern)
+      )
+      .describe(`
+While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. That is the density (in pixels per inch) of an image and defines how far apart (or how big) the individual pixels are. It defines the size of the image in real world terms when displayed on devices or printed.
+
+You can set this value to a specific \`width\` or in the format \`width\`x\`height\`.
+
+If your converted image has a low resolution, please try using the density parameter to resolve that.
+`),
+    antialiasing: z
+      .boolean()
+      .default(false)
+      .describe(`
+Controls whether or not antialiasing is used to remove jagged edges from text or images in a document.
+`),
+    colorspace: optionalWithV3Semantics(colorspaceSchema).describe(`
+Sets the image colorspace. For details about the available values, see the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#colorspace).
+
+Please note that if you were using \`"RGB"\`, we recommend using \`"sRGB"\`. ImageMagick might try to find the most efficient \`colorspace\` based on the color of an image, and default to e.g. \`"Gray"\`. To force colors, you might then have to use this parameter.
+`),
+    trim_whitespace: z
+      .boolean()
+      .default(true)
+      .describe(`
+This determines if additional whitespace around the PDF should first be trimmed away before it is converted to an image. If you set this to \`true\` only the real PDF page contents will be shown in the image.
+
+If you need to reflect the PDF's dimensions in your image, it is generally a good idea to set this to \`false\`.
+`),
+    pdf_use_cropbox: z
+      .boolean()
+      .default(true)
+      .describe(`
+Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can happen if the document has a cropbox defined. When this option is enabled (by default), the cropbox is leading in determining the dimensions of the resulting thumbnails.
+`),
+    turbo: z
+      .boolean()
+      .default(true)
+      .describe(`
+Enables high-performance mode for faster document processing.
+
+When enabled, Turbo Mode provides two key optimizations:
+
+1. **Parallel page extraction**: For documents with more than 5 pages, multiple processes run in parallel to extract pages simultaneously. The number of parallel processes scales with the document size (up to 4 processes for documents with 13+ pages).
+
+2. **Distributed resizing**: Extracted pages are resized concurrently on multiple machines, providing up to 20 times faster processing for large documents.
+
+Files are emitted as they become available during processing. If you set this to \`false\`, pages are extracted sequentially using a single process, and files are emitted only after all processing is complete.
+
+Turbo Mode increases pricing in that the input document's file size is added for every extracted page. There are no performance benefits nor increased charges for single-page documents.
+`),
+  })
+  .strict()
+
+const hiddenFields = {
+  stack: optionalWithV3Semantics(z
+    .enum(['ghostscript', 'vips', 'pdfium', 'imagemagick'])
+    )
+    .describe(`
+Selects the PDF rendering stack. Use \`"ghostscript"\` for the default renderer, \`"pdfium"\` for high-end CAD, blueprint, floorplan, or other complex high-DPI PDFs where Ghostscript is too slow or exhausts scratch space, and \`"vips"\` only when libvips PDF loading is explicitly needed. The \`"imagemagick"\` value is kept for internal/backwards-compatible use and should not be used in new public templates.
+`),
+  // Override to support lowercase for BC:
+  alpha: optionalWithV3Semantics(z
+    .enum(['Remove', 'Set', 'remove', 'set'])
+    )
+    .describe(`
+Change how the alpha channel of the resulting image should work. Valid values are \`"Set"\` to enable transparency and \`"Remove"\` to remove transparency. Lowercase values are also accepted for backwards compatibility.
+`),
+  // Override to support 'none' for BC
+  resize_strategy: optionalWithV3Semantics(z
+    .enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch', 'none'])
+    )
+    .describe(`
+One of the [available resize strategies](/docs/robots/image-resize/#resize-strategies). The 'none' value is supported for backwards compatibility.
+`),
+  // Match API2's compatibility boundary for persisted Templates without widening public input.
+  density: optionalWithV3Semantics(z
+    .string()
+    .regex(/[0-9]+(?:x[0-9]+)?/u)
+    ),
+}
+
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotDocumentThumbsInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotDocumentThumbsInstructionsSchema, hiddenFields)
+
+export const {
+  withHiddenFields: robotDocumentThumbsInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDocumentThumbsInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
+
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotDocumentThumbsInstructions = Instructions['output']
+export type RobotDocumentThumbsInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDocumentThumbsInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentThumbsInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentThumbsInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

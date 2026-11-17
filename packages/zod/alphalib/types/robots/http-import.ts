@@ -1,0 +1,184 @@
+import { optionalWithV3Semantics } from '../../lib/sdkZodOptional.ts'
+
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import { httpImportRobotErrors } from '../responseErrors/HttpImportRobot.ts'
+import {
+  httpHeaderSafetyDescription,
+  httpUrlSchema,
+  interpolateRobot,
+  return_file_stubs,
+  robotBase,
+  robotImport,
+  robotImportMeta,
+  robotUseWithHiddenFields,
+} from './_instructions-primitives.ts'
+
+export const meta: RobotMetaInput = {
+  ...robotImportMeta,
+  example_code: {
+    steps: {
+      imported: {
+        robot: '/http/import',
+        url: 'https://demos.transloadit.com/inputs/chameleon.jpg',
+      },
+    },
+  },
+  example_code_description: 'Import an image from a specific URL:',
+  purpose_sentence: 'imports any file that is publicly available via a web URL into Transloadit',
+  purpose_word: 'Webservers',
+  purpose_words: 'Import files from web servers',
+  title: 'Import files from web servers',
+  name: 'HttpImportRobot',
+  priceFactor: 10,
+  queueSlotCount: 10,
+}
+
+export const robotHttpImportInstructionsSchema = robotBase
+  .merge(robotImport)
+  .extend({
+    robot: z.literal('/http/import').describe(`
+The result of this <dfn>Robot</dfn> will carry a field \`import_url\` in its metadata, which references the URL from which it was imported. Further conversion results that use this file will also carry this \`import_url\` field. This allows you to match conversion results with the original import URL that you used.
+
+This <dfn>Robot</dfn> knows to interpret links to files on these services:
+
+- Dropbox
+- Google Drive
+- Google Docs
+- OneDrive
+
+Instead of downloading the HTML page previewing the file, the actual file itself will be imported.
+`),
+    url: z.union([httpUrlSchema, z.array(httpUrlSchema)]).describe(`
+The URL from which the file to be imported can be retrieved.
+
+HTTPS URLs must present a valid certificate trusted by Transloadit and matching the requested hostname. Self-signed, expired, or hostname-mismatched certificates cause \`${httpImportRobotErrors.HTTP_IMPORT_FAILURE.error}\`.
+
+You can also specify an array of URLs or a string of \`|\` delimited URLs to import several files at once. Please also check the \`url_delimiter\` parameter for that.
+
+Delimited URL lists are split before variables are interpolated. A delimiter introduced by a variable remains part of that URL. To supply several URLs through a variable, have the entire \`url\` value interpolate to an array of URLs.
+`),
+    url_delimiter: z
+      .string()
+      .default('|')
+      .describe(`
+Provides the delimiter that is used to split the URLs in your \`url\` parameter value.
+
+The delimiter must be literal. Only delimiters outside interpolation expressions in the original \`url\` value separate imports; variable values are never split.
+`),
+    headers: z
+      .union([
+        z.array(z.string()),
+        z.array(z.record(z.string(), z.string())),
+        z.string(), // For JSON strings like '{"X-Database":"volt"}'
+      ])
+      .default([])
+      .describe(`
+Custom headers to be sent for file import.
+
+This is an empty array by default, such that no additional headers except the necessary ones (e.g. Host) are sent.
+
+Headers can be specified as:
+- An array of strings in the format "Header-Name: value"
+- An array of objects with header names as keys and values as values
+- A JSON string that will be parsed into an object
+
+${httpHeaderSafetyDescription}
+
+The same \`headers\` value is sent with every URL in this \`/http/import\` Step. If \`url\` is an
+array, \`headers\` is not matched to the URLs by array index. Use separate \`/http/import\` Steps
+when different URLs need different headers.
+`),
+    fail_fast: z
+      .boolean()
+      .default(false)
+      .describe(`
+Disable the internal retry mechanism, and fail immediately if a resource can't be imported. This can be useful for performance critical applications.
+`),
+    max_file_size: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .positive()
+      )
+      .describe(`
+Maximum allowed size in bytes for each imported file. If the remote server reports a larger file size, the import is rejected before the download starts. If the remote server does not report a size upfront, the download is aborted once this limit is exceeded.
+`),
+    return_file_stubs,
+    range: optionalWithV3Semantics(z
+      .union([z.string(), z.array(z.string())])
+      )
+      .describe(`
+Allows you to specify one or more byte ranges to import from the file. The server must support range requests for this to work.
+
+**Single range**: Use a string like \`"0-99"\` to import bytes 0-99 (the first 100 bytes).
+
+**Multiple ranges**: Use an array like \`["0-99", "200-299"]\` to import multiple separate ranges. The resulting file will contain all requested ranges concatenated together, with zero bytes (\\0) filling any gaps between non-contiguous ranges.
+
+**Range formats**:
+- \`"0-99"\`: Bytes 0 through 99 (inclusive)
+- \`"100-199"\`: Bytes 100 through 199 (inclusive)
+- \`"-100"\`: The last 100 bytes of the file
+
+**Important notes**:
+- The server must support HTTP range requests (respond with 206 Partial Content)
+- If the server doesn't support range requests, the entire file will be imported instead
+- Overlapping ranges are allowed and will be included as requested
+- The resulting file size will be the highest byte position requested, with gaps filled with zero bytes
+`),
+  })
+  .strict()
+
+export const robotHttpImportInstructionsWithHiddenFieldsSchema = robotHttpImportInstructionsSchema
+  .merge(robotUseWithHiddenFields)
+  .extend({
+    force_original_id: optionalWithV3Semantics(z.string()),
+    force_name: optionalWithV3Semantics(z
+      .union([z.string(), z.record(z.string(), z.string())])
+      )
+      .describe(`
+Force a specific filename for imported files. Can be a string to apply to all imports, or an object mapping URLs to filenames.
+`),
+    result: optionalWithV3Semantics(z
+      .union([z.literal('debug'), robotHttpImportInstructionsSchema.shape.result])
+      ),
+    credentials: optionalWithV3Semantics(z.string()), // For test purposes
+    bucket: optionalWithV3Semantics(z.string()), // For test purposes
+    // Override url to support relative URLs in tests with bucket
+    url: optionalWithV3Semantics(z.union([z.string(), z.array(z.string())])),
+  })
+
+export type RobotHttpImportInstructions = z.infer<typeof robotHttpImportInstructionsSchema>
+export type RobotHttpImportInstructionsWithHiddenFields = z.infer<
+  typeof robotHttpImportInstructionsWithHiddenFieldsSchema
+>
+
+export const interpolatableRobotHttpImportInstructionsSchema = interpolateRobot(
+  robotHttpImportInstructionsSchema,
+)
+export type InterpolatableRobotHttpImportInstructions =
+  InterpolatableRobotHttpImportInstructionsInput
+
+export type InterpolatableRobotHttpImportInstructionsInput = z.input<
+  typeof interpolatableRobotHttpImportInstructionsSchema
+>
+
+export const interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotHttpImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotHttpImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotHttpImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema
+>
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotHttpImportInstructionsSchema,
+  typeof interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotHttpImportInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema,
+}
