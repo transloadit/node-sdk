@@ -14,6 +14,12 @@ type-breaking updates. See the
 
 Exports Zod schemas derived from Transloadit types.
 
+`@transloadit/zod/v3` and `@transloadit/zod/v4` are generated from the same Zod 4 source. The Zod 4
+schemas keep Zod 3’s optional semantics: an omitted or `undefined` optional value stays `undefined`
+even when its inner schema has a default, so both versions parse the same input to the same output.
+One known exception: Zod 4 requires the `input` of an AI message tool-call part
+(`toolCallPartBaseSchema`), which Zod 3 lets you omit.
+
 For the SDK client, use `@transloadit/node` or the unscoped `transloadit` package.
 
 ## Migrating schema consumers
