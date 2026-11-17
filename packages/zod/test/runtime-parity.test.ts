@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readdir } from 'node:fs/promises'
 import { test } from 'node:test'
 
 import { z as z3 } from 'zod/v3'
@@ -460,5 +461,106 @@ for (const { version, capabilities, vendor, direct, interpolatable } of [
     }
   })
 }
+
+interface SchemaPair {
+  path: string
+  v3: z3.ZodTypeAny
+  v4: z4.core.$ZodType
+}
+
+// Walk object shapes through the wrappers both versions share, so each optional site can be
+// parsed on its own, without the required siblings a full step would need.
+const childPairs = ({ path, v3, v4 }: SchemaPair): SchemaPair[] => {
+  if (v3 instanceof z3.ZodOptional && v4 instanceof z4.ZodOptional) {
+    return [{ path, v3: v3.unwrap(), v4: v4.unwrap() }]
+  }
+  if (v3 instanceof z3.ZodNullable && v4 instanceof z4.ZodNullable) {
+    return [{ path, v3: v3.unwrap(), v4: v4.unwrap() }]
+  }
+  if (
+    v3 instanceof z3.ZodDefault &&
+    (v4 instanceof z4.ZodDefault || v4 instanceof z4.ZodPrefault)
+  ) {
+    return [{ path, v3: v3.removeDefault(), v4: v4.unwrap() }]
+  }
+  if (v3 instanceof z3.ZodEffects && v4 instanceof z4.ZodPipe) {
+    return [{ path, v3: v3.innerType(), v4: v4.in }]
+  }
+  if (v3 instanceof z3.ZodRecord && v4 instanceof z4.ZodRecord) {
+    return [{ path: `${path}{}`, v3: v3.valueSchema, v4: v4.valueType }]
+  }
+  if (v3 instanceof z3.ZodLazy && v4 instanceof z4.ZodLazy) {
+    return [{ path, v3: v3.schema, v4: v4.unwrap() }]
+  }
+  if (v3 instanceof z3.ZodIntersection && v4 instanceof z4.ZodIntersection) {
+    return [
+      { path: `${path}&0`, v3: v3._def.left, v4: v4._zod.def.left },
+      { path: `${path}&1`, v3: v3._def.right, v4: v4._zod.def.right },
+    ]
+  }
+  if (v3 instanceof z3.ZodArray && v4 instanceof z4.ZodArray) {
+    return [{ path: `${path}[]`, v3: v3.element, v4: v4.element }]
+  }
+  if (
+    (v3 instanceof z3.ZodUnion || v3 instanceof z3.ZodDiscriminatedUnion) &&
+    v4 instanceof z4.ZodUnion
+  ) {
+    const v3Options: z3.ZodTypeAny[] = [...v3.options]
+    if (v3Options.length !== v4.options.length) return []
+    return v3Options.flatMap((option, index) => {
+      const v4Option = v4.options[index]
+      return v4Option ? [{ path: `${path}|${index}`, v3: option, v4: v4Option }] : []
+    })
+  }
+  if (v3 instanceof z3.ZodObject && v4 instanceof z4.ZodObject) {
+    const v3Shape: Record<string, z3.ZodTypeAny> = v3.shape
+    return Object.entries(v4.shape).flatMap(([key, v4Field]) => {
+      const v3Field = v3Shape[key]
+      return v3Field ? [{ path: `${path}.${key}`, v3: v3Field, v4: v4Field }] : []
+    })
+  }
+  return []
+}
+
+test('optional sites around defaults, prefaults and unions keep Zod 3 omission semantics', async () => {
+  const robotFiles = (await readdir(new URL('../src/v4/robots/', import.meta.url)))
+    .filter((file) => file.endsWith('.ts'))
+    .map((file) => `robots/${file}`)
+  const visited = new WeakSet<z4.core.$ZodType>()
+  const pending: SchemaPair[] = []
+  for (const file of ['index.ts', ...robotFiles.sort()]) {
+    const v3Module: Record<string, unknown> = await import(`../src/v3/${file}`)
+    const v4Module: Record<string, unknown> = await import(`../src/v4/${file}`)
+    for (const [name, v4] of Object.entries(v4Module)) {
+      const v3 = v3Module[name]
+      if (v3 instanceof z3.ZodType && v4 instanceof z4.core.$ZodType) {
+        pending.push({ path: `${file}:${name}`, v3, v4 })
+      }
+    }
+  }
+
+  let sites = 0
+  for (let index = 0; index < pending.length; index += 1) {
+    const pair = pending[index]
+    if (!pair || visited.has(pair.v4)) continue
+    visited.add(pair.v4)
+    pending.push(...childPairs(pair))
+    if (!(pair.v4 instanceof z4.ZodOptional) || pair.v4.unwrap()._zod.optin !== 'optional') continue
+    sites += 1
+    const v3Object = z3.object({ value: pair.v3 })
+    const v4Object = z4.object({ value: pair.v4 })
+    for (const input of [{}, { value: undefined }, { value: null }]) {
+      const v3Result = v3Object.safeParse(input)
+      const v4Result = v4Object.safeParse(input)
+      const label = `${pair.path} with ${JSON.stringify(input)}`
+      assert.equal(v4Result.success, v3Result.success, label)
+      if (v3Result.success && v4Result.success)
+        assert.deepEqual(v4Result.data, v3Result.data, label)
+    }
+  }
+  // 54 distinct schemas wrap a default, prefault or optional union today; far fewer means the walk
+  // stopped following the shared wrappers.
+  assert.ok(sites >= 50, `expected at least 50 optional sites with defaults, found ${sites}`)
+})
 
 console.log('zod runtime parity: ok')
