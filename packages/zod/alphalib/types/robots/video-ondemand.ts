@@ -1,0 +1,150 @@
+import { optionalWithV3Semantics } from '../../lib/sdkZodOptional.ts'
+
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import { stackVersions } from '../stackVersions.ts'
+import {
+  defineRobotWithHiddenFields,
+  robotBase,
+  robotUse,
+  robotVideoEncodingMeta,
+  videoEncodeSpecificInstructionsSchema,
+} from './_instructions-primitives.ts'
+
+export const meta: RobotMetaInput = {
+  ...robotVideoEncodingMeta,
+  example_code: {
+    steps: {
+      import: {
+        robot: '/s3/import',
+        path: '${fields.input}',
+        credentials: 'YOUR_AWS_CREDENTIALS',
+        return_file_stubs: true,
+      },
+      vod: {
+        robot: '/video/ondemand',
+        use: 'import',
+        variants: {
+          '480p': {
+            preset: 'hls/480p',
+            ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
+          },
+          '720p': {
+            preset: 'hls/720p',
+            ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
+          },
+          '1080p': {
+            preset: 'hls/1080p',
+            ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
+          },
+        },
+      },
+      serve: {
+        use: 'vod',
+        robot: '/file/serve',
+      },
+    },
+  },
+  example_code_description:
+    'Enable streaming of a video stored on S3 in three variants (480p, 720p, 1080p) with on-demand encoding:',
+  purpose_sentence:
+    'generates HTTP Live Streaming (HLS) playlists and segments on-demand for adaptive and cost-efficient playback',
+  purpose_verb: 'stream',
+  purpose_word: 'stream',
+  purpose_words: 'Stream videos with on-demand encoding',
+  title: 'Stream videos with on-demand encoding',
+  typical_file_size_mb: 300,
+  name: 'VideoOndemandRobot',
+  downloadInputFiles: false,
+  isAllowedForUrlTransform: true,
+  stage: 'ga',
+}
+
+export const robotVideoOndemandInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
+    robot: z.literal('/video/ondemand'),
+    variants: z
+      .record(z.string(), videoEncodeSpecificInstructionsSchema)
+      .describe(
+        'Defines the variants the video player can choose from. The keys are the names of the variant as they will appear in the generated playlists and URLs.',
+      ),
+    enabled_variants: optionalWithV3Semantics(z
+      .union([z.string(), z.array(z.string())])
+      )
+      .describe(
+        'Specifies which variants, defined in the variants parameter, are enabled. Non-enabled variants will not be included in the multivariant playlist.',
+      ),
+    segment_duration: optionalWithV3Semantics(z
+      .number()
+      )
+      .default(6)
+      .describe('The duration of each segment in seconds.'),
+    sign_urls_for: optionalWithV3Semantics(z
+      .number()
+      )
+      .default(0)
+      .describe(
+        'When signing URLs is enabled, the URLs in the generated playlist files will be signed. This parameter specifies the duration (in seconds) that the signed URLs will remain valid. Use the modern `sig` + `exp` format for new integrations. Legacy `s` signatures are deprecated. Shorter expirations reduce the replay window, but they also reduce cache reuse and can increase segment re-generation and latency.',
+      ),
+    asset: optionalWithV3Semantics(z
+      .string()
+      )
+      .describe(
+        'Controls which file is generated. For example, if the parameter is unset, a multivariant playlist referencing the variants is generated.',
+      ),
+    asset_param_name: optionalWithV3Semantics(z
+      .string()
+      )
+      .default('asset')
+      .describe(
+        'Specifies from which URL parameter the asset parameter value is taken and which URL parameter to use when generating playlist files.',
+      ),
+  })
+  .strict()
+
+const hiddenFields = {
+  cdn_required_bypass: optionalWithV3Semantics(z
+    .boolean()
+    )
+    .default(false)
+    .describe(
+      'Internal parameter that indicates whether `cdn=required` should be added to the URLs in playlists. Useful for testing with URL Transform directly and not through Smart CDN.',
+    ),
+  url_transform_format: optionalWithV3Semantics(z
+    .boolean()
+    )
+    .default(false)
+    .describe(
+      'Internal parameter that indicates whether the URLs in playlists should use the Smart CDN or the URL Transform format.',
+    ),
+}
+
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotVideoOndemandInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotVideoOndemandInstructionsSchema, hiddenFields)
+
+export const {
+  withHiddenFields: robotVideoOndemandInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoOndemandInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
+
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotVideoOndemandInstructions = Instructions['output']
+export type RobotVideoOndemandInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoOndemandInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoOndemandInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoOndemandInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoOndemandInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

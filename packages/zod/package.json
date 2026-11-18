@@ -36,18 +36,21 @@
     }
   },
   "scripts": {
+    "codemod:v4": "node scripts/zod4-codemod.ts --in ../node/src/alphalib --out alphalib",
+    "sync:sdk": "node scripts/sync-sdk-alphalib.ts",
+    "lint:sdk": "node scripts/sync-sdk-alphalib.ts --check",
     "sync:v3": "node scripts/sync-v3.ts",
     "sync:v4": "node scripts/sync-v4.ts",
     "sync": "yarn sync:v3 && yarn sync:v4",
     "lint:ts": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json",
     "test:types": "yarn sync && ../../node_modules/.bin/tsc --noEmit --project tsconfig.test.json",
-    "test:unit": "yarn sync && node test/scripts-config.test.ts && node test/patch-ai-chat-schema.test.ts && node test/exports-sync.test.ts && node test/runtime-parity.test.ts && node test/storage-results.test.ts",
+    "test:unit": "yarn sync && node test/scripts-config.test.ts && node test/zod-source.test.ts && node test/patch-ai-chat-schema.test.ts && node test/exports-sync.test.ts && node test/runtime-parity.test.ts && node test/storage-results.test.ts",
     "build": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json",
     "prepack": "yarn build",
     "check": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.test.json && yarn test:unit"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@transloadit/types": "^6.5.0",

@@ -1,0 +1,121 @@
+import { optionalWithV3Semantics } from '../../lib/sdkZodOptional.ts'
+
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import {
+  createStorageStoreExample,
+  defineRobotWithHiddenFields,
+  getGoogleCredentialsDescription,
+  googleBase,
+  robotBase,
+  robotStoreMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
+
+export const meta: RobotMetaInput = {
+  ...robotStoreMeta,
+  example_code: createStorageStoreExample('/google/store', 'YOUR_GOOGLE_CREDENTIALS'),
+  example_code_description:
+    'Export uploaded files to `my_target_folder` in a Google Cloud Storage bucket:',
+  has_small_icon: true,
+  purpose_sentence: 'exports encoding results to Google Cloud Storage',
+  purpose_word: 'Google Cloud Storage',
+  purpose_words: 'Export files to Google Cloud Storage',
+  title: 'Export files to Google Cloud Storage',
+  name: 'GoogleStoreRobot',
+}
+
+export const robotGoogleStoreInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(googleBase)
+  .extend({
+    robot: z.literal('/google/store').describe(`
+The URL to the exported file in your Google bucket will be presented in the Transloadit <dfn>Assembly Status</dfn> JSON. This <dfn>Robot</dfn> can also be used to export encoded files to Google's Firebase as demonstrated in [this blogpost](/blog/2018/12/2h-youtube-clone/).
+`),
+    result: optionalWithV3Semantics(z
+      .boolean()
+      )
+      .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
+    credentials: z.string().describe(
+      getGoogleCredentialsDescription(`
+Grant the service account \`storage.objects.create\` on the bucket you want to export to. The “Storage Object Creator” role provides this permission for new objects, but does not allow overwriting existing objects. Add \`storage.objects.delete\` only if you need to overwrite existing objects. See [Google’s IAM roles for Cloud Storage](https://docs.cloud.google.com/storage/docs/access-control/iam-roles).
+
+For overwrites, create a custom role in “IAM &amp; Admin” → “Roles” with \`storage.objects.create\` and \`storage.objects.delete\`, then grant it to the service account on your bucket.
+`),
+    ),
+    path: z
+      .string()
+      .default('${unique_prefix}/${file.url_name}')
+      .describe(`
+The path at which the file is to be stored. This may include any available [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables).
+`),
+    acl: z
+      .enum([
+        'authenticated-read',
+        'bucket-owner-full-control',
+        'private',
+        'project-private',
+        'public-read',
+      ])
+      .nullable()
+      .default('public-read')
+      .describe(`
+The permissions used for this file.
+`),
+    cache_control: optionalWithV3Semantics(z
+      .string()
+      )
+      .describe(`
+The \`Cache-Control\` header determines how long browsers are allowed to cache your object for. Values specified with this parameter will be added to the object's metadata under the \`Cache-Control\` header. For more information on valid values, take a look at the [official Google documentation](https://cloud.google.com/storage/docs/metadata#cache-control).
+`),
+    url_template: z
+      .string()
+      .default('https://{HOST}/{PATH}')
+      .describe(`
+The URL of the file in the result JSON. This may include any of the following supported [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
+`),
+    ssl_url_template: z
+      .string()
+      .default('https://{HOST}/{PATH}')
+      .describe(`
+The SSL URL of the file in the result JSON. The following [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables) are supported.
+`),
+  })
+  .strict()
+
+// Credential alternatives stay optional while Templates and Assembly overrides are merged.
+// GoogleStoreRobot validates the resolved values after credential injection.
+const hiddenFields = {
+  bucket: optionalWithV3Semantics(z.string()),
+  credentials: optionalWithV3Semantics(robotGoogleStoreInstructionsSchema.shape.credentials),
+  key_file_contents: optionalWithV3Semantics(z.string()),
+  project_id: optionalWithV3Semantics(z.string()),
+}
+
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotGoogleStoreInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotGoogleStoreInstructionsSchema, hiddenFields)
+
+export const {
+  withHiddenFields: robotGoogleStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotGoogleStoreInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
+
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotGoogleStoreInstructions = Instructions['output']
+export type RobotGoogleStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotGoogleStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotGoogleStoreInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

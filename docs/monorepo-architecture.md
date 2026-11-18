@@ -26,7 +26,23 @@ node-sdk/
 
 ## Source of truth: alphalib
 
-`packages/node/src/alphalib/types` is the synced source of truth for the public contract. We do not hand‑edit schema types in other packages; everything is derived from alphalib.
+The public contract comes from alphalib. The schemas that `@transloadit/zod` publishes
+(`types/**` and the helpers those files import) are kept as **Zod 4 source** in
+`packages/zod/alphalib`. Every other schema tree is generated from it:
+
+- `packages/node/src/alphalib` keeps a tracked **Zod 3** copy of that subset, because
+  `@transloadit/node` and `transloadit` compile and publish it (including `src/` and source maps)
+  and the alphalib sync tool writes into that directory. The SDK's other alphalib files are not
+  generated.
+- `packages/zod/src/v3` and `packages/zod/src/v4` are generated and git-ignored.
+- `@transloadit/types` is generated from the Zod 3 copy.
+
+We do not hand-edit schema types in other packages. `yarn lint:zod-source` (part of `check` and
+`verify`) fails when the Zod 3 copy and the Zod 4 source disagree. To resolve it:
+
+- after an alphalib sync brought Zod 3 changes into `packages/node/src/alphalib`, convert them:
+  `yarn workspace @transloadit/zod codemod:v4`;
+- after editing `packages/zod/alphalib`, regenerate the copy: `yarn workspace @transloadit/zod sync:sdk`.
 
 ## Packages
 
@@ -45,7 +61,7 @@ node-sdk/
 ### @transloadit/types
 
 - Pure type package; no Zod runtime dependency.
-- Types are generated from Zod v3 schemas into `.d.ts` only.
+- Types are generated from the Zod 3 schema copy in `packages/node/src/alphalib` into `.d.ts` only.
 - Consumers get fast type‑checking without pulling in Node or Zod.
 
 ### @transloadit/zod
@@ -57,20 +73,41 @@ node-sdk/
 
 ## Zod sync & generation pipeline
 
-### v3 sync (`packages/zod/scripts/sync-v3.ts`)
+All transforms live in `packages/zod/scripts/zodSource.ts`.
 
-- Copies alphalib types into `packages/zod/src/v3`.
-- Rewrites `zod` imports to `zod/v3`.
-- Writes the v3 `index.ts` barrel.
+### Zod 4 source (`packages/zod/alphalib`)
 
-### v4 sync (`packages/zod/scripts/sync-v4.ts`)
+- Written for `zod/v4`. Every former `.optional()` is `optionalWithV3Semantics(…)`
+  (`lib/sdkZodOptional.ts`), which keeps Zod 3's rule that `undefined` skips the inner schema, so
+  defaults inside an optional are not applied. Do not replace it with `.optional()`: around
+  defaults, prefaults and optional unions that changes parse output.
+- One-argument `z.record(value)` is written `z.record(z.string(), value)`; `.passthrough()` is
+  `.catchall(z.unknown())`.
+- Code that cannot be derived mechanically sits in paired regions: `// @zod-v4-only-begin <id>` …
+  `end`, immediately followed by `// @zod-v3-only-begin <id>` … `end` holding the Zod 3 lines
+  commented out. Today these cover the interpolation helpers in `robots/_instructions-primitives.ts`,
+  `zodCaseInsensitiveEnum` and the stable JSON default in `lib/zodInputSemantics.ts`, the File
+  check and the `zod/v3` import in `aiMessages.ts`, the YouTube category annotation and the ai-chat
+  object constraint. The generators fail when a listed region is missing.
+- Two layout hints keep the Zod 3 export byte-identical to the original Zod 3 text: whitespace that
+  preceded `.optional()` stays inside the wrapper's parentheses, and `/* @zod-v3-explicit-key */`
+  marks a `z.record(z.string(), …)` that Zod 3 wrote with its key. The Zod 4 export removes both.
 
-- Transforms `src/v3` into `src/v4`.
-- Rewrites imports to `zod/v4` and applies compatibility patches:
-  - `z.record(...)` gets explicit string key types for v4.
-  - `.passthrough()` is rewritten to `.catchall(z.unknown())` to preserve output types.
-  - Interpolation helpers handle v4 `pipe` (used by transforms and preprocess) and avoid discriminated‑union expansion.
-  - Known ai‑chat schema differences are patched (JSON value output + tool‑result optionality).
+### Generators
+
+- `scripts/sync-v4.ts`: drops the Zod 3 regions and hints and lays the tree out as published
+  (`types/**` at the root, shared helpers keep their paths) into `src/v4`.
+- `scripts/sync-v3.ts`: generates Zod 3 (unwraps the adapter, restores one-argument records,
+  `.passthrough()` and the Zod 3 regions), lays it out the same way and rewrites `zod` imports to
+  `zod/v3` in `src/v3`.
+- `scripts/sync-sdk-alphalib.ts`: writes (or with `--check` compares) the same Zod 3 files into
+  `packages/node/src/alphalib`.
+- `scripts/zod4-codemod.ts --in <alphalib> --out <dir>`: the forward direction, Zod 3 alphalib to
+  Zod 4 source. It takes directories so it can run on a larger alphalib tree, and it refuses
+  constructs it cannot convert losslessly.
+
+`test/zod-source.test.ts` checks that converting the generated Zod 3 tree reproduces the Zod 4
+source byte for byte, so the two exports stay in bijection after contract syncs.
 
 ### Generated sources
 
@@ -83,11 +120,28 @@ node-sdk/
 
    - `packages/zod/test/type-equality-v3.ts`
    - `packages/zod/test/type-equality-v4.ts`
-   - These assert `z.infer` output matches `@transloadit/types` exactly (non‑distributive mutual assignability).
+   - These assert `z.infer` output matches `@transloadit/types` (strict identity for v3, mutual assignability for v4).
 
 2. **Runtime parity**
    - `packages/zod/test/runtime-parity.test.ts`
    - Uses fixtures from `packages/zod/test/fixtures/assembly-instructions.ts` and checks v3/v4 success parity.
+   - Parses every optional site whose inner schema supplies a default, prefault or optional union
+     omitted, as `undefined` and as `null` in both versions.
+
+3. **Export proof** (manual, for changes to the pipeline or the Zod dependency)
+   - `node scripts/prove-zod-exports.ts --base origin/main` materializes the base ref and the working
+     tree into temporary directories, installs and builds both with their own scripts, and compares
+     sha256 manifests of `packages/zod/src/{v3,v4}`, `packages/zod/dist`, `packages/types`
+     (generated sources and `dist`), `packages/node/dist` and the `npm pack` contents of
+     `packages/node` and `packages/transloadit`.
+   - Its runtime probe compares a structural fingerprint of every exported schema, a parse corpus
+     (a synthesized sample per schema, then each key omitted and each optional site as `undefined`
+     and `null`, in both versions) and `z.toJSONSchema` output of every Zod 4 export.
+   - Any difference fails unless `scripts/prove-zod-exports.allowlist.ts` explains it. Results go
+     to `--out` (default: a temporary directory).
+   - It also lists inputs that Zod 3 and Zod 4 parse differently and fails when that list changes.
+     One such difference predates the Zod 4 source: `toolCallPartBaseSchema.input` (`z.unknown()`)
+     may be omitted in Zod 3 but is required by Zod 4.
 
 The `@transloadit/zod` `check` script runs `sync`, `tsc`, and runtime parity.
 

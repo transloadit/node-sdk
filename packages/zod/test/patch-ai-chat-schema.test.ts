@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 
-import { patchAiChatSchema } from '../scripts/sync-v4.ts'
+import { exportV4File, forwardFile, reverseFile } from '../scripts/zodSource.ts'
 
-const source = `
+const path = 'types/robots/ai-chat.ts'
+const source = `import { z } from 'zod'
+
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
 const jsonValueSchema: z.ZodType<JsonValue> =
@@ -11,15 +13,25 @@ const jsonValueSchema: z.ZodType<JsonValue> =
 const toolResultSchema = z.object({
   output: z.unknown(),
 })
+
+function withLegacyProviderMetadata<Schema extends z.AnyZodObject>(schema: Schema) {
+  return schema
+}
 `
 
-const patched = patchAiChatSchema(source)
+const v4 = exportV4File(path, forwardFile(path, source))
 assert.equal(
-  patched,
-  source,
-  'should preserve the current AI SDK message schema without v4-only patches',
+  v4,
+  source
+    .replace("from 'zod'", "from 'zod/v4'")
+    .replace('Schema extends z.AnyZodObject', 'Schema extends z.ZodObject'),
+  'should preserve the current AI SDK message schema and only replace the Zod 3 object constraint',
 )
+assert.equal(reverseFile(path, forwardFile(path, source)), source)
 
-assert.throws(() => patchAiChatSchema('const jsonValueSchema: z.ZodType = z.string()'), /ai-chat/i)
+assert.throws(
+  () => forwardFile(path, source.replace('z.AnyZodObject', 'z.ZodTypeAny')),
+  /ai-chat\.ts: any-zod-object/,
+)
 
 console.log('ai-chat schema patching: ok')

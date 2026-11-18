@@ -1,0 +1,103 @@
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import {
+  awsGcpAiProviderSchema,
+  createProcessingExample,
+  defineRobot,
+  robotArtificialIntelligenceMeta,
+  robotBase,
+  robotParameterDocs,
+  robotUse,
+} from './_instructions-primitives.ts'
+
+export const meta: RobotMetaInput = {
+  ...robotArtificialIntelligenceMeta,
+  example_code: createProcessingExample('synthesized', '/text/speak', {
+    provider: 'aws',
+    voice: 'female-1',
+    target_language: 'en-US',
+  }),
+  example_code_description:
+    'Synthesize speech from uploaded text documents, using a female voice in American English:',
+  extended_description: `
+> [!Warning]
+> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
+`,
+  override_lvl1: 'Artificial Intelligence',
+  purpose_sentence: 'synthesizes speech in documents',
+  purpose_verb: 'speak',
+  purpose_word: 'synthesize speech',
+  purpose_words: 'Synthesize speech in documents',
+  title: 'Speak text',
+  typical_file_size_mb: 1,
+  typical_file_type: 'document',
+  name: 'TextSpeakRobot',
+  minimumChargeUsd: 0.05,
+}
+
+export const robotTextSpeakInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
+    robot: z.literal('/text/speak').describe(`
+You can use the audio that we return in your application, or you can pass the audio down to other <dfn>Robots</dfn> to add a voice track to a video for example.
+
+Another common use case is making your product accessible to people with a reading disability.
+`),
+    prompt: z
+      .string()
+      .nullish()
+      .describe(`
+Which text to speak. You can also set this to \`null\` and supply an input text file.
+`),
+    provider: awsGcpAiProviderSchema.describe(robotParameterDocs.ai_provider.description),
+    // TODO determine the list of languages
+    target_language: z
+      .string()
+      .default('en-US')
+      .describe(`
+The written language of the document. This will also be the language of the spoken text.
+
+The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please consult the list of supported languages and voices.
+`),
+    voice: z
+      .enum(['female-1', 'female-2', 'female-3', 'female-child-1', 'male-1', 'male-child-1'])
+      .default('female-1')
+      .describe(`
+The gender to be used for voice synthesis. Please consult the list of supported languages and voices.
+`),
+    ssml: z
+      .boolean()
+      .default(false)
+      .describe(`
+Supply [Speech Synthesis Markup Language](https://en.wikipedia.org/wiki/Speech_Synthesis_Markup_Language) instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations.
+
+Please see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html) and [GCP](https://cloud.google.com/text-to-speech/docs/ssml).
+`),
+  })
+  .strict()
+
+export const robotDefinition: RobotDefinition<typeof robotTextSpeakInstructionsSchema.shape> =
+  defineRobot(meta, robotTextSpeakInstructionsSchema)
+
+export const {
+  withHiddenFields: robotTextSpeakInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotTextSpeakInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotTextSpeakInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
+
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotTextSpeakInstructions = Instructions['output']
+export type RobotTextSpeakInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotTextSpeakInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotTextSpeakInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotTextSpeakInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotTextSpeakInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']
