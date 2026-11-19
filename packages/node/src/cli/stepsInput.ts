@@ -13,6 +13,53 @@ import { CliInputError, formatSchemaIssues } from './errors.ts'
 
 const stepsWrapperSchema = z.object({ steps: z.record(z.unknown()) })
 
+interface PreviousStepDefaults {
+  /** Parameters whose contract default is new; omitted unless the Step sets them. */
+  omit?: readonly string[]
+  /** Parameters whose contract default changed or was removed; the previous value is applied. */
+  apply?: Readonly<Record<string, string>>
+}
+
+/**
+ * Robot defaults changed by contract syncs within this major. `auth signature` and
+ * `templates sync` emit default-filled Steps, so applying the new defaults would change signed
+ * params and synced Templates for unchanged input. Other callers keep only the keys the caller
+ * wrote, so they are unaffected. Every value here is still accepted by the contract. The next
+ * major removes this list and emits the current contract defaults.
+ */
+const previousStepDefaults: ReadonlyMap<string, PreviousStepDefaults> = new Map<
+  string,
+  PreviousStepDefaults
+>([
+  ['/document/thumbs', { apply: { imagemagick_stack: 'v2.0.10' } }],
+  ['/file/serve', { omit: ['download'] }],
+  ['/image/enhance', { apply: { imagemagick_stack: 'v2.0.10' } }],
+  ['/image/generate', { omit: ['inpainting'] }],
+  ['/image/resize', { apply: { imagemagick_stack: 'v2.0.10' } }],
+  ['/transloadit/import', { omit: ['return_file_stubs'] }],
+  ['/video/merge', { apply: { framerate: '1/5' } }],
+])
+
+type CliStep = { robot: string } & Record<string, unknown>
+
+function withPreviousDefaults(step: CliStep): CliStep {
+  const defaults = previousStepDefaults.get(step.robot)?.apply ?? {}
+  // Parsed as input, each value lands where the schema orders its keys, as the old default did.
+  const missing = Object.entries(defaults).filter(([key]) => !Object.hasOwn(step, key))
+  return missing.length === 0 ? step : { ...step, ...Object.fromEntries(missing) }
+}
+
+function withoutNewDefaults(
+  step: CliStep,
+  parsed: Record<string, unknown>,
+): Record<string, unknown> {
+  const omitted = (previousStepDefaults.get(step.robot)?.omit ?? []).filter(
+    (key) => !Object.hasOwn(step, key),
+  )
+  if (omitted.length === 0) return parsed
+  return Object.fromEntries(Object.entries(parsed).filter(([key]) => !omitted.includes(key)))
+}
+
 /** CLI overrides warn on new parameters and defer contextual OCR checks to API2. */
 export function createCliStepsSchema(
   output: Pick<IOutputCtl, 'warn'> = console,
@@ -21,7 +68,8 @@ export function createCliStepsSchema(
     .object({ robot: z.string() })
     .catchall(z.unknown())
     .transform((step, context) => {
-      let validated = robotsSchema.safeParse(step, { path: context.path })
+      const input = withPreviousDefaults(step)
+      let validated = robotsSchema.safeParse(input, { path: context.path })
       const unknownKeys = new Set<string>()
       if (!validated.success) {
         for (const issue of validated.error.issues) {
@@ -32,7 +80,7 @@ export function createCliStepsSchema(
         }
         if (unknownKeys.size > 0) {
           validated = robotsSchema.safeParse(
-            Object.fromEntries(Object.entries(step).filter(([key]) => !unknownKeys.has(key))),
+            Object.fromEntries(Object.entries(input).filter(([key]) => !unknownKeys.has(key))),
             { path: context.path },
           )
         }
@@ -49,7 +97,7 @@ export function createCliStepsSchema(
           `${context.path.join('.')}: Unrecognized step parameters: ${[...unknownKeys].join(', ')}. Preserving them for API validation when submitted.`,
         )
       }
-      return { ...step, ...validated.data }
+      return { ...step, ...withoutNewDefaults(step, validated.data) }
     })
     .superRefine(refineTransloaditImportSelector)
     .superRefine((step, context) => {

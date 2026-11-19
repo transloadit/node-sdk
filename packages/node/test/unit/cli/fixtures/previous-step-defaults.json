@@ -1,0 +1,239 @@
+{
+  "input": {
+    "auth": {
+      "expires": "2030-01-01T00:00:00.000Z"
+    },
+    "steps": {
+      "generated": {
+        "robot": "/image/generate",
+        "prompt": "a cat"
+      },
+      "served": {
+        "robot": "/file/serve",
+        "use": "generated"
+      },
+      "imported": {
+        "robot": "/transloadit/import",
+        "path": "photos/a.jpg"
+      },
+      "merged": {
+        "robot": "/video/merge",
+        "use": "generated"
+      },
+      "resized": {
+        "robot": "/image/resize",
+        "use": "generated",
+        "width": 100
+      },
+      "resized_pinned": {
+        "robot": "/image/resize",
+        "use": "generated",
+        "width": 100,
+        "imagemagick_stack": "v2.0.10"
+      },
+      "enhanced": {
+        "robot": "/image/enhance",
+        "use": "generated"
+      },
+      "thumbnailed": {
+        "robot": "/document/thumbs",
+        "use": ":original"
+      }
+    }
+  },
+  "authSignature": {
+    "signature": "sha384:37c3477ddd4654bafd3b869627f4be3f00febb403d0f723f4b6fb8926f4d348b6db687159f048da593bca9c8430310da",
+    "params": "{\"auth\":{\"expires\":\"2030-01-01T00:00:00.000Z\",\"key\":\"dummy-key\"},\"steps\":{\"generated\":{\"robot\":\"/image/generate\",\"prompt\":\"a cat\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[]},\"served\":{\"robot\":\"/file/serve\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"imported\":{\"robot\":\"/transloadit/import\",\"path\":\"photos/a.jpg\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"force_name\":null,\"import_on_errors\":[],\"recursive\":false},\"merged\":{\"robot\":\"/video/merge\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"ffmpeg_stack\":\"v6.0.0\",\"resize_strategy\":\"pad\",\"background\":\"#00000000\",\"framerate\":\"1/5\",\"image_durations\":[],\"duration\":null,\"audio_delay\":0,\"loop\":false,\"replace_audio\":false,\"vstack\":false,\"sort_by\":\"basename\",\"transition\":\"none\",\"transition_duration\":1},\"resized\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"resized_pinned\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"imagemagick_stack\":\"v2.0.10\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"enhanced\":{\"robot\":\"/image/enhance\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"enhance\":\"auto\",\"preset\":\"none\",\"engine\":\"classic\",\"ai_preset\":\"restore\",\"sharpen\":0,\"denoise\":0,\"quality\":92},\"thumbnailed\":{\"robot\":\"/document/thumbs\",\"use\":\":original\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"page\":null,\"page_range\":null,\"format\":\"png\",\"resize_strategy\":\"pad\",\"background\":\"#FFFFFF\",\"antialiasing\":false,\"trim_whitespace\":true,\"pdf_use_cropbox\":true,\"turbo\":true}}}"
+  },
+  "templatesSync": {
+    "createTemplate": {
+      "name": "golden",
+      "template": {
+        "steps": {
+          "generated": {
+            "robot": "/image/generate",
+            "prompt": "a cat",
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": []
+          },
+          "served": {
+            "robot": "/file/serve",
+            "use": "generated",
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "headers": {
+              "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range",
+              "Access-Control-Allow-Methods": "POST, GET, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Expose-Headers": "Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges",
+              "Cache-Control": "public, max-age=259200, s-maxage=86400",
+              "Content-Type": "${file.mime}; charset=utf-8",
+              "Transloadit-Assembly": "…",
+              "Transloadit-RequestID": "…",
+              "Accept-Ranges": "bytes"
+            }
+          },
+          "imported": {
+            "robot": "/transloadit/import",
+            "path": "photos/a.jpg",
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "force_name": null,
+            "import_on_errors": [],
+            "recursive": false
+          },
+          "merged": {
+            "robot": "/video/merge",
+            "use": "generated",
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "ffmpeg_stack": "v6.0.0",
+            "resize_strategy": "pad",
+            "background": "#00000000",
+            "framerate": "1/5",
+            "image_durations": [],
+            "duration": null,
+            "audio_delay": 0,
+            "loop": false,
+            "replace_audio": false,
+            "vstack": false,
+            "sort_by": "basename",
+            "transition": "none",
+            "transition_duration": 1
+          },
+          "resized": {
+            "robot": "/image/resize",
+            "use": "generated",
+            "width": 100,
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "imagemagick_stack": "v2.0.10",
+            "format": null,
+            "resize_strategy": "fit",
+            "zoom": true,
+            "gravity": "center",
+            "strip": false,
+            "flatten": true,
+            "correct_gamma": false,
+            "quality": 92,
+            "adaptive_filtering": false,
+            "background": "#FFFFFF",
+            "frame": null,
+            "sepia": null,
+            "rotation": true,
+            "compress": null,
+            "blur": null,
+            "blur_regions": null,
+            "brightness": 1,
+            "saturation": 1,
+            "hue": 100,
+            "contrast": 1,
+            "watermark_position": "center",
+            "watermark_x_offset": 0,
+            "watermark_y_offset": 0,
+            "watermark_resize_strategy": "fit",
+            "watermark_opacity": 1,
+            "watermark_repeat_x": false,
+            "watermark_repeat_y": false,
+            "progressive": false,
+            "trim_whitespace": false,
+            "clip": false,
+            "negate": false,
+            "clut": false,
+            "density": null,
+            "monochrome": false
+          },
+          "resized_pinned": {
+            "robot": "/image/resize",
+            "use": "generated",
+            "width": 100,
+            "imagemagick_stack": "v2.0.10",
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "format": null,
+            "resize_strategy": "fit",
+            "zoom": true,
+            "gravity": "center",
+            "strip": false,
+            "flatten": true,
+            "correct_gamma": false,
+            "quality": 92,
+            "adaptive_filtering": false,
+            "background": "#FFFFFF",
+            "frame": null,
+            "sepia": null,
+            "rotation": true,
+            "compress": null,
+            "blur": null,
+            "blur_regions": null,
+            "brightness": 1,
+            "saturation": 1,
+            "hue": 100,
+            "contrast": 1,
+            "watermark_position": "center",
+            "watermark_x_offset": 0,
+            "watermark_y_offset": 0,
+            "watermark_resize_strategy": "fit",
+            "watermark_opacity": 1,
+            "watermark_repeat_x": false,
+            "watermark_repeat_y": false,
+            "progressive": false,
+            "trim_whitespace": false,
+            "clip": false,
+            "negate": false,
+            "clut": false,
+            "density": null,
+            "monochrome": false
+          },
+          "enhanced": {
+            "robot": "/image/enhance",
+            "use": "generated",
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "imagemagick_stack": "v2.0.10",
+            "enhance": "auto",
+            "preset": "none",
+            "engine": "classic",
+            "ai_preset": "restore",
+            "sharpen": 0,
+            "denoise": 0,
+            "quality": 92
+          },
+          "thumbnailed": {
+            "robot": "/document/thumbs",
+            "use": ":original",
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "imagemagick_stack": "v2.0.10",
+            "page": null,
+            "page_range": null,
+            "format": "png",
+            "resize_strategy": "pad",
+            "background": "#FFFFFF",
+            "antialiasing": false,
+            "trim_whitespace": true,
+            "pdf_use_cropbox": true,
+            "turbo": true
+          }
+        }
+      }
+    },
+    "writtenFile": "{\"transloadit_template_id\":\"created-template\",\"steps\":{\"generated\":{\"robot\":\"/image/generate\",\"prompt\":\"a cat\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[]},\"served\":{\"robot\":\"/file/serve\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"imported\":{\"robot\":\"/transloadit/import\",\"path\":\"photos/a.jpg\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"force_name\":null,\"import_on_errors\":[],\"recursive\":false},\"merged\":{\"robot\":\"/video/merge\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"ffmpeg_stack\":\"v6.0.0\",\"resize_strategy\":\"pad\",\"background\":\"#00000000\",\"framerate\":\"1/5\",\"image_durations\":[],\"duration\":null,\"audio_delay\":0,\"loop\":false,\"replace_audio\":false,\"vstack\":false,\"sort_by\":\"basename\",\"transition\":\"none\",\"transition_duration\":1},\"resized\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"resized_pinned\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"imagemagick_stack\":\"v2.0.10\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"enhanced\":{\"robot\":\"/image/enhance\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"enhance\":\"auto\",\"preset\":\"none\",\"engine\":\"classic\",\"ai_preset\":\"restore\",\"sharpen\":0,\"denoise\":0,\"quality\":92},\"thumbnailed\":{\"robot\":\"/document/thumbs\",\"use\":\":original\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"page\":null,\"page_range\":null,\"format\":\"png\",\"resize_strategy\":\"pad\",\"background\":\"#FFFFFF\",\"antialiasing\":false,\"trim_whitespace\":true,\"pdf_use_cropbox\":true,\"turbo\":true}}}"
+  }
+}
