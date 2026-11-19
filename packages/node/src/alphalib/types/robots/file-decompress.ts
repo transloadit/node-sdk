@@ -6,6 +6,7 @@ import type {
 
 import { z } from 'zod'
 
+import { formatEnglishInteger } from '../../englishInteger.ts'
 import {
   createProcessingExample,
   defineRobot,
@@ -14,6 +15,12 @@ import {
   robotProcessingMeta,
   robotUse,
 } from './_instructions-primitives.ts'
+
+/** Default cumulative budgets for one input archive, shared by runtime and documentation. */
+export const fileDecompressExtractionLimits = { bytes: 10 * 1024 ** 3, entries: 10_000, rounds: 10 }
+
+/** Bounds extraction and filename normalization for one input archive. */
+export const fileDecompressTimeout = 10 * 60 * 1000
 
 export const meta: RobotMetaInput = {
   ...robotProcessingMeta,
@@ -68,6 +75,10 @@ This <dfn>Robot</dfn> also detects and handles any of the following before evalu
 - lzma, lzip, and xz compression
 
 For security reasons, archives containing symlinks that point outside the archived directory will cause the <dfn>Assembly</dfn> to fail.
+
+Each input archive has a cumulative limit of ${fileDecompressExtractionLimits.bytes / 1024 ** 3} GiB of expanded data and ${formatEnglishInteger(fileDecompressExtractionLimits.entries)} file and directory entries, including implicit parent directories. The initial extraction, nested archives, and intermediate archive files all consume this budget; removing an intermediate archive does not restore its budget.
+
+After the initial extraction, nested archives are expanded for at most ${fileDecompressExtractionLimits.rounds} rounds. Extraction and filename normalization share a ${fileDecompressTimeout / 60_000}-minute deadline. Exceeding a resource limit fails the <dfn>Assembly</dfn> with a \`FILE_DECOMPRESS_INVALID_INPUT\` error. Use smaller archives when a limit is exceeded.
 
 Extracted file and directory names are transliterated for supported accented Latin and Cyrillic characters. For example, \`café.pdf\` becomes \`cafe.pdf\`.
 

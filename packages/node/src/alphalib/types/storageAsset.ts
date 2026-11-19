@@ -80,7 +80,12 @@ export const damAssetsListDescriptions = {
     'Opaque continuation value from next_cursor in the previous response. Keep the same prefix while paging. Omit for the first page.',
   limit:
     'Maximum number of assets per page. Defaults to 100 and accepts up to 500; follow next_cursor until null.',
+  search:
+    'Only list assets whose filename contains this text, ignoring case and accents. Combine it with prefix to search one directory and everything below it. Keep the same search while paging.',
 } as const
+
+/** Longest filename search; a catalog filename has at most 255 code points. */
+export const damFilenameSearchMaxCodePoints = 255
 
 /** Bounded metadata paging; cursors are the last returned, case-sensitive asset path. */
 export const damAssetsListOptionsSchema = z.object(
@@ -90,6 +95,10 @@ export const damAssetsListOptionsSchema = z.object(
       prefix: boundedPathSchema.default(''),
       cursor: boundedPathSchema.min(1).optional(),
       limit: z.number().int().min(1).max(500).default(100),
+      search: z
+        .string()
+        .regex(new RegExp(`^[\\s\\S]{1,${damFilenameSearchMaxCodePoints}}$`, 'u'))
+        .optional(),
     },
     damAssetsListDescriptions,
   ),

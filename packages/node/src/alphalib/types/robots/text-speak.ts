@@ -1,5 +1,5 @@
 import type {
-  RobotDefinition,
+  RobotDefinitionWithHiddenFields,
   RobotMetaInput,
   RobotSchemaVariantTypes,
 } from './_instructions-primitives.ts'
@@ -7,9 +7,8 @@ import type {
 import { z } from 'zod'
 
 import {
-  awsGcpAiProviderSchema,
   createProcessingExample,
-  defineRobot,
+  defineRobotWithHiddenFields,
   robotArtificialIntelligenceMeta,
   robotBase,
   robotParameterDocs,
@@ -27,7 +26,33 @@ export const meta: RobotMetaInput = {
     'Synthesize speech from uploaded text documents, using a female voice in American English:',
   extended_description: `
 > [!Warning]
-> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
+> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP, ElevenLabs) will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
+
+### Using ElevenLabs
+
+Set \`provider\` to \`"elevenlabs"\` for ElevenLabs’ Multilingual v2 voices
+(\`eleven_multilingual_v2\`), pinned so the output does not change under you. Every supported
+language offers the \`female-1\` and \`male-1\` voices, each mapped to a voice that ElevenLabs
+keeps available long-term. They speak the language of your text: ElevenLabs detects it, so
+\`target_language\` only selects among the supported languages and cannot steer the pronunciation
+of ambiguous words. ElevenLabs reads plain text only, so \`ssml\` must stay \`false\`, and it
+speaks at most the first 10,000 characters.
+
+For production, we recommend using your own ElevenLabs account. Store your key as
+\`elevenlabs_api_key\` in a Template Credential of the AI Providers type and reference it with
+\`credentials\`. With your own account, you have your own ElevenLabs limits and credits.
+ElevenLabs bills you directly, and Transloadit charges only its fee: 30% of ElevenLabs’ list price
+of $0.08 per 1,000 characters, at least $0.0005 per <dfn>Step</dfn>.
+
+Transloadit’s shared ElevenLabs account is the default and a quick way to try things out.
+Its credits and capacity are shared by all customers, so your <dfn>Step</dfn> can be delayed or
+refused for reasons outside your control. With this account, Transloadit bills ElevenLabs’
+list price of $0.08 per 1,000 characters plus a 30% fee, at least $0.05 per <dfn>Step</dfn>.
+
+With either account, Transloadit retries HTTP 429 limit responses up to twice; if the limit
+persists, the <dfn>Step</dfn> fails. Exhausted credits fail without retrying. When the <dfn>Step</dfn>’s
+regular data volume charge is higher than the pricing above, that applies instead. If ElevenLabs
+rejects your key, the <dfn>Step</dfn> fails; Transloadit never falls back to its own key.
 `,
   override_lvl1: 'Artificial Intelligence',
   purpose_sentence: 'synthesizes speech in documents',
@@ -55,7 +80,19 @@ Another common use case is making your product accessible to people with a readi
       .describe(`
 Which text to speak. You can also set this to \`null\` and supply an input text file.
 `),
-    provider: awsGcpAiProviderSchema.describe(robotParameterDocs.ai_provider.description),
+    provider: z
+      .enum(['auto', 'aws', 'elevenlabs', 'gcp'])
+      .default('auto')
+      .describe(
+        `${robotParameterDocs.ai_provider.description} \`"auto"\` uses \`"aws"\` and never selects \`"elevenlabs"\`.`,
+      ),
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
+The name of a Template Credential of the AI Providers type that holds your own
+\`elevenlabs_api_key\`. Only the \`"elevenlabs"\` provider uses it.
+`),
     // TODO determine the list of languages
     target_language: z
       .string()
@@ -77,13 +114,22 @@ The gender to be used for voice synthesis. Please consult the list of supported 
       .describe(`
 Supply [Speech Synthesis Markup Language](https://en.wikipedia.org/wiki/Speech_Synthesis_Markup_Language) instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations.
 
-Please see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html) and [GCP](https://cloud.google.com/text-to-speech/docs/ssml).
+Please see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html) and [GCP](https://cloud.google.com/text-to-speech/docs/ssml). The \`"elevenlabs"\` provider does not accept SSML.
 `),
   })
   .strict()
 
-export const robotDefinition: RobotDefinition<typeof robotTextSpeakInstructionsSchema.shape> =
-  defineRobot(meta, robotTextSpeakInstructionsSchema)
+const hiddenFields = {
+  // Injected from the Template Credential named in `credentials`. A shared AI Providers credential
+  // also injects other providers' keys; the Robot's runtime validation ignores them, so only the
+  // schema observer notices, and listing every AI key here would document fields we never use.
+  elevenlabs_api_key: z.string().optional(),
+}
+
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotTextSpeakInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotTextSpeakInstructionsSchema, hiddenFields)
 
 export const {
   withHiddenFields: robotTextSpeakInstructionsWithHiddenFieldsSchema,

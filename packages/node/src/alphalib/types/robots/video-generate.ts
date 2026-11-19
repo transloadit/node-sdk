@@ -34,7 +34,8 @@ export const meta: RobotMetaInput = {
   typical_file_type: 'video',
   name: 'VideoGenerateRobot',
   minimumChargeUsd: 0.06,
-  applyCommunityPlanMediaTrim: true,
+  planMediaTrim: 'mayLengthen',
+  planWatermarkOutput: 'video',
 }
 
 export const robotVideoGenerateInstructionsSchema = robotBase
@@ -45,7 +46,7 @@ export const robotVideoGenerateInstructionsSchema = robotBase
       .string()
       .optional()
       .describe(
-        `Video model; defaults to ${videoGenerateDefaultModelIdentifier}. Unsupported settings warn until ${videoGenerationParameterEnforcementDate}. MiniMax outputs are about six seconds.`,
+        `Video model; defaults to ${videoGenerateDefaultModelIdentifier}. Unsupported settings return VIDEO_GENERATE_VALIDATION since ${videoGenerationParameterEnforcementDate}. MiniMax outputs are about six seconds.`,
       ),
     prompt: z.string().describe('The prompt describing the desired video content.'),
     format: z.enum(['mp4']).optional().describe('Format of the generated video.'),

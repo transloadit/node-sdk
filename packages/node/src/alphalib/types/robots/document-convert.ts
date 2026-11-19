@@ -27,6 +27,9 @@ const transcriptSrtDocumentation =
   'JSON input is limited to 32 MiB and is only supported for SRT output. ' +
   'SRT-to-SRT copies the original cues unchanged.'
 
+const externalImageDocumentation =
+  'When HTML, including rendered Markdown, is converted through LibreOffice, external-image fetch and response-body read failures are retried once and then fail the Step. Missing images (HTTP 404) are skipped; other HTTP 4xx responses, private-address blocks, images over the size cap, and undecodable images retain their existing best-effort handling.'
+
 /** Accepts Playwright's paper-format case variants while publishing canonical spellings. */
 export const documentConvertPdfFormatSchema = zodCaseInsensitiveEnum(
   z.enum(['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'Ledger', 'Legal', 'Letter', 'Tabloid']),
@@ -60,6 +63,8 @@ Using this <dfn>Robot</dfn>, you can bypass the issues that certain file types m
 > A general rule of this <dfn>Robot</dfn> is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format, but not to an image.
 
 ${documentLoadErrorDocumentation}
+
+${externalImageDocumentation}
 
 ${transcriptSrtDocumentation}
 
@@ -136,6 +141,8 @@ Using this Robot, you can bypass the issues that certain file types may bring, b
 > A general rule of this Robot is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format (and vice versa), but not to an image.
 
 ${documentLoadErrorDocumentation}
+
+${externalImageDocumentation}
 
 ${transcriptSrtDocumentation}
 

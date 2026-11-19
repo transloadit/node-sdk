@@ -89,7 +89,7 @@ export const robotVideoOndemandInstructionsSchema = robotBase
       .optional()
       .default(0)
       .describe(
-        'When signing URLs is enabled, the URLs in the generated playlist files will be signed. This parameter specifies the duration (in seconds) that the signed URLs will remain valid. Use the modern `sig` + `exp` format for new integrations. Legacy `s` signatures are deprecated. Shorter expirations reduce the replay window, but they also reduce cache reuse and can increase segment re-generation and latency.',
+        'When signing URLs is enabled, the URLs in the generated playlist files will be signed. This parameter specifies the duration (in seconds) that the signed URLs will remain valid. For URL Transform requests, child URL expiry is also capped at the incoming URL’s expiry. Use the modern `sig` + `exp` format for new integrations. Legacy `s` signatures are deprecated. Shorter expirations reduce the replay window, but they also reduce cache reuse and can increase segment re-generation and latency.',
       ),
     asset: z
       .string()

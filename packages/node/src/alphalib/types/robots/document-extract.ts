@@ -159,7 +159,7 @@ Controls how text is extracted.
 
 - \`"native"\` extracts selectable PDF text locally with Poppler. This is fast, but returns little or no text for scanned PDFs.
 - \`"ocr"\` delegates to \`/document/ocr\` and requires \`ocr_provider\`.
-- \`"auto"\` tries native extraction first, then falls back to OCR when no native text is found. This also requires \`ocr_provider\`.
+- \`"auto"\` tries native extraction first, then falls back to OCR when no native text is found, or when the native text is unusable because most of its words are spelled as separate letters (\`s p a c e c r a f t\`), as in the text layer of some old scans. This also requires \`ocr_provider\`.
 
 OCR modes currently cannot be combined with \`password\`.
 `),
@@ -173,13 +173,13 @@ Native Markdown and HTML extraction limits layout data to 8 MiB per input docume
 
 If native extraction cannot confirm the reading order of bidirectional text, it returns a validation error. Try fewer pages or use \`text_method: "ocr"\` with an OCR provider.
 
-When \`extract\` includes images, Markdown and HTML reference retained image results inline using relative, URL-encoded filenames matching each image result’s \`name\`. Save the text and image results together to resolve the references. Filtered images have no references; repeated images can reference the same deduplicated result. Images with unavailable or inconsistent positions, including retained image masks, are appended after their page’s text. Embedded base64 images are not produced.
+When \`extract\` includes images, Markdown and HTML reference retained image results inline using relative, URL-encoded filenames matching each image result’s \`name\`. Save the text and image results together to resolve the references. Filtered images have no references; repeated images can reference the same deduplicated result. Images covering the whole page, including page scans, are omitted from references when their visible coverage can be confirmed, while remaining available as image results. This also applies to pages without extracted text; use \`text_method: "ocr"\` with an OCR provider to read scanned text. Images with unavailable or inconsistent positions, including retained image masks, are appended after their page’s text. Embedded base64 images are not produced.
 
 When exporting, preserve result names in a shared directory per input document. For example, set \`/s3/store\`’s \`path\` to \`"\${assembly.id}/\${file.original_id}/\${file.name}"\`. Default storage paths using \`\${unique_prefix}/\${file.url_name}\` separate and rename files, so they do not preserve these relative image links.
 
-Some native image encodings cannot be displayed by browsers or Markdown viewers. Set \`image_format\` to \`"png"\` or \`"jpg"\` for broadly viewable image results.
+Some native image encodings cannot be displayed by browsers or Markdown viewers. Raw CCITT and JBIG2 image results are not referenced in Markdown or HTML. Set \`image_format\` to \`"png"\` or \`"jpg"\` for broadly viewable image results that can be referenced, unless they cover the whole page.
 
-OCR Markdown and HTML preserve readable text with minimal structure detection and append extracted images in source order, since reliable text positions are unavailable.
+OCR Markdown and HTML with \`ocr_provider: "aws"\` infer paragraphs, lists and headings from the positions of the recognized lines and words. With \`ocr_provider: "gcp"\`, which does not report those positions, they preserve readable text with minimal structure detection. In both cases, extracted images are appended in source order, since OCR does not position them.
 `),
     text_granularity: textGranularities.default('document').describe(`
 Controls text output grouping for native extraction.

@@ -35,6 +35,8 @@ export const MODEL_CAPABILITIES: Readonly<Record<string, { pdf: boolean; image: 
     'openai/gpt-5.6-sol': { pdf: false, image: true },
     'openai/gpt-6-astra': { pdf: false, image: true },
     'openai/gpt-6.1-sol': { pdf: false, image: true },
+    'openai/gpt-6.2-sol': { pdf: false, image: true },
+    'openai/gpt-6.2-astra': { pdf: false, image: true },
     'openai/gpt-5.4': { pdf: false, image: true },
     'openai/gpt-5.4-mini': { pdf: false, image: true },
     'openai/gpt-5.4-nano': { pdf: false, image: true },
@@ -56,6 +58,8 @@ export const imageGenerateModelIdentifiers = [
   'openai/gpt-image-2',
   'openai/gpt-image-2.5-flare',
   'openai/gpt-image-2.5-sunburst',
+  'openai/gpt-image-2.6-flare',
+  'openai/gpt-image-2.6-sunburst',
   'stability-ai/stable-diffusion-inpainting',
 ] as const
 
