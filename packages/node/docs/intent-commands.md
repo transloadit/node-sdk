@@ -16,7 +16,7 @@ All intent commands also support the global CLI flags `--json`, `--log-level`, `
 | `preview generate` | Generate a preview thumbnail | file, dir, URL, base64 | file |
 | `image remove-background` | Remove the background from images | file, dir, URL, base64 | file |
 | `image merge` | Merge several images into a single image | file, dir, URL, base64 | file |
-| `image optimize` | Optimize images without quality loss | file, dir, URL, base64 | file |
+| `image optimize` | Optimize image file sizes | file, dir, URL, base64 | file |
 | `image resize` | Convert, resize, or watermark images | file, dir, URL, base64 | file |
 | `image upscale` | Upscale images | file, dir, URL, base64 | file |
 | `document convert` | Convert documents into different formats | file, dir, URL, base64 | file |
@@ -282,7 +282,7 @@ transloadit image merge --input input.png --output output.png
 
 ## `image optimize`
 
-Optimize images without quality loss
+Optimize image file sizes
 
 Runs `/image/optimize` on each input file and writes the result to `--output`.
 
@@ -308,8 +308,8 @@ npx transloadit image optimize --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--priority` | `string` | no | `compression-ratio` | Provides different algorithms for better or worse compression for your images, but that run slower or faster. |
-| `--progressive` | `boolean` | no | `true` | Interlaces the image if set to true, which makes the result image load progressively in browsers. |
+| `--priority` | `string` | no | `compression-ratio` | Selects the JPEG and PNG optimization tools. The default, "compression-ratio", favors smaller files. For JPEGs, it can use lossy re-encoding at quality 75 when… |
+| `--progressive` | `boolean` | no | `true` | Requests progressive or interlaced output from the selected tools when set to true. |
 | `--preserve-meta-data` | `boolean` | no | `true` | Specifies if the image's metadata should be preserved during the optimization, or not. |
 | `--fix-breaking-images` | `boolean` | no | `true` | If set to true this parameter tries to fix images that would otherwise make the underlying tool error out and thereby break your Assemblies . |
 | `--lossy` | `boolean` | no | `true` | When set to false (the default), only lossless PNG optimizers are used, disabling pngquant to preserve color accuracy. |
@@ -750,7 +750,8 @@ npx transloadit text speak [--input <path|dir|url|->] [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--prompt` | `string` | no | `"A red bicycle in a studio"` | Which text to speak. You can also set this to null and supply an input text file. |
-| `--provider` | `string` | no | `aws` | Chooses the best provider based on your request. Select a specific provider to override automatic selection. |
+| `--provider` | `string` | no | `aws` | Chooses the best provider based on your request. Select a specific provider to override automatic selection. "auto" uses "aws" and never selects "elevenlabs". |
+| `--credentials` | `string` | no | `value` | The name of a Template Credential of the AI Providers type that holds your own elevenlabs_api_key. Only the "elevenlabs" provider uses it. |
 | `--target-language` | `string` | no | `en-US` | The written language of the document. This will also be the language of the spoken text. The language should be specified in the BCP-47 format, such as "en-GB", "de-DE" or… |
 | `--voice` | `string` | no | `female-1` | The gender to be used for voice synthesis. Please consult the list of supported languages and voices. |
 | `--ssml` | `boolean` | no | `true` | Supply Speech Synthesis Markup Language instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations. |
