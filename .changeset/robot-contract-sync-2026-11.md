@@ -13,12 +13,32 @@ image inpainting controls (transloadit/api2#11270), merge framerates (transloadi
 `/document/split` page numbers (transloadit/api2#11155), Storage asset search
 (transloadit/api2#10693), and the upgraded ImageMagick stacks (transloadit/api2#10616).
 
-- Add the `/document/watermark` Robot, `credentials` and the `elevenlabs` provider for
-  `/speech/transcribe` and `/text/speak`, `speaker_colors` for `/video/subtitle`, `inpainting` for
-  `/image/generate`, `download` for `/file/serve`, `return_file_stubs` for `/transloadit/import`,
-  `search` for Storage asset lists, and the `type` of OCR entries.
-- The default ImageMagick stack is now `v2.0.11`; `v2.0.10` and `v3.0.1` remain accepted as
-  deprecated aliases of `v2.0.11` and `v3.0.2`.
+- Add the `/document/watermark` Robot; the `elevenlabs` provider, `credentials` and
+  `elevenlabs_api_key` for `/speech/transcribe` and `/text/speak`; `speaker_colors` for
+  `/video/subtitle`; `inpainting` for `/image/generate`; `download` for `/file/serve`;
+  `return_file_stubs` for `/transloadit/import`; and the optional `type` of OCR entries.
+- `@transloadit/zod` adds the `/document/watermark` schemas, `robots/_image-inpainting` and
+  `robots/_image-inpainting-docs`, `damFilenameSearchMaxCodePoints`, `defaultMaxFilesPerJob`,
+  `dominantColorSampleMaxDimension`, `elevenLabsKeytermLimits`, `fileDecompressExtractionLimits`
+  and `fileDecompressTimeout`. `@transloadit/types` adds the matching types.
+- `listStoredAssets()` now sends `search` to filter by filename; earlier releases dropped it and
+  listed everything. An empty `search` still lists everything.
+- The default ImageMagick stack is now `v2.0.11`. The SDK still accepts `v2.0.10` and `v3.0.1`
+  and sends them as written; API2 lists them as deprecated in favor of `v2.0.11` and `v3.0.2`.
+- `transloadit auth signature` and `transloadit templates sync` keep emitting the previous
+  defaults in this release, so signed params and synced Template files stay the same for
+  unchanged input: they add no `inpainting`, `download` or `return_file_stubs`, and still add
+  `framerate: '1/5'` to `/video/merge` and `imagemagick_stack: 'v2.0.10'` where a Step sets
+  neither. Set these parameters in the Step to choose other values.
+- Type-breaking: parsed `/file/serve` Instructions (`RobotFileServeInstructions`,
+  `schema.parse()`) always contain `download`, defaulting to `false`. Code that builds values of
+  the parsed type must set it; instruction input types are unchanged.
+- Type-breaking: parsed `/image/generate` Instructions (`RobotImageGenerateInstructions`) always
+  contain `inpainting`, defaulting to `'best_effort'`. Code that builds values of the parsed type
+  must set it; instruction input types are unchanged.
+- Type-breaking: parsed `/transloadit/import` Instructions (`RobotTransloaditImportInstructions`)
+  always contain `return_file_stubs`, defaulting to `false`. Code that builds values of the parsed
+  type must set it; instruction input types are unchanged.
 - Type-breaking: `/video/merge` no longer supplies `framerate: '1/5'` when parsing. Parsed
   `framerate` can be `undefined`; API2 applies its default. Readers of parsed Instructions should
   handle a missing value.
@@ -27,8 +47,12 @@ image inpainting controls (transloadit/api2#11270), merge framerates (transloadi
 - Type-breaking: `/speech/transcribe` and `/text/speak` parsed `provider` can also be `elevenlabs`.
   Exhaustive handling of providers needs the new value.
 - Type-breaking: parsed Robot unions and Robot name enums include `/document/watermark`
-  (`DocumentWatermarkRobot`), and the image generation model list includes
-  `openai/gpt-image-2.6-flare` and `openai/gpt-image-2.6-sunburst`. Exhaustive switches need the
-  new members.
+  (`DocumentWatermarkRobot`). Exhaustive switches over Robots need the new member.
+- Type-breaking: `imageGenerateModelIdentifiers` includes `openai/gpt-image-2.6-flare` and
+  `openai/gpt-image-2.6-sunburst`. Exhaustive switches over image generation models need the new
+  members.
 - Type-breaking: Robot metadata no longer has `applyCommunityPlanMediaTrim`; it is replaced by
   `planMediaTrim` and `planWatermarkOutput`. Code reading Robot metadata should use those fields.
+- Type-breaking: `runtimeStackVersions.imagemagick` now has the literal types `default: 'v2.0.11'`
+  and `valid: ['v2.0.11', 'v3.0.2']`. Code that compares these constants with `'v2.0.10'` or
+  `'v3.0.1'` should compare with the new versions or widen to `string`.
