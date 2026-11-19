@@ -1,5 +1,9 @@
+import { fileURLToPath } from 'node:url'
+
 import nock from 'nock'
+import ts from 'typescript'
 import { afterEach, expect, test } from 'vitest'
+import { ZodError } from 'zod'
 
 import { Transloadit } from '../../src/Transloadit.ts'
 
@@ -103,7 +107,6 @@ test.each([
       assets: [],
       next_cursor: null,
     })
-  // @ts-expect-error JavaScript callers can pass null, which earlier releases ignored.
   await expect(client.listStoredAssets({ prefix: 'photos/', search })).resolves.toMatchObject({
     assets: [],
   })
@@ -153,6 +156,62 @@ test('reads only the declared list options, including inherited ones', async () 
   expect(params).toMatchObject({ prefix: 'photos/', limit: 7 })
   expect(params).not.toHaveProperty('search')
   expect(read).toEqual(['prefix', 'limit'])
+})
+
+test('lists with default options when none are given', async () => {
+  let params: Record<string, unknown> = {}
+  const request = nock(origin)
+    .get('/dam/assets')
+    .query((query) => {
+      params = JSON.parse(String(query.params))
+      return true
+    })
+    .reply(200, {
+      ok: 'DAM_ASSETS_LISTED',
+      message: 'Listed',
+      workspace: 'my-app',
+      assets: [],
+      next_cursor: null,
+    })
+
+  await client.listStoredAssets(undefined)
+
+  expect(request.isDone()).toBe(true)
+  expect(params).toMatchObject({ prefix: '', limit: 100 })
+})
+
+test.each([
+  [[]],
+  [null],
+])('rejects non-object list options before sending (%j)', async (options) => {
+  // @ts-expect-error Exercise invalid options arriving from JavaScript callers.
+  await expect(client.listStoredAssets(options)).rejects.toBeInstanceOf(ZodError)
+})
+
+test('accepts a null filename search in the public types', () => {
+  const program = ts.createProgram(
+    [
+      fileURLToPath(new URL('../type-consumers/list-stored-assets.ts', import.meta.url)),
+      fileURLToPath(new URL('../../src/alphalib/typings/json-to-ast.d.ts', import.meta.url)),
+    ],
+    {
+      allowImportingTsExtensions: true,
+      module: ts.ModuleKind.NodeNext,
+      moduleResolution: ts.ModuleResolutionKind.NodeNext,
+      noEmit: true,
+      strict: true,
+      target: ts.ScriptTarget.ES2022,
+      types: ['node'],
+    },
+  )
+  const diagnostics = ts.getPreEmitDiagnostics(program)
+  expect(
+    ts.formatDiagnosticsWithColorAndContext(diagnostics, {
+      getCanonicalFileName: (fileName) => fileName,
+      getCurrentDirectory: () => process.cwd(),
+      getNewLine: () => '\n',
+    }),
+  ).toBe('')
 })
 
 test('rejects a filename search longer than 255 code points before sending', async () => {

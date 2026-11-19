@@ -97,6 +97,7 @@ import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
 import { ApiError } from './ApiError.ts'
+import { isRecord } from './alphalib/object.ts'
 import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
 import {
   damAssetFoundResponseSchema,
@@ -498,6 +499,17 @@ type BaseOptions = {
 
 export type Options = BaseOptions & (AuthKeySecret | AuthToken)
 
+/**
+ * Earlier releases parsed the list options object itself: that read only the declared fields,
+ * inherited ones included, ignored `search`, and rejected non-objects. Keep reading them that
+ * way, and treat an empty or null `search` as no filter.
+ */
+function toStoredAssetsListInput(options: unknown): unknown {
+  if (!isRecord(options)) return options
+  const { prefix, cursor, limit, search } = options
+  return { prefix, cursor, limit, ...(search == null || search === '' ? {} : { search }) }
+}
+
 export class Transloadit {
   #signatureAlgorithm: SignatureAlgorithm
   #followRedirects: boolean
@@ -646,17 +658,13 @@ export class Transloadit {
 
   /** Reads one bounded catalog page without S3 credentials or a HEAD request per object. */
   async listStoredAssets(
-    options: ListStoredAssetsOptions & { signal?: AbortSignal } = {},
+    // Earlier releases ignored `search`, so callers may still pass `null` to mean “no filter”.
+    options: Omit<ListStoredAssetsOptions, 'search'> & {
+      search?: string | null
+      signal?: AbortSignal
+    } = {},
   ): Promise<StoredAssetsPage> {
-    // Read only the declared options, as parsing `options` itself did. Earlier releases dropped
-    // `search` before sending, so an empty or null one keeps meaning “no filter”.
-    const { prefix, cursor, limit, search } = options
-    const params = damAssetsListOptionsSchema.parse({
-      prefix,
-      cursor,
-      limit,
-      ...(search == null || search === '' ? {} : { search }),
-    })
+    const params = damAssetsListOptionsSchema.parse(toStoredAssetsListInput(options))
     const result = await this._remoteJson<unknown, OptionalAuthParams & ListStoredAssetsOptions>({
       urlSuffix: '/dam/assets',
       method: 'get',
