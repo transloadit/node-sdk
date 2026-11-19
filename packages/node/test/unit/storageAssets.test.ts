@@ -84,6 +84,32 @@ test('lists a bounded native metadata page, including Workspace context for an e
   expect(request.isDone()).toBe(true)
 })
 
+test.each([
+  { search: '', sent: undefined },
+  { search: 'cat', sent: 'cat' },
+])('sends a filename search only when it has text ($search)', async ({ search, sent }) => {
+  let params: Record<string, unknown> = {}
+  const request = nock(origin)
+    .get('/dam/assets')
+    .query((query) => {
+      params = JSON.parse(String(query.params))
+      return true
+    })
+    .reply(200, {
+      ok: 'DAM_ASSETS_LISTED',
+      message: 'Listed',
+      workspace: 'my-app',
+      assets: [],
+      next_cursor: null,
+    })
+  await expect(client.listStoredAssets({ prefix: 'photos/', search })).resolves.toMatchObject({
+    assets: [],
+  })
+  expect(request.isDone()).toBe(true)
+  expect(params).toMatchObject({ prefix: 'photos/', limit: 100 })
+  expect(params.search).toBe(sent)
+})
+
 test('rejects malformed identifiers and unbounded page sizes before sending', async () => {
   await expect(client.getStoredAsset('../escape')).rejects.toThrow()
   await expect(client.getStoredAsset(asset.asset_id, { version_id: 'wrong' })).rejects.toThrow()

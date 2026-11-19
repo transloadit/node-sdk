@@ -648,7 +648,9 @@ export class Transloadit {
   async listStoredAssets(
     options: ListStoredAssetsOptions & { signal?: AbortSignal } = {},
   ): Promise<StoredAssetsPage> {
-    const params = damAssetsListOptionsSchema.parse(options)
+    // Earlier releases dropped `search` before sending, so an empty one keeps meaning “no filter”.
+    const { search, ...unfiltered } = options
+    const params = damAssetsListOptionsSchema.parse(search === '' ? unfiltered : options)
     const result = await this._remoteJson<unknown, OptionalAuthParams & ListStoredAssetsOptions>({
       urlSuffix: '/dam/assets',
       method: 'get',
