@@ -82,4 +82,34 @@ describe('contract defaults within this major', () => {
     expect(synced.createTemplate).toEqual({ name: 'golden', template: expected })
     expect(JSON.parse(synced.writtenFile)).toEqual(expect.objectContaining(expected))
   })
+
+  it('forwards new parameters without calling them unrecognized', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const steps = { served: { robot: '/file/serve', use: ':original', download: 'false' } }
+
+    const signed = await signParams({ auth: { expires: '2030-01-01T00:00:00.000Z' }, steps })
+
+    expect(JSON.parse(signed.params).steps.served.download).toBe('false')
+    expect(warning).not.toHaveBeenCalled()
+  })
+
+  it('leaves the ElevenLabs language to detection unless the Step sets one', async () => {
+    const steps = {
+      detected: { robot: '/speech/transcribe', use: ':original', provider: 'elevenlabs' },
+      chosen: {
+        robot: '/speech/transcribe',
+        use: ':original',
+        provider: 'elevenlabs',
+        source_language: 'nl-NL',
+      },
+    }
+
+    const signed = await signParams({ auth: { expires: '2030-01-01T00:00:00.000Z' }, steps })
+    const synced = await syncNewTemplate(steps)
+
+    for (const emitted of [JSON.parse(signed.params).steps, JSON.parse(synced.writtenFile).steps]) {
+      expect(emitted.detected).not.toHaveProperty('source_language')
+      expect(emitted.chosen.source_language).toBe('nl-NL')
+    }
+  })
 })

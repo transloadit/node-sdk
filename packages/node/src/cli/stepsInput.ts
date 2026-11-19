@@ -13,62 +13,77 @@ import { CliInputError, formatSchemaIssues } from './errors.ts'
 
 const stepsWrapperSchema = z.object({ steps: z.record(z.unknown()) })
 
-interface PreviousStepDefaults {
-  /** Parameters whose contract default is new; omitted unless the Step sets them. */
-  omit?: readonly string[]
-  /** Parameters whose contract default changed or was removed; the previous value is applied. */
+interface PreviousContract {
+  /** Parameters this contract added: passed through as written, never validated or defaulted. */
+  added?: readonly string[]
+  /** Defaults this contract changed or removed: the previous value applies when omitted. */
   apply?: Readonly<Record<string, string>>
 }
 
 /**
- * Robot defaults changed by contract syncs within this major. `auth signature` and
- * `templates sync` emit default-filled Steps, so applying the new defaults would change signed
- * params and synced Templates for unchanged input. Other callers keep only the keys the caller
- * wrote, so they are unaffected. Every value here is still accepted by the contract. The next
- * major removes this list and emits the current contract defaults.
+ * Robot parameters and defaults changed by contract syncs within this major. `auth signature`
+ * and `templates sync` emit default-filled Steps, so the new contract would change signed params
+ * and synced Templates for unchanged input. Parameters added to an existing Robot were unknown
+ * keys before and were forwarded unchanged for API validation, so they still are. Every applied
+ * value is still accepted by the contract. The next major removes this list and emits the
+ * current contract.
  */
-const previousStepDefaults: ReadonlyMap<string, PreviousStepDefaults> = new Map<
-  string,
-  PreviousStepDefaults
->([
+const previousContract: ReadonlyMap<string, PreviousContract> = new Map<string, PreviousContract>([
   ['/document/thumbs', { apply: { imagemagick_stack: 'v2.0.10' } }],
-  ['/file/serve', { omit: ['download'] }],
+  ['/file/serve', { added: ['download'] }],
   ['/image/enhance', { apply: { imagemagick_stack: 'v2.0.10' } }],
-  ['/image/generate', { omit: ['inpainting'] }],
+  ['/image/generate', { added: ['inpainting'] }],
   ['/image/resize', { apply: { imagemagick_stack: 'v2.0.10' } }],
-  ['/transloadit/import', { omit: ['return_file_stubs'] }],
+  ['/speech/transcribe', { added: ['credentials'] }],
+  ['/text/speak', { added: ['credentials'] }],
+  ['/transloadit/import', { added: ['return_file_stubs'] }],
   ['/video/merge', { apply: { framerate: '1/5' } }],
+  ['/video/subtitle', { added: ['speaker_colors'] }],
 ])
 
 type CliStep = { robot: string } & Record<string, unknown>
 
-function withPreviousDefaults(step: CliStep): CliStep {
-  const defaults = previousStepDefaults.get(step.robot)?.apply ?? {}
+function toPreviousContractInput(step: CliStep): CliStep {
+  const { added = [], apply = {} } = previousContract.get(step.robot) ?? {}
+  const kept = Object.entries(step).filter(([key]) => !added.includes(key))
   // Parsed as input, each value lands where the schema orders its keys, as the old default did.
-  const missing = Object.entries(defaults).filter(([key]) => !Object.hasOwn(step, key))
-  return missing.length === 0 ? step : { ...step, ...Object.fromEntries(missing) }
+  const missing = Object.entries(apply).filter(([key]) => !Object.hasOwn(step, key))
+  return { robot: step.robot, ...Object.fromEntries([...kept, ...missing]) }
 }
 
-function withoutNewDefaults(
+function fromPreviousContractOutput(
   step: CliStep,
   parsed: Record<string, unknown>,
 ): Record<string, unknown> {
-  const omitted = (previousStepDefaults.get(step.robot)?.omit ?? []).filter(
-    (key) => !Object.hasOwn(step, key),
-  )
-  if (omitted.length === 0) return parsed
-  return Object.fromEntries(Object.entries(parsed).filter(([key]) => !omitted.includes(key)))
+  const { added = [] } = previousContract.get(step.robot) ?? {}
+  const omitted = new Set(added)
+  // The `en-US` default describes aws and gcp; ElevenLabs is new and detects the language when
+  // it is omitted, so an explicit default would turn detection off.
+  if (
+    step.robot === '/speech/transcribe' &&
+    parsed.provider === 'elevenlabs' &&
+    !Object.hasOwn(step, 'source_language')
+  ) {
+    omitted.add('source_language')
+  }
+  return Object.fromEntries(Object.entries(parsed).filter(([key]) => !omitted.has(key)))
+}
+
+interface CliStepsSchemaOptions {
+  /** Emit Steps as the previous contract did; see `previousContract`. */
+  previousContract?: boolean
 }
 
 /** CLI overrides warn on new parameters and defer contextual OCR checks to API2. */
 export function createCliStepsSchema(
   output: Pick<IOutputCtl, 'warn'> = console,
+  options: CliStepsSchemaOptions = {},
 ): z.ZodType<StepsInput> {
   const cliStepSchema = z
     .object({ robot: z.string() })
     .catchall(z.unknown())
     .transform((step, context) => {
-      const input = withPreviousDefaults(step)
+      const input = options.previousContract ? toPreviousContractInput(step) : step
       let validated = robotsSchema.safeParse(input, { path: context.path })
       const unknownKeys = new Set<string>()
       if (!validated.success) {
@@ -97,7 +112,10 @@ export function createCliStepsSchema(
           `${context.path.join('.')}: Unrecognized step parameters: ${[...unknownKeys].join(', ')}. Preserving them for API validation when submitted.`,
         )
       }
-      return { ...step, ...withoutNewDefaults(step, validated.data) }
+      const parsed = options.previousContract
+        ? fromPreviousContractOutput(step, validated.data)
+        : validated.data
+      return { ...step, ...parsed }
     })
     .superRefine(refineTransloaditImportSelector)
     .superRefine((step, context) => {

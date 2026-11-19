@@ -38,12 +38,47 @@
       "thumbnailed": {
         "robot": "/document/thumbs",
         "use": ":original"
+      },
+      "served_null": {
+        "robot": "/file/serve",
+        "use": ":original",
+        "download": null
+      },
+      "served_string": {
+        "robot": "/file/serve",
+        "use": ":original",
+        "download": "false"
+      },
+      "generated_null": {
+        "robot": "/image/generate",
+        "prompt": "a cat",
+        "inpainting": null
+      },
+      "imported_string": {
+        "robot": "/transloadit/import",
+        "path": "photos/a.jpg",
+        "return_file_stubs": "true"
+      },
+      "transcribed_null": {
+        "robot": "/speech/transcribe",
+        "use": ":original",
+        "credentials": null
+      },
+      "spoken_null": {
+        "robot": "/text/speak",
+        "prompt": "hi",
+        "credentials": null
+      },
+      "subtitled_empty": {
+        "robot": "/video/subtitle",
+        "use": ":original",
+        "speaker_colors": []
       }
     }
   },
   "authSignature": {
-    "signature": "sha384:37c3477ddd4654bafd3b869627f4be3f00febb403d0f723f4b6fb8926f4d348b6db687159f048da593bca9c8430310da",
-    "params": "{\"auth\":{\"expires\":\"2030-01-01T00:00:00.000Z\",\"key\":\"dummy-key\"},\"steps\":{\"generated\":{\"robot\":\"/image/generate\",\"prompt\":\"a cat\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[]},\"served\":{\"robot\":\"/file/serve\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"imported\":{\"robot\":\"/transloadit/import\",\"path\":\"photos/a.jpg\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"force_name\":null,\"import_on_errors\":[],\"recursive\":false},\"merged\":{\"robot\":\"/video/merge\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"ffmpeg_stack\":\"v6.0.0\",\"resize_strategy\":\"pad\",\"background\":\"#00000000\",\"framerate\":\"1/5\",\"image_durations\":[],\"duration\":null,\"audio_delay\":0,\"loop\":false,\"replace_audio\":false,\"vstack\":false,\"sort_by\":\"basename\",\"transition\":\"none\",\"transition_duration\":1},\"resized\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"resized_pinned\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"imagemagick_stack\":\"v2.0.10\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"enhanced\":{\"robot\":\"/image/enhance\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"enhance\":\"auto\",\"preset\":\"none\",\"engine\":\"classic\",\"ai_preset\":\"restore\",\"sharpen\":0,\"denoise\":0,\"quality\":92},\"thumbnailed\":{\"robot\":\"/document/thumbs\",\"use\":\":original\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"page\":null,\"page_range\":null,\"format\":\"png\",\"resize_strategy\":\"pad\",\"background\":\"#FFFFFF\",\"antialiasing\":false,\"trim_whitespace\":true,\"pdf_use_cropbox\":true,\"turbo\":true}}}"
+    "signature": "sha384:0f9f8376b97f974499f4fb004f94395fbe875867deeebc8e7f798b0a9b3f9fd567b304195d917733c398bb8ee812523c",
+    "params": "{\"auth\":{\"expires\":\"2030-01-01T00:00:00.000Z\",\"key\":\"dummy-key\"},\"steps\":{\"generated\":{\"robot\":\"/image/generate\",\"prompt\":\"a cat\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[]},\"served\":{\"robot\":\"/file/serve\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"imported\":{\"robot\":\"/transloadit/import\",\"path\":\"photos/a.jpg\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"force_name\":null,\"import_on_errors\":[],\"recursive\":false},\"merged\":{\"robot\":\"/video/merge\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"ffmpeg_stack\":\"v6.0.0\",\"resize_strategy\":\"pad\",\"background\":\"#00000000\",\"framerate\":\"1/5\",\"image_durations\":[],\"duration\":null,\"audio_delay\":0,\"loop\":false,\"replace_audio\":false,\"vstack\":false,\"sort_by\":\"basename\",\"transition\":\"none\",\"transition_duration\":1},\"resized\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"resized_pinned\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"imagemagick_stack\":\"v2.0.10\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"enhanced\":{\"robot\":\"/image/enhance\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"enhance\":\"auto\",\"preset\":\"none\",\"engine\":\"classic\",\"ai_preset\":\"restore\",\"sharpen\":0,\"denoise\":0,\"quality\":92},\"thumbnailed\":{\"robot\":\"/document/thumbs\",\"use\":\":original\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"page\":null,\"page_range\":null,\"format\":\"png\",\"resize_strategy\":\"pad\",\"background\":\"#FFFFFF\",\"antialiasing\":false,\"trim_whitespace\":true,\"pdf_use_cropbox\":true,\"turbo\":true},\"served_null\":{\"robot\":\"/file/serve\",\"use\":\":original\",\"download\":null,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"served_string\":{\"robot\":\"/file/serve\",\"use\":\":original\",\"download\":\"false\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"generated_null\":{\"robot\":\"/image/generate\",\"prompt\":\"a cat\",\"inpainting\":null,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[]},\"imported_string\":{\"robot\":\"/transloadit/import\",\"path\":\"photos/a.jpg\",\"return_file_stubs\":\"true\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"force_name\":null,\"import_on_errors\":[],\"recursive\":false},\"transcribed_null\":{\"robot\":\"/speech/transcribe\",\"use\":\":original\",\"credentials\":null,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"provider\":\"auto\",\"granularity\":\"full\",\"format\":\"json\",\"speaker_labels\":false,\"max_speakers\":10,\"source_language\":\"en-US\"},\"spoken_null\":{\"robot\":\"/text/speak\",\"prompt\":\"hi\",\"credentials\":null,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"provider\":\"auto\",\"target_language\":\"en-US\",\"voice\":\"female-1\",\"ssml\":false},\"subtitled_empty\":{\"robot\":\"/video/subtitle\",\"use\":\":original\",\"speaker_colors\":[],\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"ffmpeg_stack\":\"v6.0.0\",\"subtitles_type\":\"external\",\"highlight_color\":\"FFD60A\",\"max_words_per_caption\":3,\"border_style\":\"outline\",\"border_color\":\"000000\",\"font_color\":\"FFFFFF\",\"italic\":false,\"position\":\"bottom\",\"keep_subtitles\":false}}}"
   },
   "templatesSync": {
     "createTemplate": {
@@ -230,10 +265,118 @@
             "trim_whitespace": true,
             "pdf_use_cropbox": true,
             "turbo": true
+          },
+          "served_null": {
+            "robot": "/file/serve",
+            "use": ":original",
+            "download": null,
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "headers": {
+              "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range",
+              "Access-Control-Allow-Methods": "POST, GET, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Expose-Headers": "Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges",
+              "Cache-Control": "public, max-age=259200, s-maxage=86400",
+              "Content-Type": "${file.mime}; charset=utf-8",
+              "Transloadit-Assembly": "…",
+              "Transloadit-RequestID": "…",
+              "Accept-Ranges": "bytes"
+            }
+          },
+          "served_string": {
+            "robot": "/file/serve",
+            "use": ":original",
+            "download": "false",
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "headers": {
+              "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range",
+              "Access-Control-Allow-Methods": "POST, GET, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Expose-Headers": "Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges",
+              "Cache-Control": "public, max-age=259200, s-maxage=86400",
+              "Content-Type": "${file.mime}; charset=utf-8",
+              "Transloadit-Assembly": "…",
+              "Transloadit-RequestID": "…",
+              "Accept-Ranges": "bytes"
+            }
+          },
+          "generated_null": {
+            "robot": "/image/generate",
+            "prompt": "a cat",
+            "inpainting": null,
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": []
+          },
+          "imported_string": {
+            "robot": "/transloadit/import",
+            "path": "photos/a.jpg",
+            "return_file_stubs": "true",
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "force_name": null,
+            "import_on_errors": [],
+            "recursive": false
+          },
+          "transcribed_null": {
+            "robot": "/speech/transcribe",
+            "use": ":original",
+            "credentials": null,
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "provider": "auto",
+            "granularity": "full",
+            "format": "json",
+            "speaker_labels": false,
+            "max_speakers": 10,
+            "source_language": "en-US"
+          },
+          "spoken_null": {
+            "robot": "/text/speak",
+            "prompt": "hi",
+            "credentials": null,
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "provider": "auto",
+            "target_language": "en-US",
+            "voice": "female-1",
+            "ssml": false
+          },
+          "subtitled_empty": {
+            "robot": "/video/subtitle",
+            "use": ":original",
+            "speaker_colors": [],
+            "user_meta": {},
+            "result": false,
+            "force_accept": false,
+            "ignore_errors": [],
+            "ffmpeg_stack": "v6.0.0",
+            "subtitles_type": "external",
+            "highlight_color": "FFD60A",
+            "max_words_per_caption": 3,
+            "border_style": "outline",
+            "border_color": "000000",
+            "font_color": "FFFFFF",
+            "italic": false,
+            "position": "bottom",
+            "keep_subtitles": false
           }
         }
       }
     },
-    "writtenFile": "{\"transloadit_template_id\":\"created-template\",\"steps\":{\"generated\":{\"robot\":\"/image/generate\",\"prompt\":\"a cat\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[]},\"served\":{\"robot\":\"/file/serve\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"imported\":{\"robot\":\"/transloadit/import\",\"path\":\"photos/a.jpg\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"force_name\":null,\"import_on_errors\":[],\"recursive\":false},\"merged\":{\"robot\":\"/video/merge\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"ffmpeg_stack\":\"v6.0.0\",\"resize_strategy\":\"pad\",\"background\":\"#00000000\",\"framerate\":\"1/5\",\"image_durations\":[],\"duration\":null,\"audio_delay\":0,\"loop\":false,\"replace_audio\":false,\"vstack\":false,\"sort_by\":\"basename\",\"transition\":\"none\",\"transition_duration\":1},\"resized\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"resized_pinned\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"imagemagick_stack\":\"v2.0.10\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"enhanced\":{\"robot\":\"/image/enhance\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"enhance\":\"auto\",\"preset\":\"none\",\"engine\":\"classic\",\"ai_preset\":\"restore\",\"sharpen\":0,\"denoise\":0,\"quality\":92},\"thumbnailed\":{\"robot\":\"/document/thumbs\",\"use\":\":original\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"page\":null,\"page_range\":null,\"format\":\"png\",\"resize_strategy\":\"pad\",\"background\":\"#FFFFFF\",\"antialiasing\":false,\"trim_whitespace\":true,\"pdf_use_cropbox\":true,\"turbo\":true}}}"
+    "writtenFile": "{\"transloadit_template_id\":\"created-template\",\"steps\":{\"generated\":{\"robot\":\"/image/generate\",\"prompt\":\"a cat\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[]},\"served\":{\"robot\":\"/file/serve\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"imported\":{\"robot\":\"/transloadit/import\",\"path\":\"photos/a.jpg\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"force_name\":null,\"import_on_errors\":[],\"recursive\":false},\"merged\":{\"robot\":\"/video/merge\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"ffmpeg_stack\":\"v6.0.0\",\"resize_strategy\":\"pad\",\"background\":\"#00000000\",\"framerate\":\"1/5\",\"image_durations\":[],\"duration\":null,\"audio_delay\":0,\"loop\":false,\"replace_audio\":false,\"vstack\":false,\"sort_by\":\"basename\",\"transition\":\"none\",\"transition_duration\":1},\"resized\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"resized_pinned\":{\"robot\":\"/image/resize\",\"use\":\"generated\",\"width\":100,\"imagemagick_stack\":\"v2.0.10\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"format\":null,\"resize_strategy\":\"fit\",\"zoom\":true,\"gravity\":\"center\",\"strip\":false,\"flatten\":true,\"correct_gamma\":false,\"quality\":92,\"adaptive_filtering\":false,\"background\":\"#FFFFFF\",\"frame\":null,\"sepia\":null,\"rotation\":true,\"compress\":null,\"blur\":null,\"blur_regions\":null,\"brightness\":1,\"saturation\":1,\"hue\":100,\"contrast\":1,\"watermark_position\":\"center\",\"watermark_x_offset\":0,\"watermark_y_offset\":0,\"watermark_resize_strategy\":\"fit\",\"watermark_opacity\":1,\"watermark_repeat_x\":false,\"watermark_repeat_y\":false,\"progressive\":false,\"trim_whitespace\":false,\"clip\":false,\"negate\":false,\"clut\":false,\"density\":null,\"monochrome\":false},\"enhanced\":{\"robot\":\"/image/enhance\",\"use\":\"generated\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"enhance\":\"auto\",\"preset\":\"none\",\"engine\":\"classic\",\"ai_preset\":\"restore\",\"sharpen\":0,\"denoise\":0,\"quality\":92},\"thumbnailed\":{\"robot\":\"/document/thumbs\",\"use\":\":original\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"imagemagick_stack\":\"v2.0.10\",\"page\":null,\"page_range\":null,\"format\":\"png\",\"resize_strategy\":\"pad\",\"background\":\"#FFFFFF\",\"antialiasing\":false,\"trim_whitespace\":true,\"pdf_use_cropbox\":true,\"turbo\":true},\"served_null\":{\"robot\":\"/file/serve\",\"use\":\":original\",\"download\":null,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"served_string\":{\"robot\":\"/file/serve\",\"use\":\":original\",\"download\":\"false\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"headers\":{\"Access-Control-Allow-Headers\":\"X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization, Range, If-Range\",\"Access-Control-Allow-Methods\":\"POST, GET, PUT, DELETE, OPTIONS\",\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Expose-Headers\":\"Transloadit-Assembly-URL, Content-Range, Content-Length, Accept-Ranges\",\"Cache-Control\":\"public, max-age=259200, s-maxage=86400\",\"Content-Type\":\"${file.mime}; charset=utf-8\",\"Transloadit-Assembly\":\"…\",\"Transloadit-RequestID\":\"…\",\"Accept-Ranges\":\"bytes\"}},\"generated_null\":{\"robot\":\"/image/generate\",\"prompt\":\"a cat\",\"inpainting\":null,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[]},\"imported_string\":{\"robot\":\"/transloadit/import\",\"path\":\"photos/a.jpg\",\"return_file_stubs\":\"true\",\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"force_name\":null,\"import_on_errors\":[],\"recursive\":false},\"transcribed_null\":{\"robot\":\"/speech/transcribe\",\"use\":\":original\",\"credentials\":null,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"provider\":\"auto\",\"granularity\":\"full\",\"format\":\"json\",\"speaker_labels\":false,\"max_speakers\":10,\"source_language\":\"en-US\"},\"spoken_null\":{\"robot\":\"/text/speak\",\"prompt\":\"hi\",\"credentials\":null,\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"provider\":\"auto\",\"target_language\":\"en-US\",\"voice\":\"female-1\",\"ssml\":false},\"subtitled_empty\":{\"robot\":\"/video/subtitle\",\"use\":\":original\",\"speaker_colors\":[],\"user_meta\":{},\"result\":false,\"force_accept\":false,\"ignore_errors\":[],\"ffmpeg_stack\":\"v6.0.0\",\"subtitles_type\":\"external\",\"highlight_color\":\"FFD60A\",\"max_words_per_caption\":3,\"border_style\":\"outline\",\"border_color\":\"000000\",\"font_color\":\"FFFFFF\",\"italic\":false,\"position\":\"bottom\",\"keep_subtitles\":false}}}"
   }
 }
