@@ -120,9 +120,7 @@ Please see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/la
   .strict()
 
 const hiddenFields = {
-  // Injected from the Template Credential named in `credentials`. A shared AI Providers credential
-  // also injects other providers' keys; the Robot's runtime validation ignores them, so only the
-  // schema observer notices, and listing every AI key here would document fields we never use.
+  // Filled in from the Template Credentials named in `credentials`; not set in Instructions directly.
   elevenlabs_api_key: z.string().optional(),
 }
 

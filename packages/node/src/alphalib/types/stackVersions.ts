@@ -5,7 +5,6 @@ export const runtimeStackVersions = {
   mediainfo: { default: 'v23.10', valid: ['v23.10'] },
   imagemagick: {
     default: 'v2.0.11',
-    // New queue IDs require upgraded workers; see docs/api-documentation.md#image-stack-migration.
     // Normalizers upgrade these versions; AssemblyValidator supplies deprecation warnings.
     deprecated: {
       'v2.0.9': 'v2.0.11',

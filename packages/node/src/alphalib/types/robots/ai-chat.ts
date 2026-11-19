@@ -560,8 +560,7 @@ export const robotAiChatInstructionsWithHiddenFieldsSchema = robotAiChatInstruct
     .optional()
     .describe('The API key to use for the Google Generative AI API.'),
   xai_api_key: z.string().optional().describe('The API key to use for the xAI API.'),
-  // A shared AI Providers Template Credential also injects the key /speech/transcribe and
-  // /text/speak use; /ai/chat ignores it.
+  // Accepted alongside the other provider keys; /ai/chat does not use it.
   elevenlabs_api_key: z.string().optional(),
 })
 

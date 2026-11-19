@@ -76,7 +76,6 @@ export const meta: RobotMetaInput = {
     aws: 0.024,
     gcp: 0.024,
     replicate: 'variable',
-    // ElevenLabs Scribe v2 lists $0.22 per audio hour.
     elevenlabs: 0.0037,
   },
 }
@@ -234,8 +233,8 @@ Speaker labels identify recurring voices, not real person names. Accuracy depend
 The maximum number of speakers to detect when \`speaker_labels\` is enabled.
 `),
     // TODO determine the list of languages
-    // The published default describes aws and gcp. SpeechTranscribeRobot.normalize() applies
-    // defaults from the raw Step, so an omitted value still lets ElevenLabs detect the language.
+    // The published default describes aws and gcp. With ElevenLabs, an omitted value means the
+    // language is detected automatically.
     source_language: z
       .string()
       .default('en-US')
@@ -259,9 +258,7 @@ For the \`"aws"\` and \`"gcp"\` providers, use \`source_language\` instead.
 const hiddenFields = {
   model: z.enum(['whisper-large-v3']).optional(),
   provider: speechTranscribeProviderWithHiddenFieldsSchema,
-  // Injected from the Template Credential named in `credentials`. A shared AI Providers credential
-  // also injects other providers' keys; the Robot's runtime validation ignores them, so only the
-  // schema observer notices, and listing every AI key here would document fields we never use.
+  // Filled in from the Template Credentials named in `credentials`; not set in Instructions directly.
   elevenlabs_api_key: z.string().optional(),
 }
 
