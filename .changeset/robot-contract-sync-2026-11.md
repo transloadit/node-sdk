@@ -23,15 +23,19 @@ image inpainting controls (transloadit/api2#11270), merge framerates (transloadi
   `dominantColorSampleMaxDimension`, `elevenLabsKeytermLimits`, `fileDecompressExtractionLimits`
   and `fileDecompressTimeout`. `@transloadit/types` adds the matching types.
 - `listStoredAssets()` now sends `search` to filter by filename; earlier releases dropped it and
-  listed everything. An empty, `null` or omitted `search` still lists everything. A `search`
-  longer than 255 code points now throws before the request is sent.
+  listed everything. An empty, `null` or omitted `search` still lists everything, and the
+  method's input type accepts `null`. Any other `search` that is not a string of 1 to 255 code
+  points, such as `false`, a number, an array or a longer string, now throws before the request
+  is sent.
 - The default ImageMagick stack is now `v2.0.11`. The SDK still accepts `v2.0.9`, `v2.0.10`,
   `v3.0.0` and `v3.0.1` and sends them as written. API2 lists them as deprecated and runs them on
   `v2.0.11` or `v3.0.2`, and may return a deprecation warning. Per the `/image/resize` docs,
   these stacks update RAW decoding: “Your RAW conversions will look slightly different, including
   small color and detail changes.”
 - `transloadit auth signature` and `transloadit templates sync` keep emitting what the previous
-  release emitted for unchanged input, so signed params and synced Template files stay the same:
+  release emitted for input it accepted, so signed params and synced Template files stay the
+  same. Input it rejected can now be accepted where the contract widened, for example
+  `/document/split` with `pages: 5`. For accepted input:
   - they add no `inpainting`, `download` or `return_file_stubs`, and still add
     `framerate: '1/5'` to `/video/merge` and `imagemagick_stack: 'v2.0.10'` (which API2 now
     upgrades, see above) where a Step sets neither;
@@ -41,9 +45,9 @@ image inpainting controls (transloadit/api2#11270), merge framerates (transloadi
   - `/speech/transcribe` with `provider: 'elevenlabs'` gets no `source_language` default, so the
     language is detected unless the Step sets one.
   Set these parameters in the Step to choose other values.
-- Other CLI commands that read Steps (`assemblies create --steps`, `templates create` and
-  `templates modify`) now validate those five parameters instead of forwarding them with a
-  warning: for example `download: null` or `speaker_colors: []` is rejected, and
+- The other CLI commands that read Steps (`assemblies create --steps`, `assemblies replay
+  --steps`, `templates create`, `templates modify` and `run`) now validate those five parameters
+  instead of forwarding them with a warning: for example `download: null` or `speaker_colors: []` is rejected, and
   `download: 'false'` is sent as `false`.
 - Type-breaking: parsed `/file/serve` Instructions (`RobotFileServeInstructions`,
   `schema.parse()`) always contain `download`, defaulting to `false`. Code that builds values of
