@@ -1,2 +1,2 @@
-/** Scheduled end of the compatibility window for ignored video settings. */
+/** Date the compatibility window for ignored video settings ended. */
 export const videoGenerationParameterEnforcementDate = '2026-11-16'

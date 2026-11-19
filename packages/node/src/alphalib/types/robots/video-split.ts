@@ -34,6 +34,7 @@ export const meta: RobotMetaInput = {
   title: 'Split video',
   uses_tools: ['ffmpeg'],
   name: 'VideoSplitRobot',
+  planMediaTrim: 'segmentsInputs',
 }
 
 /** A reusable clip window with the same time values accepted by video splitting. */

@@ -35,6 +35,7 @@ export const meta: RobotMetaInput = {
   title: 'Loop audio',
   uses_tools: ['ffmpeg'],
   name: 'AudioLoopRobot',
+  planMediaTrim: 'combinesInputs',
 }
 
 export const robotAudioLoopInstructionsSchema = robotBase

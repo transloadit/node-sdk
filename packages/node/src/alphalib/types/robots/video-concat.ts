@@ -53,6 +53,7 @@ export const meta: RobotMetaInput = {
   title: 'Concatenate videos',
   uses_tools: ['ffmpeg'],
   name: 'VideoConcatRobot',
+  planMediaTrim: 'combinesInputs',
   priceFactor: 4,
 }
 

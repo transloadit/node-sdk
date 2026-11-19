@@ -59,6 +59,7 @@ export const meta: RobotMetaInput = {
   title: 'Extract thumbnails from videos',
   uses_tools: ['ffmpeg'],
   name: 'VideoThumbsRobot',
+  planMediaTrim: 'mediaOutputsOnly',
   priceFactor: 10,
   queueSlotCount: 15,
 }

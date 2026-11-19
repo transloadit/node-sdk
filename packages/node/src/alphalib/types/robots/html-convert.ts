@@ -40,6 +40,7 @@ export const meta: RobotMetaInput = {
   typical_file_size_mb: 0.6,
   typical_file_type: 'webpage',
   name: 'HtmlConvertRobot',
+  planWatermarkOutput: 'image',
   queueSlotCount: 30,
   trackOutputFileSize: true,
 }

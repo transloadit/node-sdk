@@ -224,7 +224,7 @@ export async function sync(
   const templateFileDataSchema: z.ZodType<TemplateFileData> = z
     .object({
       transloadit_template_id: z.string().optional(),
-      steps: createCliStepsSchema(output).optional(),
+      steps: createCliStepsSchema(output, { previousContract: true }).optional(),
     })
     .passthrough()
 

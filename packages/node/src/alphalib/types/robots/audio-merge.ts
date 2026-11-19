@@ -54,6 +54,7 @@ export const meta: RobotMetaInput = {
   title: 'Merge audio files into one',
   uses_tools: ['ffmpeg'],
   name: 'AudioMergeRobot',
+  planMediaTrim: 'combinesInputs',
 }
 
 export const robotAudioMergeInstructionsSchema = robotBase

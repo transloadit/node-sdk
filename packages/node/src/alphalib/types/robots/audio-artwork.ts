@@ -31,6 +31,7 @@ export const meta: RobotMetaInput = {
   title: 'Extract or insert audio artwork',
   uses_tools: ['ffmpeg'],
   name: 'AudioArtworkRobot',
+  planMediaTrim: 'mediaOutputsOnly',
   priceFactor: 1,
 }
 

@@ -31,6 +31,7 @@ export const meta: RobotMetaInput = {
   typical_file_size_mb: 3.8,
   uses_tools: ['ffmpeg'],
   name: 'VideoArtworkRobot',
+  planMediaTrim: 'mediaOutputsOnly',
   queueSlotCount: 20,
   isAllowedForUrlTransform: true,
 }

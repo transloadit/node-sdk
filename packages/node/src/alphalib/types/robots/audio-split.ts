@@ -38,6 +38,7 @@ export const meta: RobotMetaInput = {
   title: 'Split audio',
   uses_tools: ['ffmpeg'],
   name: 'AudioSplitRobot',
+  planMediaTrim: 'segmentsInputs',
 }
 
 const segmentSchema = z

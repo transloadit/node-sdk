@@ -30,6 +30,8 @@ export const meta: RobotMetaInput = {
   trackOutputFileSize: true,
 }
 
+const documentSplitPageSchema = z.union([z.string(), z.number().int().positive()])
+
 export const robotDocumentSplitInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
@@ -41,9 +43,11 @@ Set \`split: true\` to return separate PDFs. Without \`pages\`, each page become
 Page numbers start at 1. When the page count is known, ranges are clamped to it and selections entirely beyond it are skipped. Split file names use the resulting page or range. An empty \`pages\` array is invalid in split mode; omit \`pages\` to split every page. If all selections exceed the page count, processing fails with a validation error.
 `),
     pages: z
-      .union([z.string(), z.array(z.string())])
+      .union([documentSplitPageSchema, z.array(documentSplitPageSchema)])
       .describe(
-        `The pages to select from the input PDF. Each entry can be a single page number (e.g. \`5\`) or a range (e.g. \`5-10\`). Page numbers start at 1. Accepts an array or a comma-separated string. By default, all selected pages are combined into one PDF; with \`split: true\`, each entry produces a separate PDF. If omitted, selects all pages.
+        `The pages to select from the input PDF. Each entry can be a single page number (e.g. \`5\`) or a range (e.g. \`5-10\`). Page numbers start at 1. Accepts a positive integer, a comma-separated string, or an array of page numbers and range strings. For example, \`"1-3,5,7-9"\` selects multiple inclusive ranges and an individual page. By default, all selected pages are combined into one PDF; with \`split: true\`, each entry produces a separate PDF. If omitted, selects all pages.
+
+To select pages through an Assembly field, set \`pages: "\${fields.pages}"\` and submit \`fields: { "pages": "1" }\`, \`fields: { "pages": "1,2-3" }\`, or \`fields: { "pages": ["1", "2-3"] }\` in the Assembly creation parameters. Numeric page values produced by interpolation are accepted as well.
 
 For a PDF with at least three pages, \`pages: ["\${file.meta.page_count - 2}-\${file.meta.page_count}"]\` selects the last three pages. Each dynamically evaluated expression adds ${expressionEvaluationUsageMebibytes} MiB of usage per input file; simple variable references such as \`\${file.meta.page_count}\` are free.`,
       )

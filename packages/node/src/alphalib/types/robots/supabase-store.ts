@@ -38,6 +38,8 @@ export const robotSupabaseStoreInstructionsSchema = robotBase
 
 For [Supabase session-token authentication](https://supabase.com/docs/guides/storage/s3/authentication#session-token), supply your project ref as \`key\`, your project’s anon key as \`secret\`, and the user’s access-token JWT as \`session_token\`. Supabase applies the authenticated user’s Row Level Security (RLS) policies to these uploads. Choose a \`path\` those policies permit, and use the endpoint and region from your project’s S3 connection settings.
 
+If Supabase denies an upload made with \`session_token\`, \`SUPABASE_STORE_ACCESS_DENIED\` says the write was refused for that user and path, for example because an RLS policy doesn’t allow it. Check the user’s policies and target \`path\`. Without \`session_token\`, the same error code retains the key / secret credentials message.
+
 Send the user’s JWT with each Assembly from your trusted backend. It must remain valid through queuing, processing, and upload retries; the Robot does not refresh it. Without \`session_token\`, continue using your generated Supabase S3 access key and secret. Those generated S3 access keys bypass RLS.
 
 Supply \`session_token\` inline in the Step. Assembly Status returns \`fields\` unchanged, so passing the JWT through Assembly \`fields\` exposes it in the status response.
