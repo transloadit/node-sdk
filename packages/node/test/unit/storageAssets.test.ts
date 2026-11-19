@@ -86,6 +86,7 @@ test('lists a bounded native metadata page, including Workspace context for an e
 
 test.each([
   { search: '', sent: undefined },
+  { search: null, sent: undefined },
   { search: 'cat', sent: 'cat' },
 ])('sends a filename search only when it has text ($search)', async ({ search, sent }) => {
   let params: Record<string, unknown> = {}
@@ -102,12 +103,60 @@ test.each([
       assets: [],
       next_cursor: null,
     })
+  // @ts-expect-error JavaScript callers can pass null, which earlier releases ignored.
   await expect(client.listStoredAssets({ prefix: 'photos/', search })).resolves.toMatchObject({
     assets: [],
   })
   expect(request.isDone()).toBe(true)
   expect(params).toMatchObject({ prefix: 'photos/', limit: 100 })
   expect(params.search).toBe(sent)
+})
+
+test('reads only the declared list options, including inherited ones', async () => {
+  let params: Record<string, unknown> = {}
+  const request = nock(origin)
+    .get('/dam/assets')
+    .query((query) => {
+      params = JSON.parse(String(query.params))
+      return true
+    })
+    .reply(200, {
+      ok: 'DAM_ASSETS_LISTED',
+      message: 'Listed',
+      workspace: 'my-app',
+      assets: [],
+      next_cursor: null,
+    })
+  const read: string[] = []
+  class PageOptions {
+    search = ''
+    get prefix(): string {
+      read.push('prefix')
+      return 'photos/'
+    }
+    get limit(): number {
+      read.push('limit')
+      return 7
+    }
+  }
+  const options = Object.defineProperty(new PageOptions(), 'unrelated', {
+    enumerable: true,
+    get() {
+      read.push('unrelated')
+      return true
+    },
+  })
+
+  await client.listStoredAssets(options)
+
+  expect(request.isDone()).toBe(true)
+  expect(params).toMatchObject({ prefix: 'photos/', limit: 7 })
+  expect(params).not.toHaveProperty('search')
+  expect(read).toEqual(['prefix', 'limit'])
+})
+
+test('rejects a filename search longer than 255 code points before sending', async () => {
+  await expect(client.listStoredAssets({ search: 'x'.repeat(256) })).rejects.toThrow()
 })
 
 test('rejects malformed identifiers and unbounded page sizes before sending', async () => {
