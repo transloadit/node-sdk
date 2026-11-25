@@ -398,3 +398,65 @@ expiry, subject to CDN/browser caching; already downloaded/decoded bytes cannot 
 This route cannot make public Storage private. Use server-declared public prefixes and the
 existing public/Next adapter for intentionally public media. Existing sealed Next routes,
 static catalogs, custom Templates, markup, and low-level models remain supported.
+
+## Shared file previews and signed-source playback
+
+`@transloadit/viewer/react/viewer` exports `{ Viewer }` for applications that already authorize
+and sign their media. It renders responsive image models, direct thumbnail URLs, native video
+and audio, browser PDF frames, Markdown, plain text, and RTF. The separate entry keeps document
+parsers and playback code out of existing image-only entry points.
+
+The application owns admission, signed URLs, UI controls, translations, and grant refreshes.
+Viewer never grants access to a file. Render originals only after the user asks to open or play
+one. Image models still use `TransloaditPicture` internally for responsive source selection.
+
+```tsx
+import { Viewer, useMediaPlayback } from '@transloadit/viewer/react/viewer'
+import type { PlaybackSource } from '@transloadit/viewer/react/viewer'
+
+export function Movie({ source, refresh }: {
+  source: PlaybackSource
+  refresh: () => Promise<PlaybackSource | undefined>
+}) {
+  const player = useMediaPlayback<HTMLVideoElement>(source, refresh)
+  return (
+    <>
+      <Viewer kind="video" ref={player.media} {...player.events} aria-label="Movie" />
+      <button type="button" onClick={player.play}>Play</button>
+    </>
+  )
+}
+```
+
+A playback source identifies `asset_id` and `version_id`, an authorized `mediaUrl`, and an
+`expiresAt` deadline in milliseconds. `mediaFormat` selects `hls` or `mp4`; omission uses native
+playback. An optional `fallbackUrl` supplies an already-authorized MP4 alternative. Refreshes
+must return the same asset and version. Recovery keeps playback position, refuses replacement
+versions, and stops detached media and HLS requests when its owner unmounts. Applications must
+unmount or key the player when changing the selected asset/version.
+
+`useMediaPlayback` exposes a native element ref, event handlers, `play()`, `prepare()` (native
+controls without autoplay), and `started`, `loading`, and `failed` state. HLS loads `hls.js` only
+when native playback cannot handle the stream. The caller supplies retry and failure controls.
+The existing receipt-backed `Video` component remains available for applications using Viewer's
+same-origin authorization route.
+
+For documents, read the existing authorized URL on demand using `readDocumentPreview` from
+`@transloadit/viewer/documents`, then pass its `ArrayBuffer` to Viewer:
+
+```tsx
+<Viewer kind="document" format="markdown" bytes={bytes} title="Project notes" />
+<Viewer kind="document" format="text" bytes={bytes} title="Notes" />
+<Viewer kind="document" format="rtf" bytes={bytes} title="Letter"
+  loadingFallback={<p role="status">Loading…</p>}
+  errorFallback={<p role="alert">Could not display this document.</p>} />
+<Viewer kind="pdf" src={authorizedPdfUrl} title="Report" />
+```
+
+Text reads are bounded to 2 MiB, omit credentials and referrers, and categorize failures without
+exposing signed URLs. RTF parsing and rich Markdown are bounded to 256 KiB; larger Markdown is
+shown as literal text. Markdown skips embedded HTML and remote images, and only permits external
+HTTP, HTTPS and email links. RTF is parsed locally, strips active content and embedded resources,
+and renders in a sandbox with a restrictive content security policy. PDF frames use the browser's
+PDF renderer; supply an authorized URL whose response has a verified PDF MIME type. Arbitrary HTML
+and Office documents are not embedded.

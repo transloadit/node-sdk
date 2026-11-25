@@ -73,7 +73,15 @@
       "browser": "./dist/server.browser.js",
       "default": "./dist/server.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./react/viewer": {
+      "types": "./dist/viewer.d.ts",
+      "default": "./dist/viewer.js"
+    },
+    "./documents": {
+      "types": "./dist/document.d.ts",
+      "default": "./dist/document.js"
+    }
   },
   "scripts": {
     "build": "../../node_modules/.bin/tsc --build tsconfig.build.json",
@@ -85,8 +93,15 @@
   "dependencies": {
     "@noble/ciphers": "^1.3.0",
     "@transloadit/utils": "^4.10.1",
+    "hast-util-to-jsx-runtime": "^2.3.0",
+    "hls.js": "^1.6.16",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.0",
+    "rtf.js": "^3.0.9",
     "server-only": "^0.0.1",
-    "thumbhash": "0.1.1"
+    "thumbhash": "0.1.1",
+    "unified": "^11.0.5"
   },
   "peerDependencies": {
     "next": ">=16.3.3 <17.0.0",

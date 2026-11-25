@@ -4,7 +4,7 @@ import { brotliCompressSync } from 'node:zlib'
 import { build } from 'esbuild'
 import { expect, test } from 'vitest'
 
-test('React and Utils install no new runtime schema or SDK dependencies', async () => {
+test('Viewer installs browser renderers without runtime schema or Node SDK dependencies', async () => {
   const viewer = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
   const utils = JSON.parse(
     await readFile(new URL('../../utils/package.json', import.meta.url), 'utf8'),
@@ -13,8 +13,15 @@ test('React and Utils install no new runtime schema or SDK dependencies', async 
   expect(Object.keys(viewer.dependencies).sort()).toEqual([
     '@noble/ciphers',
     '@transloadit/utils',
+    'hast-util-to-jsx-runtime',
+    'hls.js',
+    'remark-gfm',
+    'remark-parse',
+    'remark-rehype',
+    'rtf.js',
     'server-only',
     'thumbhash',
+    'unified',
   ])
 })
 
