@@ -30,6 +30,7 @@ test.each([
   ['@transloadit/viewer/react', 'browser', 24_000, 8_000],
   ['@transloadit/viewer/react/video', 'browser', 12_000, 4_000],
   ['@transloadit/viewer/server', 'neutral', 20_000, 7_000],
+  ['@transloadit/viewer/documents', 'browser', 8_000, 3_000],
 ] as const)('%s stays small and imports no Next, Node SDK or generated schemas', async (entry, platform, rawBudget, compressedBudget) => {
   const bundled = await build({
     stdin: { contents: `export * from '${entry}'`, resolveDir: import.meta.dirname },
@@ -62,6 +63,62 @@ test('the published video entry keeps its React client boundary', async () => {
   expect(source).toMatch(/^['"]use client['"]/)
   const { Video } = await import('@transloadit/viewer/react/video')
   expect(typeof Video).toBe('function')
+})
+
+test('the shared Viewer entry imports and renders native media from its public export', async () => {
+  const { createElement } = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { Viewer, useMediaPlayback } = await import('@transloadit/viewer/react/viewer')
+  const { documentPreviewKind } = await import('@transloadit/viewer/documents')
+  expect(typeof useMediaPlayback).toBe('function')
+  expect(typeof documentPreviewKind).toBe('function')
+  expect(
+    renderToStaticMarkup(createElement(Viewer, { kind: 'video', 'aria-label': 'Movie' })),
+  ).toContain('aria-label="Movie"')
+})
+
+test('the initial Viewer bundle defers document parsers and HLS', async () => {
+  const bundled = await build({
+    stdin: {
+      contents: "export * from '@transloadit/viewer/react/viewer'",
+      resolveDir: import.meta.dirname,
+    },
+    bundle: true,
+    write: false,
+    splitting: true,
+    outdir: '/tmp/viewer-bundle-test',
+    format: 'esm',
+    platform: 'browser',
+    minify: true,
+    metafile: true,
+    external: ['react', 'react-dom', 'react/jsx-runtime'],
+    define: { 'process.env.NODE_ENV': '"production"' },
+  })
+  const entry = Object.entries(bundled.metafile.outputs).find(
+    ([, output]) => output.entryPoint === '<stdin>',
+  )
+  if (!entry) throw new Error('No Viewer entry emitted')
+  const initialInputs = new Set<string>()
+  function inspect(path: string): void {
+    const output = bundled.metafile.outputs[path]
+    if (!output) throw new Error(`Missing output ${path}`)
+    for (const input of Object.keys(output.inputs)) initialInputs.add(input)
+    for (const imported of output.imports) {
+      if (!imported.external && imported.kind !== 'dynamic-import') inspect(imported.path)
+    }
+  }
+  inspect(entry[0])
+  expect(
+    [...initialInputs].some((file) =>
+      /node_modules\/(?:unified|micromark[^/]*|hls.js|rtf.js|codepage)\//.test(file),
+    ),
+  ).toBe(false)
+  expect(entry[1].bytes).toBeLessThan(40_000)
+  expect(
+    Object.values(bundled.metafile.outputs).some((output) =>
+      Object.keys(output.inputs).some((file) => file.includes('/unified/')),
+    ),
+  ).toBe(true)
 })
 
 test('browser bundles cannot import the credential-bearing server factory', async () => {

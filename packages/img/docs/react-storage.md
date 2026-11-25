@@ -404,7 +404,10 @@ static catalogs, custom Templates, markup, and low-level models remain supported
 `@transloadit/viewer/react/viewer` exports `{ Viewer }` for applications that already authorize
 and sign their media. It renders responsive image models, direct thumbnail URLs, native video
 and audio, browser PDF frames, Markdown, plain text, and RTF. The separate entry keeps document
-parsers and playback code out of existing image-only entry points.
+parsers and playback code out of existing image-only entry points. The shared Viewer entry also
+loads document parsers and HLS dynamically, so image and native-media previews do not load them.
+Direct images default to lazy loading and asynchronous decoding; use `loading="eager"` for a
+selected image that should load immediately. `objectFit` also sets the blur placeholder's fit.
 
 The application owns admission, signed URLs, UI controls, translations, and grant refreshes.
 Viewer never grants access to a file. Render originals only after the user asks to open or play
@@ -458,5 +461,8 @@ exposing signed URLs. RTF parsing and rich Markdown are bounded to 256 KiB; larg
 shown as literal text. Markdown skips embedded HTML and remote images, and only permits external
 HTTP, HTTPS and email links. RTF is parsed locally, strips active content and embedded resources,
 and renders in a sandbox with a restrictive content security policy. PDF frames use the browser's
-PDF renderer; supply an authorized URL whose response has a verified PDF MIME type. Arbitrary HTML
-and Office documents are not embedded.
+PDF renderer; supply an authorized HTTP(S) URL on a separate user-content origin whose response
+has a verified PDF MIME type. Viewer rejects same-origin, blob, and data URLs by default. An
+application with a trusted PDF-only route can explicitly set `allowSameOrigin`; that route must
+verify the response is a PDF and must never serve arbitrary uploaded HTML. Use `errorFallback`
+for a rejected location. Arbitrary HTML and Office documents are not embedded.

@@ -1,6 +1,5 @@
 'use client'
 
-import type { Components } from 'hast-util-to-jsx-runtime'
 import type {
   AudioHTMLAttributes,
   IframeHTMLAttributes,
@@ -10,22 +9,11 @@ import type {
   VideoHTMLAttributes,
 } from 'react'
 
-import type { DocumentPreviewKind } from './document.ts'
+import type { DocumentViewerProps } from './documentViewer.tsx'
 import type { TransloaditPictureProps } from './picture.tsx'
 
-import { toJsxRuntime } from 'hast-util-to-jsx-runtime'
-import { Fragment, useEffect, useRef, useState } from 'react'
-import { jsx, jsxs } from 'react/jsx-runtime'
-import remarkGfm from 'remark-gfm'
-import remarkParse from 'remark-parse'
-import remarkRehype from 'remark-rehype'
-import { unified } from 'unified'
+import { lazy, Suspense, useState, useSyncExternalStore } from 'react'
 
-import {
-  decodeDocumentText,
-  MAX_DOCUMENT_PREVIEW_BYTES,
-  MAX_RICH_DOCUMENT_PREVIEW_BYTES,
-} from './document.ts'
 import { TransloaditPicture } from './picture.tsx'
 
 export type { MediaPlayback, PlaybackSource } from './useMediaPlayback.ts'
@@ -41,25 +29,18 @@ export type ViewerProps =
       alt: string
       model?: never
       blurDataURL?: string
+      objectFit?: 'contain' | 'cover'
     } & ImgHTMLAttributes<HTMLImageElement>)
   | ({ kind: 'video'; ref?: Ref<HTMLVideoElement> } & VideoHTMLAttributes<HTMLVideoElement>)
   | ({ kind: 'audio'; ref?: Ref<HTMLAudioElement> } & AudioHTMLAttributes<HTMLAudioElement>)
-  | ({ kind: 'pdf'; src: string; title: string } & Omit<
-      IframeHTMLAttributes<HTMLIFrameElement>,
-      'sandbox' | 'src' | 'srcDoc' | 'title'
-    >)
-  | {
-      kind: 'document'
-      format: Exclude<DocumentPreviewKind, 'pdf'>
-      bytes: ArrayBuffer
+  | ({
+      kind: 'pdf'
+      src: string
       title: string
-      className?: string
-      richClassName?: string
-      textClassName?: string
-      loadingFallback?: ReactNode
+      allowSameOrigin?: boolean
       errorFallback?: ReactNode
-      onError?: () => void
-    }
+    } & Omit<IframeHTMLAttributes<HTMLIFrameElement>, 'sandbox' | 'src' | 'srcDoc' | 'title'>)
+  | ({ kind: 'document' } & DocumentViewerProps)
 
 function DirectImage({
   alt,
@@ -67,17 +48,21 @@ function DirectImage({
   decoding = 'async',
   loading = 'lazy',
   onLoad,
+  objectFit,
   style,
   ...props
-}: ImgHTMLAttributes<HTMLImageElement> & { alt: string; blurDataURL?: string }): ReactNode {
+}: ImgHTMLAttributes<HTMLImageElement> & {
+  alt: string
+  blurDataURL?: string
+  objectFit?: 'contain' | 'cover'
+}): ReactNode {
   const [loaded, setLoaded] = useState(false)
-  if (
+  const placeholder =
     blurDataURL !== undefined &&
-    (blurDataURL.length > 6000 ||
-      !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(blurDataURL))
-  ) {
-    throw new TypeError('blurDataURL must be a small inline PNG data URL')
-  }
+    blurDataURL.length <= 6000 &&
+    /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(blurDataURL)
+      ? blurDataURL
+      : undefined
   return (
     // biome-ignore lint/performance/noImgElement: The application already authorized these bytes.
     <img
@@ -86,15 +71,16 @@ function DirectImage({
       decoding={decoding}
       loading={loading}
       style={
-        !loaded && blurDataURL
+        !loaded && placeholder
           ? {
-              backgroundImage: `url("${blurDataURL}")`,
-              backgroundSize: 'contain',
+              backgroundImage: `url("${placeholder}")`,
+              backgroundSize: (objectFit ?? style?.objectFit) === 'cover' ? 'cover' : 'contain',
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'center',
               ...style,
+              objectFit: objectFit ?? style?.objectFit,
             }
-          : style
+          : { ...style, objectFit: objectFit ?? style?.objectFit }
       }
       onLoad={(event) => {
         setLoaded(true)
@@ -103,69 +89,33 @@ function DirectImage({
     />
   )
 }
-const markdownProcessor = unified().use(remarkParse).use(remarkGfm).use(remarkRehype)
-const markdownComponents: Partial<Components> = {
-  // Documents must not load remote tracking pixels or navigate within their host application.
-  img({ alt }) {
-    return <span>{alt}</span>
-  },
-  a({ href, children }) {
-    if (!href || !/^(https?:\/\/|mailto:)/iu.test(href)) return <span>{children}</span>
-    return (
-      <a href={href} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">
-        {children}
-      </a>
-    )
-  },
-}
+const DocumentRenderer = lazy(async () => {
+  const { DocumentViewer } = await import('./documentViewer.tsx')
+  return { default: DocumentViewer }
+})
 
-function RichText({
-  bytes,
-  title,
-  className,
-  loadingFallback,
+const subscribeOrigin = () => () => {}
+const browserOrigin = () => window.location.origin
+const serverOrigin = () => null
+
+function PdfDocument({
+  allowSameOrigin = false,
   errorFallback,
-  onError,
-}: Extract<ViewerProps, { kind: 'document' }>): ReactNode {
-  const [result, setResult] = useState<{
-    bytes: ArrayBuffer
-    html?: string
-    failed?: boolean
-  } | null>(null)
-  const reportError = useRef(onError)
-  useEffect(() => {
-    reportError.current = onError
-  }, [onError])
-  useEffect(() => {
-    let active = true
-    // RTF's parser is loaded only when a rich-text document is actually opened.
-    void import('./renderRtfPreview.ts')
-      .then(({ renderRtfPreview }) => renderRtfPreview(bytes))
-      .then(
-        (html) => {
-          if (active) setResult({ bytes, html })
-        },
-        () => {
-          if (!active) return
-          setResult({ bytes, failed: true })
-          reportError.current?.()
-        },
-      )
-    return () => {
-      active = false
-    }
-  }, [bytes])
-  if (result?.bytes !== bytes) return loadingFallback
-  if (result.failed || result.html === undefined) return errorFallback
-  return (
-    <iframe
-      srcDoc={result.html}
-      sandbox=""
-      referrerPolicy="no-referrer"
-      title={title}
-      className={className}
-    />
-  )
+  ...props
+}: Extract<ViewerProps, { kind: 'pdf' }>): ReactNode {
+  const origin = useSyncExternalStore(subscribeOrigin, browserOrigin, serverOrigin)
+  if (origin === null) return errorFallback
+  let url: URL
+  try {
+    url = new URL(props.src, origin)
+  } catch {
+    return errorFallback
+  }
+  if (!['https:', 'http:'].includes(url.protocol) || (!allowSameOrigin && url.origin === origin))
+    return errorFallback
+  const { kind: _kind, ...frame } = props
+  // Native PDF rendering requires an unsandboxed frame on a separate user-content origin.
+  return <iframe {...frame} referrerPolicy="no-referrer" />
 }
 
 /**
@@ -190,42 +140,10 @@ export function Viewer(props: ViewerProps): ReactNode {
     const { kind: _kind, ...audio } = props
     return <audio controls preload="none" {...audio} />
   }
-  if (props.kind === 'pdf') {
-    const { kind: _kind, ...pdf } = props
-    // Chromium does not render native PDFs inside a sandboxed iframe.
-    return <iframe referrerPolicy="no-referrer" {...pdf} />
-  }
-  if (
-    props.bytes.byteLength >
-    (props.format === 'rtf' ? MAX_RICH_DOCUMENT_PREVIEW_BYTES : MAX_DOCUMENT_PREVIEW_BYTES)
-  )
-    return props.errorFallback
-  if (props.format === 'rtf') return <RichText {...props} />
-  const text = decodeDocumentText(props.bytes)
+  if (props.kind === 'pdf') return <PdfDocument {...props} />
   return (
-    <article
-      aria-label={props.title}
-      // biome-ignore lint/a11y/noNoninteractiveTabindex: Long documents must be keyboard-scrollable.
-      tabIndex={0}
-      className={props.className}
-    >
-      {props.format === 'markdown' && props.bytes.byteLength <= MAX_RICH_DOCUMENT_PREVIEW_BYTES ? (
-        <div className={props.richClassName}>
-          {toJsxRuntime(markdownProcessor.runSync(markdownProcessor.parse(text)), {
-            Fragment,
-            jsx,
-            jsxs,
-            components: markdownComponents,
-          })}
-        </div>
-      ) : (
-        <pre
-          className={props.textClassName}
-          style={{ margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-        >
-          {text}
-        </pre>
-      )}
-    </article>
+    <Suspense fallback={props.loadingFallback}>
+      <DocumentRenderer {...props} />
+    </Suspense>
   )
 }

@@ -43,7 +43,7 @@ test('renders Markdown with inert HTML, image alt text and external links only',
       title="Project notes"
     />,
   )
-  expect(container.querySelector('h1')?.textContent).toBe('Notes')
+  await vi.waitFor(() => expect(container.querySelector('h1')?.textContent).toBe('Notes'))
   expect(container.querySelector('strong')?.textContent).toBe('Ready')
   expect(container.textContent).toContain('Pixel')
   expect(container.querySelectorAll('script, img')).toHaveLength(0)
@@ -61,7 +61,9 @@ test('keeps plain text literal and reports oversized input through the caller fa
       title="Notes"
     />,
   )
-  expect(container.querySelector('pre')?.textContent).toBe('<h1>Literal</h1>')
+  await vi.waitFor(() =>
+    expect(container.querySelector('pre')?.textContent).toBe('<h1>Literal</h1>'),
+  )
   expect(container.querySelector('h1')).toBeNull()
   await show(
     <Viewer
@@ -108,6 +110,58 @@ test('forwards the exact authorized PDF URL without a third-party viewer service
   expect(container.querySelector('iframe')?.getAttribute('src')).toBe(src)
   expect(container.querySelector('iframe')?.getAttribute('title')).toBe('Report')
   expect(container.querySelector('iframe')?.getAttribute('referrerpolicy')).toBe('no-referrer')
+})
+
+test.each([
+  'https://app.invalid/untrusted.html',
+  '/untrusted.html',
+  'blob:https://app.invalid/id',
+  'data:text/html,bad',
+  'javascript:bad',
+])('rejects unsafe PDF location %s', async (src) => {
+  vi.stubGlobal('location', new URL('https://app.invalid/'))
+  await show(<Viewer kind="pdf" src={src} title="Report" errorFallback={<p>Unavailable</p>} />)
+  expect(container.querySelector('iframe')).toBeNull()
+  expect(container.textContent).toBe('Unavailable')
+})
+
+test('allows an explicitly trusted same-origin PDF route', async () => {
+  await show(<Viewer kind="pdf" src="/trusted-pdf" title="Report" allowSameOrigin />)
+  expect(container.querySelector('iframe')?.getAttribute('src')).toBe('/trusted-pdf')
+})
+
+test('reports an oversized document once per bytes identity', async () => {
+  const onError = vi.fn()
+  const bytes = new ArrayBuffer(MAX_DOCUMENT_PREVIEW_BYTES + 1)
+  await show(<Viewer kind="document" format="text" bytes={bytes} title="Notes" onError={onError} />)
+  await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce())
+  await show(
+    <Viewer kind="document" format="text" bytes={bytes} title="Updated" onError={onError} />,
+  )
+  expect(onError).toHaveBeenCalledOnce()
+})
+
+test('drops invalid image placeholders and defaults to lazy async decoding', async () => {
+  await show(<Viewer kind="image" src="https://cdn.invalid/a" alt="Portrait" blurDataURL="bad" />)
+  const image = container.querySelector('img')
+  expect(image?.loading).toBe('lazy')
+  expect(image?.decoding).toBe('async')
+  expect(image?.style.backgroundImage).toBe('')
+})
+
+test('matches a cover image placeholder to the actual image fit', async () => {
+  await show(
+    <Viewer
+      kind="image"
+      src="https://cdn.invalid/a"
+      alt="Portrait"
+      objectFit="cover"
+      blurDataURL="data:image/png;base64,AAAA"
+    />,
+  )
+  const image = container.querySelector('img')
+  expect(image?.style.backgroundSize).toBe('cover')
+  expect(image?.style.objectFit).toBe('cover')
 })
 
 test('forwards native media refs and leaves media unloaded until the application starts it', async () => {

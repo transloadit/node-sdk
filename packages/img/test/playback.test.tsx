@@ -11,6 +11,53 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { useMediaPlayback, Viewer } from '../src/viewer.tsx'
 
+const hls = vi.hoisted(() => ({
+  supported: true,
+  load: vi.fn(),
+  destroy: vi.fn(),
+  transfer: vi.fn(),
+  attach: vi.fn(),
+  configs: [] as unknown[],
+  handlers: new Map<
+    string,
+    (event: string, data: { fatal: boolean; type: string; response?: { code: number } }) => void
+  >(),
+}))
+
+vi.mock('hls.js', () => ({
+  default: class {
+    static Events = { ERROR: 'error', MANIFEST_PARSED: 'manifest' }
+    static ErrorTypes = { NETWORK_ERROR: 'network', MEDIA_ERROR: 'media' }
+    static ErrorDetails = {
+      BUFFER_STALLED_ERROR: 'bufferStalledError',
+      BUFFER_NUDGE_ON_STALL: 'bufferNudgeOnStall',
+      BUFFER_SEEK_OVER_HOLE: 'bufferSeekOverHole',
+      BUFFER_FULL_ERROR: 'bufferFullError',
+    }
+    static isSupported() {
+      return hls.supported
+    }
+    constructor(config: unknown) {
+      hls.configs.push(config)
+    }
+    currentLevel = 2
+    bandwidthEstimate = 4_500_000
+    on(
+      event: string,
+      callback: (
+        event: string,
+        data: { fatal: boolean; type: string; response?: { code: number } },
+      ) => void,
+    ) {
+      hls.handlers.set(event, callback)
+    }
+    attachMedia = hls.attach
+    transferMedia = hls.transfer
+    loadSource = hls.load
+    destroy = hls.destroy
+  },
+}))
+
 let root: Root
 let container: HTMLDivElement
 const source: PlaybackSource = {
@@ -21,8 +68,14 @@ const source: PlaybackSource = {
   expiresAt: 1,
 }
 
-function Movie({ refresh }: { refresh: () => Promise<PlaybackSource | undefined> }): ReactNode {
-  const playback = useMediaPlayback<HTMLVideoElement>(source, refresh)
+function Movie({
+  refresh,
+  details = source,
+}: {
+  refresh: () => Promise<PlaybackSource | undefined>
+  details?: PlaybackSource
+}): ReactNode {
+  const playback = useMediaPlayback<HTMLVideoElement>(details, refresh)
   return (
     <>
       <Viewer kind="video" ref={playback.media} {...playback.events} aria-label="Movie" />
@@ -35,6 +88,18 @@ function Movie({ refresh }: { refresh: () => Promise<PlaybackSource | undefined>
 }
 
 beforeEach(() => {
+  hls.supported = true
+  hls.handlers.clear()
+  hls.load.mockClear()
+  hls.destroy.mockClear()
+  hls.transfer.mockReset()
+  hls.attach.mockClear()
+  hls.configs.length = 0
+  Object.defineProperties(HTMLMediaElement, {
+    HAVE_CURRENT_DATA: { configurable: true, value: 2 },
+    HAVE_FUTURE_DATA: { configurable: true, value: 3 },
+  })
+  vi.spyOn(HTMLMediaElement.prototype, 'canPlayType').mockReturnValue('')
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   vi.stubGlobal('MediaError', { MEDIA_ERR_ABORTED: 1, MEDIA_ERR_NETWORK: 2 })
   vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
@@ -126,4 +191,126 @@ test('closing during renewal never starts a detached player', async () => {
   })
   expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(played)
   expect(video.getAttribute('src')).toBeNull()
+})
+
+function stream(): PlaybackSource {
+  return {
+    ...source,
+    mediaFormat: 'hls',
+    fallbackUrl: 'https://cdn.invalid/fallback.mp4',
+    expiresAt: Date.now() + 120_000,
+  }
+}
+
+async function playStream(details = stream(), refresh = vi.fn()): Promise<HTMLVideoElement> {
+  await act(() => root.render(<Movie details={details} refresh={refresh} />))
+  const video = container.querySelector('video')
+  const button = container.querySelector('button')
+  if (!video || !button) throw new Error('Missing player')
+  expect(hls.load).not.toHaveBeenCalled()
+  await act(() => button.click())
+  await vi.waitFor(() => expect(hls.load).toHaveBeenCalledWith(details.mediaUrl))
+  return video
+}
+
+test('attaches HLS on demand and destroys it on close', async () => {
+  const video = await playStream()
+  expect(hls.attach).toHaveBeenCalledWith(video)
+  await act(() => hls.handlers.get('manifest')?.('manifest', { fatal: false, type: 'manifest' }))
+  expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce()
+  await act(() => root.render(null))
+  expect(hls.destroy).toHaveBeenCalledOnce()
+  expect(video.getAttribute('src')).toBeNull()
+})
+
+test('falls back to MP4 after a fatal decoder failure at the current position', async () => {
+  const details = stream()
+  const video = await playStream(details)
+  video.currentTime = 42
+  await act(() => hls.handlers.get('error')?.('error', { fatal: true, type: 'media' }))
+  expect(video.src).toBe(details.fallbackUrl)
+  expect(video.currentTime).toBe(42)
+  expect(hls.destroy).toHaveBeenCalledOnce()
+})
+
+test('renews a 403 grant while transferring buffered media and ABR state', async () => {
+  const details = stream()
+  const fresh = {
+    ...details,
+    mediaUrl: 'https://cdn.invalid/renewed',
+    expiresAt: Date.now() + 600_000,
+  }
+  const refresh = vi.fn().mockResolvedValue(fresh)
+  const video = await playStream(details, refresh)
+  video.currentTime = 42
+  Object.defineProperty(video, 'readyState', { configurable: true, value: 4 })
+  const transferred = { media: video, mediaSource: null, tracks: {} }
+  hls.transfer.mockReturnValue(transferred)
+  const fetchMock = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', fetchMock)
+  await act(() =>
+    hls.handlers.get('error')?.('error', { fatal: true, type: 'network', response: { code: 403 } }),
+  )
+  await vi.waitFor(() => expect(hls.load).toHaveBeenLastCalledWith(fresh.mediaUrl))
+  expect(refresh).toHaveBeenCalledOnce()
+  expect(fetchMock).not.toHaveBeenCalled()
+  expect(hls.attach).toHaveBeenLastCalledWith(transferred)
+  expect(hls.configs.at(-1)).toMatchObject({
+    startLevel: 2,
+    abrEwmaDefaultEstimate: 4_500_000,
+    startPosition: 42,
+  })
+})
+
+test('aborts a fallback warmup and destroys the retry on close', async () => {
+  const fetchMock = vi.fn<typeof fetch>().mockImplementation(() => new Promise(() => {}))
+  vi.stubGlobal('fetch', fetchMock)
+  const video = await playStream()
+  await act(() =>
+    hls.handlers.get('error')?.('error', { fatal: true, type: 'network', response: { code: 503 } }),
+  )
+  await vi.waitFor(() => expect(hls.load).toHaveBeenCalledTimes(2))
+  expect(fetchMock).toHaveBeenCalledWith(
+    'https://cdn.invalid/fallback.mp4',
+    expect.objectContaining({ method: 'HEAD', mode: 'no-cors' }),
+  )
+  const signal = fetchMock.mock.calls[0]?.[1]?.signal
+  expect(signal?.aborted).toBe(false)
+  await act(() => root.render(null))
+  expect(signal?.aborted).toBe(true)
+  expect(hls.destroy).toHaveBeenCalledTimes(2)
+  expect(video.getAttribute('src')).toBeNull()
+})
+
+test('uses the prepared MP4 instead of encoding the fallback again', async () => {
+  const details = stream()
+  const refresh = vi.fn()
+  const video = await playStream(details, refresh)
+  video.currentTime = 42
+  const prepared = {
+    ...details,
+    fallbackUrl: undefined,
+    mediaFormat: 'mp4',
+    mediaUrl: 'https://cdn.invalid/prepared.mp4',
+  } satisfies PlaybackSource
+  await act(() => root.render(<Movie details={prepared} refresh={refresh} />))
+  await act(() => hls.handlers.get('error')?.('error', { fatal: true, type: 'media' }))
+  expect(video.src).toBe(prepared.mediaUrl)
+  expect(video.currentTime).toBe(42)
+  expect(refresh).not.toHaveBeenCalled()
+})
+
+test('rejects an HLS renewal for a different version', async () => {
+  const details = stream()
+  const refresh = vi
+    .fn()
+    .mockResolvedValue({ ...details, version_id: 'other', mediaUrl: 'https://cdn.invalid/other' })
+  await playStream(details, refresh)
+  await act(() =>
+    hls.handlers.get('error')?.('error', { fatal: true, type: 'network', response: { code: 403 } }),
+  )
+  await vi.waitFor(() =>
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable'),
+  )
+  expect(hls.load).toHaveBeenCalledTimes(1)
 })
