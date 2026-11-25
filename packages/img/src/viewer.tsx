@@ -12,7 +12,7 @@ import type {
 import type { DocumentViewerProps } from './documentViewer.tsx'
 import type { TransloaditPictureProps } from './picture.tsx'
 
-import { lazy, Suspense, useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { TransloaditPicture } from './picture.tsx'
 
@@ -89,10 +89,35 @@ function DirectImage({
     />
   )
 }
-const DocumentRenderer = lazy(async () => {
-  const { DocumentViewer } = await import('./documentViewer.tsx')
-  return { default: DocumentViewer }
-})
+function DocumentLoadFailure({ bytes, onError, errorFallback }: DocumentViewerProps): ReactNode {
+  const reported = useRef<ArrayBuffer | null>(null)
+  useEffect(() => {
+    if (reported.current === bytes) return
+    reported.current = bytes
+    onError?.()
+  }, [bytes, onError])
+  return errorFallback
+}
+
+function LazyDocument(props: DocumentViewerProps): ReactNode {
+  // A failed chunk must stay local to the preview. A new opening gets a fresh lazy resource,
+  // so React's cached rejection cannot poison every document preview for the rest of the tab.
+  const [Renderer] = useState(() =>
+    lazy(async () => {
+      try {
+        const { DocumentViewer } = await import('./documentViewer.tsx')
+        return { default: DocumentViewer }
+      } catch {
+        return { default: DocumentLoadFailure }
+      }
+    }),
+  )
+  return (
+    <Suspense fallback={props.loadingFallback}>
+      <Renderer {...props} />
+    </Suspense>
+  )
+}
 
 const subscribeOrigin = () => () => {}
 const browserOrigin = () => window.location.origin
@@ -104,7 +129,7 @@ function PdfDocument({
   ...props
 }: Extract<ViewerProps, { kind: 'pdf' }>): ReactNode {
   const origin = useSyncExternalStore(subscribeOrigin, browserOrigin, serverOrigin)
-  if (origin === null) return errorFallback
+  if (origin === null) return null
   let url: URL
   try {
     url = new URL(props.src, origin)
@@ -141,9 +166,5 @@ export function Viewer(props: ViewerProps): ReactNode {
     return <audio controls preload="none" {...audio} />
   }
   if (props.kind === 'pdf') return <PdfDocument {...props} />
-  return (
-    <Suspense fallback={props.loadingFallback}>
-      <DocumentRenderer {...props} />
-    </Suspense>
-  )
+  return <LazyDocument {...props} />
 }

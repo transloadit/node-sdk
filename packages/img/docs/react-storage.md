@@ -439,8 +439,12 @@ versions, and stops detached media and HLS requests when its owner unmounts. App
 unmount or key the player when changing the selected asset/version.
 
 `useMediaPlayback` exposes a native element ref, event handlers, `play()`, `prepare()` (native
-controls without autoplay), and `started`, `loading`, and `failed` state. HLS loads `hls.js` only
-when native playback cannot handle the stream. The caller supplies retry and failure controls.
+controls without autoplay), and `started`, `loading`, and `failed` state. `prepare()` selects the
+authorized MP4 fallback when HLS requires JavaScript, keeping `preload="none"` without requesting
+the HLS manifest. It reports failure if neither native playback nor an MP4 fallback is available;
+use `play()` to start JavaScript HLS explicitly. HLS loads `hls.js` only when native playback cannot
+handle the stream. The caller supplies retry and failure controls; `play()` starts a fresh attempt
+after failure, and unmounting always releases its media.
 The existing receipt-backed `Video` component remains available for applications using Viewer's
 same-origin authorization route.
 
@@ -466,3 +470,7 @@ has a verified PDF MIME type. Viewer rejects same-origin, blob, and data URLs by
 application with a trusted PDF-only route can explicitly set `allowSameOrigin`; that route must
 verify the response is a PDF and must never serve arbitrary uploaded HTML. Use `errorFallback`
 for a rejected location. Arbitrary HTML and Office documents are not embedded.
+
+Document chunk-load failures render `errorFallback` and notify `onError`. Unmount and reopen the
+preview to retry a failed chunk request. PDF server rendering waits for the client origin before
+deciding whether a URL is allowed, without showing a premature error.

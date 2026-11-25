@@ -82,6 +82,9 @@ function Movie({
       <button type="button" onClick={playback.play}>
         Play
       </button>
+      <button type="button" onClick={playback.prepare}>
+        Prepare
+      </button>
       {playback.failed ? <p role="alert">Unavailable</p> : null}
     </>
   )
@@ -313,4 +316,35 @@ test('rejects an HLS renewal for a different version', async () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable'),
   )
   expect(hls.load).toHaveBeenCalledTimes(1)
+})
+
+test('prepares idle native controls through the MP4 fallback without requesting HLS', async () => {
+  const details = stream()
+  const fetchMock = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', fetchMock)
+  await act(() => root.render(<Movie details={details} refresh={vi.fn()} />))
+  const button = container.querySelectorAll('button')[1]
+  const video = container.querySelector('video')
+  if (!button || !video) throw new Error('Missing player')
+  await act(() => button.click())
+  expect(video.src).toBe(details.fallbackUrl)
+  expect(video.preload).toBe('none')
+  expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled()
+  expect(hls.load).not.toHaveBeenCalled()
+  expect(fetchMock).not.toHaveBeenCalled()
+})
+
+test('a retry after failure still cleans up its HLS instance on unmount', async () => {
+  const details = { ...stream(), fallbackUrl: undefined }
+  await playStream(details)
+  await act(() => hls.handlers.get('error')?.('error', { fatal: true, type: 'media' }))
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
+  expect(hls.destroy).toHaveBeenCalledOnce()
+  const button = container.querySelector('button')
+  if (!button) throw new Error('Missing retry control')
+  await act(() => button.click())
+  await vi.waitFor(() => expect(hls.load).toHaveBeenCalledTimes(2))
+  expect(container.querySelector('[role="alert"]')).toBeNull()
+  await act(() => root.render(null))
+  expect(hls.destroy).toHaveBeenCalledTimes(2)
 })

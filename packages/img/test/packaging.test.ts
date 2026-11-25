@@ -77,6 +77,22 @@ test('the shared Viewer entry imports and renders native media from its public e
   ).toContain('aria-label="Movie"')
 })
 
+test('PDF SSR waits for the client origin without announcing a false error', async () => {
+  const { createElement } = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { Viewer } = await import('@transloadit/viewer/react/viewer')
+  expect(
+    renderToStaticMarkup(
+      createElement(Viewer, {
+        kind: 'pdf',
+        src: 'https://cdn.invalid/report.pdf',
+        title: 'Report',
+        errorFallback: createElement('p', { role: 'alert' }, 'Unavailable'),
+      }),
+    ),
+  ).toBe('')
+})
+
 test('the initial Viewer bundle defers document parsers and HLS', async () => {
   const bundled = await build({
     stdin: {

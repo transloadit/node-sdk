@@ -48,7 +48,7 @@ export interface MediaPlayback<T extends HTMLMediaElement> {
   failed: boolean
   loading: boolean
   play: () => void
-  /** Prepares native controls without starting playback or requesting media. */
+  /** Prepares native controls without autoplay; non-native HLS uses the MP4 fallback. */
   prepare: () => void
   events: {
     onCanPlay: () => void
@@ -83,22 +83,25 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
   // background request starts that encode at the stream's first serious error, while hls.js
   // still tries.
   const warmUp = useRef<{ done: Promise<void>; controller: AbortController } | null>(null)
+  const loadedElement = useRef<T | null>(null)
+  function teardown(): void {
+    loadingId.current += 1
+    clearTimeout(startupTimer.current)
+    // Nobody is left to watch: cancelling the request also cancels its encode.
+    warmUp.current?.controller.abort()
+    warmUp.current = null
+    hls.current?.destroy()
+    hls.current = null
+    // A detached native HLS player can keep requesting billable segments after closing.
+    loadedElement.current?.pause()
+    loadedElement.current?.removeAttribute('src')
+    loadedElement.current?.load()
+    loadedElement.current = null
+  }
+  const release = useRef(teardown)
+  useEffect(() => () => release.current(), [])
   useEffect(() => {
-    if (failed) return
-    const element = media.current
-    return () => {
-      loadingId.current += 1
-      clearTimeout(startupTimer.current)
-      // Nobody is left to watch: cancelling the request also cancels its encode.
-      warmUp.current?.controller.abort()
-      warmUp.current = null
-      hls.current?.destroy()
-      hls.current = null
-      // A detached native HLS player can keep requesting billable segments after closing.
-      element?.pause()
-      element?.removeAttribute('src')
-      element?.load()
-    }
+    if (failed) release.current()
   }, [failed])
   // The link the element plays and when it stops working (receipt-relative, so no clock skew).
   const source = useRef<{
@@ -140,12 +143,19 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
     format = source.current?.format,
     preserveBuffer = false,
   ): Promise<void> {
+    loadedElement.current = element
     const id = ++loadingId.current
     clearTimeout(startupTimer.current)
     awaitingPlayback.current = autoplay
     const native =
       format !== 'hls' ||
       (!nativeHlsFailed.current && element.canPlayType('application/vnd.apple.mpegurl') !== '')
+    // Native controls cannot start a JavaScript-only stream without loading its manifest. Use
+    // the authorized MP4 under preload="none"; callers wanting HLS use the explicit play action.
+    if (!autoplay && !native) {
+      await fallback(element)
+      return
+    }
     // Load hls.js before letting go of the current player, so a newer load during the import
     // leaves this one playing instead of detached. Native playback stays synchronous, inside
     // Safari's user activation.
@@ -476,6 +486,10 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
   function startPlayback(autoplay: boolean): void {
     const element = media.current
     if (!element || details.mediaUrl === undefined) return
+    setFailed(false)
+    resigned.current = false
+    retried.current = false
+    nativeHlsFailed.current = false
     source.current = {
       url: details.mediaUrl,
       expiresAt: details.expiresAt,
