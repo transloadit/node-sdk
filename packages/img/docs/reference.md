@@ -11,7 +11,7 @@ The package has separate entry points, not a single all-purpose gallery componen
 | `@transloadit/viewer` | Serializable responsive image model; no React or Next.js dependency |
 | `@transloadit/viewer/server` | Server-only Web `Request`/`Response` handlers with explicit authorization |
 | `@transloadit/viewer/react` | React image components for canonical receipts; no Next.js dependency |
-| `@transloadit/viewer/react/viewer` | `Viewer`, `useMediaPlayback`, `PlaybackSource`, and `MediaPlayback` for authorized media and documents (0.2.0+) |
+| `@transloadit/viewer/react/viewer` | `Viewer`, `ViewerProps`, `useMediaPlayback`, `PlaybackSource`, and `MediaPlayback` for authorized media and documents (0.2.0+) |
 | `@transloadit/viewer/documents` | `documentPreviewKind`, `readDocumentPreview`, `decodeDocumentText`, `DocumentPreviewError`, `DocumentPreviewKind`, and document byte limits (0.2.0+) |
 | `@transloadit/viewer/next` | Next.js rendering and catalog integration |
 

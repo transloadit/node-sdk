@@ -402,7 +402,7 @@ static catalogs, custom Templates, markup, and low-level models remain supported
 
 ## Shared file previews and signed-source playback
 
-`@transloadit/viewer/react/viewer` exports `{ Viewer }` for applications that already authorize
+`Viewer` from `@transloadit/viewer/react/viewer` serves applications that already authorize
 and sign their media. It renders responsive image models, direct thumbnail URLs, native video
 and audio, browser PDF frames, Markdown, plain text, and RTF. The separate entry keeps document
 parsers and playback code out of existing image-only entry points. The shared Viewer entry also
@@ -438,7 +438,9 @@ A playback source identifies `asset_id` and `version_id`, an authorized `mediaUr
 5-second expiry margin. Derive it from client receipt time plus the grant's remaining lifetime
 rather than copying an absolute server timestamp, so client clock skew does not shift expiry
 decisions. `mediaFormat: 'hls'` selects native or JavaScript HLS; `mp4` and omission use native
-playback. An optional `fallbackUrl` supplies an already-authorized MP4 alternative. Refreshes
+playback. JavaScript HLS is available only for `<video>` in browsers supported by hls.js.
+For `<audio>` or an unsupported browser, non-native HLS uses `fallbackUrl` or reports failure.
+An optional `fallbackUrl` supplies an already-authorized MP4 alternative. Refreshes
 must return the same asset and version. Recovery keeps playback position, refuses replacement
 versions, and stops detached media and HLS requests when its owner unmounts. Applications must
 unmount or key the player when changing the selected asset/version.
@@ -450,6 +452,10 @@ the HLS manifest. It reports failure if neither native playback nor an MP4 fallb
 use `play()` to start JavaScript HLS explicitly. HLS loads `hls.js` only when native playback cannot
 handle the stream. The caller supplies retry and failure controls; `play()` starts a fresh attempt
 after failure, and unmounting always releases its media.
+`started` becomes true when `play()` starts an attempt with a primary URL and stays true for
+the hook's lifetime. It does not indicate whether media is currently playing. `prepare()` and
+native-control playback leave it unchanged; apps that use `prepare()` must enable controls
+themselves instead of relying on the example's `controls={player.started}`.
 Calling `play()` or `prepare()` without a primary `mediaUrl` reports failure, even if a fallback
 URL is present.
 The existing receipt-backed `Video` component remains available for applications using Viewer's
@@ -457,8 +463,11 @@ same-origin authorization route.
 
 When a new source arrives while HLS with a `fallbackUrl` is playing buffered media in the last
 60 seconds before `expiresAt`, the hook adopts the new grant for the same asset and version.
-Other playback relies on recovery after media errors: the hook calls `refresh()` at most once
-until the element plays again. A source or refresh answer with `mediaFormat: 'mp4'`, a `mediaUrl`
+Within a playback attempt, media-error recovery calls `refresh()` at most once until the element
+plays again. Entering the MP4 fallback can separately refresh an expired grant. A fresh attempt
+or a `playing` event resets the recovery limit. HLS with a fallback can also trigger recovery
+when the element waits for data within 5 seconds of expiry.
+A source or refresh answer with `mediaFormat: 'mp4'`, a `mediaUrl`
 and no `fallbackUrl` signals completed preparation. It replaces on-the-fly playback with that MP4
 at the current position when renewal or fallback next adopts it. Native media may briefly rebuffer.
 
@@ -479,8 +488,9 @@ For documents, read the existing authorized URL on demand using `readDocumentPre
 <Viewer kind="pdf" src={authorizedPdfUrl} title="Report" />
 ```
 
-Text reads are bounded to 2 MiB and omit credentials and referrers. HTTP 401 and 403 responses
-become `DocumentPreviewError` with reason `expired`, other HTTP failures become `unavailable`,
+`readDocumentPreview` reads are bounded to 2 MiB and omit credentials and referrers.
+HTTP 401 and 403 responses become `DocumentPreviewError` with reason `expired`;
+other HTTP failures and responses without a readable body become `unavailable`,
 and oversized reads become `too-large`; these errors omit signed URLs and response bodies.
 Network, stream, CORS and abort errors propagate unchanged. Cross-origin document URLs must
 allow CORS reads from the application origin.

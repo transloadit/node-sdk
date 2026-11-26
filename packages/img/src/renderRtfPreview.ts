@@ -29,6 +29,7 @@ const permittedStyles = [
 export async function renderRtfPreview(bytes: ArrayBuffer): Promise<string> {
   const { RTFJS } = await import('rtf.js')
   RTFJS.loggingEnabled(false)
+  // Omit onImport: rtf.js ignores imports, while rejecting its callback fails the whole document.
   const rtf = new RTFJS.Document(bytes, {
     onHyperlink() {
       const element = document.createElement('span')
@@ -36,9 +37,6 @@ export async function renderRtfPreview(bytes: ArrayBuffer): Promise<string> {
     },
     onPicture() {
       return document.createElement('span')
-    },
-    onImport(_url, callback) {
-      callback({ error: new Error('Document imports are disabled') })
     },
   })
   const inert = document.implementation.createHTMLDocument()

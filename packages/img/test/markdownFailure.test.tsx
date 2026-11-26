@@ -25,13 +25,13 @@ test('contains parser failures and reports each input once while the host stays 
   const root = createRoot(container)
   const bytes = new TextEncoder().encode('# Notes').buffer
   const onError = vi.fn()
-  function content(title: string): ReactNode {
+  function content(title: string, documentBytes = bytes): ReactNode {
     return (
       <>
         <p>Host content</p>
         <DocumentViewer
           format="markdown"
-          bytes={bytes}
+          bytes={documentBytes}
           title={title}
           onError={onError}
           errorFallback={<p role="alert">Unavailable</p>}
@@ -45,6 +45,8 @@ test('contains parser failures and reports each input once while the host stays 
   expect(onError).toHaveBeenCalledOnce()
   await act(() => root.render(content('Updated title')))
   expect(onError).toHaveBeenCalledOnce()
+  await act(() => root.render(content('Next document', new TextEncoder().encode('# Next').buffer)))
+  expect(onError).toHaveBeenCalledTimes(2)
   await act(() => root.unmount())
   vi.unstubAllGlobals()
 })

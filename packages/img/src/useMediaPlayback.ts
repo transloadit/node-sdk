@@ -14,7 +14,7 @@ export interface PlaybackSource {
   version_id: string
   /** Authorized primary media URL; play and prepare report failure when it is absent. */
   mediaUrl?: string
-  /** HLS selects native or JavaScript HLS; MP4 and omission use native playback. */
+  /** HLS uses native playback or hls.js for video; MP4 and omission use native playback. */
   mediaFormat?: 'hls' | 'mp4'
   /**
    * Authorized MP4 alternative. Serious HLS errors may send a background HEAD before use.
@@ -56,6 +56,7 @@ const VOD_LOAD_POLICY: LoadPolicy = {
 
 export interface MediaPlayback<T extends HTMLMediaElement> {
   media: RefObject<T | null>
+  /** True after play() starts an attempt; prepare() and native playback do not set it. */
   started: boolean
   failed: boolean
   loading: boolean
@@ -76,9 +77,10 @@ export interface MediaPlayback<T extends HTMLMediaElement> {
 
 /**
  * Play on click for a `<video>` or `<audio>` that React never gives a `src`, so nothing loads
- * before play() or prepare(). An expired link is re-signed at most once until the element plays
- * again. Renewal keeps playback position but may rebuffer. New sources renew buffered, playing
- * HLS with a fallback within 60 seconds of expiry; a fresh MP4 without a fallback replaces it.
+ * before play() or prepare(). Within an attempt, error recovery re-signs at most once until the
+ * element plays again; fallback may separately refresh an expired grant. Renewal keeps position
+ * but may rebuffer. New sources renew buffered, playing HLS with a fallback within 60 seconds
+ * of expiry; a fresh MP4 without a fallback replaces it.
  * Serious HLS errors may HEAD the fallback URL; fallback waits for that request without a timeout.
  */
 export function useMediaPlayback<T extends HTMLMediaElement>(
@@ -145,6 +147,7 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
     latest.current = details
   }, [details])
   function fail(): void {
+    setLoading(false)
     setFailed(true)
     callbacks.current.onPlaybackChange?.(false)
   }
@@ -412,10 +415,8 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
     if (refreshing.current === id) refreshing.current = null
     // The dialog closed meanwhile: a detached player would still load and play, out of reach.
     if (media.current !== element || loadingId.current !== id) return
-    // The same link means the same grant, so the failure was not an expiry.
     if (
       fresh?.mediaUrl === undefined ||
-      fresh.mediaUrl === playing.url ||
       fresh.asset_id !== playing.assetId ||
       fresh.version_id !== playing.versionId ||
       Date.now() >= fresh.expiresAt - EXPIRY_MARGIN_MS
@@ -429,7 +430,8 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
       : playing.format === 'mp4' && playing.url === playing.fallbackUrl
         ? fresh.fallbackUrl
         : fresh.mediaUrl
-    if (!url) {
+    // Compare the selected URL: MP4 fallback grants differ from their primary HLS grants.
+    if (!url || url === playing.url) {
       fail()
       return
     }

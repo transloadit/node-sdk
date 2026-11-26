@@ -88,6 +88,7 @@ function Movie({
         Prepare
       </button>
       {playback.failed ? <p role="alert">Unavailable</p> : null}
+      {playback.loading ? <p role="status">Loading</p> : null}
     </>
   )
 }
@@ -339,8 +340,10 @@ test('prepares idle native controls through the MP4 fallback without requesting 
 test('a retry after failure still cleans up its HLS instance on unmount', async () => {
   const details = { ...stream(), fallbackUrl: undefined }
   await playStream(details)
+  expect(container.querySelector('[role="status"]')?.textContent).toBe('Loading')
   await act(() => hls.handlers.get('error')?.('error', { fatal: true, type: 'media' }))
   expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
+  expect(container.querySelector('[role="status"]')).toBeNull()
   expect(hls.destroy).toHaveBeenCalledOnce()
   const button = container.querySelector('button')
   if (!button) throw new Error('Missing retry control')
@@ -440,7 +443,34 @@ test('preparing non-native HLS without a fallback fails without requesting media
   if (!button) throw new Error('Missing preparation control')
   await act(() => button.click())
   expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
+  expect(container.querySelector('[role="status"]')).toBeNull()
   expect(container.querySelector('video')?.getAttribute('src')).toBeNull()
   expect(hls.load).not.toHaveBeenCalled()
   expect(fetchMock).not.toHaveBeenCalled()
+})
+
+test('fails without reloading an unchanged MP4 fallback grant', async () => {
+  const details = stream()
+  const refresh = vi.fn().mockResolvedValue(details)
+  const video = await playStream(details, refresh)
+  await act(() => hls.handlers.get('error')?.('error', { fatal: true, type: 'media' }))
+  expect(video.src).toBe(details.fallbackUrl)
+  const playMock = vi.mocked(HTMLMediaElement.prototype.play)
+  playMock.mockClear()
+  Object.defineProperty(video, 'error', { configurable: true, value: { code: 2 } })
+  await act(() => video.dispatchEvent(new Event('error')))
+  expect(refresh).toHaveBeenCalledOnce()
+  expect(playMock).not.toHaveBeenCalled()
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
+})
+
+test('a failed fallback renewal clears loading', async () => {
+  const details = stream()
+  const refresh = vi.fn().mockResolvedValue(undefined)
+  await playStream(details, refresh)
+  vi.spyOn(Date, 'now').mockReturnValue(details.expiresAt + 1000)
+  await act(() => hls.handlers.get('error')?.('error', { fatal: true, type: 'media' }))
+  expect(refresh).toHaveBeenCalledOnce()
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
+  expect(container.querySelector('[role="status"]')).toBeNull()
 })
