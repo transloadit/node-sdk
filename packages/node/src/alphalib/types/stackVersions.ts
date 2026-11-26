@@ -4,10 +4,15 @@ export const runtimeStackVersions = {
   mplayer: { default: 'v1.5.0', valid: ['v1.5.0'] },
   mediainfo: { default: 'v23.10', valid: ['v23.10'] },
   imagemagick: {
-    default: 'v2.0.10',
+    default: 'v2.0.11',
     // Normalizers upgrade these versions; AssemblyValidator supplies deprecation warnings.
-    deprecated: { 'v2.0.9': 'v2.0.10', 'v3.0.0': 'v3.0.1' },
-    valid: ['v2.0.10', 'v3.0.1'],
+    deprecated: {
+      'v2.0.9': 'v2.0.11',
+      'v2.0.10': 'v2.0.11',
+      'v3.0.0': 'v3.0.2',
+      'v3.0.1': 'v3.0.2',
+    },
+    valid: ['v2.0.11', 'v3.0.2'],
   },
   ffmpeg: {
     default: 'v6.0.0',

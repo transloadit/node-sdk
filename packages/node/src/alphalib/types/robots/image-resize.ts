@@ -174,7 +174,11 @@ export const robotImageResizeInstructionsSchema = robotBase
   .merge(robotUse)
   .merge(robotImagemagick)
   .extend({
-    robot: z.literal('/image/resize'),
+    robot: z.literal('/image/resize').describe(`
+### RAW conversion update
+
+Image stacks \`v2.0.11\` and \`v3.0.2\` update RAW decoding. Your RAW conversions will look slightly different, including small color and detail changes. Earlier v2/v3 selections upgrade within the same major version. Other image formats are unchanged.
+`),
     // TODO: Use an enum
     format: z
       .string()

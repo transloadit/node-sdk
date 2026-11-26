@@ -1,5 +1,9 @@
+import { fileURLToPath } from 'node:url'
+
 import nock from 'nock'
+import ts from 'typescript'
 import { afterEach, expect, test } from 'vitest'
+import { ZodError } from 'zod'
 
 import { Transloadit } from '../../src/Transloadit.ts'
 
@@ -82,6 +86,136 @@ test('lists a bounded native metadata page, including Workspace context for an e
     client.listStoredAssets({ prefix: 'photos/', limit: 2, cursor: 'photos/a.jpg' }),
   ).resolves.toMatchObject({ workspace: 'my-app', assets: [], next_cursor: null })
   expect(request.isDone()).toBe(true)
+})
+
+test.each([
+  { search: '', sent: undefined },
+  { search: null, sent: undefined },
+  { search: 'cat', sent: 'cat' },
+])('sends a filename search only when it has text ($search)', async ({ search, sent }) => {
+  let params: Record<string, unknown> = {}
+  const request = nock(origin)
+    .get('/dam/assets')
+    .query((query) => {
+      params = JSON.parse(String(query.params))
+      return true
+    })
+    .reply(200, {
+      ok: 'DAM_ASSETS_LISTED',
+      message: 'Listed',
+      workspace: 'my-app',
+      assets: [],
+      next_cursor: null,
+    })
+  await expect(client.listStoredAssets({ prefix: 'photos/', search })).resolves.toMatchObject({
+    assets: [],
+  })
+  expect(request.isDone()).toBe(true)
+  expect(params).toMatchObject({ prefix: 'photos/', limit: 100 })
+  expect(params.search).toBe(sent)
+})
+
+test('reads only the declared list options, including inherited ones', async () => {
+  let params: Record<string, unknown> = {}
+  const request = nock(origin)
+    .get('/dam/assets')
+    .query((query) => {
+      params = JSON.parse(String(query.params))
+      return true
+    })
+    .reply(200, {
+      ok: 'DAM_ASSETS_LISTED',
+      message: 'Listed',
+      workspace: 'my-app',
+      assets: [],
+      next_cursor: null,
+    })
+  const read: string[] = []
+  class PageOptions {
+    search = ''
+    get prefix(): string {
+      read.push('prefix')
+      return 'photos/'
+    }
+    get limit(): number {
+      read.push('limit')
+      return 7
+    }
+  }
+  const options = Object.defineProperty(new PageOptions(), 'unrelated', {
+    enumerable: true,
+    get() {
+      read.push('unrelated')
+      return true
+    },
+  })
+
+  await client.listStoredAssets(options)
+
+  expect(request.isDone()).toBe(true)
+  expect(params).toMatchObject({ prefix: 'photos/', limit: 7 })
+  expect(params).not.toHaveProperty('search')
+  expect(read).toEqual(['prefix', 'limit'])
+})
+
+test('lists with default options when none are given', async () => {
+  let params: Record<string, unknown> = {}
+  const request = nock(origin)
+    .get('/dam/assets')
+    .query((query) => {
+      params = JSON.parse(String(query.params))
+      return true
+    })
+    .reply(200, {
+      ok: 'DAM_ASSETS_LISTED',
+      message: 'Listed',
+      workspace: 'my-app',
+      assets: [],
+      next_cursor: null,
+    })
+
+  await client.listStoredAssets(undefined)
+
+  expect(request.isDone()).toBe(true)
+  expect(params).toMatchObject({ prefix: '', limit: 100 })
+})
+
+test.each([
+  [[]],
+  [null],
+])('rejects non-object list options before sending (%j)', async (options) => {
+  // @ts-expect-error Exercise invalid options arriving from JavaScript callers.
+  await expect(client.listStoredAssets(options)).rejects.toBeInstanceOf(ZodError)
+})
+
+test('accepts a null filename search in the public types', () => {
+  const program = ts.createProgram(
+    [
+      fileURLToPath(new URL('../type-consumers/list-stored-assets.ts', import.meta.url)),
+      fileURLToPath(new URL('../../src/alphalib/typings/json-to-ast.d.ts', import.meta.url)),
+    ],
+    {
+      allowImportingTsExtensions: true,
+      module: ts.ModuleKind.NodeNext,
+      moduleResolution: ts.ModuleResolutionKind.NodeNext,
+      noEmit: true,
+      strict: true,
+      target: ts.ScriptTarget.ES2022,
+      types: ['node'],
+    },
+  )
+  const diagnostics = ts.getPreEmitDiagnostics(program)
+  expect(
+    ts.formatDiagnosticsWithColorAndContext(diagnostics, {
+      getCanonicalFileName: (fileName) => fileName,
+      getCurrentDirectory: () => process.cwd(),
+      getNewLine: () => '\n',
+    }),
+  ).toBe('')
+})
+
+test('rejects a filename search longer than 255 code points before sending', async () => {
+  await expect(client.listStoredAssets({ search: 'x'.repeat(256) })).rejects.toThrow()
 })
 
 test('rejects malformed identifiers and unbounded page sizes before sending', async () => {

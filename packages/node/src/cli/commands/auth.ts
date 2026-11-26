@@ -125,7 +125,9 @@ function generateSignature(
   } else {
     const parsedResult = parseJsonObject(
       input,
-      cliSignatureParamsSchema.extend({ steps: createCliStepsSchema(output).optional() }),
+      cliSignatureParamsSchema.extend({
+        steps: createCliStepsSchema(output, { previousContract: true }).optional(),
+      }),
     )
     if (!parsedResult.ok) {
       return { ok: false, error: parsedResult.error }

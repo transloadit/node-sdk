@@ -1,4 +1,4 @@
-<!-- alphalib-sync-agent-doc-sha256:9dc5eb4e06e12082ec883ab88ffd692b2017dc9ab4e18192cccc1109788ffb5c -->
+<!-- alphalib-sync-agent-doc-sha256:09ddd1fb1ca882aadbe7ecef3fb2eeaaba51750a83006e22f47a26f263264cd7 -->
 # Transloadit Repository Guide
 ## coding style
 
@@ -66,6 +66,9 @@ General:
 
 - Do not touch `.env` files!
 - Favor Yarn (4) over npm
+- For outbound emails and other messages meant to be sent or pasted, keep each paragraph on one
+  line and let the client wrap; never hard-wrap at a fixed width. If a Markdown formatter wraps
+  drafts, prevent that wrapping or unwrap paragraphs before sending.
 - Do not prove script, workflow, or config behavior with source-string assertions. Execute the
   behavior; keep workflow YAML thin and test its scripts. Use standard validators or narrow, named
   lint rules for intentional static contracts, with fixtures that demonstrate violations.

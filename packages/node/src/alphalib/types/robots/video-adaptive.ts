@@ -60,6 +60,7 @@ export const meta: RobotMetaInput = {
   purpose_words: 'Convert videos to HLS, MPEG-Dash and CMAF',
   title: 'Convert videos to HLS, MPEG-Dash and CMAF',
   name: 'VideoAdaptiveRobot',
+  planMediaTrim: 'segmentsInputs',
 }
 
 export const robotVideoAdaptiveInstructionsSchema = robotBase

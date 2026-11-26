@@ -143,6 +143,11 @@ import {
   meta as documentThumbsMeta,
 } from './document-thumbs.ts'
 import {
+  interpolatableRobotDocumentWatermarkInstructionsSchema,
+  interpolatableRobotDocumentWatermarkInstructionsWithHiddenFieldsSchema,
+  meta as documentWatermarkMeta,
+} from './document-watermark.ts'
+import {
   interpolatableRobotDropboxImportInstructionsSchema,
   interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema,
   meta as dropboxImportMeta,
@@ -528,6 +533,7 @@ const robotStepsInstructions: RobotSchemaOptions = [
   interpolatableRobotDocumentOptimizeInstructionsSchema,
   interpolatableRobotDocumentSplitInstructionsSchema,
   interpolatableRobotDocumentThumbsInstructionsSchema,
+  interpolatableRobotDocumentWatermarkInstructionsSchema,
   interpolatableRobotDropboxImportInstructionsSchema,
   interpolatableRobotDropboxStoreInstructionsSchema,
   interpolatableRobotEdglyDeliverInstructionsSchema,
@@ -628,6 +634,7 @@ const robotStepsInstructionsWithHiddenFields: RobotSchemaOptions = [
   interpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsSchema,
   interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema,
   interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotDocumentWatermarkInstructionsWithHiddenFieldsSchema,
   interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema,
   interpolatableRobotDropboxStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsSchema,
@@ -790,6 +797,7 @@ export const robotsMeta = {
   documentOptimizeMeta,
   documentSplitMeta,
   documentThumbsMeta,
+  documentWatermarkMeta,
   dropboxImportMeta,
   dropboxStoreMeta,
   edglyDeliverMeta,
@@ -1035,6 +1043,12 @@ export type {
   InterpolatableRobotDocumentThumbsInstructionsWithHiddenFields,
   InterpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsInput,
 } from './document-thumbs.ts'
+export type {
+  InterpolatableRobotDocumentWatermarkInstructions,
+  InterpolatableRobotDocumentWatermarkInstructionsInput,
+  InterpolatableRobotDocumentWatermarkInstructionsWithHiddenFields,
+  InterpolatableRobotDocumentWatermarkInstructionsWithHiddenFieldsInput,
+} from './document-watermark.ts'
 export type {
   InterpolatableRobotDropboxImportInstructions,
   InterpolatableRobotDropboxImportInstructionsInput,

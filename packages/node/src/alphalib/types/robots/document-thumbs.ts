@@ -55,6 +55,7 @@ export const robotDocumentThumbsInstructionsSchema = robotBase
 
 - If you convert a multi-page PDF file into several images, all result images will be sorted with the first image being the thumbnail of the first document page, etc.
 - You can also check the \`meta.thumb_index\` key of each result image to find out which page it corresponds to. Keep in mind that these thumb indices **start at 0,** not at 1.
+- The index refers to the PDF supplied to this Step. After /document/split selects pages, it identifies the position in that selected PDF, not the original source page number. A comma-separated page selection containing ranges cannot be indexed directly to label each thumbnail; expand ranges into individual page numbers first if you need source-page labels.
 `),
     page: z
       .number()

@@ -103,13 +103,19 @@ An optional duration in seconds that the served file should be cached. When set,
 
 This is useful for controlling data retention in CDNs. For instance, if your temporary files are deleted after 24 hours, you can set \`cache_duration\` to \`86400\` to ensure cached copies also expire within that window.
 `),
+    download: z
+      .boolean()
+      .default(false)
+      .describe(
+        'Serve as an attachment using the input file’s literal filename. Defaults to false. An explicit download_name takes precedence. Does not change the bytes or Range support.',
+      ),
     download_name: z
       .string()
       // biome-ignore lint/suspicious/noControlCharactersInRegex: reject header-injection control characters, not literal text.
       .regex(/^[^/\\\u0000-\u001f\u007f-\u009f]{0,255}$/u)
       .optional()
       .describe(
-        'Serve as an attachment using this Unicode filename. Empty or omitted keeps inline delivery. Overrides a Content-Disposition header without changing the bytes or Range support.',
+        'Serve as an attachment using this Unicode filename. Empty or omitted keeps inline delivery unless download is true. Overrides a Content-Disposition header without changing the bytes or Range support.',
       ),
     headers: z
       .record(z.string())

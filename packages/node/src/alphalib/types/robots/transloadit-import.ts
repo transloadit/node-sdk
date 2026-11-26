@@ -3,7 +3,13 @@ import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives
 import { z } from 'zod'
 
 import { damIdSchema } from '../storageAsset.ts'
-import { interpolateRobot, recursive, robotBase, robotImport } from './_instructions-primitives.ts'
+import {
+  interpolateRobot,
+  recursive,
+  return_file_stubs,
+  robotBase,
+  robotImport,
+} from './_instructions-primitives.ts'
 
 /** Cross-field validation runs after interpolation-aware parsing at the Assembly Step boundary. */
 export function refineTransloaditImportSelector(
@@ -106,6 +112,7 @@ The exact retained version of \`asset_id\` to import. Requires \`asset_id\`; a m
 version never falls back to the current version.
 `),
     recursive: recursive.describe(recursiveDescription),
+    return_file_stubs,
   })
   .strict()
 

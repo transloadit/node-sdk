@@ -14,6 +14,21 @@ export function exitWithError(error: unknown): never {
   process.exit(1)
 }
 
+// Timeouts, upload conflicts and locks, and rate limits: tus and Uppy retry these themselves.
+const transientClientStatuses = new Set([408, 409, 423, 429])
+// The file itself was refused: too large, or of a type the server won't take.
+const refusedFileStatuses = new Set([413, 415])
+
+/**
+ * Explains a failed request by its HTTP status. A later attempt can get past a `transient` one,
+ * including server-side trouble, but not past a `refused` one, which rejected the file itself.
+ */
+export function classifyRequestFailureStatus(status: number): 'transient' | 'refused' | 'other' {
+  if (transientClientStatuses.has(status) || status >= 500) return 'transient'
+  if (refusedFileStatuses.has(status)) return 'refused'
+  return 'other'
+}
+
 export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }

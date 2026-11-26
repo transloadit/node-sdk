@@ -55,6 +55,7 @@ export const meta: RobotMetaInput = {
   title: 'Concatenate audio',
   uses_tools: ['ffmpeg'],
   name: 'AudioConcatRobot',
+  planMediaTrim: 'combinesInputs',
 }
 
 export const robotAudioConcatInstructionsSchema = robotBase

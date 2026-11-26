@@ -17,10 +17,15 @@ import {
   robotUse,
 } from './_instructions-primitives.ts'
 
-const speechTranscribeProviderSchema = z.enum(['auto', 'aws', 'gcp', 'replicate']).default('auto')
-const speechTranscribeProviderWithHiddenFieldsSchema = z
-  .enum(['auto', 'aws', 'gcp', 'replicate', 'transloadit'])
+const speechTranscribeProviderSchema = z
+  .enum(['auto', 'aws', 'elevenlabs', 'gcp', 'replicate'])
   .default('auto')
+const speechTranscribeProviderWithHiddenFieldsSchema = z
+  .enum(['auto', 'aws', 'elevenlabs', 'gcp', 'replicate', 'transloadit'])
+  .default('auto')
+
+/** ElevenLabs keyterms are shorter than the provider-neutral vocabulary allows. */
+export const elevenLabsKeytermLimits = { maxCharacters: 49, maxWords: 5 } as const
 
 /** Shared vocabulary limits keep inline hints within GCP and Whisper prompt budgets. */
 export const speechTranscribeVocabularySchema = zodWithConservativeJsonInputSchema(
@@ -71,6 +76,7 @@ export const meta: RobotMetaInput = {
     aws: 0.024,
     gcp: 0.024,
     replicate: 'variable',
+    elevenlabs: 0.0037,
   },
 }
 
@@ -82,8 +88,7 @@ You can use the text that we return in your application, or you can pass the tex
 
 Another common use case is automatically subtitling videos, or making audio searchable.
 
-Set \`speaker_labels\` to \`true\` when you want JSON or meta transcription output to distinguish
-recurring speakers:
+Set \`speaker_labels\` to \`true\` when you want the transcript to distinguish recurring speakers:
 
 \`\`\`json
 {
@@ -100,7 +105,7 @@ recurring speakers:
 }
 \`\`\`
 
-Speaker labels are currently supported by the \`aws\` and \`gcp\` providers. If you enable
+Speaker labels are currently supported by the \`aws\`, \`gcp\` and \`elevenlabs\` providers. If you enable
 \`speaker_labels\` without setting \`provider\`, Transloadit uses \`aws\` for that <dfn>Step</dfn>, or
 \`gcp\` when \`vocabulary\` is also supplied. Labels
 are normalized as \`speaker_1\`, \`speaker_2\`, and so on:
@@ -119,14 +124,61 @@ are normalized as \`speaker_1\`, \`speaker_2\`, and so on:
   ]
 }
 \`\`\`
+
+The other formats show speakers too: \`text\` returns one \`Speaker 1: …\` paragraph per turn,
+\`webvtt\` wraps each cue in a \`<v Speaker 1>\` voice span, and \`srt\` names the speaker when the
+turn changes.
+
+### ElevenLabs
+
+Set \`provider\` to \`"elevenlabs"\` to use ElevenLabs Scribe (\`scribe_v2\`). Besides speech, it
+tags audio events such as \`(laughter)\` or \`(applause)\` in the transcript, and it detects the
+spoken language automatically unless you set \`source_language\`. Files can be up to 10 hours long.
+
+For production, we recommend using your own ElevenLabs account. Store your key as
+\`elevenlabs_api_key\` in a Template Credential of the AI Providers type and reference it with
+\`credentials\`. With your own account, you have your own ElevenLabs limits and credits.
+ElevenLabs bills you directly, and Transloadit charges only its fee: 30% of ElevenLabs’ list price
+of $0.0037 per minute (about $0.0011 per minute, at least $0.0005 per <dfn>Step</dfn>).
+
+Transloadit’s shared ElevenLabs account is the default and a quick way to try things out.
+Its credits and capacity are shared by all customers, so your <dfn>Step</dfn> can be delayed or
+refused for reasons outside your control. With this account, Transloadit bills ElevenLabs’
+list price of $0.0037 per minute plus a 30% fee.
+
+With either account, Transloadit retries HTTP 429 limit responses up to twice; if the limit
+persists, the <dfn>Step</dfn> fails. Exhausted credits fail without retrying. When the <dfn>Step</dfn>’s
+regular data volume charge is higher than the pricing above, that applies instead. If ElevenLabs
+rejects your key, the <dfn>Step</dfn> fails; Transloadit never falls back to its own key.
+
+\`\`\`json
+{
+  "steps": {
+    "transcribed": {
+      "use": ":original",
+      "robot": "/speech/transcribe",
+      "provider": "elevenlabs",
+      "credentials": "my_elevenlabs_credentials",
+      "format": "srt"
+    }
+  }
+}
+\`\`\`
 `),
     provider: speechTranscribeProviderSchema.describe(`
 ${autoProviderDescription}
 
-Set this to \`"aws"\`, \`"gcp"\`, or \`"replicate"\` to force a specific provider.
+Set this to \`"aws"\`, \`"gcp"\`, \`"replicate"\`, or \`"elevenlabs"\` to force a specific provider.
 When set to \`"auto"\`, Transloadit uses \`"replicate"\` by default and uses \`"aws"\` when
 \`speaker_labels\` is enabled. If both \`speaker_labels\` and a nonempty \`vocabulary\` are set,
-\`"auto"\` uses \`"gcp"\`.
+\`"auto"\` uses \`"gcp"\`. \`"auto"\` never selects \`"elevenlabs"\`.
+`),
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
+The name of a Template Credential of the AI Providers type that holds your own
+\`elevenlabs_api_key\`. Only the \`"elevenlabs"\` provider uses it.
 `),
     vocabulary: speechTranscribeVocabularySchema.optional().describe(`
 Words or phrases to favor during speech recognition, using the spelling you want in the output.
@@ -137,8 +189,10 @@ whitespace. Terms must not contain control characters or case-insensitive duplic
 joined with \`", "\` must fit within 200 UTF-8 bytes, keeping all terms within Whisper’s prompt
 budget. Omitting this parameter or supplying an empty array leaves recognition unchanged.
 
-Supported by \`"replicate"\` and \`"gcp"\`. Replicate uses a prompt-capable WhisperX large-v3 model
-with aligned word timestamps when vocabulary is supplied. GCP uses inline boosted phrase hints.
+Supported by \`"replicate"\`, \`"gcp"\` and \`"elevenlabs"\`. Replicate uses a prompt-capable
+WhisperX large-v3 model with aligned word timestamps when vocabulary is supplied. GCP uses inline
+boosted phrase hints. ElevenLabs uses keyterm prompting, which accepts terms of at most 49
+characters and five words each, and adds $0.0008 per minute to the ElevenLabs list price.
 Explicit \`"aws"\` requests with vocabulary return a validation error because AWS requires a
 pre-created Custom Vocabulary. Use \`"auto"\`, \`"replicate"\`, or \`"gcp"\` instead.
 
@@ -179,11 +233,13 @@ Speaker labels identify recurring voices, not real person names. Accuracy depend
 The maximum number of speakers to detect when \`speaker_labels\` is enabled.
 `),
     // TODO determine the list of languages
+    // The published default describes aws and gcp. With ElevenLabs, an omitted value means the
+    // language is detected automatically.
     source_language: z
       .string()
       .default('en-US')
       .describe(`
-Sets the spoken language for the \`"aws"\` and \`"gcp"\` providers. The transcription stays in the spoken language; this parameter does not translate speech.
+Sets the spoken language for the \`"aws"\`, \`"gcp"\` and \`"elevenlabs"\` providers. The transcription stays in the spoken language; this parameter does not translate speech. ElevenLabs uses only the language part, such as \`"de"\` for \`"de-DE"\`, and detects the language itself when you omit this parameter.
 
 The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please also consult the list of supported languages for [the \`gcp\` provider](https://cloud.google.com/speech-to-text/docs/languages) and [the \`aws\` provider](https://docs.aws.amazon.com/transcribe/latest/dg/what-is-transcribe.html).
 `),
@@ -202,6 +258,8 @@ For the \`"aws"\` and \`"gcp"\` providers, use \`source_language\` instead.
 const hiddenFields = {
   model: z.enum(['whisper-large-v3']).optional(),
   provider: speechTranscribeProviderWithHiddenFieldsSchema,
+  // Filled in from the Template Credentials named in `credentials`; not set in Instructions directly.
+  elevenlabs_api_key: z.string().optional(),
 }
 
 export const robotDefinition: RobotDefinitionWithHiddenFields<

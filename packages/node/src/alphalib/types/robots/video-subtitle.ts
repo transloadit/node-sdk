@@ -98,6 +98,14 @@ The accent color of the active word in JSON subtitles. Only applies to burned JS
 
 ${subtitleColorDescription}
 `),
+    speaker_colors: z
+      .array(subtitleColorSchema)
+      .min(1)
+      .max(10)
+      .optional()
+      .describe(`
+Accent colors per speaker for burned JSON subtitles from \`/speech/transcribe\` with \`speaker_labels\`. The first color highlights \`speaker_1\`, the second \`speaker_2\`, and so on, repeating when there are more speakers. Words without a speaker use \`highlight_color\`. Captions always break when the speaker changes.
+`),
     max_words_per_caption: z
       .number()
       .int()

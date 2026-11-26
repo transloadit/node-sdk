@@ -59,6 +59,7 @@ export const robotNames = z.enum([
   'DocumentExtractRobot',
   'DocumentMergeRobot',
   'DocumentSplitRobot',
+  'DocumentWatermarkRobot',
   'DocumentOptimizeRobot',
   'DocumentAutorotateRobot',
   'HtmlConvertRobot',
@@ -142,10 +143,28 @@ export const robotMetaSchema = z.object({
   minimumChargeUsdPerSpeechTranscribeMinute: awsGcpMinimumChargeUsdSchema
     .extend({
       replicate: z.literal('variable').optional(),
+      elevenlabs: z.number().optional(),
     })
     .optional(),
   minimumChargeUsdPerDocumentOcrPage: awsGcpMinimumChargeUsdSchema.optional(),
-  applyCommunityPlanMediaTrim: z.boolean().optional(),
+  /**
+   * The plan media trim cuts this Robot's audio and video output. The value says how that output's
+   * length relates to the Robot's media inputs, which tells whether a cut happened: it never runs
+   * longer than them, it is written in parts, it is one output combining them (merge, concat and
+   * loop Robots, which may also lengthen them), or it may be of any length (generators).
+   * `mediaOutputsOnly` keeps media input length but leaves extracted still images untouched.
+   */
+  planMediaTrim: z
+    .enum([
+      'keepsInputLength',
+      'segmentsInputs',
+      'combinesInputs',
+      'mayLengthen',
+      'mediaOutputsOnly',
+    ])
+    .optional(),
+  /** Output of this type gets the plan watermark even when the Step had input files. */
+  planWatermarkOutput: z.enum(['image', 'video']).optional(),
   isAllowedForUrlTransform: z.boolean(),
   removeJobResultFilesFromDiskRightAfterStoringOnS3: z.boolean(),
   lazyLoad: z.boolean().optional(),
@@ -270,7 +289,7 @@ export const robotAudioEncodingMeta = {
   priceFactor: 4,
   queueSlotCount: 20,
   trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
+  planMediaTrim: 'keepsInputLength',
 } satisfies Partial<RobotMetaInput>
 
 /** Shared document-processing metadata; exceptions stay local. */
@@ -339,7 +358,7 @@ export const robotVideoEncodingMeta = {
   queueSlotCount: 60,
   isAllowedForUrlTransform: false,
   trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
+  planMediaTrim: 'keepsInputLength',
 } satisfies Partial<RobotMetaInput>
 
 /** Shared import metadata; provider-specific prices, queues, and flags override it locally. */
@@ -784,9 +803,9 @@ export const robotOutputMetaSchema = z.union([
 export type RobotOutputMeta = z.infer<typeof robotOutputMetaSchema>
 
 const robotOutputMetaDescription = `
-Allows you to specify a set of metadata that is more expensive on CPU power to calculate, and thus is disabled by default to keep your Assemblies processing fast.
+Requests CPU-intensive metadata, disabled by default for faster Assemblies.
 
-For images, you can add \`"has_transparency": true\` in this object to extract if the image contains transparent parts and \`"dominant_colors": true\` to extract an array of hexadecimal color codes from the image.
+For images, \`"has_transparency": true\` detects transparency and \`"dominant_colors": true\` extracts hex colors. Add \`"dominant_colors_sampled": true\` for faster, approximate colors from downscaled frames. Sampling requires \`dominant_colors\` and changes neither image bytes nor billing. Its method and palette may vary. Omit or disable it for full-resolution colors.
 
 For images, you can also add \`"blurhash": true\` to extract a [BlurHash](https://blurha.sh) string — a compact representation of a placeholder for the image, useful for showing a blurred preview while the full image loads.
 
@@ -2359,7 +2378,7 @@ export type FilterCondition = z.infer<typeof filterCondition>
 export const filterCondition = z.union([z.null(), z.string(), z.array(filterConditionPartSchema)])
 
 /** English Turbo guidance shared by the public parameter and supporting video FAQ. */
-export const videoTurboParameterDocumentation = `Splits the video into multiple chunks so that each chunk can be encoded in parallel before all encoded chunks are stitched back together to form the result video. This comes at the expense of extra Priority Job Slots and may prove to be counter-productive for very small video files.
+export const videoTurboParameterDocumentation = `Splits the video into multiple chunks so that each chunk can be encoded in parallel before all encoded chunks are stitched back together to form the result video. This comes at the expense of extra Priority Job Slots and may prove to be counter-productive for very small video files. Each video is split into at most 30 chunks, so long videos get longer chunks.
 
 VP8 output and unresolved video-codec expressions use normal encoding even when \`turbo\` is \`true\`.`
 
@@ -2430,7 +2449,7 @@ Enables hinting for mp4 files, for RTP/RTSP streaming.
       .describe(`
 Allows you to specify the duration of each chunk when \`turbo\` is set to \`true\`. This means you can take advantage of that feature while using fewer <dfn>Priority Job Slots</dfn>. For instance, the longer each chunk is, the fewer <dfn>Encoding Jobs</dfn> will need to be used.
 
-Requested durations below 5 seconds are treated as 5 seconds.
+Requested durations below 5 seconds are treated as 5 seconds. For long videos, chunks are lengthened so that each video is split into at most 30 chunks.
 `),
     watermark_url: z
       .union([z.literal(''), httpUrlSchema])

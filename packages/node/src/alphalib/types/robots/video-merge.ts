@@ -47,6 +47,7 @@ export const meta: RobotMetaInput = {
   title: 'Merge video, audio, images into one video',
   uses_tools: ['ffmpeg'],
   name: 'VideoMergeRobot',
+  planMediaTrim: 'combinesInputs',
 }
 
 export const robotVideoMergeInstructionsSchema = robotBase
@@ -65,9 +66,13 @@ If the given width/height parameters are bigger than the input image's dimension
     background: videoBackgroundSchema,
     framerate: z
       .union([z.number().int().min(1), z.string().regex(/^[0-9]+(?:\/[0-9]+)?$/u)])
-      .default('1/5')
+      .optional()
       .describe(`
-When merging images to generate a video this is the input framerate. A value of "1/5" means each image is given 5 seconds before the next frame appears (the inverse of a framerate of "5"). Likewise for "1/10", "1/20", etc. A value of "5" means there are 5 frames per second.
+When merging an image sequence, this is the input frame rate. It defaults to \`1/5\`, which displays each image for 5 seconds. A value of \`5\` displays five images per second. For sequences, \`image_durations\` takes precedence when provided.
+
+With a single still image, this sets the video frame rate. When omitted, the preset or \`ffmpeg.r\` determines the output rate (25 fps by default). An explicit \`ffmpeg.r\` overrides \`framerate\` for a single image.
+
+This parameter does not affect audio/video merges or video concatenation.
 `),
     image_durations: z
       .array(z.number())
