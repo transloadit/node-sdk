@@ -1,7 +1,10 @@
 /** Document formats Viewer can display without sending bytes to another service. */
 export type DocumentPreviewKind = 'pdf' | 'markdown' | 'text' | 'rtf'
 
-/** Catalog MIME wins; filename fallback applies only to missing or generic text/binary metadata. */
+/**
+ * PDF requires application/pdf. Markdown, RTF and text may use the filename when MIME is null,
+ * application/octet-stream or text/plain.
+ */
 export function documentPreviewKind(
   mime: string | null,
   filename: string,
@@ -25,7 +28,7 @@ export const MAX_DOCUMENT_PREVIEW_BYTES = 2 * 1024 * 1024
 /** Rich document parsers keep a smaller bound than literal text. */
 export const MAX_RICH_DOCUMENT_PREVIEW_BYTES = 256 * 1024
 
-/** Safe error categories; signed URLs and response bodies are never shown in UI errors. */
+/** HTTP and size error categories whose messages omit signed URLs and response bodies. */
 export class DocumentPreviewError extends Error {
   readonly reason: 'too-large' | 'expired' | 'unavailable'
 
@@ -35,7 +38,10 @@ export class DocumentPreviewError extends Error {
   }
 }
 
-/** Fetch only an already-authorized CDN URL, aborting oversized responses before buffering them. */
+/**
+ * Read an authorized, CORS-readable URL with a streaming size limit. HTTP and size failures use
+ * DocumentPreviewError; network, stream and abort errors propagate unchanged.
+ */
 export async function readDocumentPreview(url: string, signal: AbortSignal): Promise<ArrayBuffer> {
   const response = await fetch(url, { signal, credentials: 'omit', referrerPolicy: 'no-referrer' })
   if (!response.ok) {

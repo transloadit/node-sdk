@@ -6,13 +6,25 @@ import type { RefObject } from 'react'
 
 import { useEffect, useRef, useState } from 'react'
 
-/** Version-bound sources may offer an encoded MP4 if HLS cannot be played. */
+/** Version-bound signed sources, including on-the-fly streams with an encoded MP4 fallback. */
 export interface PlaybackSource {
+  /** Asset identity that every refreshed grant must preserve. */
   asset_id: string
+  /** Retained version identity that every refreshed grant must preserve. */
   version_id: string
+  /** Authorized primary media URL; play and prepare report failure when it is absent. */
   mediaUrl?: string
+  /** HLS selects native or JavaScript HLS; MP4 and omission use native playback. */
   mediaFormat?: 'hls' | 'mp4'
+  /**
+   * Authorized MP4 alternative. Serious HLS errors may send a background HEAD before use.
+   * A fresh MP4 source without this field signals that background preparation has finished.
+   */
   fallbackUrl?: string
+  /**
+   * Epoch milliseconds compared with browser Date.now(), with a 5-second expiry margin.
+   * Derive from client receipt time plus the grant's remaining lifetime to avoid clock skew.
+   */
   expiresAt: number
 }
 
@@ -64,8 +76,10 @@ export interface MediaPlayback<T extends HTMLMediaElement> {
 
 /**
  * Play on click for a `<video>` or `<audio>` that React never gives a `src`, so nothing loads
- * before the user asks and a refreshed answer never restarts playback. An expired link is
- * re-signed once and playback resumes where it stopped.
+ * before play() or prepare(). An expired link is re-signed at most once until the element plays
+ * again. Renewal keeps playback position but may rebuffer. New sources renew buffered, playing
+ * HLS with a fallback within 60 seconds of expiry; a fresh MP4 without a fallback replaces it.
+ * Serious HLS errors may HEAD the fallback URL; fallback waits for that request without a timeout.
  */
 export function useMediaPlayback<T extends HTMLMediaElement>(
   details: PlaybackSource,
@@ -73,6 +87,10 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
   onPlaybackChange?: (playing: boolean) => void,
 ): MediaPlayback<T> {
   const media = useRef<T>(null)
+  const callbacks = useRef({ refresh, onPlaybackChange })
+  useEffect(() => {
+    callbacks.current = { refresh, onPlaybackChange }
+  }, [refresh, onPlaybackChange])
   const [started, setStarted] = useState(false)
   const [failed, setFailed] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -103,7 +121,7 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
   useEffect(() => {
     if (failed) release.current()
   }, [failed])
-  // The link the element plays and when it stops working (receipt-relative, so no clock skew).
+  // The current link and its deadline on the same clock as Date.now().
   const source = useRef<{
     url: string
     expiresAt: number
@@ -120,7 +138,7 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
   const fallbackUsed = useRef(false)
   // Set once the browser's own HLS player failed on this stream; hls.js plays it from then on.
   const nativeHlsFailed = useRef(false)
-  const refreshing = useRef(false)
+  const refreshing = useRef<number | null>(null)
   // The newest answer, so a failing on-the-fly stream can use a prepared MP4 polled meanwhile.
   const latest = useRef(details)
   useEffect(() => {
@@ -128,7 +146,7 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
   }, [details])
   function fail(): void {
     setFailed(true)
-    onPlaybackChange?.(false)
+    callbacks.current.onPlaybackChange?.(false)
   }
   useEffect(() => {
     // A hidden <audio> cannot take focus inside the click itself.
@@ -319,10 +337,10 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
     }
     const resume = { time: element.currentTime, play: !element.paused || wasPlaying.current }
     if (Date.now() >= playing.expiresAt - EXPIRY_MARGIN_MS) {
-      refreshing.current = true
       const id = loadingId.current
-      const fresh = await refresh().catch(() => undefined)
-      refreshing.current = false
+      refreshing.current = id
+      const fresh = await callbacks.current.refresh().catch(() => undefined)
+      if (refreshing.current === id) refreshing.current = null
       if (media.current !== element || loadingId.current !== id) return
       if (await playPrepared(element, playing, fresh, resume)) return
       if (
@@ -345,7 +363,7 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
   }
 
   async function recover(networkFailure = false, status?: number): Promise<void> {
-    if (refreshing.current) return
+    if (refreshing.current === loadingId.current) return
     const element = media.current
     const playing = source.current
     const code = element?.error?.code
@@ -388,10 +406,10 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
       return
     }
     resigned.current = true
-    refreshing.current = true
     const id = loadingId.current
-    const fresh = await refresh().catch(() => undefined)
-    refreshing.current = false
+    refreshing.current = id
+    const fresh = await callbacks.current.refresh().catch(() => undefined)
+    if (refreshing.current === id) refreshing.current = null
     // The dialog closed meanwhile: a detached player would still load and play, out of reach.
     if (media.current !== element || loadingId.current !== id) return
     // The same link means the same grant, so the failure was not an expiry.
@@ -442,7 +460,7 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
     if (
       !element ||
       failed ||
-      refreshing.current ||
+      refreshing.current === loadingId.current ||
       !playing?.fallbackUrl ||
       playing.format !== 'hls' ||
       !fresh.mediaUrl ||
@@ -485,7 +503,11 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
 
   function startPlayback(autoplay: boolean): void {
     const element = media.current
-    if (!element || details.mediaUrl === undefined) return
+    if (!element) return
+    if (details.mediaUrl === undefined) {
+      fail()
+      return
+    }
     setFailed(false)
     resigned.current = false
     retried.current = false
@@ -521,11 +543,11 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
       onEnded: () => {
         wasPlaying.current = false
         awaitingPlayback.current = false
-        onPlaybackChange?.(false)
+        callbacks.current.onPlaybackChange?.(false)
       },
       onPlay: () => {
         wasPlaying.current = true
-        onPlaybackChange?.(true)
+        callbacks.current.onPlaybackChange?.(true)
       },
       onPause: () => {
         setLoading(false)
@@ -534,7 +556,7 @@ export function useMediaPlayback<T extends HTMLMediaElement>(
         wasPlaying.current = false
         awaitingPlayback.current = false
         clearTimeout(startupTimer.current)
-        onPlaybackChange?.(false)
+        callbacks.current.onPlaybackChange?.(false)
       },
       onWaiting: () => {
         if (media.current?.paused) return

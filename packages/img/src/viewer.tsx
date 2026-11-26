@@ -12,7 +12,15 @@ import type {
 import type { DocumentViewerProps } from './documentViewer.tsx'
 import type { TransloaditPictureProps } from './picture.tsx'
 
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 
 import { TransloaditPicture } from './picture.tsx'
 
@@ -57,6 +65,11 @@ function DirectImage({
   objectFit?: 'contain' | 'cover'
 }): ReactNode {
   const [loaded, setLoaded] = useState(false)
+  const image = useRef<HTMLImageElement>(null)
+  useLayoutEffect(() => {
+    // SSR images can finish before hydration attaches the load handler.
+    if (image.current?.complete && image.current.naturalWidth > 0) setLoaded(true)
+  }, [])
   const placeholder =
     blurDataURL !== undefined &&
     blurDataURL.length <= 6000 &&
@@ -67,6 +80,7 @@ function DirectImage({
     // biome-ignore lint/performance/noImgElement: The application already authorized these bytes.
     <img
       {...props}
+      ref={image}
       alt={alt}
       decoding={decoding}
       loading={loading}
@@ -146,7 +160,8 @@ function PdfDocument({
 /**
  * Renders authorized images, media and documents without owning an application's admission rules.
  * Media can use native URLs or the exported signed-source playback hook. PDF frames use the
- * browser's viewer; rich text is parsed locally into inert, sandboxed markup.
+ * browser's viewer. Markdown is sanitized into React elements in the page. RTF is parsed locally
+ * and rendered in a sandboxed frame with a restrictive content security policy.
  */
 export function Viewer(props: ViewerProps): ReactNode {
   if (props.kind === 'image') {

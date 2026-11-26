@@ -6,6 +6,7 @@ Built-ins. Install `@transloadit/viewer@alpha` alongside React 19. Receipts come
 authenticated data layer; credentials stay in your server route.
 The optional `/react/preview` entry requires **0.0.6+**. The `/react/video` entry requires
 **0.0.8+**; see [private video playback](#private-video-playback).
+The `/react/viewer` and `/documents` entries require **0.2.0+**.
 
 ```tsx
 import { Image, getStorageAssetHref } from '@transloadit/viewer/react'
@@ -424,7 +425,8 @@ export function Movie({ source, refresh }: {
   const player = useMediaPlayback<HTMLVideoElement>(source, refresh)
   return (
     <>
-      <Viewer kind="video" ref={player.media} {...player.events} aria-label="Movie" />
+      <Viewer kind="video" ref={player.media} {...player.events}
+        controls={player.started} aria-label="Movie" />
       <button type="button" onClick={player.play}>Play</button>
     </>
   )
@@ -432,7 +434,10 @@ export function Movie({ source, refresh }: {
 ```
 
 A playback source identifies `asset_id` and `version_id`, an authorized `mediaUrl`, and an
-`expiresAt` deadline in milliseconds. `mediaFormat` selects `hls` or `mp4`; omission uses native
+`expiresAt` deadline in epoch milliseconds, compared with the browser's `Date.now()` with a
+5-second expiry margin. Derive it from client receipt time plus the grant's remaining lifetime
+rather than copying an absolute server timestamp, so client clock skew does not shift expiry
+decisions. `mediaFormat: 'hls'` selects native or JavaScript HLS; `mp4` and omission use native
 playback. An optional `fallbackUrl` supplies an already-authorized MP4 alternative. Refreshes
 must return the same asset and version. Recovery keeps playback position, refuses replacement
 versions, and stops detached media and HLS requests when its owner unmounts. Applications must
@@ -445,8 +450,22 @@ the HLS manifest. It reports failure if neither native playback nor an MP4 fallb
 use `play()` to start JavaScript HLS explicitly. HLS loads `hls.js` only when native playback cannot
 handle the stream. The caller supplies retry and failure controls; `play()` starts a fresh attempt
 after failure, and unmounting always releases its media.
+Calling `play()` or `prepare()` without a primary `mediaUrl` reports failure, even if a fallback
+URL is present.
 The existing receipt-backed `Video` component remains available for applications using Viewer's
 same-origin authorization route.
+
+When a new source arrives while HLS with a `fallbackUrl` is playing buffered media in the last
+60 seconds before `expiresAt`, the hook adopts the new grant for the same asset and version.
+Other playback relies on recovery after media errors: the hook calls `refresh()` at most once
+until the element plays again. A source or refresh answer with `mediaFormat: 'mp4'`, a `mediaUrl`
+and no `fallbackUrl` signals completed preparation. It replaces on-the-fly playback with that MP4
+at the current position when renewal or fallback next adopts it. Native media may briefly rebuffer.
+
+After a serious HLS error, the hook may send a background `HEAD` request with `mode: 'no-cors'`
+to `fallbackUrl` to start preparing the MP4. Supply an endpoint that permits this request. MP4
+fallback waits for it to finish without a client timeout; unmounting aborts it. The hook does
+not inspect the opaque response or verify that the server prepared the MP4.
 
 For documents, read the existing authorized URL on demand using `readDocumentPreview` from
 `@transloadit/viewer/documents`, then pass its `ArrayBuffer` to Viewer:
@@ -460,17 +479,30 @@ For documents, read the existing authorized URL on demand using `readDocumentPre
 <Viewer kind="pdf" src={authorizedPdfUrl} title="Report" />
 ```
 
-Text reads are bounded to 2 MiB, omit credentials and referrers, and categorize failures without
-exposing signed URLs. RTF parsing and rich Markdown are bounded to 256 KiB; larger Markdown is
-shown as literal text. Markdown skips embedded HTML and remote images, and only permits external
+Text reads are bounded to 2 MiB and omit credentials and referrers. HTTP 401 and 403 responses
+become `DocumentPreviewError` with reason `expired`, other HTTP failures become `unavailable`,
+and oversized reads become `too-large`; these errors omit signed URLs and response bodies.
+Network, stream, CORS and abort errors propagate unchanged. Cross-origin document URLs must
+allow CORS reads from the application origin.
+
+RTF parsing and rich Markdown are bounded to 256 KiB; larger Markdown is shown as literal text.
+RTF above 256 KiB and any document above 2 MiB render `errorFallback` and call `onError`.
+Markdown skips embedded HTML and remote images, and only permits external
 HTTP, HTTPS and email links. RTF is parsed locally, strips active content and embedded resources,
 and renders in a sandbox with a restrictive content security policy. PDF frames use the browser's
 PDF renderer; supply an authorized HTTP(S) URL on a separate user-content origin whose response
-has a verified PDF MIME type. Viewer rejects same-origin, blob, and data URLs by default. An
-application with a trusted PDF-only route can explicitly set `allowSameOrigin`; that route must
+has a verified PDF MIME type. Viewer always rejects non-HTTP(S) locations, including `blob:`,
+`data:` and `javascript:` URLs. It rejects the page's exact origin unless `allowSameOrigin` is set;
+other subdomains of the same site pass this check. The application must verify the PDF MIME type
+and origin isolation; Viewer does not check the response MIME type or sandbox the PDF frame.
+An application with a trusted PDF-only route can explicitly set `allowSameOrigin`; that route must
 verify the response is a PDF and must never serve arbitrary uploaded HTML. Use `errorFallback`
 for a rejected location. Arbitrary HTML and Office documents are not embedded.
 
-Document chunk-load failures render `errorFallback` and notify `onError`. Unmount and reopen the
-preview to retry a failed chunk request. PDF server rendering waits for the client origin before
+`className` styles the Markdown/text article or the RTF iframe. `richClassName` styles rendered
+Markdown only, and `textClassName` styles the literal text view.
+
+Document chunk-load and parser failures render `errorFallback` and notify `onError`. Unmount and
+reopen the preview to create a fresh React lazy loader after a failed chunk request.
+PDF server rendering waits for the client origin before
 deciding whether a URL is allowed, without showing a premature error.

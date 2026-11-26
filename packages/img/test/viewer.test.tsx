@@ -41,10 +41,14 @@ test('renders Markdown with inert HTML, image alt text and external links only',
         ).buffer
       }
       title="Project notes"
+      className="document"
+      richClassName="markdown"
     />,
   )
   await vi.waitFor(() => expect(container.querySelector('h1')?.textContent).toBe('Notes'))
   expect(container.querySelector('strong')?.textContent).toBe('Ready')
+  expect(container.querySelector('article')?.className).toBe('document')
+  expect(container.querySelector('article > div')?.className).toBe('markdown')
   expect(container.textContent).toContain('Pixel')
   expect(container.querySelectorAll('script, img')).toHaveLength(0)
   expect(container.querySelectorAll('a')).toHaveLength(1)
@@ -59,12 +63,16 @@ test('keeps plain text literal and reports oversized input through the caller fa
       format="text"
       bytes={new TextEncoder().encode('<h1>Literal</h1>').buffer}
       title="Notes"
+      className="document"
+      textClassName="literal"
     />,
   )
   await vi.waitFor(() =>
     expect(container.querySelector('pre')?.textContent).toBe('<h1>Literal</h1>'),
   )
   expect(container.querySelector('h1')).toBeNull()
+  expect(container.querySelector('article')?.className).toBe('document')
+  expect(container.querySelector('pre')?.className).toBe('literal')
   await show(
     <Viewer
       kind="document"
@@ -84,10 +92,13 @@ test('renders RTF locally into an inert sandboxed frame and rejects malformed RT
       format="rtf"
       bytes={new TextEncoder().encode(String.raw`{\rtf1\ansi A letter\par\b Important\b0}`).buffer}
       title="Letter"
+      className="document"
+      richClassName="markdown"
     />,
   )
   await vi.waitFor(() => expect(container.querySelector('iframe')?.srcdoc).toContain('Important'))
   expect(container.querySelector('iframe')?.getAttribute('sandbox')).toBe('')
+  expect(container.querySelector('iframe')?.className).toBe('document')
   expect(container.querySelector('iframe')?.srcdoc).toContain("default-src 'none'")
   const onError = vi.fn()
   await show(
@@ -209,4 +220,47 @@ test('removes a direct image placeholder after loading and resets it for another
   expect(container.querySelector('img')?.style.backgroundImage).toContain(
     'data:image/png;base64,AAAA',
   )
+})
+
+test('contains deeply nested Markdown failures without unmounting the host', async () => {
+  const bytes = new TextEncoder().encode(`${'> '.repeat(5000)}Nested`).buffer
+  const onError = vi.fn()
+  function content(documentBytes: ArrayBuffer): ReactNode {
+    return (
+      <>
+        <p>Host content</p>
+        <Viewer
+          kind="document"
+          format="markdown"
+          bytes={documentBytes}
+          title="Notes"
+          onError={onError}
+          errorFallback={<p role="alert">Unavailable</p>}
+        />
+      </>
+    )
+  }
+  await show(content(bytes))
+  await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce())
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
+  expect(container.textContent).toContain('Host content')
+  await show(content(bytes))
+  expect(onError).toHaveBeenCalledOnce()
+  await show(content(new TextEncoder().encode('# Recovered').buffer))
+  expect(container.querySelector('h1')?.textContent).toBe('Recovered')
+  expect(onError).toHaveBeenCalledOnce()
+})
+
+test('clears a placeholder when the image loaded before hydration attached its handler', async () => {
+  vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true)
+  vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(640)
+  await show(
+    <Viewer
+      kind="image"
+      src="https://cdn.invalid/cached"
+      alt="Portrait"
+      blurDataURL="data:image/png;base64,AAAA"
+    />,
+  )
+  expect(container.querySelector('img')?.style.backgroundImage).toBe('')
 })

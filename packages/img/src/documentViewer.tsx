@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import type { DocumentPreviewKind } from './document.ts'
 
 import { toJsxRuntime } from 'hast-util-to-jsx-runtime'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
@@ -21,14 +21,23 @@ import {
 
 /** Authorized document bytes and application-owned presentation and feedback. */
 export interface DocumentViewerProps {
+  /** Locally rendered document format; PDFs use Viewer's separate PDF kind. */
   format: Exclude<DocumentPreviewKind, 'pdf'>
+  /** Authorized document bytes, bounded again before parsing. */
   bytes: ArrayBuffer
+  /** Accessible name for the document article or RTF frame. */
   title: string
+  /** Styles the Markdown/text article or the RTF iframe. */
   className?: string
+  /** Styles rendered Markdown inside the article. */
   richClassName?: string
+  /** Styles the literal text view, including oversized Markdown. */
   textClassName?: string
+  /** Shown while the document renderer or RTF parser loads. */
   loadingFallback?: ReactNode
+  /** Shown when document loading, parsing or size validation fails. */
   errorFallback?: ReactNode
+  /** Reports a document loading, parsing or size failure. */
   onError?: () => void
 }
 
@@ -126,6 +135,35 @@ function MarkdownDocument({ bytes, richClassName }: DocumentViewerProps): ReactN
   return <div className={richClassName}>{content}</div>
 }
 
+interface MarkdownState {
+  bytes: ArrayBuffer
+  failed: boolean
+}
+
+// Byte limits do not bound nesting depth: parser and renderer failures must stay in the preview.
+class MarkdownBoundary extends Component<DocumentViewerProps, MarkdownState> {
+  override state: MarkdownState = { bytes: this.props.bytes, failed: false }
+
+  static getDerivedStateFromProps(
+    props: DocumentViewerProps,
+    state: MarkdownState,
+  ): MarkdownState | null {
+    return props.bytes === state.bytes ? null : { bytes: props.bytes, failed: false }
+  }
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true }
+  }
+
+  override render(): ReactNode {
+    return this.state.failed ? (
+      <DocumentFailure {...this.props} />
+    ) : (
+      <MarkdownDocument {...this.props} />
+    )
+  }
+}
+
 /** Render only locally parsed content; raw HTML and external embedded resources stay inert. */
 export function DocumentViewer(props: DocumentViewerProps): ReactNode {
   if (
@@ -142,7 +180,7 @@ export function DocumentViewer(props: DocumentViewerProps): ReactNode {
       className={props.className}
     >
       {props.format === 'markdown' && props.bytes.byteLength <= MAX_RICH_DOCUMENT_PREVIEW_BYTES ? (
-        <MarkdownDocument {...props} />
+        <MarkdownBoundary {...props} />
       ) : (
         <pre
           className={props.textClassName}

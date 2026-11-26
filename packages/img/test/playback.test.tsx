@@ -71,11 +71,13 @@ const source: PlaybackSource = {
 function Movie({
   refresh,
   details = source,
+  onPlaybackChange,
 }: {
   refresh: () => Promise<PlaybackSource | undefined>
   details?: PlaybackSource
+  onPlaybackChange?: (playing: boolean) => void
 }): ReactNode {
-  const playback = useMediaPlayback<HTMLVideoElement>(details, refresh)
+  const playback = useMediaPlayback<HTMLVideoElement>(details, refresh, onPlaybackChange)
   return (
     <>
       <Viewer kind="video" ref={playback.media} {...playback.events} aria-label="Movie" />
@@ -347,4 +349,98 @@ test('a retry after failure still cleans up its HLS instance on unmount', async 
   expect(container.querySelector('[role="alert"]')).toBeNull()
   await act(() => root.render(null))
   expect(hls.destroy).toHaveBeenCalledTimes(2)
+})
+
+test('HLS recovery uses the latest refresh callback after rerendering', async () => {
+  const details = stream()
+  const originalRefresh = vi.fn().mockResolvedValue(undefined)
+  await playStream(details, originalRefresh)
+  const fresh = { ...details, mediaUrl: 'https://cdn.invalid/renewed' }
+  const refresh = vi.fn().mockResolvedValue(fresh)
+  await act(() => root.render(<Movie details={details} refresh={refresh} />))
+  await act(() =>
+    hls.handlers.get('error')?.('error', { fatal: true, type: 'network', response: { code: 403 } }),
+  )
+  expect(refresh).toHaveBeenCalledOnce()
+  expect(originalRefresh).not.toHaveBeenCalled()
+  expect(hls.load).toHaveBeenLastCalledWith(fresh.mediaUrl)
+})
+
+test('HLS failures notify the latest playback callback', async () => {
+  const details = { ...stream(), fallbackUrl: undefined }
+  const refresh = vi.fn()
+  const originalCallback = vi.fn()
+  await act(() =>
+    root.render(<Movie details={details} refresh={refresh} onPlaybackChange={originalCallback} />),
+  )
+  const button = container.querySelector('button')
+  if (!button) throw new Error('Missing play control')
+  await act(() => button.click())
+  const onPlaybackChange = vi.fn()
+  await act(() =>
+    root.render(<Movie details={details} refresh={refresh} onPlaybackChange={onPlaybackChange} />),
+  )
+  await act(() => hls.handlers.get('error')?.('error', { fatal: true, type: 'media' }))
+  expect(onPlaybackChange).toHaveBeenCalledWith(false)
+  expect(originalCallback).not.toHaveBeenCalled()
+})
+
+test('a pending renewal cannot suppress recovery or clear a newer renewal', async () => {
+  const completions: ((value: PlaybackSource) => void)[] = []
+  const refresh = vi.fn(
+    () =>
+      new Promise<PlaybackSource>((resolve) => {
+        completions.push(resolve)
+      }),
+  )
+  const video = await play(refresh)
+  await act(() => video.dispatchEvent(new Event('error')))
+  const button = container.querySelector('button')
+  if (!button) throw new Error('Missing retry control')
+  await act(() => button.click())
+  await act(() => video.dispatchEvent(new Event('error')))
+  expect(refresh).toHaveBeenCalledTimes(2)
+  const first = completions[0]
+  const second = completions[1]
+  if (!first || !second) throw new Error('Missing pending renewals')
+  const fresh = {
+    ...source,
+    mediaUrl: 'https://cdn.invalid/renewed',
+    expiresAt: Date.now() + 60_000,
+  }
+  await act(() => first(fresh))
+  await act(() => video.dispatchEvent(new Event('error')))
+  expect(container.querySelector('[role="alert"]')).toBeNull()
+  expect(refresh).toHaveBeenCalledTimes(2)
+  await act(() => second(fresh))
+  expect(video.src).toBe(fresh.mediaUrl)
+})
+
+test.each(['Play', 'Prepare'])('%s reports failure without a primary media URL', async (action) => {
+  const details = { ...stream(), mediaUrl: undefined }
+  const refresh = vi.fn()
+  await act(() => root.render(<Movie details={details} refresh={refresh} />))
+  const button = Array.from(container.querySelectorAll('button')).find(
+    (element) => element.textContent === action,
+  )
+  if (!button) throw new Error('Missing playback control')
+  await act(() => button.click())
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
+  expect(container.querySelector('video')?.getAttribute('src')).toBeNull()
+  expect(refresh).not.toHaveBeenCalled()
+  expect(hls.load).not.toHaveBeenCalled()
+})
+
+test('preparing non-native HLS without a fallback fails without requesting media', async () => {
+  const details = { ...stream(), fallbackUrl: undefined }
+  const fetchMock = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', fetchMock)
+  await act(() => root.render(<Movie details={details} refresh={vi.fn()} />))
+  const button = container.querySelectorAll('button')[1]
+  if (!button) throw new Error('Missing preparation control')
+  await act(() => button.click())
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
+  expect(container.querySelector('video')?.getAttribute('src')).toBeNull()
+  expect(hls.load).not.toHaveBeenCalled()
+  expect(fetchMock).not.toHaveBeenCalled()
 })
