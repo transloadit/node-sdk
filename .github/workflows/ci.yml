@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
       - name: Ensure each package's lockfile matches dependency changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -106,7 +106,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
       - name: Install Corepack
         run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
@@ -123,7 +123,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
       - name: Install Corepack
         run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
@@ -136,7 +136,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
       - name: Install Corepack
         run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
@@ -152,7 +152,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
           registry-url: https://registry.npmjs.org
       - run: npm install -g npm@11.5.1
       - name: Install Corepack
@@ -183,7 +183,7 @@ jobs:
           cache: npm
           cache-dependency-path: scripts/fixtures/img-next/package-lock.json
           # Keep the existing patched LTS runtime while changing browser provisioning.
-          node-version: '24.22.1'
+          node-version: '24.22.3'
       - name: Install Corepack
         run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
@@ -205,7 +205,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
       - name: Install Corepack
         run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
@@ -225,7 +225,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
       - name: Install Corepack
         run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
@@ -245,11 +245,11 @@ jobs:
       # Keep the browsers and baseline fonts; replace the image's older bundled Node.
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
       - name: Verify patched Node runtime
         run: |
           node --version
-          test "$(node --version)" = v26.12.1
+          test "$(node --version)" = v26.13.1
       - name: Install Corepack
         run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
@@ -271,11 +271,11 @@ jobs:
           - node: 20
             version: 20
           - node: 22
-            version: '22.23.4'
+            version: '22.23.5'
           - node: 24
-            version: '24.22.1'
+            version: '24.22.3'
           - node: 26
-            version: '26.12.1'
+            version: '26.13.1'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -312,7 +312,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
       - name: Install Corepack
         run: npm install --global corepack@0.36.0
       - run: corepack yarn install --immutable
@@ -410,7 +410,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
       - name: Send Slack notification
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
