@@ -1,0 +1,700 @@
+import { optionalWithV3Semantics } from '../../lib/sdkZodOptional.ts'
+
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import { imagemagickDensityPattern } from '../../imagemagickDensity.ts'
+import { zodInputPreservingTransform } from '../../lib/zodInputSemantics.ts'
+import {
+  color_without_alpha_with_named,
+  colorspaceSchema,
+  complexHeightSchema,
+  complexWidthSchema,
+  createProcessingExample,
+  defineRobotWithHiddenFields,
+  httpUrlSchema,
+  imageAdaptiveFilteringSchema,
+  imageQualitySchema,
+  percentageSchema,
+  positionSchema,
+  robotBase,
+  robotImagemagick,
+  robotImageProcessingMeta,
+  robotUse,
+  unsafeCoordinatesSchema,
+} from './_instructions-primitives.ts'
+
+const imageResizeGravitySchema = z.union([positionSchema, z.enum(['attention', 'entropy'])])
+
+/** Input MIME types eligible for automatic libvips processing in /image/resize. */
+export const imageResizeDaemonInputMimes: readonly string[] = [
+  'image/jpg',
+  'image/jpeg',
+  'image/jxl',
+  'image/png',
+  'image/tiff',
+  'image/tiff-fx',
+  'image/gif',
+  'image/webp',
+  'image/svg',
+  'image/svg+xml',
+]
+
+/** Output formats eligible for automatic libvips processing in /image/resize. */
+export const imageResizeDaemonOutputFormats: readonly string[] = [
+  'heic',
+  'heif',
+  'jpeg',
+  'jpg',
+  'jxl',
+  'png',
+  'raw',
+  'tiff',
+  'webp',
+  'avif',
+]
+
+export const meta: RobotMetaInput = {
+  ...robotImageProcessingMeta,
+  example_code: createProcessingExample('resized', '/image/resize', {
+    width: 200,
+  }),
+  example_code_description:
+    'Resize uploaded images to a width of 200px while keeping their original aspect ratio:',
+  purpose_sentence:
+    'resizes, crops, changes colorization, rotation, and applies text and watermarks to images',
+  purpose_verb: 'convert',
+  purpose_word: 'convert/resize/watermark',
+  purpose_words: 'Convert, resize, or watermark images',
+  title: 'Convert, resize, or watermark images',
+  uses_tools: ['imagemagick'],
+  name: 'ImageResizeRobot',
+  queueSlotCount: 5,
+  trackOutputFileSize: true,
+}
+
+export const oneTextSchema = z.object({
+  // TODO: Determine valid fonts
+  text: z.string(),
+  font: z
+    .string()
+    .default('Arial')
+    .describe(`
+The font family to use. Also includes boldness and style of the font.
+
+[Here](/docs/supported-formats/fonts/) is a list of all
+supported fonts.
+`),
+  size: z
+    .number()
+    .int()
+    .min(1)
+    .default(12)
+    .describe(`
+The text size in pixels.
+`),
+  rotate: z
+    .number()
+    .int()
+    .default(0)
+    .describe(`
+The rotation angle in degrees.
+`),
+  color: color_without_alpha_with_named.default('#000000').describe(`
+The text color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x can be \`0-9\` or \`a-f\`. Named colors like \`"black"\`, \`"white"\`, \`"transparent"\` etc. are also supported. If you want a transparent text color, use "stroke" instead, otherwise your text will not be visible.
+`),
+  background_color: color_without_alpha_with_named.default('transparent').describe(`
+The background color behind the text. All hex colors in the form \`"#xxxxxx"\` are supported, where each x can be \`0-9\` or \`a-f\`. Named colors like \`"black"\`, \`"white"\`, \`"transparent"\` etc. are also supported.
+`),
+  stroke_width: z
+    .number()
+    .int()
+    .min(0)
+    .default(0)
+    .describe(`
+The stroke's width in pixels.
+`),
+  stroke_color: color_without_alpha_with_named.default('transparent').describe(`
+The stroke's color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x can be \`0-9\` or \`a-f\`. Named colors like \`"black"\`, \`"white"\`, \`"transparent"\` etc. are also supported.
+`),
+  align: z
+    .enum(['center', 'left', 'right'])
+    .default('center')
+    .describe(`
+The horizontal text alignment. Can be \`"left"\`, \`"center"\` and \`"right"\`.
+`),
+  valign: z
+    .enum(['bottom', 'center', 'top'])
+    .default('center')
+    .describe(`
+The vertical text alignment. Can be \`"top"\`, \`"center"\` and \`"bottom"\`.
+`),
+  x_offset: z
+    .number()
+    .int()
+    .default(0)
+    .describe(`
+The horizontal offset for the text in pixels that is added (positive integer) or removed (negative integer) from the horizontal alignment.
+`),
+  y_offset: z
+    .number()
+    .int()
+    .default(0)
+    .describe(`
+The vertical offset for the text in pixels that is added (positive integer) or removed (negative integer) from the vertical alignment.
+`),
+})
+
+const TEXT_DESCRIPTION = `
+Text overlays to be applied to the image. Can be either a single text object or an array of text objects. Each text object contains text rules. The following text parameters are intended to be used as properties for your text overlays. Here is an example:
+
+\`\`\`json
+"watermarked": {
+  "use": "resized",
+  "robot": "/image/resize",
+  "text": [
+    {
+      "text": "© 2018 Transloadit.com",
+      "size": 12,
+      "font": "Ubuntu",
+      "color": "#eeeeee",
+      "valign": "bottom",
+      "align": "right",
+      "x_offset": 16,
+      "y_offset": -10
+    }
+  ]
+}
+\`\`\``
+
+export const robotImageResizeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotImagemagick)
+  .extend({
+    robot: z.literal('/image/resize'),
+    // TODO: Use an enum
+    format: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe(`
+The output format for the modified image.
+
+Some of the most important available formats are \`"jpg"\`, \`"png"\`, \`"gif"\`, \`"tiff"\`, and \`"jxl"\` for JPEG XL. For a complete list of all formats that we can write to, please check [our supported image formats list](/docs/supported-formats/image-formats/).
+
+If \`null\` (default), then the input image's format will be used as the output format.
+
+If you wish to convert to \`"pdf"\`, please consider [🤖/document/convert](/docs/robots/document-convert/) instead.
+`),
+    width: optionalWithV3Semantics(complexWidthSchema).describe(`
+Width of the result in pixels. If not specified, will default to the width of the original.
+`),
+    height: optionalWithV3Semantics(complexHeightSchema).describe(`
+Height of the new image, in pixels. If not specified, will default to the height of the input image.
+`),
+    resize_strategy: z
+      .union([
+        z
+          .literal('crop')
+          .describe(`Cuts an area out of an image. Coordinates in the \`crop\` parameter imply this strategy. With coordinates, ImageMagick crops without resizing; libvips enlarges the image if \`x2\` or \`y2\` exceeds its dimensions, even with \`zoom: false\`. Without coordinates, set both \`width\` and \`height\`; this uses \`fillcrop\`, with \`gravity\` selecting which part is kept. With the default \`zoom\` setting, this coordinate-free path scales the image to cover that rectangle before trimming.
+
+To crop around human faces, see [🤖/image/facedetect](https://transloadit.com/docs/robots/image-facedetect/) instead.`),
+        z
+          .literal('fillcrop')
+          .describe(`Scales the image to fit into our 100×100 target while preserving aspect ratio, while trimming away any excess surface. This means both sides will become exactly 100 pixels, at the tradeoff of destroying parts of the image.
+
+By default the resulting image is horizontally/vertically centered to fill the target rectangle. Use the \`gravity\` parameter to change where to crop the image, such as \`"bottom"\` or \`"left"\`.`),
+        z
+          .literal('fit')
+          .describe(`Uses the larger side of the original image as a base for the resize. Aspect ratio is preserved. Either side will become at most 100 pixels.
+
+For example: resizing a 400×300 image into 100×100, would produce a 100×75 image.`),
+        z
+          .literal('min_fit')
+          .describe(`Uses the **smaller** side of the original image as a base for the resize. After resizing, the larger side will have a larger value than specified. Aspect ratio is preserved. Either side will become at least 100 pixels.
+
+For example: resizing a 400×300 image into 100×100, would produce a 133×100 image.`),
+        z
+          .literal('pad')
+          .describe(`Scales the image to fit while preserving aspect ratio. Both sides of the resized image become exactly 100 pixels, and any remaining surface is filled with a background color.
+
+In this example, the background color is determined by the [Assembly Variable](https://transloadit.com/docs/topics/assembly-instructions/#assembly-variables) \`\${file.meta.average_color}\`. If you set \`zoom\` to \`false\` (default is \`true\`), smaller images will be centered horizontally and vertically, and have the background padding all around them.`),
+        z
+          .literal('stretch')
+          .describe(
+            'Ignores aspect ratio, resizing the image to the exact width and height specified. This may result in a stretched or distorted image.',
+          ),
+      ])
+      .default('fit')
+      .describe(`
+See the list of available [resize strategies](/docs/topics/resize-strategies/).
+`),
+    zoom: z
+      .boolean()
+      .default(true)
+      .describe(`
+If this is set to \`false\`, smaller images will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/topics/resize-strategies/).
+`),
+    crop: optionalWithV3Semantics(unsafeCoordinatesSchema).describe(`
+Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original image(s). The coordinate system is rooted in the top left corner of the image. Values can be integers for absolute pixel values or strings for percentage based values.
+
+For example:
+
+\`\`\`json
+{
+  "x1": 80,
+  "y1": 100,
+  "x2": "60%",
+  "y2": "80%"
+}
+\`\`\`
+
+This will crop the area from \`(80, 100)\` to \`(600, 800)\` from a 1000×1000 pixels image, which is a rectangle whose width is 520px and height is 700px. If \`crop\` is set, the width and height parameters are ignored, and the \`resize_strategy\` is set to \`crop\` automatically.
+
+You can also use a JSON string of such an object with coordinates in similar fashion:
+
+\`\`\`json
+"{\\"x1\\": <Integer>, \\"y1\\": <Integer>, \\"x2\\": <Integer>, \\"y2\\": <Integer>}"
+\`\`\`
+
+To crop around human faces, see [🤖/image/facedetect](/docs/robots/image-facedetect/).
+`),
+    gravity: imageResizeGravitySchema.default('center').describe(`
+Sets crop direction for \`crop\` or \`fillcrop\` without explicit coordinates.
+Content-aware \`attention\` and \`entropy\` need libvips, \`fillcrop\`, \`width\` and \`height\`.
+Effects such as \`sepia\` or \`text\`, and inputs such as HEIC, can use ImageMagick.
+It centers these crops and the Assembly reports a warning.
+Crop in a separate /image/resize Step before effects, or convert unsupported inputs to PNG first.
+`),
+    strip: z
+      .boolean()
+      .default(false)
+      .describe(`
+Strips all metadata from the image. This is useful to keep thumbnails as small as possible.
+`),
+    alpha: optionalWithV3Semantics(z
+      .enum([
+        'Activate',
+        'Background',
+        'Copy',
+        'Deactivate',
+        'Extract',
+        'Off',
+        'On',
+        'Opaque',
+        'Remove',
+        'Set',
+        'Shape',
+        'Transparent',
+      ])
+      )
+      .describe(`
+Gives control of the alpha/matte channel of an image.
+`),
+    preclip_alpha: optionalWithV3Semantics(z
+      .enum([
+        'Activate',
+        'Background',
+        'Copy',
+        'Deactivate',
+        'Extract',
+        'Off',
+        'On',
+        'Opaque',
+        'Remove',
+        'Set',
+        'Shape',
+        'Transparent',
+      ])
+      )
+      .describe(`
+Gives control of the alpha/matte channel of an image before applying the clipping path via \`clip: true\`.
+`),
+    flatten: z
+      .boolean()
+      .default(true)
+      .describe(`
+Flattens all layers onto the specified background to achieve better results from transparent formats to non-transparent formats, as explained in the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#layers).
+
+To preserve animations, GIF files are not flattened when this is set to \`true\`. To flatten GIF animations, use the \`frame\` parameter.
+`),
+    correct_gamma: z
+      .boolean()
+      .default(false)
+      .describe(`
+Prevents gamma errors [common in many image scaling algorithms](https://www.4p8.com/eric.brasseur/gamma.html).
+`),
+    quality: imageQualitySchema,
+    adaptive_filtering: imageAdaptiveFilteringSchema,
+    background: color_without_alpha_with_named.default('#FFFFFF').describe(`
+Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (used for the \`pad\` resize strategy).
+
+**Note:** By default, the background of transparent images is changed to white. To preserve transparency, set \`"background"\` to \`"none"\`.
+`),
+    frame: z
+      .number()
+      .int()
+      .min(1)
+      .nullable()
+      .default(null)
+      .describe(`
+Use this parameter when dealing with animated GIF files to specify which frame of the GIF is used for the operation. Specify \`1\` to use the first frame, \`2\` to use the second, and so on. \`null\` means all frames.
+`),
+    colorspace: optionalWithV3Semantics(colorspaceSchema).describe(`
+Sets the image colorspace. For details about the available values, see the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#colorspace). Please note that if you were using \`"RGB"\`, we recommend using \`"sRGB"\` instead as of 2014-02-04. ImageMagick might try to find the most efficient \`colorspace\` based on the color of an image, and default to e.g. \`"Gray"\`. To force colors, you might have to use this parameter in combination with \`type: "TrueColor"\`.
+`),
+    type: optionalWithV3Semantics(z
+      .enum([
+        'Bilevel',
+        'ColorSeparation',
+        'ColorSeparationAlpha',
+        'Grayscale',
+        'GrayscaleAlpha',
+        'Palette',
+        'PaletteAlpha',
+        'TrueColor',
+        'TrueColorAlpha',
+      ])
+      )
+      .describe(`
+Sets the image color type. For details about the available values, see the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#type). If you're using \`colorspace\`, ImageMagick might try to find the most efficient based on the color of an image, and default to e.g. \`"Gray"\`. To force colors, you could e.g. set this parameter to \`"TrueColor"\`
+`),
+    sepia: z
+      .number()
+      .int()
+      .min(0)
+      .max(99)
+      .nullable()
+      .default(null)
+      .describe(`
+Applies a sepia tone effect in percent.
+`),
+    rotation: z
+      .union([
+        z.number(), // Support any numeric rotation value (including precise angles like 2.9)
+        z.boolean(),
+        z.literal('auto'), // Support 'auto' string value
+      ])
+      .default(true)
+      .describe(`
+Determines whether the image should be rotated. Use any number to specify the rotation angle in degrees (e.g., \`90\`, \`180\`, \`270\`, \`360\`, or precise values like \`2.9\`). Use the value \`true\` or \`"auto"\` to auto-rotate images that are rotated incorrectly or depend on EXIF rotation settings. Otherwise, use \`false\` to disable auto-fixing altogether.
+`),
+    compress: z
+      .enum(['BZip', 'Fax', 'Group4', 'JPEG', 'JPEG2000', 'Lossless', 'LZW', 'None', 'RLE', 'Zip'])
+      .nullable()
+      .default(null)
+      .describe(`
+Specifies pixel compression for when the image is written. Compression is disabled by default.
+
+Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
+`),
+    blur: z
+      .string()
+      .regex(/^[0-9]+(\.[0-9]+)?x[0-9]+(\.[0-9]+)?$/u)
+      .nullable()
+      .default(null)
+      .describe(`
+Specifies gaussian blur, using a value with the form \`{radius}x{sigma}\`. The radius value specifies the size of area the operator should look at when spreading pixels, and should typically be either \`"0"\` or at least two times the sigma value. The sigma value is an approximation of how many pixels the image is "spread"; think of it as the size of the brush used to blur the image. This number is a floating point value, enabling small values like \`"0.5"\` to be used.
+`),
+    blur_regions: z
+      .array(
+        z.object({
+          // TODO: These types are not documented.
+          x: complexWidthSchema,
+          y: complexHeightSchema,
+          width: complexWidthSchema,
+          height: complexHeightSchema,
+        }),
+      )
+      .nullable()
+      .default(null)
+      .describe(`
+Specifies an array of ellipse objects that should be blurred on the image. Each object has the following keys: \`x\`, \`y\`, \`width\`, \`height\`.  If \`blur_regions\` has a value, then the \`blur\` parameter is used as the strength of the blur for each region.
+`),
+    // TODO: An int according to the docs, a float in the example
+    brightness: z
+      .number()
+      .min(0)
+      .default(1)
+      .describe(`
+Increases or decreases the brightness of the image by using a multiplier. For example \`1.5\` would increase the brightness by 50%, and \`0.75\` would decrease the brightness by 25%.
+`),
+    // TODO: An int according to the docs, a float in the example
+    saturation: z
+      .number()
+      .min(0)
+      .default(1)
+      .describe(`
+Increases or decreases the saturation of the image by using a multiplier. For example \`1.5\` would increase the saturation by 50%, and \`0.75\` would decrease the saturation by 25%.
+`),
+    hue: z
+      .number()
+      .min(0)
+      .default(100)
+      .describe(`
+Changes the hue by rotating the color of the image. The value \`100\` would produce no change whereas \`0\` and \`200\` will negate the colors in the image.
+`),
+    contrast: z
+      .number()
+      .min(0)
+      .max(2)
+      .default(1)
+      .describe(`
+Adjusts the contrast of the image. A value of \`1\` produces no change. Values below \`1\` decrease contrast, and values above \`1\` increase it. Start with small adjustments, such as \`0.9\` or \`1.1\`. Larger increases can clip shadows and highlights.
+`),
+    watermark_url: optionalWithV3Semantics(httpUrlSchema).describe(`
+A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.
+`),
+    watermark_position: z
+      .union([positionSchema, z.array(positionSchema)])
+      .default('center')
+      .describe(`
+The position at which the watermark is placed. The available options are \`"center"\`, \`"top"\`, \`"bottom"\`, \`"left"\`, and \`"right"\`. You can also combine options, such as \`"bottom-right"\`.
+
+An array of possible values can also be specified, in which case one value will be selected at random, such as \`[ "center", "left", "bottom-left", "bottom-right" ]\`.
+
+This setting puts the watermark in the specified corner. To use a specific pixel offset for the watermark, you will need to add the padding to the image itself.
+`),
+    watermark_x_offset: z
+      .number()
+      .int()
+      .default(0)
+      .describe(`
+The x-offset in number of pixels at which the watermark will be placed in relation to the position it has due to \`watermark_position\`.
+
+Values can be both positive and negative and yield different results depending on the \`watermark_position\` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.
+`),
+    watermark_y_offset: z
+      .number()
+      .int()
+      .default(0)
+      .describe(`
+The y-offset in number of pixels at which the watermark will be placed in relation to the position it has due to \`watermark_position\`.
+
+Values can be both positive and negative and yield different results depending on the \`watermark_position\` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.
+`),
+    watermark_size: optionalWithV3Semantics(percentageSchema).describe(`
+The size of the watermark, as a percentage.
+
+For example, a value of \`"50%"\` means that size of the watermark will be 50% of the size of image on which it is placed. The exact sizing depends on \`watermark_resize_strategy\`, too.
+
+With \`watermark_repeat_x\` or \`watermark_repeat_y\`, this sizes each tile relative to the output image, before repeating it. It does not set the percentage of the image covered by the whole pattern. Smaller values produce more, smaller tiles. If omitted, the watermark keeps its original pixel dimensions.
+`),
+    watermark_resize_strategy: z
+      .enum(['area', 'fit', 'min_fit', 'stretch'])
+      .default('fit')
+      .describe(`
+Available values are \`"fit"\`, \`"min_fit"\`, \`"stretch"\` and \`"area"\`.
+
+To explain how the resize strategies work, let's assume our target image size is 800×800 pixels and our watermark image is 400×300 pixels. Let's also assume, the \`watermark_size\` parameter is set to \`"25%"\`.
+
+For the \`"fit"\` resize strategy, the watermark is scaled so that the longer side of the watermark takes up 25% of the corresponding image side. And the other side is scaled according to the aspect ratio of the watermark image. So with our watermark, the width is the longer side, and 25% of the image size would be 200px. Hence, the watermark would be resized to 200×150 pixels. If the \`watermark_size\` was set to \`"50%"\`, it would be resized to 400×300 pixels (so just left at its original size).
+
+For the \`"min_fit"\` resize strategy, the watermark is scaled so that the shorter side of the watermark takes up 25% of the corresponding image side. And the other side is scaled according to the aspect ratio of the watermark image. So with our watermark, the height is the shorter side, and 25% of the image size would be 200px. Hence, the watermark would be resized to 267×200 pixels. If the \`watermark_size\` was set to \`"50%"\`, it would be resized to 533×400 pixels (so larger than its original size).
+
+For the \`"stretch"\` resize strategy, the watermark is stretched (meaning, it is resized without keeping its aspect ratio in mind) so that both sides take up 25% of the corresponding image side. Since our image is 800×800 pixels, for a watermark size of 25% the watermark would be resized to 200×200 pixels. Its height would appear stretched, because keeping the aspect ratio in mind it would be resized to 200×150 pixels instead.
+
+For the \`"area"\` resize strategy, the watermark is resized (keeping its aspect ratio in check) so that it covers \`"xx%"\` of the image's surface area. The value from \`watermark_size\` is used for the percentage area size.
+`),
+    watermark_opacity: z
+      .number()
+      .min(0)
+      .max(1)
+      .default(1.0)
+      .describe(`
+The opacity of the watermark, where \`0.0\` is fully transparent and \`1.0\` is fully opaque.
+
+For example, a value of \`0.5\` means the watermark will be 50% transparent, allowing the underlying image to show through. This is useful for subtle branding or when you want the watermark to be less obtrusive.
+`),
+    watermark_repeat_x: z
+      .boolean()
+      .default(false)
+      .describe(`
+When set to \`true\`, the watermark will be repeated horizontally across the entire width of the image.
+
+This is useful for creating tiled watermark patterns that cover the full image and make it more difficult to crop out the watermark.
+`),
+    watermark_repeat_y: z
+      .boolean()
+      .default(false)
+      .describe(`
+When set to \`true\`, the watermark will be repeated vertically across the entire height of the image.
+
+This is useful for creating tiled watermark patterns that cover the full image. Can be combined with \`watermark_repeat_x\` to tile in both directions.
+`),
+    text: optionalWithV3Semantics(z
+      .union([
+        // Support single text object (backward compatibility)
+        oneTextSchema,
+        // Support array of text objects (current schema)
+        z.array(oneTextSchema),
+      ])
+      )
+      .describe(TEXT_DESCRIPTION),
+    progressive: z
+      .boolean()
+      .default(false)
+      .describe(`
+Interlaces the image if set to \`true\`, which makes the image load progressively in browsers. Instead of rendering the image from top to bottom, the browser will first show a low-res blurry version of the images which is then quickly replaced with the actual image as the data arrives. This greatly increases the user experience, but comes at a cost of a file size increase by around 10%.
+`),
+    transparent: optionalWithV3Semantics(z
+      .union([color_without_alpha_with_named, z.string().regex(/^[0-9]+,[0-9]+,[0-9]+$/u)])
+      )
+      .describe(`
+Make this color transparent within the image. Example: \`"255,255,255"\`.
+`),
+    trim_whitespace: z
+      .boolean()
+      .default(false)
+      .describe(`
+This determines if additional whitespace around the image should first be trimmed away. If you set this to \`true\` this parameter removes any edges that are exactly the same color as the corner pixels.
+`),
+    clip: z
+      .union([z.string(), z.boolean()])
+      .default(false)
+      .describe(`
+Apply the clipping path to other operations in the resize job, if one is present. If set to \`true\`, it will automatically take the first clipping path. If set to a String it finds a clipping path by that name.
+`),
+    negate: z
+      .boolean()
+      .default(false)
+      .describe(`
+Replace each pixel with its complementary color, effectively negating the image. Especially useful when testing clipping.
+`),
+    clut: z
+      .boolean()
+      .default(false)
+      .describe(`
+Applies a Color Look-Up Table (CLUT) image to remap the colors of the input image using ImageMagick's \`-clut\` operator. When enabled, a second input file must be supplied via the \`use\` parameter with \`"as": "clut"\`.
+
+This operation currently runs via ImageMagick convert stack (not image-resizer daemon), even if \`stack: "daemon"\` is requested.
+
+When using multiple inputs, you should provide your primary image as \`"as": "base"\`. If no explicit \`base\` alias is set, Transloadit will use the first non-auxiliary input (a file that is not tagged as \`watermark\` or \`clut\`) as the primary image.
+
+The CLUT image acts as a gradient map: each pixel's color channels in the input are replaced with the corresponding color from the CLUT image, based on channel intensity. This is a powerful color grading technique widely used in photography and design workflows.
+
+Example:
+
+\`\`\`json
+{
+  "steps": {
+    ":original": {
+      "robot": "/upload/handle"
+    },
+    "lut_image": {
+      "robot": "/upload/handle"
+    },
+    "color_graded": {
+      "robot": "/image/resize",
+      "use": {
+        "steps": [
+          { "name": ":original", "as": "base" },
+          { "name": "lut_image", "as": "clut" }
+        ]
+      },
+      "clut": true
+    }
+  }
+}
+\`\`\`
+`),
+    density: z
+      .string()
+      .regex(imagemagickDensityPattern)
+      .nullable()
+      .default(null)
+      .describe(`
+While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. That is the density (in pixels per inch) of an image and defines how far apart (or how big) the individual pixels are. It defines the size of the image in real world terms when displayed on devices or printed.
+
+You can set this value to a specific \`width\` or in the format \`width\`x\`height\`.
+
+If your converted image is unsharp, please try increasing density.
+`),
+    monochrome: z
+      .boolean()
+      .default(false)
+      .describe(`
+Transform the image to black and white. This is a shortcut for setting the colorspace to Gray and type to Bilevel.
+`),
+    shave: optionalWithV3Semantics(z
+      .union([
+        z.string().regex(/^[0-9]+(x[0-9]+)?$/u),
+        zodInputPreservingTransform(z.number().int().min(0), String),
+      ])
+      )
+      .describe(`
+Shave pixels from the image edges. The value should be in the format \`width\` or \`width\`x\`height\` to specify the number of pixels to remove from each side.
+`),
+  })
+  .strict()
+
+const hiddenFields = {
+  stack: optionalWithV3Semantics(z.string()).describe('Legacy parameter, use imagemagick_stack instead'),
+  text: optionalWithV3Semantics(z
+    .union([
+      // Support single text object (backward compatibility)
+      oneTextSchema.extend({
+        gravity: optionalWithV3Semantics(positionSchema
+          .default('top-left')
+          )
+          .describe(`
+            Legacy. The direction from which to start the offsets.
+            `),
+      }),
+      // Support array of text objects (current schema)
+      z.array(
+        oneTextSchema.extend({
+          gravity: optionalWithV3Semantics(positionSchema
+            .default('top-left')
+            )
+            .describe(`
+              Legacy. The direction from which to start the offsets.
+              `),
+        }),
+      ),
+    ])
+    )
+    .describe(TEXT_DESCRIPTION),
+  watermark_position_x: optionalWithV3Semantics(z
+    .number()
+    .int()
+    )
+    .describe(`
+      Legacy alias for \`watermark_x_offset\`. The x-offset in number of pixels at which the watermark will be placed.
+      `),
+  watermark_position_y: optionalWithV3Semantics(z
+    .number()
+    .int()
+    )
+    .describe(`
+      Legacy alias for \`watermark_y_offset\`. The y-offset in number of pixels at which the watermark will be placed.
+      `),
+}
+
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotImageResizeInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotImageResizeInstructionsSchema, hiddenFields)
+
+export const {
+  withHiddenFields: robotImageResizeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageResizeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
+
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotImageResizeInstructions = Instructions['output']
+export type RobotImageResizeInstructionsInput = Instructions['input']
+export type RobotImageResizeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageResizeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageResizeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageResizeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageResizeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -118,6 +118,23 @@ The `packages/transloadit` folder is a generated legacy wrapper. Tracked files u
 yarn pack
 ```
 
+## Schema sources
+
+The schemas published by `@transloadit/zod` are maintained as Zod 4 source in
+`packages/zod/alphalib`. The Zod 3 export and the SDK's tracked Zod 3 copy in
+`packages/node/src/alphalib` are generated from it; see
+[docs/monorepo-architecture.md](docs/monorepo-architecture.md#zod-sync--generation-pipeline).
+`yarn lint:zod-source` fails when the two disagree:
+
+- After an alphalib sync changed `packages/node/src/alphalib`, run
+  `yarn workspace @transloadit/zod codemod:v4` to carry the change into the Zod 4 source.
+- After editing `packages/zod/alphalib`, run `yarn workspace @transloadit/zod sync:sdk`.
+
+When you change the generators or the Zod dependency, run
+`node scripts/prove-zod-exports.ts --base origin/main`. It builds both trees from scratch and fails
+on any difference in the generated schemas, the published packages or their runtime behavior that
+`scripts/prove-zod-exports.allowlist.ts` does not explain. It needs no credentials.
+
 ## Versioning policy
 
 These packages mirror a live API. When API2 changes a Robot parameter, every customer gets that

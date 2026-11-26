@@ -1,0 +1,145 @@
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import {
+  defineRobot,
+  getConcatFadeDescription,
+  inputSortBySchema,
+  robotBase,
+  robotFFmpegVideo,
+  robotUse,
+  robotVideoEncodingMeta,
+} from './_instructions-primitives.ts'
+
+export const meta: RobotMetaInput = {
+  ...robotVideoEncodingMeta,
+  example_code: {
+    steps: {
+      concatenated: {
+        robot: '/video/concat',
+        use: {
+          steps: [
+            {
+              name: ':original',
+              fields: 'first_video_file',
+              as: 'video_1',
+            },
+            {
+              name: ':original',
+              fields: 'second_video_file',
+              as: 'video_2',
+            },
+            {
+              name: ':original',
+              fields: 'third_video_file',
+              as: 'video_3',
+            },
+          ],
+        },
+      },
+    },
+  },
+  example_code_description:
+    'If you have a form with 3 file input fields and want to concatenate the uploaded videos in a specific order, instruct Transloadit using the `name` attribute of each input field. Use this attribute as the value for the `fields` key in the JSON, and set `as` to `video_[[index]]`. Transloadit will concatenate the files based on the ascending index order:',
+  purpose_sentence: 'concatenates several videos together',
+  purpose_verb: 'concatenate',
+  purpose_word: 'concatenate',
+  purpose_words: 'Concatenate videos',
+  title: 'Concatenate videos',
+  uses_tools: ['ffmpeg'],
+  name: 'VideoConcatRobot',
+  priceFactor: 4,
+}
+
+export const robotVideoConcatInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpegVideo)
+  .extend({
+    robot: z.literal('/video/concat').describe(`
+> [!Note]
+> Input videos may have differing dimensions and streams - the Robot can handle this fine. It will pre-transcode the input videos if necessary before concatenation at no additional cost.
+
+It’s possible to concatenate a virtually infinite number of video files using [🤖/video/concat](/docs/robots/video-concat/).
+`),
+    video_fade_seconds: z
+      .number()
+      .default(0)
+      .describe(`
+${getConcatFadeDescription('video')}
+
+This parameter only applies when \`transition\` is \`"none"\`. It is ignored when \`transition\` is \`"crossfade"\` or \`"fade_to_black"\`; use \`transition_duration\` for those effects. Audio fades are controlled separately by \`audio_fade_seconds\`.
+
+To add a fade-in at the beginning of the output, use an additional [video encoding Step](/docs/robots/video-encode/) with the \`ffmpeg\` parameter, as shown in the [video fade demo](/demos/video-encoding/concatenate-fade-effect/).
+`),
+    audio_fade_seconds: z
+      .number()
+      .default(0)
+      .describe(`
+${getConcatFadeDescription('audio')}
+
+This parameter only applies when \`transition\` is \`"none"\`. It is ignored when \`transition\` is \`"crossfade"\` or \`"fade_to_black"\`; use \`transition_duration\` for those effects. Video fades are controlled separately by \`video_fade_seconds\`.
+
+To add an audio fade-in at the beginning of the output, use an additional [video encoding Step](/docs/robots/video-encode/) with the \`ffmpeg\` parameter. The [audio fade demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/) shows the corresponding FFmpeg audio filter.
+`),
+    chapter_markers: z
+      .boolean()
+      .default(false)
+      .describe(`
+When set to \`true\`, the concatenated video will contain a chapter marker where each input video starts in the output. Each chapter will be titled with the basename of the corresponding input video file. When a \`transition\` is enabled, the incoming clip’s chapter starts at the beginning of its transition, accounting for the overlap between clips.
+
+This is useful for navigation in video players that support chapter-based seeking.
+
+In MP4 output, chapter markers add a \`bin_data\` track containing the chapter information. This is normal and does not affect video or audio playback.
+`),
+    sort_by: inputSortBySchema,
+    transition: z
+      .enum(['none', 'crossfade', 'fade_to_black'])
+      .default('none')
+      .describe(`
+Specifies the transition effect to apply between concatenated video clips.
+
+- \`"none"\` (default): No transition effect. Videos are joined end-to-end.
+- \`"crossfade"\`: Applies a crossfade transition where the end of one clip gradually blends into the beginning of the next clip. Both video and audio are crossfaded.
+- \`"fade_to_black"\`: Applies a fade-to-black transition where each clip fades out to black before the next clip fades in from black.
+
+When using \`"crossfade"\` or \`"fade_to_black"\`, the \`transition_duration\` parameter controls how long the transition lasts. Both effects overlap adjacent clips and reduce the total output duration by the applied transition duration at each join. The applied duration is capped at half of the shorter clip in each pair.
+`),
+    transition_duration: z
+      .number()
+      .default(1)
+      .describe(`
+The duration of the transition effect in seconds. Only applies when \`transition\` is set to \`"crossfade"\` or \`"fade_to_black"\`.
+
+For example, a value of \`1.0\` creates a 1-second transition between clips. The value can be a float for sub-second precision (e.g., \`0.5\` for 500 milliseconds) and must be greater than \`0\` whenever transitions are enabled.
+
+For crossfade transitions, this is the overlap duration where both clips are visible. For \`"fade_to_black"\`, the video fades out over approximately the first 20% of the transition and fades in over the remaining 80% (about 0.2 seconds out and 0.8 seconds in for a 1-second transition). Audio is crossfaded throughout the transition for both effects.
+
+The applied transition is capped at half of the shorter clip in each transition pair. Both effects shorten the output by this applied duration at each join.
+`),
+  })
+  .strict()
+
+export const robotDefinition: RobotDefinition<typeof robotVideoConcatInstructionsSchema.shape> =
+  defineRobot(meta, robotVideoConcatInstructionsSchema)
+
+export const {
+  withHiddenFields: robotVideoConcatInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoConcatInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
+
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotVideoConcatInstructions = Instructions['output']
+export type RobotVideoConcatInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoConcatInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoConcatInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoConcatInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoConcatInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

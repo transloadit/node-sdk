@@ -1,0 +1,169 @@
+import { optionalWithV3Semantics } from '../../lib/sdkZodOptional.ts'
+
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import {
+  defineRobotWithHiddenFields,
+  httpUrlSchema,
+  inputSortBySchema,
+  resize_strategy,
+  robotBase,
+  robotFFmpegVideo,
+  robotUse,
+  robotVideoEncodingMeta,
+  videoBackgroundSchema,
+} from './_instructions-primitives.ts'
+
+export const meta: RobotMetaInput = {
+  ...robotVideoEncodingMeta,
+  example_code: {
+    steps: {
+      merged: {
+        robot: '/video/merge',
+        preset: 'empty',
+        ffmpeg: { f: 'mp4' },
+        use: [
+          { name: ':original', as: 'image' },
+          { name: ':original', as: 'audio' },
+        ],
+        width: 1280,
+        height: 720,
+        resize_strategy: 'pad',
+        framerate: '1/4',
+        duration: 12,
+      },
+    },
+  },
+  example_code_description: 'Merge uploaded image and audio inputs into one video:',
+  purpose_sentence:
+    'composes a new video by adding an audio track to existing still image(s) or video',
+  purpose_verb: 'merge',
+  purpose_word: 'merge',
+  purpose_words: 'Merge video, audio, images into one video',
+  title: 'Merge video, audio, images into one video',
+  uses_tools: ['ffmpeg'],
+  name: 'VideoMergeRobot',
+}
+
+export const robotVideoMergeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpegVideo)
+  .extend({
+    // The robot literal's description supplies the Robot page introduction.
+    robot: z.literal('/video/merge').describe(`
+When concatenating videos end-to-end, all inputs must have the same width and height, with or without a \`transition\`. For joining clips, use [🤖/video/concat](/docs/robots/video-concat/), which pre-transcodes inputs to matching specifications when needed.
+
+When both \`preset\` and \`ffmpeg\` are omitted, this Robot uses the legacy \`"flash"\` preset and outputs FLV. Choose an output preset or set \`ffmpeg.f\` explicitly to select another format, such as \`"mp4"\`.
+`),
+    resize_strategy: resize_strategy.describe(`
+If the given width/height parameters are bigger than the input image's dimensions, then the \`resize_strategy\` determines how the image will be resized to match the provided width/height. See the [available resize strategies](/docs/topics/resize-strategies/).
+`),
+    background: videoBackgroundSchema,
+    framerate: z
+      .union([z.number().int().min(1), z.string().regex(/^[0-9]+(?:\/[0-9]+)?$/u)])
+      .default('1/5')
+      .describe(`
+When merging images to generate a video this is the input framerate. A value of "1/5" means each image is given 5 seconds before the next frame appears (the inverse of a framerate of "5"). Likewise for "1/10", "1/20", etc. A value of "5" means there are 5 frames per second.
+`),
+    image_durations: z
+      .array(z.number())
+      .default([])
+      .describe(`
+When merging images to generate a video this allows you to define how long (in seconds) each image will be shown inside of the video. So if you pass 3 images and define \`[2.4, 5.6, 9]\` the first image will be shown for 2.4s, the second image for 5.6s and the last one for 9s. The \`duration\` parameter will automatically be set to the sum of the image_durations, so \`17\` in our example. It can still be overwritten, though, in which case the last image will be shown until the defined duration is reached.
+`),
+    duration: z
+      .number()
+      .nullable()
+      .default(null)
+      .describe(`
+When merging images to generate a video or when merging audio and video this is the desired target duration in seconds. The float value can take one decimal digit. If you want all images to be displayed exactly once, then you can set the duration according to this formula: \`duration = numberOfImages / framerate\`. This also works for the inverse framerate values like \`1/5\`.
+
+If you set this value to \`null\` (default), then the duration of the input audio file will be used when merging images with an audio file.
+
+When merging audio files and video files, the duration of the longest video or audio file is used by default.
+`),
+    audio_delay: z
+      .number()
+      .default(0)
+      .describe(`
+When merging a video and an audio file, and when merging images and an audio file to generate a video, this is the desired delay in seconds for the audio file to start playing. Imagine you merge a video file without sound and an audio file, but you wish the audio to start playing after 5 seconds and not immediately, then this is the parameter to use.
+`),
+    loop: z
+      .boolean()
+      .default(false)
+      .describe(`
+Determines whether the shorter media file should be looped to match the duration of the longer one. For example, if you merge a 1-minute video with a 3-minute audio file and enable this option, the video will play three times in a row to match the audio length.
+`),
+    replace_audio: z
+      .boolean()
+      .default(false)
+      .describe(`
+Determines whether the audio of the video should be replaced with a provided audio file.
+`),
+    vstack: z
+      .boolean()
+      .default(false)
+      .describe(`
+Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode](/docs/robots/video-encode/) <dfn>Step</dfn> before using this parameter to enforce this.
+`),
+    image_url: optionalWithV3Semantics(httpUrlSchema).describe(`
+The URL of an image to be merged with the audio or video. When this parameter is provided, the robot will download the image from the URL and merge it with the other media.
+`),
+    sort_by: inputSortBySchema,
+    // Include join constraints in parameter help as well as the Robot introduction.
+    transition: z
+      .enum(['none', 'crossfade', 'fade_to_black'])
+      .default('none')
+      .describe(`
+The type of transition effect to apply between concatenated video clips. Only applies when concatenating multiple videos (using \`video_1\`, \`video_2\`, etc. or \`pre_roll\`/\`post_roll\` inputs).
+
+- \`"none"\` — No transition effect. Videos are joined end-to-end.
+- \`"crossfade"\` — A gradual blend from one clip to the next (both video and audio).
+- \`"fade_to_black"\` — The current clip fades out to black, then the next clip fades in from black.
+
+Both \`"crossfade"\` and \`"fade_to_black"\` overlap adjacent clips and shorten the output by the applied \`transition_duration\` at each join. The applied duration is capped at half of the shorter clip in each pair.
+
+All concatenated videos must have the same width and height, even when \`transition\` is \`"none"\`. For joining clips with different dimensions, use [🤖/video/concat](/docs/robots/video-concat/).
+`),
+    transition_duration: z
+      .number()
+      .default(1)
+      .describe(`
+The duration of the transition effect in seconds. Only applies when \`transition\` is not \`"none"\`. Supports float values (e.g., \`0.5\` for a 500ms transition) and must be greater than \`0\` whenever transitions are enabled. The applied transition is automatically capped at half of the shorter clip in each transition pair to prevent overlapping transitions.
+
+For \`"crossfade"\`, this is the overlap duration where both clips are visible. For \`"fade_to_black"\`, the video fades out over approximately the first 20% of the transition and fades in over the remaining 80% (about 0.2 seconds out and 0.8 seconds in for a 1-second transition). Audio is crossfaded throughout the transition for both effects. Both effects shorten the output by the applied duration at each join.
+`),
+  })
+  .strict()
+
+const hiddenFields = {
+  turbo: optionalWithV3Semantics(z.boolean()),
+}
+
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotVideoMergeInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotVideoMergeInstructionsSchema, hiddenFields)
+
+export const {
+  withHiddenFields: robotVideoMergeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoMergeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
+
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotVideoMergeInstructions = Instructions['output']
+export type RobotVideoMergeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoMergeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoMergeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoMergeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoMergeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

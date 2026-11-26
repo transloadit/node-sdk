@@ -1,0 +1,160 @@
+import { optionalWithV3Semantics } from '../../lib/sdkZodOptional.ts'
+
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
+
+import { z } from 'zod/v4'
+
+import { htmlPdfReadinessDescription } from './_html-pdf.ts'
+import {
+  defineRobotWithHiddenFields,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
+
+export const meta: RobotMetaInput = {
+  ...robotDocumentProcessingMeta,
+  example_code: {
+    steps: {
+      captured: {
+        robot: '/html/convert',
+        url: 'https://transloadit.com',
+      },
+    },
+  },
+  example_code_description: 'Take a full screenshot of the Transloadit homepage:',
+  extended_description: `
+> [!Warning]
+> A validation error will occur if neither an HTML file is uploaded nor a URL parameter is given.
+
+> [!Note]
+> Any files imported within the HTML page will be included in the cost.
+`,
+  purpose_sentence: 'takes screenshots of web pages or uploaded HTML pages',
+  purpose_verb: 'take',
+  purpose_word: 'take screenshots of a webpage',
+  purpose_words: 'Take screenshots of webpages or HTML files',
+  title: 'Take screenshots of webpages or uploaded HTML files',
+  typical_file_size_mb: 0.6,
+  typical_file_type: 'webpage',
+  name: 'HtmlConvertRobot',
+  queueSlotCount: 30,
+  trackOutputFileSize: true,
+}
+
+export const robotHtmlConvertInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
+    robot: z.literal('/html/convert').describe(`
+A URL can be provided instead of an input HTML file, to capture a screenshot from the website referenced by the URL.
+
+Use [🤖/image/resize](/docs/robots/image-resize/) to resize or crop the screenshot as needed.
+
+${htmlPdfReadinessDescription}
+`),
+    url: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe(`
+The URL of the web page to be converted. Optional, as you can also upload/import HTML files and pass it to this <dfn>Robot</dfn>.
+Omit it, or use \`null\` or an empty string, to convert uploaded HTML instead.
+`),
+    format: z
+      .enum(['jpeg', 'jpg', 'pdf', 'png'])
+      .default('png')
+      .describe(`
+The format of the resulting image.
+`),
+    fullpage: z
+      .boolean()
+      .default(true)
+      .describe(`
+Determines if a screenshot of the full page should be taken or not.
+
+If set to \`true\`, the \`height\` parameter will not have any effect, as heights of websites vary. You can control the size of the resulting image somewhat, though, by setting the \`width\` parameter.
+
+If set to \`false\`, an image will be cropped from the top of the webpage according to your \`width\` and \`height\` parameters.
+`),
+    omit_background: z
+      .boolean()
+      .default(false)
+      .describe(`
+Determines whether to preserve a transparent background in HTML pages. Useful if you're generating artwork in HTML that you want to overlay on e.g. a video.
+
+The default of \`false\` fills transparent areas with a white background, for easier reading/printing.
+
+This parameter is only used when \`format\` is not \`pdf\`.
+`),
+    width: z
+      .number()
+      .int()
+      .min(1)
+      .default(1024)
+      .describe(`
+The screen width that will be used, in pixels. Change this to change the  dimensions of the resulting image.
+`),
+    height: optionalWithV3Semantics(z
+      .number()
+      .int()
+      .min(1)
+      )
+      .describe(`
+The screen height that will be used, in pixels. By default this equals the length of the web page in pixels if \`fullpage\` is set to \`true\`. If \`fullpage\` is set to \`false\`, the height parameter takes effect and defaults to the value \`768\`.
+`),
+    delay: z
+      .number()
+      .int()
+      .min(0)
+      .default(0)
+      .describe(`
+The delay (in milliseconds) applied to allow the page and all of its JavaScript to render before taking the screenshot.
+`),
+    headers: optionalWithV3Semantics(z
+      .record(z.string(), z.string())
+      )
+      .describe(`
+An object containing optional headers that will be passed along with the original request to the website. For example, this parameter can be used to pass along an authorization token along with the request.
+`),
+    wait_until: z
+      .enum(['domcontentloaded', 'load', 'networkidle', 'commit'])
+      .default('networkidle')
+      .describe(`
+The event to wait for before taking the screenshot. Used for loading Javascript, and images.
+
+See [Playwright's documentation](https://playwright.dev/docs/api/class-page#page-wait-for-load-state) for more information.
+`),
+  })
+  .strict()
+
+const hiddenFields = {
+  debuginfo: optionalWithV3Semantics(z.boolean()),
+  timeouts: optionalWithV3Semantics(z.record(z.string(), z.unknown())),
+  actions: optionalWithV3Semantics(z.array(z.record(z.string(), z.unknown()))),
+}
+
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotHtmlConvertInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotHtmlConvertInstructionsSchema, hiddenFields)
+
+export const {
+  withHiddenFields: robotHtmlConvertInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotHtmlConvertInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
+
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotHtmlConvertInstructions = Instructions['output']
+export type RobotHtmlConvertInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotHtmlConvertInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotHtmlConvertInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotHtmlConvertInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotHtmlConvertInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

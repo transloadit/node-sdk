@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 
 import ts from 'typescript'
+
+import { diffTrees, readTree, reverseTree, selectSchemaSources } from '../scripts/zodSource.ts'
 
 const execFileAsync = promisify(execFile)
 const filePath = fileURLToPath(import.meta.url)
@@ -201,6 +203,9 @@ export function normalizeCoreMessage(value: unknown): unknown {
   const providerOptions = value.providerOptions ?? experimental_providerMetadata
   return providerOptions === undefined ? rest : { ...rest, providerOptions }
 }
+export function isPlainObject(value: unknown): boolean {
+  return isRecord(value) && z.getParsedType(value) === 'object'
+}
 `
   const objectSource = `
 import type { UnknownRecord } from './record.ts'
@@ -389,16 +394,39 @@ assert.equal(robotInterpolateSchema.safeParse({ path: 1 }).success, false)
       await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, fixture.source)
     }
-    await mkdir(resolve(fixturePackageRoot, 'scripts'), { recursive: true })
-    await mkdir(resolve(fixturePackageRoot, 'scripts/adapters'), { recursive: true })
-    await copyFile(
-      resolve(zodRoot, 'scripts/adapters/zodOptional.ts'),
-      resolve(fixturePackageRoot, 'scripts/adapters/zodOptional.ts'),
+    // The fixture is Zod 3 source: convert it, then generate both exports from the Zod 4 form.
+    const fixtureSourceRoot = resolve(fixturePackageRoot, 'alphalib')
+    await execFileAsync(
+      process.execPath,
+      [
+        resolve(zodRoot, 'scripts/zod4-codemod.ts'),
+        '--in',
+        fixtureAlphalibRoot,
+        '--out',
+        fixtureSourceRoot,
+      ],
+      { cwd: temporaryRoot },
+    )
+    assert.deepEqual(
+      diffTrees(
+        selectSchemaSources(await readTree(fixtureAlphalibRoot)),
+        reverseTree(await readTree(fixtureSourceRoot)),
+      ),
+      [],
+      'the Zod 3 export must reproduce the Zod 3 fixture',
     )
     for (const version of ['v3', 'v4']) {
-      const generatorPath = resolve(fixturePackageRoot, `scripts/sync-${version}.ts`)
-      await copyFile(resolve(zodRoot, `scripts/sync-${version}.ts`), generatorPath)
-      await execFileAsync(process.execPath, [generatorPath], { cwd: temporaryRoot })
+      await execFileAsync(
+        process.execPath,
+        [
+          resolve(zodRoot, `scripts/sync-${version}.ts`),
+          '--source',
+          fixtureSourceRoot,
+          '--out',
+          resolve(fixturePackageRoot, 'src', version),
+        ],
+        { cwd: temporaryRoot },
+      )
       assert.deepEqual(
         await readIndexModules(resolve(fixturePackageRoot, 'src', version, 'index.ts')),
         ['apiParameterDescription', 'fixture', 'robots/_index', 'utility'],

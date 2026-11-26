@@ -7,8 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "yarn lint:changesets && yarn lint:deps && yarn fix:js && yarn lint:ts && yarn test:unit",
-    "verify": "yarn lint:changesets && yarn lint:publish && yarn lint:deps && yarn lint:js && yarn lint:ts && yarn lint:transloadit-sync && yarn test:unit",
+    "check": "yarn lint:changesets && yarn lint:deps && yarn lint:zod-source && yarn fix:js && yarn lint:ts && yarn test:unit",
+    "verify": "yarn lint:changesets && yarn lint:publish && yarn lint:deps && yarn lint:zod-source && yarn lint:js && yarn lint:ts && yarn lint:transloadit-sync && yarn test:unit",
     "verify:full": "yarn verify && yarn knip && yarn test:types",
     "changeset:version:release": "yarn changeset version && node scripts/sync-mcp-server-json.ts && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install",
     "release:pack:dry-run": "node scripts/release-dry-run.ts",
@@ -17,6 +17,7 @@
     "lint:ts": "yarn tsc:types && yarn tsc:node && yarn tsc:zod && yarn tsc:img && yarn workspace @transloadit/notify-url-relay lint:ts",
     "lint:transloadit-sync": "node scripts/check-transloadit-sync.ts",
     "lint:changesets": "node scripts/guard-changesets.ts",
+    "lint:zod-source": "yarn workspace @transloadit/zod lint:sdk",
     "lint": "yarn lint:js",
     "fix": "yarn fix:js",
     "fix:js": "biome check --write .",
