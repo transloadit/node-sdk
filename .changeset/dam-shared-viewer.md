@@ -7,6 +7,7 @@ plain text and RTF. Export bounded document readers and signed-source media play
 MP4 fallback, exact-version grant renewal and cleanup so applications can share one preview
 implementation without moving authorization into the renderer.
 
-Markdown parser failures render the caller's error fallback. Playback recovery uses current
-callbacks and isolates pending renewals between retries; play and prepare report missing primary
-URLs as failures. Image placeholders clear when images finish loading before hydration.
+Markdown parser failures stay inside the preview and render the caller's error fallback.
+Playback recovery calls the latest `refresh` and `onPlaybackChange` callbacks. `play()` and
+`prepare()` report failure when the mounted media element's source has no primary `mediaUrl`.
+Direct image URL placeholders clear when the image finished loading before hydration.

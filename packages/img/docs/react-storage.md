@@ -439,10 +439,13 @@ A playback source identifies `asset_id` and `version_id`, an authorized `mediaUr
 rather than copying an absolute server timestamp, so client clock skew does not shift expiry
 decisions. `mediaFormat: 'hls'` selects native or JavaScript HLS; `mp4` and omission use native
 playback. JavaScript HLS is available only for `<video>` in browsers supported by hls.js.
-For `<audio>` or an unsupported browser, non-native HLS uses `fallbackUrl` or reports failure.
+For `<audio>` or an unsupported browser, non-native HLS uses `fallbackUrl` after the hls.js chunk
+loads, or reports failure. If the chunk cannot load, playback reports failure.
 An optional `fallbackUrl` supplies an already-authorized MP4 alternative. Refreshes
-must return the same asset and version. Recovery keeps playback position, refuses replacement
-versions, and stops detached media and HLS requests when its owner unmounts. Applications must
+must return the same asset and version. During error recovery, return a newly signed URL;
+an unchanged or missing selected playback URL ends the attempt as failed.
+Recovery keeps playback position, refuses replacement versions, and stops detached media and HLS
+requests when its owner unmounts. Applications must
 unmount or key the player when changing the selected asset/version.
 
 `useMediaPlayback` exposes a native element ref, event handlers, `play()`, `prepare()` (native
@@ -456,8 +459,8 @@ after failure, and unmounting always releases its media.
 the hook's lifetime. It does not indicate whether media is currently playing. `prepare()` and
 native-control playback leave it unchanged; apps that use `prepare()` must enable controls
 themselves instead of relying on the example's `controls={player.started}`.
-Calling `play()` or `prepare()` without a primary `mediaUrl` reports failure, even if a fallback
-URL is present.
+Once the media element is mounted, calling `play()` or `prepare()` without a primary `mediaUrl`
+reports failure, even if a fallback URL is present.
 The existing receipt-backed `Video` component remains available for applications using Viewer's
 same-origin authorization route.
 
@@ -465,16 +468,17 @@ When a new source arrives while HLS with a `fallbackUrl` is playing buffered med
 60 seconds before `expiresAt`, the hook adopts the new grant for the same asset and version.
 Within a playback attempt, media-error recovery calls `refresh()` at most once until the element
 plays again. Entering the MP4 fallback can separately refresh an expired grant. A fresh attempt
-or a `playing` event resets the recovery limit. HLS with a fallback can also trigger recovery
-when the element waits for data within 5 seconds of expiry.
-A source or refresh answer with `mediaFormat: 'mp4'`, a `mediaUrl`
-and no `fallbackUrl` signals completed preparation. It replaces on-the-fly playback with that MP4
+or a `playing` event resets the recovery limit. A source with a `fallbackUrl`, including playback
+already on the MP4 fallback, can also trigger recovery when it waits for data within 5 seconds
+of expiry. A source or refresh answer with `mediaFormat: 'mp4'`, a `mediaUrl` and no `fallbackUrl`
+signals completed preparation. It replaces on-the-fly playback with that MP4
 at the current position when renewal or fallback next adopts it. Native media may briefly rebuffer.
 
 After a serious HLS error, the hook may send a background `HEAD` request with `mode: 'no-cors'`
 to `fallbackUrl` to start preparing the MP4. Supply an endpoint that permits this request. MP4
-fallback waits for it to finish without a client timeout; unmounting aborts it. The hook does
-not inspect the opaque response or verify that the server prepared the MP4.
+fallback waits for it to finish without a client timeout. Unmounting, terminal failure or a new
+`play()`/`prepare()` attempt aborts the warm-up request. The hook does not inspect the opaque
+response or verify that the server prepared the MP4.
 
 For documents, read the existing authorized URL on demand using `readDocumentPreview` from
 `@transloadit/viewer/documents`, then pass its `ArrayBuffer` to Viewer:
@@ -497,9 +501,10 @@ allow CORS reads from the application origin.
 
 RTF parsing and rich Markdown are bounded to 256 KiB; larger Markdown is shown as literal text.
 RTF above 256 KiB and any document above 2 MiB render `errorFallback` and call `onError`.
-Markdown skips embedded HTML and remote images, and only permits external
-HTTP, HTTPS and email links. RTF is parsed locally, strips active content and embedded resources,
-and renders in a sandbox with a restrictive content security policy. PDF frames use the browser's
+Markdown skips embedded HTML and shows every image as its alt text without loading it.
+Links render only for absolute `http:`, `https:` and `mailto:` URLs; other links render as plain
+text. RTF is parsed locally, strips active content and embedded resources, and renders in a sandbox
+with a restrictive content security policy. PDF frames use the browser's
 PDF renderer; supply an authorized HTTP(S) URL on a separate user-content origin whose response
 has a verified PDF MIME type. Viewer always rejects non-HTTP(S) locations, including `blob:`,
 `data:` and `javascript:` URLs. It rejects the page's exact origin unless `allowSameOrigin` is set;
