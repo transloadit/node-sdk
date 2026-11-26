@@ -73,7 +73,7 @@ Pure retained-results extraction is `extractStoredAssemblyResults(assembly, { as
 workspace })` from `@transloadit/zod/v3/storageResults` (or `/v4/storageResults`). This narrow
 entry reuses canonical Zod schemas and their existing generation. Node imports the same source;
 Convex installs the existing Zod package. Utils stays dependency-free and Viewer gains no runtime
-dependencies, installed schema files, or schema imports. Viewer accepts the structural receipt
+schema dependencies, installed schema files, or schema imports. Viewer accepts the structural receipt
 fields it consumes and validates identity/path/geometry; full receipt validation remains with
 the canonical schemas at ingestion. Use only a fetched/verified Assembly
 bound to an authorized upload. Preserve `assembly_id`, `step`, `result_id`, and `original_id` for
