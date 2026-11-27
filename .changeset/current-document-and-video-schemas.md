@@ -18,6 +18,8 @@ and DAM folder-listing schemas ([#11612](https://github.com/transloadit/api2/pul
   output schema describes pages, blocks, and table cells.
 - Type-breaking: the parsed `/document/extract` method and format unions include `docling` and
   `json_layout`, respectively. Update exhaustive handlers for either union to cover the new value.
+- Type-breaking: parsed `RobotDocumentExtractInstructions` now require `keep_page_headers` and
+  `keep_page_footers`. Both fields are optional on input and default to `false` during parsing.
 - Type-breaking: parsed `/video/encode` and `/video/ondemand` Instructions with hidden fields now
   include `normalize_hdr`, defaulting to `false`. If you construct either parsed type directly,
   set the field. The field remains optional in the corresponding input types.
