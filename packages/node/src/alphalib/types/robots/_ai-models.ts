@@ -1,26 +1,28 @@
+type AiChatModelInputCapabilities = { pdf: boolean; image: boolean; gif?: true }
+
 /**
  * Transloadit's supported /ai/chat models and their input capabilities.
  * This is intentionally not a complete vendor catalog: add models only after runtime behavior,
  * pricing, and file handling have been reviewed.
  */
-export const MODEL_CAPABILITIES: Readonly<Record<string, { pdf: boolean; image: boolean }>> =
+export const MODEL_CAPABILITIES: Readonly<Record<string, AiChatModelInputCapabilities>> =
   Object.freeze({
-    'anthropic/claude-sonnet-4-6': { pdf: true, image: true },
-    'anthropic/claude-4-sonnet-20250514': { pdf: true, image: true },
-    'anthropic/claude-sonnet-4-20250514': { pdf: true, image: true },
-    'anthropic/claude-opus-4-8': { pdf: true, image: true },
-    'anthropic/claude-opus-5': { pdf: true, image: true },
-    'anthropic/claude-opus-5-5': { pdf: true, image: true },
-    'anthropic/claude-4-opus-20250514': { pdf: true, image: true },
-    'anthropic/claude-opus-4-20250514': { pdf: true, image: true },
-    'anthropic/claude-sonnet-4-5': { pdf: true, image: true },
-    'anthropic/claude-opus-4-5': { pdf: true, image: true },
-    'anthropic/claude-opus-4-6': { pdf: true, image: true },
-    'anthropic/claude-opus-4-7': { pdf: true, image: true },
-    'anthropic/claude-fable-5': { pdf: true, image: true },
-    'anthropic/claude-fable-5-1': { pdf: true, image: true },
-    'anthropic/claude-sonnet-5': { pdf: true, image: true },
-    'anthropic/claude-sonnet-5-5': { pdf: true, image: true },
+    'anthropic/claude-sonnet-4-6': { pdf: true, image: true, gif: true },
+    'anthropic/claude-4-sonnet-20250514': { pdf: true, image: true, gif: true },
+    'anthropic/claude-sonnet-4-20250514': { pdf: true, image: true, gif: true },
+    'anthropic/claude-opus-4-8': { pdf: true, image: true, gif: true },
+    'anthropic/claude-opus-5': { pdf: true, image: true, gif: true },
+    'anthropic/claude-opus-5-5': { pdf: true, image: true, gif: true },
+    'anthropic/claude-4-opus-20250514': { pdf: true, image: true, gif: true },
+    'anthropic/claude-opus-4-20250514': { pdf: true, image: true, gif: true },
+    'anthropic/claude-sonnet-4-5': { pdf: true, image: true, gif: true },
+    'anthropic/claude-opus-4-5': { pdf: true, image: true, gif: true },
+    'anthropic/claude-opus-4-6': { pdf: true, image: true, gif: true },
+    'anthropic/claude-opus-4-7': { pdf: true, image: true, gif: true },
+    'anthropic/claude-fable-5': { pdf: true, image: true, gif: true },
+    'anthropic/claude-fable-5-1': { pdf: true, image: true, gif: true },
+    'anthropic/claude-sonnet-5': { pdf: true, image: true, gif: true },
+    'anthropic/claude-sonnet-5-5': { pdf: true, image: true, gif: true },
     'openai/gpt-4.1-2025-04-14': { pdf: false, image: true },
     'openai/chatgpt-4o-latest': { pdf: false, image: true },
     'openai/o3-2025-04-16': { pdf: false, image: true },
@@ -44,8 +46,21 @@ export const MODEL_CAPABILITIES: Readonly<Record<string, { pdf: boolean; image: 
     'moonshot/kimi-k2': { pdf: false, image: false },
   })
 
-/** Default /ai/chat model used when `model` is `auto` or omitted. */
+/** Default /ai/chat model when automatic selection can use it for the attached files. */
 export const AI_CHAT_DEFAULT_MODEL = 'openai/gpt-6-astra' satisfies keyof typeof MODEL_CAPABILITIES
+
+const aiChatImageMimes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+
+/** Check MIME support for /ai/chat, optionally limited to a specific model. */
+export function supportsAiChatFile(mime: string | null, model?: string): boolean {
+  if (mime == null) return false
+  if (mime.startsWith('text/')) return true
+  const kind = mime === 'application/pdf' ? 'pdf' : 'image'
+  if (kind === 'image' && !aiChatImageMimes.includes(mime)) return false
+  if (model == null) return true
+  const capabilities = MODEL_CAPABILITIES[model]
+  return Boolean(capabilities?.[kind] && (mime !== 'image/gif' || capabilities.gif))
+}
 
 /** Public model identifiers accepted by the image generation Robot. */
 export const imageGenerateModelIdentifiers = [

@@ -104,6 +104,7 @@ See the [live text overlay demo](/demos/video-encoding/add-text-overlay/).
 const hiddenFields = {
   chunked_transcoding: z.boolean().optional(),
   freeze_detect: z.boolean().optional(),
+  normalize_hdr: z.boolean().default(false),
   realtime: z.boolean().optional(),
 }
 
