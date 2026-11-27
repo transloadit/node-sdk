@@ -12,8 +12,8 @@ describe('/ai/chat message schema', () => {
     'anthropic/claude-opus-5-5',
     'anthropic/claude-opus-5',
     'anthropic/claude-fable-5-1',
-  ])('accepts %s with image and PDF capabilities', (model) => {
-    expect(MODEL_CAPABILITIES[model]).toEqual({ image: true, pdf: true })
+  ])('accepts %s with image, GIF and PDF capabilities', (model) => {
+    expect(MODEL_CAPABILITIES[model]).toEqual({ image: true, gif: true, pdf: true })
     expect(
       robotAiChatInstructionsSchema.parse({
         robot: '/ai/chat',

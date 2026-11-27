@@ -115,6 +115,7 @@ const hiddenFields = {
     .describe(
       'Internal parameter that indicates whether `cdn=required` should be added to the URLs in playlists. Useful for testing with URL Transform directly and not through Smart CDN.',
     ),
+  normalize_hdr: z.boolean().default(false),
   url_transform_format: z
     .boolean()
     .optional()

@@ -19,9 +19,11 @@ import {
 const extractTargets = z.enum(['text', 'images'])
 const imageFormats = z.enum(['auto', 'original', 'png', 'jpg'])
 const ocrProviders = z.enum(['aws', 'gcp'])
-const textFormats = z.enum(['txt', 'json', 'md', 'html'])
+const textFormats = z.enum(['txt', 'json', 'md', 'html', 'json_layout'])
+/** OCR supports the legacy text formats, without native-layout JSON. */
+export const documentExtractOcrTextFormats = textFormats.exclude(['json_layout'])
 const textGranularities = z.enum(['document', 'page'])
-const textMethods = z.enum(['native', 'ocr', 'auto'])
+const textMethods = z.enum(['native', 'ocr', 'auto', 'docling'])
 
 /** Validate OCR dependencies after interpolation-aware parsing at the Assembly Step boundary. */
 export function refineDocumentExtractOcr(
@@ -29,15 +31,49 @@ export function refineDocumentExtractOcr(
     robot: string
     extract?: unknown
     text_method?: unknown
+    text_format?: unknown
     ocr_provider?: unknown
     password?: unknown
     page_range?: unknown
     text_granularity?: unknown
+    image_format?: unknown
+    include_image_masks?: unknown
   },
   context: z.RefinementCtx,
   options: { allowInterpolation?: boolean } = {},
 ): void {
   if (step.robot !== '/document/extract') return
+  if (step.text_method === 'docling') {
+    for (const key of ['password', 'ocr_provider'] as const) {
+      if (
+        step[key] !== undefined &&
+        step[key] !== '' &&
+        !(
+          options.allowInterpolation !== false &&
+          interpolationSchemaFull.safeParse(step[key]).success
+        )
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `The ${key} parameter is not supported with text_method docling.`,
+        })
+      }
+    }
+    if (step.image_format === 'original' || step.image_format === 'jpg')
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['image_format'],
+        message: 'The docling text_method renders figures as PNG.',
+      })
+    if (step.include_image_masks === true)
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['include_image_masks'],
+        message: 'The docling text_method does not retain image masks.',
+      })
+    return
+  }
   if (step.text_method !== 'ocr' && step.text_method !== 'auto') return
 
   // Image-only extraction never invokes OCR; unresolved targets are checked at runtime.
@@ -46,6 +82,14 @@ export function refineDocumentExtractOcr(
     step.extract === 'text' ||
     (Array.isArray(step.extract) && step.extract.includes('text'))
   if (!extractsText) return
+
+  if (step.text_format === 'json_layout') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['text_format'],
+      message: 'The json_layout text_format requires text_method native.',
+    })
+  }
 
   if (step.ocr_provider === undefined) {
     context.addIssue({
@@ -146,18 +190,19 @@ Optional comma-separated page selection, such as \`"1"\`, \`"1-3"\`, or \`"1,3-5
 
 At most 1,000 selected pages are allowed per job.
 
-This is supported for native text extraction and embedded image extraction. OCR extraction currently works on the full document.
+This is supported for native extraction and the self-hosted Docling method. The AWS and GCP OCR methods currently work on the full document.
 `),
     password: z
       .string()
       .optional()
       .describe(`
-Password used to unlock encrypted PDFs for native text extraction and embedded image extraction. OCR extraction currently does not support encrypted PDFs, so do not combine this with \`text_method: "ocr"\` or \`text_method: "auto"\`.
+Password used to unlock encrypted PDFs for native text extraction and embedded image extraction. The other text methods do not support encrypted PDFs.
 `),
     text_method: textMethods.default('native').describe(`
 Controls how text is extracted.
 
 - \`"native"\` extracts selectable PDF text locally with Poppler. This is fast, but returns little or no text for scanned PDFs.
+- \`"docling"\` uses Transloadit’s self-hosted parser for layout, tables, figures, and OCR on scanned regions, including mixed native/scanned documents. No external document-processing service is used. This opt-in method requires an enabled deployment, supports page selection and page granularity, and does not accept \`password\` or \`ocr_provider\`. Figures are rendered as PNG; original embedded-image encodings and masks are not retained. Recognition and inferred structure can be incorrect.
 - \`"ocr"\` delegates to \`/document/ocr\` and requires \`ocr_provider\`.
 - \`"auto"\` tries native extraction first, then falls back to OCR when no native text is found, or when the native text is unusable because most of its words are spelled as separate letters (\`s p a c e c r a f t\`), as in the text layer of some old scans. This also requires \`ocr_provider\`.
 
@@ -169,11 +214,15 @@ OCR provider to use when \`text_method\` is \`"ocr"\` or \`"auto"\`. Valid value
     text_format: textFormats.default('txt').describe(`
 Output format for extracted text. Plain text and JSON retain the existing extraction behavior. Markdown and HTML output are in beta and infer basic structure from native text positions and font sizes.
 
-Native Markdown and HTML extraction limits layout data to 8 MiB per input document, summed across its selected page ranges. For larger documents, use separate extraction Steps with fewer pages in each Step’s \`page_range\`.
+With \`text_method: "docling"\`, all text formats use the self-hosted parser’s reading order and OCR. Its \`json_layout\` also includes page dimensions, block IDs, source labels, top-left-origin bounding boxes in PDF points, and table cells with zero-based offsets and merged-cell spans. HTML preserves spans and Markdown flattens them. Figures are PNG crops referenced by result name. This method accepts up to 64 MiB of input and PDFs containing at most 1,000 pages, including when selecting a page range and fails incomplete conversions. Recognition and inferred structure can be incorrect; confidence scores and field-level citations are not reported.
+
+\`"json_layout"\` returns a JSON file containing \`schema_version: 1\` and a \`pages\` array. Each page has its original one-based \`page\` number and a \`blocks\` array. Block \`kind\` is \`"paragraph"\` (\`text\`), \`"heading"\` (\`text\`, \`level\`), \`"list"\` (\`ordered\`, \`start\`, \`items\`), \`"table"\` (\`rows\`, \`header\`) or \`"image"\` (\`name\`). Text is literal, without Markdown or HTML escaping. Image names match retained extraction results and must be saved alongside the JSON file. Images omitted from rich-text references are also omitted from these blocks. With native extraction, this format uses the same beta layout inference as Markdown and HTML and requires \`text_method: "native"\`. Native output does not report bounding boxes, confidence scores or field-level citations. The existing \`"json"\` format remains text and page text only.
+
+Native Markdown, HTML and \`json_layout\` extraction limits layout data to 8 MiB per input document, summed across its selected page ranges. For larger documents, use separate extraction Steps with fewer pages in each Step’s \`page_range\`.
 
 If native extraction cannot confirm the reading order of bidirectional text, it returns a validation error. Try fewer pages or use \`text_method: "ocr"\` with an OCR provider.
 
-When \`extract\` includes images, Markdown and HTML reference retained image results inline using relative, URL-encoded filenames matching each image result’s \`name\`. Save the text and image results together to resolve the references. Filtered images have no references; repeated images can reference the same deduplicated result. Images covering the whole page, including page scans, are omitted from references when their visible coverage can be confirmed, while remaining available as image results. This also applies to pages without extracted text; use \`text_method: "ocr"\` with an OCR provider to read scanned text. Images with unavailable or inconsistent positions, including retained image masks, are appended after their page’s text. Embedded base64 images are not produced.
+For native extraction, when \`extract\` includes images, Markdown and HTML reference retained image results inline using relative, URL-encoded filenames matching each image result’s \`name\`. Save the text and image results together to resolve the references. Filtered images have no references; repeated images can reference the same deduplicated result. Images covering the whole page, including page scans, are omitted from references when their visible coverage can be confirmed, while remaining available as image results. This also applies to pages without extracted text; use \`text_method: "ocr"\` with an OCR provider to read scanned text. Images with unavailable or inconsistent positions, including retained image masks, are appended after their page’s text. Embedded base64 images are not produced.
 
 When exporting, preserve result names in a shared directory per input document. For example, set \`/s3/store\`’s \`path\` to \`"\${assembly.id}/\${file.original_id}/\${file.name}"\`. Default storage paths using \`\${unique_prefix}/\${file.url_name}\` separate and rename files, so they do not preserve these relative image links.
 
@@ -182,15 +231,35 @@ Some native image encodings cannot be displayed by browsers or Markdown viewers.
 OCR Markdown and HTML with \`ocr_provider: "aws"\` infer paragraphs, lists and headings from the positions of the recognized lines and words. With \`ocr_provider: "gcp"\`, which does not report those positions, they preserve readable text with minimal structure detection. In both cases, extracted images are appended in source order, since OCR does not position them.
 `),
     text_granularity: textGranularities.default('document').describe(`
-Controls text output grouping for native extraction.
+Controls text output grouping for native extraction and the self-hosted Docling method.
 
 - \`"document"\` creates one text result for the selected pages.
 - \`"page"\` creates one text result per selected page.
 
-Page granularity is currently only supported with \`text_method: "native"\`.
+Page granularity is supported with \`text_method: "native"\` or \`text_method: "docling"\`.
+`),
+    keep_page_footers: z
+      .boolean()
+      .default(false)
+      .describe(`
+Retain recurring footer text, including page numbers, in native Markdown, HTML and \`json_layout\` output, and AWS OCR Markdown and HTML output. By default, recurring text in the bottom 8% of selected pages is omitted when it appears on at least half of the selected pages, with a minimum of two pages. One-off margin text is retained regardless of this setting.
+
+With \`text_method: "docling"\`, this setting instead retains blocks classified as page headers or footers by the parser, in every text format. This classification can be incorrect and does not require repetition across pages.
+
+For native and cloud OCR extraction, this setting does not change plain text, legacy \`json\` or extracted image results. GCP OCR and OCR results without usable geometry already retain all recognized text.
+`),
+    keep_page_headers: z
+      .boolean()
+      .default(false)
+      .describe(`
+Retain recurring header text in native Markdown, HTML and \`json_layout\` output, and AWS OCR Markdown and HTML output. By default, recurring text in the top 8% of selected pages is omitted when it appears on at least half of the selected pages, with a minimum of two pages. Enable this when recurring headers contain document IDs or other context you need to retain.
+
+With \`text_method: "docling"\`, this setting instead retains blocks classified as page headers or footers by the parser, in every text format. This classification can be incorrect and does not require repetition across pages.
+
+For native and cloud OCR extraction, this setting does not change plain text, legacy \`json\` or extracted image results. GCP OCR and OCR results without usable geometry already retain all recognized text.
 `),
     image_format: imageFormats.default('auto').describe(`
-Output format for extracted embedded raster images.
+Output format for extracted embedded raster images. With \`text_method: "docling"\`, \`auto\` and \`png\` both return rendered PNG figure crops; \`original\` and \`jpg\` are unsupported.
 
 - \`"auto"\` and \`"original"\` preserve the embedded image format where possible.
 - \`"png"\` asks Poppler to decode images as PNG.

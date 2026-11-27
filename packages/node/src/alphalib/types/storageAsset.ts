@@ -104,6 +104,28 @@ export const damAssetsListOptionsSchema = z.object(
   ),
 )
 
+/** Recursive folder discovery uses bounded prefix, name and path-cursor options. */
+export const damFoldersListOptionsSchema = z.object({
+  prefix: boundedPathSchema.default(''),
+  cursor: boundedPathSchema.min(1).optional(),
+  limit: z.number().int().min(1).max(500).default(100),
+  search: damAssetsListOptionsSchema.shape.search,
+})
+
+/** A live folder, with a Workspace-relative path without a trailing slash. */
+export const storedFolderSchema = z.object({ path: z.string().min(1) })
+
+/** A bounded page of live folders, including empty folders, in case-sensitive path order. */
+export const damFoldersListedResponseSchema = z
+  .object({
+    ok: z.literal('DAM_FOLDERS_LISTED'),
+    message: z.string().min(1),
+    workspace: z.string().min(1),
+    folders: z.array(storedFolderSchema),
+    next_cursor: z.string().min(1).nullable(),
+  })
+  .strict()
+
 /** An omitted version selects the current version; an explicit version never falls back. */
 export const damAssetGetOptionsSchema = z.object({
   version_id: describeApiParameter(
