@@ -59,6 +59,22 @@ describe('contract defaults within this major', () => {
     expect(await syncNewTemplate(previous.input.steps)).toEqual(previous.templatesSync)
   })
 
+  it('omits new page margin flags when signing and syncing unchanged PDF Steps', async () => {
+    const steps = { extracted: { robot: '/document/extract', use: ':original' } }
+    const signed = await signParams({ auth: { expires: '2030-01-01T00:00:00.000Z' }, steps })
+    const synced = await syncNewTemplate(steps)
+    const signedStep = JSON.parse(signed.params).steps.extracted
+    const writtenStep = JSON.parse(synced.writtenFile).steps.extracted
+
+    expect(signedStep).not.toHaveProperty('keep_page_headers')
+    expect(signedStep).not.toHaveProperty('keep_page_footers')
+    expect(writtenStep).toEqual(signedStep)
+    expect(synced.createTemplate).toEqual({
+      name: 'golden',
+      template: { steps: { extracted: signedStep } },
+    })
+  })
+
   it('passes explicit values for the changed defaults through unchanged', async () => {
     const steps = {
       generated: { robot: '/image/generate', prompt: 'a cat', inpainting: 'strict' },
@@ -68,6 +84,12 @@ describe('contract defaults within this major', () => {
       resized: { robot: '/image/resize', use: 'generated', imagemagick_stack: 'v2.0.11' },
       enhanced: { robot: '/image/enhance', use: 'generated', imagemagick_stack: 'v3' },
       thumbnailed: { robot: '/document/thumbs', use: ':original', imagemagick_stack: 'v3.0.2' },
+      extracted: {
+        robot: '/document/extract',
+        use: ':original',
+        keep_page_headers: true,
+        keep_page_footers: false,
+      },
     }
     const expected = {
       steps: Object.fromEntries(

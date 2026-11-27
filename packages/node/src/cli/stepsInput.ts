@@ -29,6 +29,7 @@ interface PreviousContract {
  * current contract.
  */
 const previousContract: ReadonlyMap<string, PreviousContract> = new Map<string, PreviousContract>([
+  ['/document/extract', { added: ['keep_page_footers', 'keep_page_headers'] }],
   ['/document/thumbs', { apply: { imagemagick_stack: 'v2.0.10' } }],
   ['/file/serve', { added: ['download'] }],
   ['/image/enhance', { apply: { imagemagick_stack: 'v2.0.10' } }],
