@@ -146,6 +146,7 @@ function MarkdownDocument({ bytes, mime, richClassName }: DocumentViewerProps): 
           jsx,
           jsxs,
           components: markdownComponents,
+          tableCellAlignToStyle: false,
         },
       ),
     [bytes, mime],
@@ -217,10 +218,7 @@ export function DocumentViewer(props: DocumentViewerProps): ReactNode {
       {props.format === 'markdown' && !rawMarkdown ? (
         <MarkdownBoundary {...props} />
       ) : (
-        <pre
-          className={props.textClassName}
-          style={{ margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-        >
+        <pre className={props.textClassName}>
           {decodeDocumentText(props.bytes, props.mime, truncated)}
         </pre>
       )}

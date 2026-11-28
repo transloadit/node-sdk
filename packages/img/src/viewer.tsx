@@ -6,6 +6,7 @@ import type {
   ImgHTMLAttributes,
   ReactNode,
   Ref,
+  RefObject,
   VideoHTMLAttributes,
 } from 'react'
 
@@ -25,6 +26,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 
+import { pdfUrl } from './pdfUrl.ts'
 import { TransloaditPicture } from './picture.tsx'
 
 export type { DocumentPreviewReason, ViewerKind } from './document.ts'
@@ -55,6 +57,9 @@ export type ViewerProps =
   | ({
       kind: 'pdf'
       mode?: 'frame'
+      loadingFallback?: ReactNode
+      renderError?: PdfViewerProps['renderError']
+      timeoutMs?: number
       mime?: string
       onError?: (reason: DocumentPreviewReason) => void
       unsupportedFallback?: ReactNode
@@ -194,16 +199,45 @@ function PdfChunkFailure({ fail }: PdfReaderProps): ReactNode {
   return <PdfFailure reason="network" onError={fail} />
 }
 
-function LazyPdf({ invalidUrl, ...props }: PdfViewerProps & { invalidUrl: boolean }): ReactNode {
+function PdfRetry({
+  retry,
+  retryHost,
+  label = 'Retry PDF',
+}: {
+  retry: () => void
+  retryHost: RefObject<HTMLDivElement | null>
+  label?: string
+}): ReactNode {
+  const button = useRef<HTMLButtonElement>(null)
+  useLayoutEffect(() => {
+    if (document.activeElement === retryHost.current) button.current?.focus()
+  }, [retryHost])
+  return (
+    <div>
+      <p role="alert">Could not display this PDF.</p>
+      <button ref={button} type="button" onClick={retry}>
+        {label}
+      </button>
+    </div>
+  )
+}
+
+function LazyPdf({
+  invalidUrl,
+  ...props
+}: PdfViewerProps & { allowSameOrigin: boolean; invalidUrl: boolean }): ReactNode {
+  const retryHost = useRef<HTMLDivElement>(null)
   const [failure, setFailure] = useState<DocumentPreviewReason>()
   const [renewFirst, setRenewFirst] = useState<'expired' | 'forbidden'>()
-  const fail = useCallback(
-    (error: DocumentPreviewReason) => setFailure((current) => current ?? error),
-    [],
-  )
+  const fail = useCallback((error: DocumentPreviewReason) => {
+    if (retryHost.current?.contains(document.activeElement)) retryHost.current.focus()
+    setFailure((current) => current ?? error)
+  }, [])
   const reason = invalidUrl ? 'invalid-url' : failure
-  if (!reason) return <PdfAttempt {...props} fail={fail} renewFirst={renewFirst} />
+
   const retry = (): void => {
+    if (invalidUrl) return
+    retryHost.current?.focus()
     setRenewFirst(
       props.renew && (reason === 'expired' || reason === 'forbidden') ? reason : undefined,
     )
@@ -211,16 +245,17 @@ function LazyPdf({ invalidUrl, ...props }: PdfViewerProps & { invalidUrl: boolea
   }
   const fallback = reason === 'unsupported' ? props.unsupportedFallback : undefined
   return (
-    <PdfFailure key={reason} reason={reason} onError={props.onError}>
-      {fallback ?? props.renderError?.(reason, retry) ?? props.errorFallback ?? (
-        <div>
-          <p role="alert">Could not display this PDF.</p>
-          <button type="button" onClick={retry}>
-            {props.labels?.retry ?? 'Retry PDF'}
-          </button>
-        </div>
+    <div ref={retryHost} tabIndex={-1}>
+      {reason ? (
+        <PdfFailure key={reason} reason={reason} onError={props.onError}>
+          {fallback ?? props.renderError?.(reason, retry) ?? props.errorFallback ?? (
+            <PdfRetry retry={retry} retryHost={retryHost} label={props.labels?.retry} />
+          )}
+        </PdfFailure>
+      ) : (
+        <PdfAttempt {...props} retryHost={retryHost} fail={fail} renewFirst={renewFirst} />
       )}
-    </PdfFailure>
+    </div>
   )
 }
 
@@ -230,24 +265,15 @@ function PdfDocument({
 }: Extract<ViewerProps, { kind: 'pdf' }>): ReactNode {
   const origin = useSyncExternalStore(subscribeOrigin, browserOrigin, serverOrigin)
   if (origin === null) return null
-  let url: URL | undefined
-  try {
-    url = new URL(props.src, document.baseURI)
-  } catch {
-    /* Handled alongside disallowed origins. */
-  }
-  const invalidUrl =
-    !url ||
-    !['https:', 'http:'].includes(url.protocol) ||
-    (!allowSameOrigin && url.origin === origin)
+  const url = pdfUrl(props.src, document.baseURI)
+  const invalidUrl = !url || (!allowSameOrigin && url.origin === origin)
   if (props.mode === 'pdfjs') {
-    const src = url?.href ?? props.src
     return (
       <LazyPdf
-        key={JSON.stringify([src, props.workerSrc, props.assetBaseUrl])}
+        key={JSON.stringify([props.documentKey ?? url?.href ?? props.src, allowSameOrigin])}
         {...props}
-        src={src}
-        invalidUrl={invalidUrl}
+        allowSameOrigin={allowSameOrigin}
+        invalidUrl={invalidUrl && props.src !== undefined}
       />
     )
   }
@@ -258,15 +284,7 @@ function PdfDocument({
       </PdfFailure>
     )
   }
-  const {
-    kind: _kind,
-    mode: _mode,
-    errorFallback,
-    unsupportedFallback,
-    onError,
-    mime,
-    ...frame
-  } = props
+  const { mime, onError, errorFallback, unsupportedFallback } = props
   if (mime !== undefined && mime.split(';')[0]?.trim().toLowerCase() !== 'application/pdf') {
     return (
       <PdfFailure key={mime} reason="invalid-mime" onError={onError}>
@@ -280,13 +298,57 @@ function PdfDocument({
         {unsupportedFallback}
       </PdfFailure>
     )
+  return <PdfFrame key={url.href} {...props} src={url.href} />
+}
+
+function PdfFrame({
+  kind: _kind,
+  mode: _mode,
+  mime: _mime,
+  unsupportedFallback: _unsupportedFallback,
+  onError,
+  onLoad,
+  errorFallback,
+  loadingFallback,
+  renderError,
+  timeoutMs = 30_000,
+  ...frame
+}: Extract<ViewerProps, { mode?: 'frame' }>): ReactNode {
+  const [state, setState] = useState<'loading' | 'loaded' | 'error'>('loading')
+  const host = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (state !== 'loading') return
+    const timer = setTimeout(() => setState('error'), timeoutMs)
+    return () => clearTimeout(timer)
+  }, [state, timeoutMs])
+  function retry(): void {
+    host.current?.focus()
+    setState('loading')
+  }
   return (
-    <iframe
-      {...frame}
-      src={url.href}
-      onError={() => onError?.('network')}
-      referrerPolicy="no-referrer"
-    />
+    <div ref={host} tabIndex={-1}>
+      {state === 'error' ? (
+        <PdfFailure reason="network" onError={onError}>
+          {renderError?.('network', retry) ?? errorFallback ?? (
+            <PdfRetry retry={retry} retryHost={host} />
+          )}
+        </PdfFailure>
+      ) : (
+        <>
+          {state === 'loading' && (loadingFallback ?? <p role="status">Loading PDF…</p>)}
+          <iframe
+            {...frame}
+            onLoad={(event) => {
+              setState('loaded')
+              if (document.activeElement === host.current) event.currentTarget.focus()
+              onLoad?.(event)
+            }}
+            onError={() => setState('error')}
+            referrerPolicy="no-referrer"
+          />
+        </>
+      )}
+    </div>
   )
 }
 

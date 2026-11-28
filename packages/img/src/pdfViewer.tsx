@@ -1,7 +1,7 @@
 'use client'
 
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist'
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 
 import type { DocumentPreviewReason } from './document.ts'
 import type { RenewPdf } from './pdfNetwork.ts'
@@ -11,11 +11,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { getDocument, PDFWorker, TextLayer } from '#pdfjs'
 
 import { openPdfNetwork } from './pdfNetwork.ts'
+import { pdfUrl } from './pdfUrl.ts'
 import { previewDeadline } from './previewDeadline.ts'
 import { DocumentPreviewError } from './readPreviewContent.ts'
 
 export interface PdfViewerProps {
-  src: string
+  src?: string
+  /** Immutable asset/version identity when the parent rotates signed URLs. */
+  documentKey?: string
   title: string
   filename?: string
   expiresAt?: number
@@ -72,7 +75,7 @@ function PdfPage({
   const host = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const target = host.current
-    if (!target || width <= 0) return
+    if (!target || width <= 0 || (fitPage && height <= 0)) return
     let active = true
     let raster: RenderTask | undefined
     let text: TextLayer | undefined
@@ -131,6 +134,8 @@ function PdfPage({
 }
 
 export interface PdfReaderProps extends PdfViewerProps {
+  retryHost: RefObject<HTMLDivElement | null>
+  allowSameOrigin: boolean
   renewFirst?: 'expired' | 'forbidden'
   fail: (reason: DocumentPreviewReason) => void
 }
@@ -143,6 +148,8 @@ export function PdfViewer({
   workerSrc,
   assetBaseUrl,
   renew,
+  retryHost,
+  allowSameOrigin,
   renewFirst,
   expiresAt,
   timeoutMs,
@@ -161,6 +168,15 @@ export function PdfViewer({
   const [zoom, setZoom] = useState(1)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const container = useRef<HTMLDivElement>(null)
+  const reader = useRef<HTMLElement>(null)
+  const touch = useRef<{ x: number; y: number } | undefined>(undefined)
+  const grant = useRef({ mediaUrl: src, expiresAt })
+  useLayoutEffect(() => {
+    grant.current = { mediaUrl: src, expiresAt }
+  }, [src, expiresAt])
+  useLayoutEffect(() => {
+    if (document.activeElement === retryHost.current) reader.current?.focus()
+  }, [retryHost])
   const callbacks = useRef({ onLoad, renew })
   useLayoutEffect(() => {
     callbacks.current = { onLoad, renew }
@@ -173,8 +189,9 @@ export function PdfViewer({
       callbacks.current.onLoad?.()
     }
   }, [])
-  const canRenew = !!renew
+  const [settings] = useState(() => ({ workerSrc, assetBaseUrl, filename, timeoutMs, renewFirst }))
   useEffect(() => {
+    const { workerSrc, assetBaseUrl, filename, timeoutMs, renewFirst } = settings
     const controller = new AbortController()
     const startup = previewDeadline(controller.signal, timeoutMs)
     let initialized = false
@@ -194,20 +211,15 @@ export function PdfViewer({
     }
     async function load(): Promise<void> {
       if (typeof Worker === 'undefined') throw new DocumentPreviewError('unsupported')
-      const workerUrl = URL.parse(
+      const workerUrl = pdfUrl(
         workerSrc ?? '/assets/transloadit-viewer/pdf.worker.min.mjs',
         location.href,
       )
       if (!workerUrl) throw new DocumentPreviewError('invalid-url')
       const assets = assetBaseUrl
-        ? URL.parse(assetBaseUrl.endsWith('/') ? assetBaseUrl : `${assetBaseUrl}/`, location.href)
+        ? pdfUrl(assetBaseUrl.endsWith('/') ? assetBaseUrl : `${assetBaseUrl}/`, location.href)
         : new URL('.', workerUrl)
-      if (
-        !assets ||
-        [workerUrl, assets].some(
-          (url) => url.origin !== location.origin || !['https:', 'http:'].includes(url.protocol),
-        )
-      )
+      if (!assets || [workerUrl, assets].some((url) => url.origin !== location.origin))
         throw new DocumentPreviewError('invalid-url')
       port = new Worker(workerUrl, { type: 'module' })
       port.addEventListener(
@@ -219,19 +231,21 @@ export function PdfViewer({
         { once: true },
       )
       worker = PDFWorker.create({ port })
+      const network = await openPdfNetwork({
+        getGrant: () => grant.current,
+        getRenew: () => callbacks.current.renew,
+        filename,
+        renewFirst,
+        timeoutMs,
+        allowSameOrigin,
+        signal: controller.signal,
+        fail: failed,
+      })
+      controller.signal.throwIfAborted()
+      startup.reset()
       task = getDocument({
-        url: src,
+        ...network,
         worker,
-        httpHeaders: openPdfNetwork({
-          src,
-          filename,
-          expiresAt,
-          renewFirst,
-          timeoutMs,
-          renew: canRenew ? async (signal) => callbacks.current.renew?.(signal) : undefined,
-          signal: controller.signal,
-          fail: failed,
-        }),
         rangeChunkSize: 64 * 1024,
         disableAutoFetch: true,
         // Range-capable servers serve requested chunks on demand. Other servers stream the initial GET.
@@ -265,7 +279,7 @@ export function PdfViewer({
       if (task) void task.destroy().then(release, release)
       if (!initialized) release()
     }
-  }, [src, filename, workerSrc, assetBaseUrl, canRenew, expiresAt, renewFirst, timeoutMs, fail])
+  }, [settings, allowSameOrigin, fail])
   useLayoutEffect(() => {
     const element = container.current
     if (!element) return
@@ -287,6 +301,7 @@ export function PdfViewer({
   }
   return (
     <section
+      ref={reader}
       aria-label={title}
       data-tl-viewer="pdf"
       className={className}
@@ -343,14 +358,23 @@ export function PdfViewer({
           <button type="button" aria-disabled={number === count} onClick={() => go(number + 1)}>
             {labels?.next ?? 'Next page'}
           </button>
-          <button type="button" onClick={() => setZoom((value) => Math.max(0.25, value / 1.25))}>
+          <button
+            type="button"
+            disabled={zoom <= 0.25}
+            onClick={() => setZoom((value) => Math.max(0.25, value / 1.25))}
+          >
             {labels?.zoomOut ?? 'Zoom out'}
           </button>
-          <button type="button" onClick={() => setZoom((value) => Math.min(4, value * 1.25))}>
+          <button
+            type="button"
+            disabled={zoom >= 4}
+            onClick={() => setZoom((value) => Math.min(4, value * 1.25))}
+          >
             {labels?.zoomIn ?? 'Zoom in'}
           </button>
           <button
             type="button"
+            aria-pressed={!fitPage}
             onClick={() => {
               setFitPage(false)
               setZoom(1)
@@ -360,6 +384,7 @@ export function PdfViewer({
           </button>
           <button
             type="button"
+            aria-pressed={fitPage}
             onClick={() => {
               setFitPage(true)
               setZoom(1)
@@ -378,6 +403,32 @@ export function PdfViewer({
       </div>
       <div
         ref={container}
+        onTouchStart={(event) => {
+          const point = event.touches[0]
+          touch.current =
+            event.touches.length === 1 && point ? { x: point.clientX, y: point.clientY } : undefined
+        }}
+        onTouchCancel={() => {
+          touch.current = undefined
+        }}
+        onTouchEnd={(event) => {
+          const start = touch.current
+          touch.current = undefined
+          const end = event.changedTouches[0]
+          const viewport = event.currentTarget
+          // Leave horizontal panning, pinch zoom and text selection to the browser.
+          if (
+            !start ||
+            !end ||
+            event.touches.length ||
+            viewport.scrollWidth > viewport.clientWidth ||
+            window.getSelection()?.type === 'Range'
+          )
+            return
+          const dx = end.clientX - start.x
+          if (Math.abs(dx) >= 50 && Math.abs(dx) > 2 * Math.abs(end.clientY - start.y))
+            go(number + (dx < 0 ? 1 : -1))
+        }}
         style={{ overflow: 'auto', height: 'var(--tl-viewer-pdf-height, 70dvh)' }}
       >
         {pdf && (

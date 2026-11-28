@@ -1,5 +1,5 @@
 /** A cancellable deadline for an open preview or a PDF network read. */
-export function previewDeadline(parent: AbortSignal, timeoutMs = 30_000) {
+export function previewDeadline(parent: AbortSignal | AbortSignal[], timeoutMs = 30_000) {
   const controller = new AbortController()
   const abort = (): void => controller.abort()
   let disposed = false
@@ -9,8 +9,11 @@ export function previewDeadline(parent: AbortSignal, timeoutMs = 30_000) {
     clearTimeout(timer)
     timer = setTimeout(abort, timeoutMs)
   }
-  if (parent.aborted) abort()
-  else parent.addEventListener('abort', abort, { once: true })
+  const parents = Array.isArray(parent) ? parent : [parent]
+  for (const signal of parents) {
+    if (signal.aborted) abort()
+    else signal.addEventListener('abort', abort, { once: true })
+  }
   reset()
   return {
     signal: controller.signal,
@@ -32,7 +35,7 @@ export function previewDeadline(parent: AbortSignal, timeoutMs = 30_000) {
     dispose(): void {
       disposed = true
       clearTimeout(timer)
-      parent.removeEventListener('abort', abort)
+      for (const signal of parents) signal.removeEventListener('abort', abort)
     },
   }
 }

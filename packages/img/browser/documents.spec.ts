@@ -13,7 +13,9 @@ function slideDeck(sparse = false): Buffer {
   const scan = '36FFFF001001>'
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
+    sparse
+      ? '<< /Type /Pages /Kids [3 0 R 4 0 R 9 0 R 10 0 R 11 0 R] /Count 5 >>'
+      : '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Resources << /Font << /F1 8 0 R >> >> /Contents 5 0 R >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Resources << /XObject << /Scan 7 0 R >> >> /Contents 6 0 R >>',
     ...[
@@ -26,6 +28,10 @@ function slideDeck(sparse = false): Buffer {
     `<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter [/ASCIIHexDecode /CCITTFaxDecode] /DecodeParms [null << /K -1 /Columns 8 /Rows 8 >>] /Length ${scan.length} >>\nstream\n${scan}\nendstream`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ]
+  if (sparse) {
+    // Page five uses the header's text stream. Page two's scan requires a later range.
+    objects.push(objects[2], objects[2], objects[2])
+  }
   let pdf = '%PDF-1.4\n'
   const offsets: number[] = []
   for (const [i, object] of objects.entries()) {
@@ -35,9 +41,11 @@ function slideDeck(sparse = false): Buffer {
     pdf += `${i + 1} 0 obj\n${object}\nendobj\n`
   }
   const xref = pdf.length
-  pdf += 'xref\n0 9\n0000000000 65535 f \n'
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
   for (const offset of offsets) pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
-  return Buffer.from(`${pdf}trailer\n<< /Root 1 0 R /Size 9 >>\nstartxref\n${xref}\n%%EOF\n`)
+  return Buffer.from(
+    `${pdf}trailer\n<< /Root 1 0 R /Size ${objects.length + 1} >>\nstartxref\n${xref}\n%%EOF\n`,
+  )
 }
 
 async function listen(server: Server): Promise<string> {
@@ -65,6 +73,8 @@ const test = base.extend({
       } else if (req.url === '/resume') {
         resume()
         res.writeHead(204).end()
+      } else if (req.url === '/frame') {
+        res.writeHead(200, { 'Content-Type': 'text/html' }).end('<p>Frame loaded</p>')
       } else if (req.url === '/stalled') {
         res.writeHead(200, { 'Content-Type': 'application/pdf' })
         res.write('%PDF-1.4\n')
@@ -150,7 +160,7 @@ const test = base.extend({
         res
           .writeHead(200, {
             'Content-Type': 'text/html',
-            'Content-Security-Policy': `default-src 'none'; script-src 'self'; worker-src 'self'; connect-src ${fileOrigin}; font-src 'self'; style-src 'self'; base-uri 'none'`,
+            'Content-Security-Policy': `default-src 'none'; script-src 'self'; worker-src 'self'; connect-src ${fileOrigin}; font-src 'self'; style-src 'self'; frame-src ${fileOrigin}; base-uri 'none'`,
           })
           .end(
             '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"><div id="root"></div><script type="module" src="/fixture.js"></script>',
@@ -267,7 +277,7 @@ test('opens by range, then renews the denied range when jumping to another page'
   await expect(page.getByRole('img', { name: 'PDF page 1' })).toBeVisible()
   expect((await request.get(new URL('/resume', firstRange.url).href)).status()).toBe(204)
   await expect(page.getByRole('img', { name: 'PDF page 2' })).toBeVisible()
-  await expect(page.getByRole('status').filter({ hasText: 'Page 2 of 2' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Page 2 of 5' })).toBeVisible()
   const denied = ranges.find((entry) => entry.status === 403)
   expect(denied?.range).toMatch(/^bytes=/)
   expect(ranges).toContainEqual({
@@ -303,13 +313,135 @@ test('zooms selectable text with the canvas and fits the available page height',
     return selection?.toString()
   })
   expect(selected).toBe('Lecture notes')
+  await expect(reader.getByRole('button', { name: 'Fit width', pressed: true })).toBeVisible()
   await reader.getByRole('button', { name: 'Fit page' }).click()
+  await expect(reader.getByRole('button', { name: 'Fit page', pressed: true })).toBeVisible()
   const canvas = reader.getByRole('img', { name: 'PDF page 1' })
   await expect(canvas).toHaveCSS('height', '120px')
   await reader.getByRole('button', { name: 'Zoom in' }).click()
   await expect(canvas).toHaveCSS('height', '150px')
   await reader.getByRole('button', { name: 'Zoom out' }).click()
   await expect(canvas).toHaveCSS('height', '120px')
+  await reader.evaluate((el) => el.style.setProperty('--tl-viewer-pdf-height', '0px'))
+  await expect(canvas).toHaveCSS('height', '120px')
+  await reader.evaluate((el) => el.style.setProperty('--tl-viewer-pdf-height', '160px'))
+  await expect(canvas).toHaveCSS('height', '160px')
   await reader.getByRole('button', { name: 'Fit width' }).click()
   await expect.poll(() => canvas.evaluate((el) => el.clientHeight)).toBeGreaterThan(120)
+  const zoomIn = reader.getByRole('button', { name: 'Zoom in' })
+  const zoomOut = reader.getByRole('button', { name: 'Zoom out' })
+  await zoomIn.click({ clickCount: 7 })
+  await expect(zoomIn).toBeDisabled()
+  await reader.getByRole('button', { name: 'Fit width' }).click()
+  await zoomOut.click({ clickCount: 7 })
+  await expect(zoomOut).toBeDisabled()
+})
+
+test('rotates the grant on page five and uses it for the next range', async ({ page }) => {
+  await page.goto('/?ranges')
+  const input = page.getByRole('spinbutton', { name: 'Page number' })
+  await input.fill('5')
+  await input.press('Enter')
+  const fifth = page.getByRole('img', { name: 'PDF page 5' })
+  await expect(fifth).toBeVisible()
+  await page.getByRole('button', { name: 'Extend expiry' }).click()
+  await expect(fifth).toBeVisible()
+  await page.getByRole('button', { name: 'Rotate URL' }).click()
+  await expect(fifth).toBeVisible()
+  await expect(input).toHaveValue('5')
+  const range = page.waitForRequest(
+    (request) => request.url().includes('/ranges/') && !!request.headers().range,
+  )
+  await input.fill('2')
+  await input.press('Enter')
+  expect(new URL((await range).url()).pathname).toBe('/ranges/rotated')
+  await expect(page.getByRole('img', { name: 'PDF page 2' })).toBeVisible()
+  await expect(page.getByLabel('PDF loads')).toHaveText('1')
+  await expect(page.getByLabel('Grant renewals')).toHaveText('0')
+  await page.getByRole('button', { name: 'Switch version' }).click()
+  await expect(page.getByRole('img', { name: 'PDF page 1' })).toBeVisible()
+  await expect(page.getByLabel('PDF loads')).toHaveText('2')
+})
+
+test('opens a portal PDF from a lazy grant with Safari 17.0 APIs', async ({ page }) => {
+  function safari17(): void {
+    Reflect.deleteProperty(URL, 'parse')
+    Reflect.deleteProperty(AbortSignal, 'any')
+    Reflect.deleteProperty(Promise, 'withResolvers')
+    Reflect.deleteProperty(ArrayBuffer.prototype, 'transferToFixedLength')
+    Reflect.deleteProperty(Response.prototype, 'bytes')
+    Reflect.deleteProperty(Blob.prototype, 'bytes')
+  }
+  await page.addInitScript(safari17)
+  // Page init scripts don't run in module workers.
+  await page.route('**/pdf.worker.min.mjs', async (route) => {
+    const response = await route.fetch()
+    await route.fulfill({ response, body: `(${safari17.toString()})();\n${await response.text()}` })
+  })
+  await page.goto('/?lazy')
+  await expect(page.getByText('Lecture notes', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Grant renewals')).toHaveText('1')
+  await page.getByRole('button', { name: 'Next page' }).click()
+  await expect(page.getByRole('img', { name: 'PDF page 2' })).toBeVisible()
+})
+
+test('built-in Retry returns keyboard focus to the reader', async ({ page }) => {
+  await page.route(
+    '**/report',
+    (route) => route.fulfill({ status: 503, headers: { 'Access-Control-Allow-Origin': '*' } }),
+    { times: 1 },
+  )
+  await page.goto('/?defaultError')
+  const retry = page.getByRole('button', { name: 'Retry PDF' })
+  await retry.focus()
+  await retry.press('Enter')
+  await expect(page.getByRole('img', { name: 'PDF page 1' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Lecture slides' })).toBeFocused()
+})
+
+test('native frame times out, retries and clears its loading indicator', async ({ page }) => {
+  let unblock = () => {}
+  const hold = new Promise<void>((resolve) => {
+    unblock = resolve
+  })
+  await page.route(
+    '**/frame',
+    async (route) => {
+      await hold
+      await route.abort()
+    },
+    { times: 1 },
+  )
+  await page.goto('/?frame', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('status')).toHaveText('Loading PDF…')
+  const retry = page.getByRole('button', { name: 'Retry PDF' })
+  await expect(retry).toBeVisible()
+  unblock()
+  await retry.press('Enter')
+  await expect(page.frameLocator('iframe').getByText('Frame loaded')).toHaveCount(1)
+  await expect(page.getByRole('status')).toHaveCount(0)
+  await expect(page.getByTitle('Native slides')).toBeFocused()
+})
+
+test('horizontal swipes turn pages in both directions', async ({ page }) => {
+  await page.goto('/')
+  const first = page.getByRole('img', { name: 'PDF page 1' })
+  const second = page.getByRole('img', { name: 'PDF page 2' })
+  await expect(first).toBeVisible()
+  await first.dispatchEvent('touchstart', {
+    touches: [{ identifier: 1, clientX: 240, clientY: 80 }],
+  })
+  await first.dispatchEvent('touchend', {
+    touches: [],
+    changedTouches: [{ identifier: 1, clientX: 70, clientY: 84 }],
+  })
+  await expect(second).toBeVisible()
+  await second.dispatchEvent('touchstart', {
+    touches: [{ identifier: 1, clientX: 70, clientY: 84 }],
+  })
+  await second.dispatchEvent('touchend', {
+    touches: [],
+    changedTouches: [{ identifier: 1, clientX: 240, clientY: 80 }],
+  })
+  await expect(first).toBeVisible()
 })

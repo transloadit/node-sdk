@@ -6,9 +6,11 @@ import type { Root } from 'react-dom/client'
 
 import { act, createRef } from 'react'
 import { createRoot } from 'react-dom/client'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { MAX_DOCUMENT_PREVIEW_BYTES } from '../src/document.ts'
+import { DocumentViewer } from '../src/documentViewer.tsx'
 import { Viewer } from '../src/viewer.tsx'
 
 let root: Root
@@ -342,4 +344,16 @@ test('routes unverified frame MIME to the typed error fallback', async () => {
   )
   expect(container.textContent).toBe('Invalid PDF')
   expect(onError).toHaveBeenCalledWith('invalid-mime')
+})
+
+test.each([
+  ['text', 'Plain text'],
+  ['markdown', '| Right |\n| ---: |\n| Ready |'],
+] as const)('SSR %s documents work with external stylesheets only', (format, text) => {
+  const markup = renderToStaticMarkup(
+    <DocumentViewer format={format} bytes={new TextEncoder().encode(text).buffer} title="Notes" />,
+  )
+  const doc = new DOMParser().parseFromString(markup, 'text/html')
+  expect(doc.querySelector('pre, td')?.textContent).toBe(format === 'text' ? text : 'Ready')
+  expect(doc.querySelector('[style]')).toBeNull()
 })

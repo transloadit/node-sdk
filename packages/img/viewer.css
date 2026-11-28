@@ -15,6 +15,10 @@
 [data-tl-viewer] pre {
   white-space: pre-wrap;
 }
+[data-tl-viewer="document"] > pre {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 [data-tl-viewer] nav {
   display: flex;
   flex-wrap: wrap;
@@ -25,7 +29,7 @@
   font: inherit;
   min-block-size: 44px;
 }
-[data-tl-viewer] button[aria-disabled="true"] {
+[data-tl-viewer] button:is(:disabled, [aria-disabled="true"]) {
   opacity: 0.55;
 }
 [data-tl-viewer="rtf"] {
@@ -48,9 +52,11 @@
   border-collapse: collapse;
 }
 [data-tl-markdown] :is(th, td) {
-  text-align: start;
   border: 1px solid var(--tl-viewer-border, GrayText);
   padding: 0.35em 0.65em;
+}
+[data-tl-markdown] :is(th, td):not([align]) {
+  text-align: start;
 }
 [data-tl-markdown] blockquote {
   border-inline-start: 0.2em solid var(--tl-viewer-border, GrayText);

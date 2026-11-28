@@ -6,7 +6,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { fetchPdfResource } from '../src/pdfNetwork.ts'
+import { fetchPdfResource, openPdfNetwork } from '../src/pdfNetwork.ts'
 import { Viewer } from '../src/viewer.tsx'
 
 const { getDocument } = vi.hoisted(() => ({ getDocument: vi.fn() }))
@@ -196,4 +196,82 @@ test('a manual retry obtains a new grant before fetching again', async () => {
     'https://files.example/report',
     'https://files.example/renewed',
   ])
+})
+
+test.each([
+  401, 403,
+])('concurrent requests share a renewal even when it returns HTTP %s', async (status) => {
+  const mediaUrl = 'https://files.example/slides'
+  const renewedUrl = `${mediaUrl}?renewed`
+  const grant = { mediaUrl }
+  const controller = new AbortController()
+  let resolveGrant: (grant: { mediaUrl: string }) => void = () => {}
+  const renew = vi.fn(
+    () =>
+      new Promise<{ mediaUrl: string }>((resolve) => {
+        resolveGrant = resolve
+      }),
+  )
+  const network = await openPdfNetwork({
+    getGrant: () => grant,
+    getRenew: () => renew,
+    allowSameOrigin: false,
+    signal: controller.signal,
+    fail: vi.fn(),
+  })
+  fetchMock.mockImplementation(async () => new Response(null, { status }))
+  const fetchRange = (range: string) =>
+    fetchPdfResource(network.url, {
+      headers: { ...network.httpHeaders, Range: range },
+      signal: controller.signal,
+    })
+  try {
+    const first = fetchRange('bytes=0-99')
+    await vi.waitFor(() => expect(renew).toHaveBeenCalledOnce())
+    const second = fetchRange('bytes=100-199')
+    resolveGrant({ mediaUrl: renewedUrl })
+    const results = await Promise.allSettled([first, second])
+    expect(results.map((result) => result.status)).toEqual(['rejected', 'rejected'])
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([mediaUrl, renewedUrl, renewedUrl])
+    expect(renew).toHaveBeenCalledOnce()
+  } finally {
+    controller.abort()
+  }
+})
+
+test('rejects a lazy grant for the application origin before fetching', async () => {
+  await show(undefined, undefined, {
+    src: undefined,
+    renew: async () => ({ mediaUrl: '/private' }),
+  })
+  await vi.waitFor(() => expect(onError).toHaveBeenCalledWith('invalid-url'))
+  expect(fetchMock).not.toHaveBeenCalled()
+})
+
+test('replays an in-flight denied request with a rotated prop grant without a renew callback', async () => {
+  let grant = { mediaUrl: 'https://files.example/old' }
+  const controller = new AbortController()
+  const network = await openPdfNetwork({
+    getGrant: () => grant,
+    getRenew: () => undefined,
+    allowSameOrigin: false,
+    signal: controller.signal,
+    fail: vi.fn(),
+  })
+  fetchMock
+    .mockImplementationOnce(() => {
+      grant = { mediaUrl: 'https://files.example/rotated' }
+      return Promise.resolve(new Response(null, { status: 403 }))
+    })
+    .mockResolvedValueOnce(new Response('pdf', { headers: { 'Content-Type': 'application/pdf' } }))
+  try {
+    const response = await fetchPdfResource(network.url, {
+      headers: network.httpHeaders,
+      signal: controller.signal,
+    })
+    expect(await response.text()).toBe('pdf')
+    expect(fetchMock.mock.lastCall?.[0]).toBe(grant.mediaUrl)
+  } finally {
+    controller.abort()
+  }
 })
