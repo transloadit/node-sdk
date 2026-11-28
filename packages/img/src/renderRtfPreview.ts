@@ -26,7 +26,10 @@ const permittedStyles = [
 ]
 
 /** Convert rich text to inert, formatting-only HTML: no images, imports, navigation or active content. */
-export async function renderRtfPreview(bytes: ArrayBuffer): Promise<string> {
+export async function renderRtfPreview(
+  bytes: ArrayBuffer,
+  colorScheme: 'light' | 'dark' | 'auto' = 'light',
+): Promise<string> {
   const { RTFJS } = await import('rtf.js')
   RTFJS.loggingEnabled(false)
   // Omit onImport: rtf.js ignores imports, while rejecting its callback fails the whole document.
@@ -54,9 +57,13 @@ export async function renderRtfPreview(bytes: ArrayBuffer): Promise<string> {
     return element
   }
   for (const node of await rtf.render()) inert.body.append(copy(node))
-  return (
-    "<!doctype html><html><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'\"><style>:root{color-scheme:light}body{background:Canvas;color:CanvasText;font:16px/1.6 system-ui,sans-serif;margin:24px;overflow-wrap:anywhere}</style></head><body>" +
-    inert.body.innerHTML +
-    '</body></html>'
-  )
+  const scheme = colorScheme === 'auto' ? 'light dark' : colorScheme === 'dark' ? 'dark' : 'light'
+  const darkColors = 'body *{color:CanvasText!important;background-color:transparent!important}'
+  const overrides =
+    scheme === 'dark'
+      ? darkColors
+      : scheme === 'light dark'
+        ? `@media(prefers-color-scheme:dark){${darkColors}}`
+        : ''
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>:root{color-scheme:${scheme}}body{background:Canvas;color:CanvasText;font:16px/1.6 system-ui,sans-serif;margin:24px;overflow-wrap:anywhere}${overrides}</style></head><body>${inert.body.innerHTML}</body></html>`
 }

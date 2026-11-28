@@ -9,7 +9,9 @@ import type {
   VideoHTMLAttributes,
 } from 'react'
 
+import type { DocumentPreviewReason } from './document.ts'
 import type { DocumentViewerProps } from './documentViewer.tsx'
+import type { PdfViewerProps } from './pdfViewer.tsx'
 import type { TransloaditPictureProps } from './picture.tsx'
 
 import {
@@ -24,8 +26,16 @@ import {
 
 import { TransloaditPicture } from './picture.tsx'
 
+export type { DocumentPreviewReason, ViewerKind } from './document.ts'
+export type {
+  DocumentPreview,
+  DocumentPreviewOptions,
+  DocumentSource,
+} from './useDocumentPreview.ts'
 export type { MediaPlayback, PlaybackSource } from './useMediaPlayback.ts'
 
+export { viewerKind } from './document.ts'
+export { useDocumentPreview } from './useDocumentPreview.ts'
 export { useMediaPlayback } from './useMediaPlayback.ts'
 
 /** Caller-owned controls, authorization and styles surround the shared renderer. */
@@ -43,11 +53,14 @@ export type ViewerProps =
   | ({ kind: 'audio'; ref?: Ref<HTMLAudioElement> } & AudioHTMLAttributes<HTMLAudioElement>)
   | ({
       kind: 'pdf'
+      mode?: 'frame'
+      unsupportedFallback?: ReactNode
       src: string
       title: string
       allowSameOrigin?: boolean
       errorFallback?: ReactNode
     } & Omit<IframeHTMLAttributes<HTMLIFrameElement>, 'sandbox' | 'src' | 'srcDoc' | 'title'>)
+  | ({ kind: 'pdf'; mode: 'pdfjs'; allowSameOrigin?: boolean } & PdfViewerProps)
   | ({ kind: 'document' } & DocumentViewerProps)
 
 function DirectImage({
@@ -108,7 +121,7 @@ function DocumentLoadFailure({ bytes, onError, errorFallback }: DocumentViewerPr
   useEffect(() => {
     if (reported.current === bytes) return
     reported.current = bytes
-    onError?.()
+    onError?.('network')
   }, [bytes, onError])
   return errorFallback
 }
@@ -137,23 +150,86 @@ const subscribeOrigin = () => () => {}
 const browserOrigin = () => window.location.origin
 const serverOrigin = () => null
 
+function PdfFailure({
+  onError,
+  reason,
+  children,
+}: {
+  onError?: (reason: DocumentPreviewReason) => void
+  reason: DocumentPreviewReason
+  children?: ReactNode
+}): ReactNode {
+  const reported = useRef(false)
+  useEffect(() => {
+    if (!reported.current) onError?.(reason)
+    reported.current = true
+  }, [onError, reason])
+  return children ?? <p role="alert">PDF preview unavailable.</p>
+}
+
+function LazyPdf(props: PdfViewerProps): ReactNode {
+  const [Renderer] = useState(() =>
+    lazy(async () => {
+      try {
+        return { default: (await import('./pdfViewer.tsx')).PdfViewer }
+      } catch {
+        return { default: PdfChunkFailure }
+      }
+    }),
+  )
+  return (
+    <Suspense fallback={props.loadingFallback ?? <p role="status">Loading PDF…</p>}>
+      <Renderer {...props} />
+    </Suspense>
+  )
+}
+
+function PdfChunkFailure({ onError, errorFallback }: PdfViewerProps): ReactNode {
+  return (
+    <PdfFailure reason="network" onError={onError}>
+      {errorFallback}
+    </PdfFailure>
+  )
+}
+
 function PdfDocument({
   allowSameOrigin = false,
-  errorFallback,
   ...props
 }: Extract<ViewerProps, { kind: 'pdf' }>): ReactNode {
   const origin = useSyncExternalStore(subscribeOrigin, browserOrigin, serverOrigin)
   if (origin === null) return null
-  let url: URL
+  let url: URL | undefined
   try {
     url = new URL(props.src, origin)
   } catch {
-    return errorFallback
+    /* Handled alongside disallowed origins. */
   }
-  if (!['https:', 'http:'].includes(url.protocol) || (!allowSameOrigin && url.origin === origin))
-    return errorFallback
-  const { kind: _kind, ...frame } = props
-  // Native PDF rendering requires an unsandboxed frame on a separate user-content origin.
+  if (
+    !url ||
+    !['https:', 'http:'].includes(url.protocol) ||
+    (!allowSameOrigin && url.origin === origin)
+  ) {
+    return (
+      <PdfFailure
+        key={props.src}
+        reason="unsupported"
+        onError={props.mode === 'pdfjs' ? props.onError : undefined}
+      >
+        {props.unsupportedFallback ?? props.errorFallback}
+      </PdfFailure>
+    )
+  }
+  if (props.mode === 'pdfjs')
+    return (
+      <LazyPdf
+        key={JSON.stringify([url.href, props.workerSrc, props.assetBaseUrl])}
+        {...props}
+        src={url.href}
+      />
+    )
+  const { kind: _kind, mode: _mode, errorFallback: _error, unsupportedFallback, ...frame } = props
+  if (navigator.pdfViewerEnabled === false && unsupportedFallback !== undefined)
+    return unsupportedFallback
   return <iframe {...frame} referrerPolicy="no-referrer" />
 }
 

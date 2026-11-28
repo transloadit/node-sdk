@@ -15,6 +15,7 @@ test('Viewer installs browser renderers without runtime schema or Node SDK depen
     '@transloadit/utils',
     'hast-util-to-jsx-runtime',
     'hls.js',
+    'pdfjs-dist',
     'remark-gfm',
     'remark-parse',
     'remark-rehype',
@@ -126,7 +127,7 @@ test('the initial Viewer bundle defers document parsers and HLS', async () => {
   inspect(entry[0])
   expect(
     [...initialInputs].some((file) =>
-      /node_modules\/(?:unified|micromark[^/]*|hls.js|rtf.js|codepage)\//.test(file),
+      /node_modules\/(?:unified|micromark[^/]*|hls.js|pdfjs-dist|rtf.js|codepage)\//.test(file),
     ),
   ).toBe(false)
   expect(entry[1].bytes).toBeLessThan(40_000)

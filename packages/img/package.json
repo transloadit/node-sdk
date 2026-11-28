@@ -16,7 +16,8 @@
   "files": [
     "dist",
     "docs",
-    "README.md"
+    "README.md",
+    "viewer.css"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -81,20 +82,24 @@
     "./documents": {
       "types": "./dist/document.d.ts",
       "default": "./dist/document.js"
-    }
+    },
+    "./viewer.css": "./viewer.css",
+    "./pdf.worker.mjs": "./dist/pdf.worker.min.mjs"
   },
   "scripts": {
-    "build": "../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "build": "../../node_modules/.bin/tsc --build tsconfig.build.json && node ./scripts/copy-pdf-worker.ts",
     "check": "yarn lint:ts && yarn test:unit",
     "lint:ts": "../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.json",
     "prepack": "yarn build",
-    "test:unit": "yarn build && ../../node_modules/.bin/vitest run ./test"
+    "test:unit": "yarn build && ../../node_modules/.bin/vitest run ./test",
+    "test:browser": "yarn build && playwright test --config browser/playwright.config.ts"
   },
   "dependencies": {
     "@noble/ciphers": "^1.3.0",
     "@transloadit/utils": "^4.10.1",
     "hast-util-to-jsx-runtime": "^2.3.0",
     "hls.js": "^1.6.16",
+    "pdfjs-dist": "6.5.438",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.0",
@@ -120,6 +125,7 @@
     }
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "esbuild": "^0.28.2",

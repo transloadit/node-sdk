@@ -7,14 +7,15 @@ import {
   documentPreviewKind,
   MAX_DOCUMENT_PREVIEW_BYTES,
   readDocumentPreview,
+  viewerKind,
 } from '../src/document.ts'
 
 afterEach(() => vi.unstubAllGlobals())
 
 test.each([
   ['application/pdf', 'report.pdf', 'pdf'],
-  ['application/octet-stream', 'report.pdf', null],
-  [null, 'report.pdf', null],
+  ['application/octet-stream', 'report.pdf', 'pdf'],
+  [null, 'report.pdf', 'pdf'],
   ['text/markdown', 'README', 'markdown'],
   ['text/x-markdown; charset=utf-8', 'README', 'markdown'],
   ['text/plain', 'NOTES.MD', 'markdown'],
@@ -23,6 +24,14 @@ test.each([
   ['application/rtf', 'letter.rtf', 'rtf'],
   ['text/rtf', 'letter', 'rtf'],
   ['text/plain', 'notes.txt', 'text'],
+  ['application/json', 'dataset', 'text'],
+  ['text/csv', 'sheet', 'text'],
+  [null, 'server.LOG', 'text'],
+  [null, 'notes.MDOWN', 'markdown'],
+  [null, 'sheet.CSV', 'text'],
+  [null, 'config.yml', 'text'],
+  [null, 'config.yaml', 'text'],
+  [null, 'data.json', 'text'],
   ['image/png', 'wrong.md', null],
   ['text/html', 'page.md', null],
   ['application/zip', 'archive.txt', null],
@@ -113,4 +122,25 @@ test.each([
 test('decodes UTF-16 byte-order marks without showing the BOM', () => {
   expect(decodeDocumentText(Uint8Array.from([255, 254, 72, 0, 105, 0]).buffer)).toBe('Hi')
   expect(decodeDocumentText(Uint8Array.from([254, 255, 0, 72, 0, 105]).buffer)).toBe('Hi')
+})
+
+test.each([
+  ['IMAGE/png', 'image'],
+  ['audio/mpeg', 'audio'],
+  ['video/mp4', 'video'],
+  ['text/markdown', 'markdown'],
+  ['application/octet-stream', 'pdf'],
+  ['text/html', null],
+])('viewerKind handles %s', (mime, kind) => expect(viewerKind(mime, 'slides.pdf')).toBe(kind))
+
+test('decodes a quoted MIME charset and prefers an explicit Unicode BOM', () => {
+  expect(
+    decodeDocumentText(Uint8Array.of(0xe9).buffer, 'text/plain; Charset = "windows-1252"'),
+  ).toBe('é')
+  expect(
+    decodeDocumentText(Uint8Array.of(0xff, 0xfe, 0x48, 0).buffer, 'text/plain; charset=ascii'),
+  ).toBe('H')
+  expect(
+    decodeDocumentText(new TextEncoder().encode('é').buffer, 'text/plain; charset=unknown'),
+  ).toBe('é')
 })

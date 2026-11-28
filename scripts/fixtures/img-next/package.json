@@ -11,6 +11,7 @@
     "hast-util-to-jsx-runtime": "2.3.7",
     "hls.js": "1.7.4",
     "next": "16.3.4",
+    "pdfjs-dist": "6.5.438",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "remark-gfm": "4.0.1",

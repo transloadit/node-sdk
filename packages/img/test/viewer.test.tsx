@@ -56,7 +56,7 @@ test('renders Markdown with inert HTML, image alt text and external links only',
   expect(container.querySelector('a')?.getAttribute('referrerpolicy')).toBe('no-referrer')
 })
 
-test('keeps plain text literal and reports oversized input through the caller fallback', async () => {
+test('keeps plain text literal and truncates oversized input with a notice', async () => {
   await show(
     <Viewer
       kind="document"
@@ -82,7 +82,8 @@ test('keeps plain text literal and reports oversized input through the caller fa
       errorFallback={<p role="alert">Too large</p>}
     />,
   )
-  expect(container.querySelector('[role="alert"]')?.textContent).toBe('Too large')
+  expect(container.querySelector('[role="status"]')?.textContent).toContain('truncated')
+  expect(container.querySelector('pre')?.textContent?.length).toBe(MAX_DOCUMENT_PREVIEW_BYTES)
 })
 
 test('renders RTF locally into an inert sandboxed frame and rejects malformed RTF', async () => {
@@ -92,6 +93,7 @@ test('renders RTF locally into an inert sandboxed frame and rejects malformed RT
       format="rtf"
       bytes={new TextEncoder().encode(String.raw`{\rtf1\ansi A letter\par\b Important\b0}`).buffer}
       title="Letter"
+      colorScheme="dark"
       className="document"
       richClassName="markdown"
     />,
@@ -99,6 +101,7 @@ test('renders RTF locally into an inert sandboxed frame and rejects malformed RT
   await vi.waitFor(() => expect(container.querySelector('iframe')?.srcdoc).toContain('Important'))
   expect(container.querySelector('iframe')?.getAttribute('sandbox')).toBe('')
   expect(container.querySelector('iframe')?.className).toBe('document')
+  expect(container.querySelector('iframe')?.srcdoc).toContain('color-scheme:dark')
   expect(container.querySelector('iframe')?.srcdoc).toContain("default-src 'none'")
   const onError = vi.fn()
   await show(
@@ -112,6 +115,7 @@ test('renders RTF locally into an inert sandboxed frame and rejects malformed RT
     />,
   )
   await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce())
+  expect(onError).toHaveBeenCalledWith('parse')
   expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
 })
 
@@ -141,13 +145,14 @@ test('allows an explicitly trusted same-origin PDF route', async () => {
   expect(container.querySelector('iframe')?.getAttribute('src')).toBe('/trusted-pdf')
 })
 
-test('reports an oversized document once per bytes identity', async () => {
+test('reports an oversized RTF once per bytes identity', async () => {
   const onError = vi.fn()
   const bytes = new ArrayBuffer(MAX_DOCUMENT_PREVIEW_BYTES + 1)
-  await show(<Viewer kind="document" format="text" bytes={bytes} title="Notes" onError={onError} />)
+  await show(<Viewer kind="document" format="rtf" bytes={bytes} title="Notes" onError={onError} />)
   await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce())
+  expect(onError).toHaveBeenCalledWith('too-large')
   await show(
-    <Viewer kind="document" format="text" bytes={bytes} title="Updated" onError={onError} />,
+    <Viewer kind="document" format="rtf" bytes={bytes} title="Updated" onError={onError} />,
   )
   expect(onError).toHaveBeenCalledOnce()
 })
@@ -263,4 +268,36 @@ test('clears a placeholder when the image loaded before hydration attached its h
     />,
   )
   expect(container.querySelector('img')?.style.backgroundImage).toBe('')
+})
+
+test('shows a notice when Markdown falls back to a literal, charset-aware preview', async () => {
+  const bytes = new Uint8Array(256 * 1024 + 1).fill(65)
+  bytes[0] = 0xe9
+  await show(
+    <Viewer
+      kind="document"
+      format="markdown"
+      title="Notes"
+      bytes={bytes.buffer}
+      mime="text/markdown; charset=windows-1252"
+    />,
+  )
+  await vi.waitFor(() => expect(container.querySelector('pre')?.textContent?.[0]).toBe('é'))
+  expect(container.querySelector('[role=status]')?.textContent).toContain(
+    'Showing Markdown as plain text',
+  )
+})
+
+test('offers the caller fallback when native inline PDFs are unavailable', async () => {
+  vi.stubGlobal('navigator', { pdfViewerEnabled: false })
+  await show(
+    <Viewer
+      kind="pdf"
+      mode="frame"
+      src="https://files.example/pdf"
+      title="Notes"
+      unsupportedFallback="Download PDF"
+    />,
+  )
+  expect(container.textContent).toBe('Download PDF')
 })

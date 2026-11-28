@@ -1,0 +1,35 @@
+[data-tl-viewer] {
+  color: var(--tl-viewer-color, CanvasText);
+  background: var(--tl-viewer-background, Canvas);
+  font: var(--tl-viewer-font, 1rem / 1.6 system-ui, sans-serif);
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+[data-tl-viewer="document"] {
+  overflow: auto;
+  padding: var(--tl-viewer-padding, 1rem);
+}
+[data-tl-viewer] a {
+  color: var(--tl-viewer-link, LinkText);
+}
+[data-tl-viewer] pre {
+  white-space: pre-wrap;
+}
+[data-tl-viewer] nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+[data-tl-viewer] button {
+  font: inherit;
+  min-block-size: 44px;
+}
+[data-tl-viewer] button[aria-disabled="true"] {
+  opacity: 0.55;
+}
+[data-tl-viewer="rtf"] {
+  box-sizing: border-box;
+  width: 100%;
+  border: 0;
+}
