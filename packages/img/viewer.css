@@ -1,0 +1,133 @@
+[data-tl-viewer] {
+  color: var(--tl-viewer-color, CanvasText);
+  background: var(--tl-viewer-background, Canvas);
+  font: var(--tl-viewer-font, 1rem / 1.6 system-ui, sans-serif);
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+[data-tl-viewer="document"] {
+  overflow: auto;
+  padding: var(--tl-viewer-padding, 1rem);
+}
+[data-tl-viewer] a {
+  color: var(--tl-viewer-link, LinkText);
+}
+[data-tl-viewer] pre {
+  white-space: pre-wrap;
+}
+[data-tl-viewer="document"] > pre {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+[data-tl-viewer] nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+[data-tl-viewer] button {
+  font: inherit;
+  min-block-size: 44px;
+}
+[data-tl-viewer] button:is(:disabled, [aria-disabled="true"]) {
+  opacity: 0.55;
+}
+[data-tl-viewer="rtf"] {
+  box-sizing: border-box;
+  width: 100%;
+  border: 0;
+}
+[data-tl-markdown] :is(h1, h2, h3, h4, h5, h6) {
+  margin-block: 1.2em 0.4em;
+  font-weight: var(--tl-viewer-heading-weight, 650);
+  line-height: 1.25;
+}
+[data-tl-markdown] :is(p, ul, ol, blockquote, pre, table) {
+  margin-block: var(--tl-viewer-paragraph-gap, 0.8em);
+}
+[data-tl-markdown] :is(ul, ol) {
+  padding-inline-start: 1.6em;
+}
+[data-tl-markdown] table {
+  border-collapse: collapse;
+}
+[data-tl-markdown] :is(th, td) {
+  border: 1px solid var(--tl-viewer-border, GrayText);
+  padding: 0.35em 0.65em;
+}
+[data-tl-markdown] :is(th, td):not([align]) {
+  text-align: start;
+}
+[data-tl-markdown] blockquote {
+  border-inline-start: 0.2em solid var(--tl-viewer-border, GrayText);
+  margin-inline: 0;
+  padding-inline-start: 1em;
+}
+[data-tl-markdown] :is(code, pre) {
+  font-family: var(--tl-viewer-monospace, ui-monospace, monospace);
+  background: var(--tl-viewer-code-background, color-mix(in srgb, CanvasText 8%, Canvas));
+}
+[data-tl-markdown] pre {
+  padding: 0.75em;
+  white-space: pre;
+  overflow-x: auto;
+}
+[data-tl-viewer="pdf"] input {
+  width: 5em;
+  min-block-size: 44px;
+  font: inherit;
+}
+/* PDF.js TextLayer sets page-relative positions and per-run font metrics. */
+.tl-pdf-text {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: initial;
+  text-size-adjust: none;
+  -webkit-text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+}
+.tl-pdf-text :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+  font-size: calc(var(--total-scale-factor) * var(--min-font-size) * var(--font-height));
+  transform: rotate(var(--rotate, 0deg)) scaleX(var(--scale-x, 1))
+    scale(calc(1 / var(--min-font-size)));
+}
+.tl-pdf-text ::selection {
+  background: color-mix(in srgb, Highlight 45%, transparent);
+  color: transparent;
+}
+.tl-pdf-text[data-main-rotation="90"] {
+  transform: rotate(90deg) translateY(-100%);
+}
+.tl-pdf-text[data-main-rotation="180"] {
+  transform: rotate(180deg) translate(-100%, -100%);
+}
+.tl-pdf-text[data-main-rotation="270"] {
+  transform: rotate(270deg) translateX(-100%);
+}
+[data-tl-markdown] h1 {
+  font-size: var(--tl-viewer-h1-size, 2em);
+}
+[data-tl-markdown] h2 {
+  font-size: var(--tl-viewer-h2-size, 1.5em);
+}
+[data-tl-markdown] h3 {
+  font-size: var(--tl-viewer-h3-size, 1.25em);
+}
+[data-tl-markdown] ul {
+  list-style-type: disc;
+}
+[data-tl-markdown] ol {
+  list-style-type: decimal;
+}

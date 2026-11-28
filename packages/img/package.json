@@ -16,7 +16,8 @@
   "files": [
     "dist",
     "docs",
-    "README.md"
+    "README.md",
+    "viewer.css"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -81,14 +82,17 @@
     "./documents": {
       "types": "./dist/document.d.ts",
       "default": "./dist/document.js"
-    }
+    },
+    "./viewer.css": "./viewer.css",
+    "./pdf.worker.mjs": "./dist/pdf-assets/pdf.worker.min.mjs"
   },
   "scripts": {
-    "build": "../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "build": "../../node_modules/.bin/tsc --build tsconfig.build.json && node ./scripts/prepare-pdf-assets.ts",
     "check": "yarn lint:ts && yarn test:unit",
     "lint:ts": "../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.json",
     "prepack": "yarn build",
-    "test:unit": "yarn build && ../../node_modules/.bin/vitest run ./test"
+    "test:unit": "yarn build && ../../node_modules/.bin/vitest run ./test",
+    "test:browser": "yarn build && playwright test --config browser/playwright.config.ts"
   },
   "dependencies": {
     "@noble/ciphers": "^1.3.0",
@@ -120,12 +124,21 @@
     }
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "core-js": "^3.51.0",
     "esbuild": "^0.28.2",
     "happy-dom": "^20.9.0",
     "next": "16.3.4",
+    "pdfjs-dist": "6.5.438",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
+  },
+  "imports": {
+    "#pdfjs": {
+      "types": "pdfjs-dist/legacy/build/pdf.mjs",
+      "default": "./dist/pdf.min.mjs"
+    }
   }
 }

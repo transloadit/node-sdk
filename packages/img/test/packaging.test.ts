@@ -125,8 +125,10 @@ test('the initial Viewer bundle defers document parsers and HLS', async () => {
   }
   inspect(entry[0])
   expect(
-    [...initialInputs].some((file) =>
-      /node_modules\/(?:unified|micromark[^/]*|hls.js|rtf.js|codepage)\//.test(file),
+    [...initialInputs].some(
+      (file) =>
+        file.endsWith('/pdf.min.mjs') ||
+        /node_modules\/(?:unified|micromark[^/]*|hls.js|pdfjs-dist|rtf.js|codepage)\//.test(file),
     ),
   ).toBe(false)
   expect(entry[1].bytes).toBeLessThan(40_000)

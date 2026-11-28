@@ -3,7 +3,7 @@
 import type { Components } from 'hast-util-to-jsx-runtime'
 import type { ReactNode } from 'react'
 
-import type { DocumentPreviewKind } from './document.ts'
+import type { DocumentPreviewKind, DocumentPreviewReason } from './document.ts'
 
 import { toJsxRuntime } from 'hast-util-to-jsx-runtime'
 import { Component, Fragment, useEffect, useMemo, useRef, useState } from 'react'
@@ -38,7 +38,12 @@ export interface DocumentViewerProps {
   /** Shown when document loading, parsing or size validation fails. */
   errorFallback?: ReactNode
   /** Reports a document loading, parsing or size failure. */
-  onError?: () => void
+  onError?: (reason: DocumentPreviewReason) => void
+  mime?: string | null
+  truncated?: boolean
+  notices?: { truncated?: string; rawMarkdown?: string }
+  rtfColors?: { text?: string; background?: string }
+  colorScheme?: 'light' | 'dark' | 'auto'
 }
 
 const markdownProcessor = unified().use(remarkParse).use(remarkGfm).use(remarkRehype)
@@ -61,6 +66,8 @@ function RichText({
   bytes,
   title,
   className,
+  colorScheme,
+  rtfColors,
   loadingFallback,
   errorFallback,
   onError,
@@ -78,7 +85,9 @@ function RichText({
     let active = true
     // RTF's parser is loaded only when a rich-text document is actually opened.
     void import('./renderRtfPreview.ts')
-      .then(({ renderRtfPreview }) => renderRtfPreview(bytes))
+      .then(({ renderRtfPreview }) =>
+        renderRtfPreview(bytes, colorScheme, rtfColors?.text, rtfColors?.background),
+      )
       .then(
         (html) => {
           if (active) setResult({ bytes, html })
@@ -86,17 +95,18 @@ function RichText({
         () => {
           if (!active) return
           setResult({ bytes, failed: true })
-          reportError.current?.()
+          reportError.current?.('parse')
         },
       )
     return () => {
       active = false
     }
-  }, [bytes])
+  }, [bytes, colorScheme, rtfColors?.text, rtfColors?.background])
   if (result?.bytes !== bytes) return loadingFallback
   if (result.failed || result.html === undefined) return errorFallback
   return (
     <iframe
+      data-tl-viewer="rtf"
       srcDoc={result.html}
       sandbox=""
       referrerPolicy="no-referrer"
@@ -106,7 +116,12 @@ function RichText({
   )
 }
 
-function DocumentFailure({ bytes, onError, errorFallback }: DocumentViewerProps): ReactNode {
+function DocumentFailure({
+  bytes,
+  onError,
+  errorFallback,
+  reason = 'parse',
+}: DocumentViewerProps & { reason?: DocumentPreviewReason }): ReactNode {
   const reportError = useRef(onError)
   useEffect(() => {
     reportError.current = onError
@@ -115,24 +130,32 @@ function DocumentFailure({ bytes, onError, errorFallback }: DocumentViewerProps)
   useEffect(() => {
     if (reported.current === bytes) return
     reported.current = bytes
-    reportError.current?.()
-  }, [bytes])
+    reportError.current?.(reason)
+  }, [bytes, reason])
   return errorFallback
 }
 
-function MarkdownDocument({ bytes, richClassName }: DocumentViewerProps): ReactNode {
+function MarkdownDocument({ bytes, mime, richClassName }: DocumentViewerProps): ReactNode {
   // A 256 KiB GFM document can take multiple frames to parse; grant refreshes reuse its bytes.
   const content = useMemo(
     () =>
-      toJsxRuntime(markdownProcessor.runSync(markdownProcessor.parse(decodeDocumentText(bytes))), {
-        Fragment,
-        jsx,
-        jsxs,
-        components: markdownComponents,
-      }),
-    [bytes],
+      toJsxRuntime(
+        markdownProcessor.runSync(markdownProcessor.parse(decodeDocumentText(bytes, mime))),
+        {
+          Fragment,
+          jsx,
+          jsxs,
+          components: markdownComponents,
+          tableCellAlignToStyle: false,
+        },
+      ),
+    [bytes, mime],
   )
-  return <div className={richClassName}>{content}</div>
+  return (
+    <div data-tl-markdown="" className={richClassName}>
+      {content}
+    </div>
+  )
 }
 
 interface MarkdownState {
@@ -166,27 +189,37 @@ class MarkdownBoundary extends Component<DocumentViewerProps, MarkdownState> {
 
 /** Render only locally parsed content; raw HTML and external embedded resources stay inert. */
 export function DocumentViewer(props: DocumentViewerProps): ReactNode {
-  if (
-    props.bytes.byteLength >
-    (props.format === 'rtf' ? MAX_RICH_DOCUMENT_PREVIEW_BYTES : MAX_DOCUMENT_PREVIEW_BYTES)
-  )
-    return <DocumentFailure {...props} />
-  if (props.format === 'rtf') return <RichText {...props} />
+  if (props.format === 'rtf') {
+    if (props.truncated || props.bytes.byteLength > MAX_RICH_DOCUMENT_PREVIEW_BYTES)
+      return <DocumentFailure {...props} reason="too-large" />
+    return <RichText {...props} />
+  }
+  const truncated = props.truncated || props.bytes.byteLength > MAX_DOCUMENT_PREVIEW_BYTES
+  const rawMarkdown =
+    props.format === 'markdown' &&
+    (truncated || props.bytes.byteLength > MAX_RICH_DOCUMENT_PREVIEW_BYTES)
   return (
     <article
+      data-tl-viewer="document"
       aria-label={props.title}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: Long documents must be keyboard-scrollable.
       tabIndex={0}
       className={props.className}
     >
-      {props.format === 'markdown' && props.bytes.byteLength <= MAX_RICH_DOCUMENT_PREVIEW_BYTES ? (
+      {truncated && (
+        <p role="status">{props.notices?.truncated ?? 'Preview truncated to the first 2 MiB.'}</p>
+      )}
+      {rawMarkdown && (
+        <p role="status">
+          {props.notices?.rawMarkdown ??
+            'Showing Markdown as plain text because this document exceeds the rich preview limit.'}
+        </p>
+      )}
+      {props.format === 'markdown' && !rawMarkdown ? (
         <MarkdownBoundary {...props} />
       ) : (
-        <pre
-          className={props.textClassName}
-          style={{ margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-        >
-          {decodeDocumentText(props.bytes)}
+        <pre className={props.textClassName}>
+          {decodeDocumentText(props.bytes, props.mime, truncated)}
         </pre>
       )}
     </article>

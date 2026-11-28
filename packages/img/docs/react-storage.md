@@ -6,7 +6,7 @@ Built-ins. Install `@transloadit/viewer@alpha` alongside React 19. Receipts come
 authenticated data layer; credentials stay in your server route.
 The optional `/react/preview` entry requires **0.0.6+**. The `/react/video` entry requires
 **0.0.8+**; see [private video playback](#private-video-playback).
-The `/react/viewer` and `/documents` entries require **0.2.0+**.
+The `/react/viewer` and `/documents` entries require **0.2.0+**. The document hook, PDF.js mode, and stylesheet described below are introduced in **0.3.0**.
 
 ```tsx
 import { Image, getStorageAssetHref } from '@transloadit/viewer/react'
@@ -404,7 +404,7 @@ static catalogs, custom Templates, markup, and low-level models remain supported
 
 `Viewer` from `@transloadit/viewer/react/viewer` serves applications that already authorize
 and sign their media. It renders responsive image models, direct thumbnail URLs, native video
-and audio, browser PDF frames, Markdown, plain text, and RTF. The separate entry keeps document
+and audio, paginated PDFs or browser PDF frames, Markdown, plain text, and RTF. The separate entry keeps document
 parsers and playback code out of existing image-only entry points. The shared Viewer entry also
 loads document parsers and HLS dynamically, so image and native-media previews do not load them.
 Direct images default to lazy loading and asynchronous decoding; use `loading="eager"` for a
@@ -480,44 +480,79 @@ fallback waits for it to finish without a client timeout. Unmounting, terminal f
 `play()`/`prepare()` attempt aborts the warm-up request. The hook does not inspect the opaque
 response or verify that the server prepared the MP4.
 
-For documents, read the existing authorized URL on demand using `readDocumentPreview` from
-`@transloadit/viewer/documents`, then pass its `ArrayBuffer` to Viewer:
+### Choosing and opening a document
+
+`viewerKind(mime, filename)` from `/documents` or `/react/viewer` returns `image`, `video`, `audio`, `pdf`, `markdown`, `text`, `rtf`, or `null`. Use the last three as the `format` of a `kind="document"` Viewer. It recognizes CSV, JSON, logs, YAML and common Markdown extensions with missing or generic MIME. SVG returns `null` because an SVG opened as a document can contain active content. For the PDF.js reader, pass `viewerKind(mime, filename, 'pdfjs')` to also recognize an `application/octet-stream` file named `.pdf`. Frame classification requires `application/pdf`.
 
 ```tsx
-<Viewer kind="document" format="markdown" bytes={bytes} title="Project notes" />
-<Viewer kind="document" format="text" bytes={bytes} title="Notes" />
-<Viewer kind="document" format="rtf" bytes={bytes} title="Letter"
-  loadingFallback={<p role="status">Loading…</p>}
-  errorFallback={<p role="alert">Could not display this document.</p>} />
-<Viewer kind="pdf" src={authorizedPdfUrl} title="Report" />
+import { useDocumentPreview, Viewer } from '@transloadit/viewer/react/viewer'
+import type { DocumentSource } from '@transloadit/viewer/react/viewer'
+
+function Notes({ source, renew, size }: {
+  source: DocumentSource
+  renew: (signal: AbortSignal) => Promise<DocumentSource | undefined>
+  size: number
+}) {
+  const preview = useDocumentPreview({ source, renew, size, format: 'markdown' })
+  return <>
+    <button type="button" onClick={preview.open}>Open notes</button>
+    {preview.status === 'loading' && <p role="status">Loading notes…</p>}
+    {preview.status === 'error' && <p role="alert">Preview unavailable ({preview.reason}).
+      <button type="button" onClick={preview.retry}>Retry</button></p>}
+    {preview.bytes && <Viewer kind="document" format="markdown" title="Notes"
+      bytes={preview.bytes} mime={preview.mime} truncated={preview.truncated} />}
+    {preview.status !== 'idle' && <button type="button" onClick={preview.close}>Close</button>}
+  </>
+}
 ```
 
-`readDocumentPreview` reads are bounded to 2 MiB and omit credentials and referrers.
-HTTP 401 and 403 responses become `DocumentPreviewError` with reason `expired`;
-other HTTP failures and responses without a readable body become `unavailable`,
-and oversized reads become `too-large`; these errors omit signed URLs and response bodies.
-Network, stream, CORS and abort errors propagate unchanged. Cross-origin document URLs must
-allow CORS reads from the application origin.
+Opening fetches the authorized `mediaUrl` with omitted credentials and referrer. Cross-origin responses need CORS. The hook requires `asset_id`. Supply `version_id` to bind every renewal to that version. `expiresAt` is optional (epoch milliseconds), and `mediaUrl` may be omitted when `renew(signal)` resolves the initial grant. Set `autoOpen` to open on mount and asset/version changes. It renews once per attempt when the URL is missing, near expiry, or returns HTTP 401/403. Retry renews before reusing a denied grant. Closing, unmounting and changing the selection abort pending work. `timeoutMs` defaults to 30 seconds of inactivity. A 401 is `expired`, a 403 is `forbidden`, and a stall is `network`.
 
-RTF parsing and rich Markdown are bounded to 256 KiB; larger Markdown is shown as literal text.
-RTF above 256 KiB and any document above 2 MiB render `errorFallback` and call `onError`.
-Markdown skips embedded HTML and shows every image as its alt text without loading it.
-Links render only for absolute `http:`, `https:` and `mailto:` URLs; other links render as plain
-text. RTF is parsed locally, strips active content and embedded resources, and renders in a sandbox
-with a restrictive content security policy. PDF frames use the browser's
-PDF renderer; supply an authorized HTTP(S) URL on a separate user-content origin whose response
-has a verified PDF MIME type. Viewer always rejects non-HTTP(S) locations, including `blob:`,
-`data:` and `javascript:` URLs. It rejects the page's exact origin unless `allowSameOrigin` is set;
-other subdomains of the same site pass this check. The application must verify the PDF MIME type
-and origin isolation; Viewer does not check the response MIME type or sandbox the PDF frame.
-An application with a trusted PDF-only route can explicitly set `allowSameOrigin`; that route must
-verify the response is a PDF and must never serve arbitrary uploaded HTML. Use `errorFallback`
-for a rejected location. Arbitrary HTML and Office documents are not embedded.
+The hook reads at most 2 MiB of text or Markdown plus the stream chunk needed to detect overflow. Pass its `truncated` flag to Viewer for a visible notice and its response `mime` for decoding. When passing your own bytes, supply the corresponding MIME, including its charset. A Unicode BOM takes priority. Unknown encodings fall back to UTF-8. Markdown above 256 KiB displays a notice and literal text. Rich Markdown skips embedded HTML, shows images as alt text, and permits only absolute HTTP(S) and mailto links. RTF requires a complete document of at most 256 KiB. Its formatting-only output is rendered in a sandboxed iframe. Pass the application's explicit `colorScheme` (`'light'` or `'dark'`) or choose `'auto'` to follow the OS. Set `rtfColors={{ text, background }}` for the sandboxed body’s default colors. Explicit document colors take precedence.
 
-`className` styles the Markdown/text article or the RTF iframe. `richClassName` styles rendered
-Markdown only, and `textClassName` styles the literal text view.
+Existing callers can still use `readDocumentPreview(url, signal)` from `/documents`. This strict reader returns an ArrayBuffer and rejects oversized reads. Its original HTTP error categories are preserved. Reopening a document remounts its lazy renderer after a chunk-load error.
 
-Document chunk-load and parser failures render `errorFallback` and notify `onError`. Unmount and
-reopen the preview to create a fresh React lazy loader after a failed chunk request.
-PDF server rendering waits for the client origin before
-deciding whether a URL is allowed, without showing a premature error.
+### PDF pages on phones
+
+```tsx
+import '@transloadit/viewer/viewer.css'
+import { Viewer } from '@transloadit/viewer/react/viewer'
+
+<Viewer kind="pdf" mode="pdfjs" documentKey={asset.version_id} src={grant?.mediaUrl} title="Lecture slides"
+  filename={asset.filename} expiresAt={grant?.expiresAt}
+  renew={signal => resolvePdfGrant(asset, signal)}
+  renderError={(reason, retry) => <button onClick={retry}>Retry ({reason})</button>}
+  onLoad={onFirstPageRendered} onError={onPreviewError} />
+```
+
+Deploy the matching browser assets from the Viewer package to the application’s own origin. Copy the whole directory so scanned slides can load their JavaScript image decoders and text can use PDF character maps and fallback fonts. For a site that serves `public/` at its root, run this ESM build step:
+
+```ts
+import { cp } from 'node:fs/promises'
+
+await cp(
+  new URL('.', import.meta.resolve('@transloadit/viewer/pdf.worker.mjs')),
+  'public/assets/transloadit-viewer',
+  { recursive: true },
+)
+```
+
+Serve the `.mjs` and `.js` files as JavaScript modules. The default worker URL is `/assets/transloadit-viewer/pdf.worker.min.mjs`. Set `workerSrc` if you serve the directory under a different public path. Character maps, fonts and image decoders resolve relative to the worker. Set `assetBaseUrl` if those subdirectories live elsewhere on the app origin. Deploy the assets together with each Viewer update.
+
+The document reader supports Safari 17.0 and later on iPhone, iPad and Mac. It uses the packaged legacy PDF.js browser build.
+
+Give PDF.js the final authorized HTTP(S) URL on a separate origin. The reader sends GET requests with omitted credentials and referrer, rejects redirects and validates each response MIME. For octet-stream PDFs, supply the verified candidate filename when the URL path lacks a `.pdf` extension. Use `allowSameOrigin` only for a trusted PDF-only application endpoint.
+
+PDF.js requests the chunks it needs from servers supporting byte ranges. Serve `Accept-Ranges: bytes`, an accurate `Content-Length`, uncompressed PDF bytes and standard `206` range responses. For a separate file origin enable CORS, including on 401/403 responses, and expose `Accept-Ranges, Content-Length, Content-Range, Content-Encoding`. Without range support, PDF.js streams the GET to its worker. Both paths enforce a 64 MiB file limit.
+
+Set `documentKey` to a stable identifier for the immutable asset version. Updates to `src` or `expiresAt` then apply to subsequent requests while preserving the current page, zoom and loaded document. Changing the key opens the new version on page one. Without a key, the resolved initial URL identifies the document. Omit `src` to obtain the first grant from `renew(signal)`. Bind renewal to the same immutable version. Return `{ mediaUrl, expiresAt? }` on the original file origin. A 401/403 on a later range renews the grant and replays that range with the new URL. Concurrent ranges share a renewal. The optional `timeoutMs` defaults to 30 seconds of inactivity. `onLoad()` fires after the first page renders and `onError(reason)` receives a typed failure. Provide `renderError(reason, retry)` for an application-owned retry button. `invalid-url` and `invalid-mime` use error feedback. `unsupportedFallback` handles missing reader support.
+
+Import the stylesheet for the positioned text layer. Each page keeps its old canvas and text until the replacement is ready, with up to four million backing pixels per canvas. Readers can select text, enter a page number, zoom, fit width or fit the page within `--tl-viewer-pdf-height` (default `70dvh`). Swipe horizontally to turn pages when the page fits the viewport width. Left/Right and PageUp/PageDown move one page, Home/End jump to the ends, and Escape bubbles to the host dialog. Pass an `originalLink` element only when downloads are allowed. For short-lived URLs the app can resolve a fresh grant when the user activates that action.
+
+A strict application CSP can allow `script-src 'self'`, `worker-src 'self'`, `style-src 'self'`, `font-src 'self'` and `connect-src 'self' https://your-file-origin.example`. Serve chunks, fonts and the worker on the app origin. The worker response also needs `connect-src 'self'` and `script-src 'self'` to load matching maps, fonts and scan decoders. This configuration uses PDF.js fallback colors for ICC profiles.
+
+`mode="frame"` is the default. Point it at an endpoint verified to serve `application/pdf` throughout navigation, and allow that host in `frame-src`. Pass its verified `mime` when available. The frame shows `loadingFallback` while opening. A browser error or a load exceeding `timeoutMs` (30 seconds by default) shows Retry. Use `renderError(reason, retry)` to customize this feedback. The browser frame receives an absolute `src` resolved against the document base URI. `onLoad(event)` receives the React iframe load event. `onError(reason)` reports invalid inputs or browser-reported failures. Browsers hide cross-origin HTTP status from iframe callbacks. Set `unsupportedFallback` for browsers that report no inline PDF support. For a GET-only signed URL, resolve the grant from your data layer and pass it directly to PDF.js. Office documents require upstream conversion.
+
+### Document styles
+
+Import `@transloadit/viewer/viewer.css` to opt into default document typography, link colors, wrapping, and page controls. Override `--tl-viewer-font`, `--tl-viewer-color`, `--tl-viewer-background`, `--tl-viewer-padding`, and `--tl-viewer-link` on an ancestor. `className` styles the Markdown/text article or RTF iframe, `richClassName` styles rendered Markdown, and `textClassName` styles literal text. For Markdown, map `--tl-viewer-border`, `--tl-viewer-code-background`, `--tl-viewer-monospace`, `--tl-viewer-heading-weight` and `--tl-viewer-paragraph-gap` to app tokens. For localized PDF controls, pass `labels` with strings for `navigation`, `previous`, `next`, `pageInput`, `zoomIn`, `zoomOut`, `fitWidth`, `fitPage` and `retry`, and formatters for `page(number)` and `position(number, count, percent)`. Set document `notices.truncated` and `notices.rawMarkdown` to translate the visible notices.

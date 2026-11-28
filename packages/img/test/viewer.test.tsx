@@ -6,9 +6,11 @@ import type { Root } from 'react-dom/client'
 
 import { act, createRef } from 'react'
 import { createRoot } from 'react-dom/client'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { MAX_DOCUMENT_PREVIEW_BYTES } from '../src/document.ts'
+import { DocumentViewer } from '../src/documentViewer.tsx'
 import { Viewer } from '../src/viewer.tsx'
 
 let root: Root
@@ -56,7 +58,7 @@ test('renders Markdown with inert HTML, image alt text and external links only',
   expect(container.querySelector('a')?.getAttribute('referrerpolicy')).toBe('no-referrer')
 })
 
-test('keeps plain text literal and reports oversized input through the caller fallback', async () => {
+test('keeps plain text literal and truncates oversized input with a notice', async () => {
   await show(
     <Viewer
       kind="document"
@@ -82,7 +84,8 @@ test('keeps plain text literal and reports oversized input through the caller fa
       errorFallback={<p role="alert">Too large</p>}
     />,
   )
-  expect(container.querySelector('[role="alert"]')?.textContent).toBe('Too large')
+  expect(container.querySelector('[role="status"]')?.textContent).toContain('truncated')
+  expect(container.querySelector('pre')?.textContent?.length).toBe(MAX_DOCUMENT_PREVIEW_BYTES)
 })
 
 test('renders RTF locally into an inert sandboxed frame and rejects malformed RTF', async () => {
@@ -90,8 +93,14 @@ test('renders RTF locally into an inert sandboxed frame and rejects malformed RT
     <Viewer
       kind="document"
       format="rtf"
-      bytes={new TextEncoder().encode(String.raw`{\rtf1\ansi A letter\par\b Important\b0}`).buffer}
+      bytes={
+        new TextEncoder().encode(
+          String.raw`{\rtf1\ansi{\colortbl;\red255\green0\blue0;}A letter\par\cf1\b Important\b0}`,
+        ).buffer
+      }
       title="Letter"
+      colorScheme="dark"
+      rtfColors={{ text: 'silver', background: 'navy' }}
       className="document"
       richClassName="markdown"
     />,
@@ -99,6 +108,17 @@ test('renders RTF locally into an inert sandboxed frame and rejects malformed RT
   await vi.waitFor(() => expect(container.querySelector('iframe')?.srcdoc).toContain('Important'))
   expect(container.querySelector('iframe')?.getAttribute('sandbox')).toBe('')
   expect(container.querySelector('iframe')?.className).toBe('document')
+  expect(container.querySelector('iframe')?.srcdoc).toContain('color-scheme:dark')
+  const frame = new DOMParser().parseFromString(
+    container.querySelector('iframe')?.srcdoc ?? '',
+    'text/html',
+  )
+  expect(frame.body.style.color).toBe('silver')
+  expect(frame.body.style.backgroundColor).toBe('navy')
+  expect(
+    Array.from(frame.querySelectorAll('span')).find((span) => span.textContent === 'Important')
+      ?.style.color,
+  ).toMatch(/rgb\(255,\s*0,\s*0\)/)
   expect(container.querySelector('iframe')?.srcdoc).toContain("default-src 'none'")
   const onError = vi.fn()
   await show(
@@ -112,6 +132,7 @@ test('renders RTF locally into an inert sandboxed frame and rejects malformed RT
     />,
   )
   await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce())
+  expect(onError).toHaveBeenCalledWith('parse')
   expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unavailable')
 })
 
@@ -131,6 +152,7 @@ test.each([
   'javascript:bad',
 ])('rejects unsafe PDF location %s', async (src) => {
   vi.stubGlobal('location', new URL('https://app.invalid/'))
+  vi.spyOn(document, 'baseURI', 'get').mockReturnValue('https://app.invalid/reports/')
   await show(<Viewer kind="pdf" src={src} title="Report" errorFallback={<p>Unavailable</p>} />)
   expect(container.querySelector('iframe')).toBeNull()
   expect(container.textContent).toBe('Unavailable')
@@ -138,16 +160,19 @@ test.each([
 
 test('allows an explicitly trusted same-origin PDF route', async () => {
   await show(<Viewer kind="pdf" src="/trusted-pdf" title="Report" allowSameOrigin />)
-  expect(container.querySelector('iframe')?.getAttribute('src')).toBe('/trusted-pdf')
+  expect(container.querySelector('iframe')?.getAttribute('src')).toBe(
+    new URL('/trusted-pdf', document.baseURI).href,
+  )
 })
 
-test('reports an oversized document once per bytes identity', async () => {
+test('reports an oversized RTF once per bytes identity', async () => {
   const onError = vi.fn()
   const bytes = new ArrayBuffer(MAX_DOCUMENT_PREVIEW_BYTES + 1)
-  await show(<Viewer kind="document" format="text" bytes={bytes} title="Notes" onError={onError} />)
+  await show(<Viewer kind="document" format="rtf" bytes={bytes} title="Notes" onError={onError} />)
   await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce())
+  expect(onError).toHaveBeenCalledWith('too-large')
   await show(
-    <Viewer kind="document" format="text" bytes={bytes} title="Updated" onError={onError} />,
+    <Viewer kind="document" format="rtf" bytes={bytes} title="Updated" onError={onError} />,
   )
   expect(onError).toHaveBeenCalledOnce()
 })
@@ -263,4 +288,72 @@ test('clears a placeholder when the image loaded before hydration attached its h
     />,
   )
   expect(container.querySelector('img')?.style.backgroundImage).toBe('')
+})
+
+test('shows a notice when Markdown falls back to a literal, charset-aware preview', async () => {
+  const bytes = new Uint8Array(256 * 1024 + 1).fill(65)
+  bytes[0] = 0xe9
+  await show(
+    <Viewer
+      kind="document"
+      format="markdown"
+      title="Notes"
+      bytes={bytes.buffer}
+      mime="text/markdown; charset=windows-1252"
+    />,
+  )
+  await vi.waitFor(() => expect(container.querySelector('pre')?.textContent?.[0]).toBe('é'))
+  expect(container.querySelector('[role=status]')?.textContent).toContain(
+    'Showing Markdown as plain text',
+  )
+})
+
+test('offers the caller fallback when native inline PDFs are unavailable', async () => {
+  vi.stubGlobal('navigator', { pdfViewerEnabled: false })
+  await show(
+    <Viewer
+      kind="pdf"
+      mode="frame"
+      src="https://files.example/pdf"
+      title="Notes"
+      unsupportedFallback="Download PDF"
+    />,
+  )
+  expect(container.textContent).toBe('Download PDF')
+})
+
+test('keeps rejected frame URLs empty without a fallback', async () => {
+  await show(<Viewer kind="pdf" src="/untrusted" title="Report" />)
+  expect(container.childNodes).toHaveLength(0)
+})
+
+test('routes unverified frame MIME to the typed error fallback', async () => {
+  vi.stubGlobal('navigator', { pdfViewerEnabled: false })
+  const onError = vi.fn()
+  await show(
+    <Viewer
+      kind="pdf"
+      mode="frame"
+      src="https://files.example/slides.pdf"
+      mime="application/octet-stream"
+      title="Slides"
+      onError={onError}
+      errorFallback="Invalid PDF"
+      unsupportedFallback="No inline reader"
+    />,
+  )
+  expect(container.textContent).toBe('Invalid PDF')
+  expect(onError).toHaveBeenCalledWith('invalid-mime')
+})
+
+test.each([
+  ['text', 'Plain text'],
+  ['markdown', '| Right |\n| ---: |\n| Ready |'],
+] as const)('SSR %s documents work with external stylesheets only', (format, text) => {
+  const markup = renderToStaticMarkup(
+    <DocumentViewer format={format} bytes={new TextEncoder().encode(text).buffer} title="Notes" />,
+  )
+  const doc = new DOMParser().parseFromString(markup, 'text/html')
+  expect(doc.querySelector('pre, td')?.textContent).toBe(format === 'text' ? text : 'Ready')
+  expect(doc.querySelector('[style]')).toBeNull()
 })

@@ -32,6 +32,8 @@ const config: KnipConfig = {
       ],
       project: ['{src,test}/**/*.{ts,tsx}'],
       ignore: [...sharedIgnore],
+      // The Viewer build generates this browser module after the clean-checkout dependency check.
+      ignoreUnresolved: ['#pdfjs'],
       ignoreDependencies: [
         // Knip cannot infer the Vitest environment dependency from its file pragma.
         'happy-dom',
