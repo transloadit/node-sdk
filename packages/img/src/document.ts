@@ -26,7 +26,6 @@ export function documentPreviewKind(
   )
     return 'text'
   if (type && type !== 'application/octet-stream' && type !== 'text/plain') return null
-  if (/\.pdf$/i.test(filename) && type !== 'text/plain') return 'pdf'
   if (/\.(?:md|markdown|mdown|mkdn?|mkdown|mdwn)$/i.test(filename)) return 'markdown'
   if (/\.rtf$/i.test(filename)) return 'rtf'
   if (/\.(?:txt|csv|tsv|json|log|ya?ml)$/i.test(filename) || type === 'text/plain') return 'text'
@@ -35,7 +34,10 @@ export function documentPreviewKind(
 
 /** Classify media and documents consistently across lists and detail views. */
 export function viewerKind(mime: string | null | undefined, filename: string): ViewerKind | null {
-  const family = mime?.trim().toLowerCase().split('/')[0]
+  const type = mime?.split(';', 1)[0]?.trim().toLowerCase()
+  // Only the new classifier treats a generic-MIME PDF as a candidate. The legacy frame gate remains MIME-only.
+  if ((!type || type === 'application/octet-stream') && /\.pdf$/i.test(filename)) return 'pdf'
+  const family = type?.split('/')[0]
   if (mime?.includes('/') && (family === 'image' || family === 'video' || family === 'audio'))
     return family
   return documentPreviewKind(mime, filename)

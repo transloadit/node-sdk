@@ -5,14 +5,23 @@ import type { ReactNode } from 'react'
 
 import type { DocumentPreviewReason } from './document.ts'
 
-import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+
+import { getDocument, PDFWorker } from '#pdfjs'
 
 import { DocumentPreviewError, readPreviewContent } from './readPreviewContent.ts'
 
 export interface PdfViewerProps {
   src: string
   title: string
+  labels?: {
+    navigation?: string
+    previous?: string
+    next?: string
+    original?: string
+    page?: (number: number) => string
+    position?: (number: number, count: number) => string
+  }
   workerSrc?: string
   assetBaseUrl?: string
   className?: string
@@ -29,10 +38,11 @@ interface PageProps {
   width: number
   loaded: () => void
   failed: () => void
+  label: string
   loading: ReactNode
 }
 
-function PdfPage({ pdf, number, width, loaded, failed, loading }: PageProps): ReactNode {
+function PdfPage({ pdf, number, width, loaded, failed, loading, label }: PageProps): ReactNode {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [ready, setReady] = useState(false)
   useEffect(() => {
@@ -77,7 +87,7 @@ function PdfPage({ pdf, number, width, loaded, failed, loading }: PageProps): Re
       <canvas
         ref={canvas}
         role="img"
-        aria-label={`PDF page ${number}`}
+        aria-label={label}
         style={{ width: '100%', height: 'auto', display: ready ? 'block' : 'none' }}
       />
     </>
@@ -90,6 +100,7 @@ export function PdfViewer({
   title,
   workerSrc,
   assetBaseUrl,
+  labels,
   className,
   loadingFallback,
   errorFallback,
@@ -115,41 +126,58 @@ export function PdfViewer({
   }, [])
   const failed = useCallback(() => setReason('parse'), [])
   useEffect(() => {
-    if (reason) callbacks.current.onError?.(reason)
+    if (reason) {
+      setPdf(undefined)
+      callbacks.current.onError?.(reason)
+    }
   }, [reason])
   useEffect(() => {
+    if (reason) return
     const controller = new AbortController()
+    let port: Worker | undefined
+    let workerHandle: PDFWorker | undefined
+    function releaseWorker(): void {
+      workerHandle?.destroy()
+      port?.terminate()
+      port = undefined
+      workerHandle = undefined
+    }
     let task: PDFDocumentLoadingTask | undefined
     async function load(): Promise<void> {
       const worker =
         workerSrc === undefined
-          ? new URL('./pdf.worker.min.mjs', import.meta.url)
+          ? new URL('/assets/transloadit-viewer/pdf.worker.min.mjs', location.origin)
           : new URL(workerSrc, location.href)
       if (!['https:', 'http:'].includes(worker.protocol) || worker.origin !== location.origin) {
         throw new DocumentPreviewError('unsupported')
       }
-      const assets =
-        assetBaseUrl &&
-        new URL(assetBaseUrl.endsWith('/') ? assetBaseUrl : `${assetBaseUrl}/`, location.href)
-      if (
-        assets &&
-        (assets.origin !== location.origin || !['https:', 'http:'].includes(assets.protocol))
-      )
+      const assets = assetBaseUrl
+        ? new URL(assetBaseUrl.endsWith('/') ? assetBaseUrl : `${assetBaseUrl}/`, location.href)
+        : new URL('.', worker)
+      if (assets.origin !== location.origin || !['https:', 'http:'].includes(assets.protocol))
         throw new DocumentPreviewError('unsupported')
       const content = await readPreviewContent(src, controller.signal, {
         limit: 64 * 1024 * 1024,
         pdf: true,
       })
       controller.signal.throwIfAborted()
-      // PDF.js wraps cross-origin worker scripts in blob URLs. Only accept an app-origin worker.
-      GlobalWorkerOptions.workerSrc = worker.href
+      // Owning the module worker avoids PDF.js's process-wide fallback after a worker startup failure.
+      port = new Worker(worker, { type: 'module' })
+      port.addEventListener(
+        'error',
+        () => {
+          releaseWorker()
+          if (!controller.signal.aborted) setReason('network')
+        },
+        { once: true },
+      )
+      workerHandle = PDFWorker.create({ port })
       task = getDocument({
-        ...(assets && {
-          cMapUrl: new URL('cmaps/', assets).href,
-          standardFontDataUrl: new URL('standard_fonts/', assets).href,
-          wasmUrl: new URL('wasm/', assets).href,
-          iccUrl: new URL('iccs/', assets).href,
-        }),
+        worker: workerHandle,
+        cMapUrl: new URL('cmaps/', assets).href,
+        standardFontDataUrl: new URL('standard_fonts/', assets).href,
+        wasmUrl: new URL('wasm/', assets).href,
+        useWorkerFetch: true,
         data: content.bytes,
         useWasm: false,
         disableWorkerRendering: true,
@@ -170,17 +198,25 @@ export function PdfViewer({
     })
     return () => {
       controller.abort()
-      void task?.destroy()
+      if (task) void task.destroy().then(releaseWorker, releaseWorker)
+      else releaseWorker()
     }
-  }, [src, workerSrc, assetBaseUrl])
+  }, [src, workerSrc, assetBaseUrl, reason])
   useLayoutEffect(() => {
     const element = container.current
     if (!element) return
+    let resize: ReturnType<typeof setTimeout>
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(Math.floor(entry.contentRect.width))
+      if (!entry) return
+      clearTimeout(resize)
+      // CSS fits the existing canvas immediately. Re-rasterize once the container settles.
+      resize = setTimeout(() => setWidth(Math.floor(entry.contentRect.width)), 80)
     })
     observer.observe(element)
-    return () => observer.disconnect()
+    return () => {
+      clearTimeout(resize)
+      observer.disconnect()
+    }
   }, [])
   const loading = loadingFallback ?? <p role="status">Loading PDF…</p>
   const count = pdf?.numPages ?? 1
@@ -221,16 +257,19 @@ export function PdfViewer({
       }}
     >
       {pdf ? (
-        <nav aria-label="PDF pages">
+        <nav aria-label={labels?.navigation ?? 'PDF pages'}>
           <button type="button" aria-disabled={number === 1} onClick={() => go(number - 1)}>
-            Previous page
+            {labels?.previous ?? 'Previous page'}
           </button>
           <span aria-live="polite">
-            Page {number} of {count}
+            {labels?.position?.(number, count) ?? `Page ${number} of ${count}`}
           </span>
           <button type="button" aria-disabled={number === count} onClick={() => go(number + 1)}>
-            Next page
+            {labels?.next ?? 'Next page'}
           </button>
+          <a href={src} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">
+            {labels?.original ?? 'Open original PDF'}
+          </a>
         </nav>
       ) : (
         loading
@@ -242,6 +281,7 @@ export function PdfViewer({
             pdf={pdf}
             number={number}
             width={width}
+            label={labels?.page?.(number) ?? `PDF page ${number}`}
             loaded={loaded}
             failed={failed}
             loading={loading}

@@ -35,20 +35,23 @@ export async function readPreviewContent(
     ...(options.pdf && { redirect: 'error' }),
   })
   const mime = response.headers.get('content-type')
+  const advertised = Number(response.headers.get('content-length'))
   let reason: DocumentPreviewReason | undefined
   if (!response.ok)
     reason = response.status === 403 ? 'forbidden' : response.status === 401 ? 'expired' : 'network'
   else if (options.pdf && mime?.split(';', 1)[0]?.trim().toLowerCase() !== 'application/pdf')
     reason = 'unsupported'
-  else if (!options.truncate && Number(response.headers.get('content-length')) > options.limit)
-    reason = 'too-large'
+  else if (!options.truncate && advertised > options.limit) reason = 'too-large'
   if (reason) {
     await response.body?.cancel()
     throw new DocumentPreviewError(reason)
   }
   if (!response.body) throw new DocumentPreviewError('network')
   const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
+  // An accurate Content-Length lets a large PDF go straight from one input buffer to the worker.
+  const capacity =
+    Number.isSafeInteger(advertised) && advertised > 0 ? Math.min(advertised, options.limit) : 0
+  let bytes = new Uint8Array(capacity)
   let length = 0
   let truncated = false
   try {
@@ -56,26 +59,29 @@ export async function readPreviewContent(
       signal.throwIfAborted()
       const { done, value } = await reader.read()
       if (done) break
-      const remaining = options.limit - length
-      if (value.byteLength > remaining) {
+      const count = Math.min(value.byteLength, options.limit - length)
+      truncated = count < value.byteLength
+      if (truncated) {
         await reader.cancel()
         if (!options.truncate) throw new DocumentPreviewError('too-large')
-        chunks.push(value.subarray(0, remaining))
-        length = options.limit
-        truncated = true
-        break
       }
-      chunks.push(value)
-      length += value.byteLength
+      if (length + count > bytes.length) {
+        const larger = new Uint8Array(
+          Math.min(options.limit, Math.max(length + count, bytes.length * 2)),
+        )
+        larger.set(bytes)
+        bytes = larger
+      }
+      bytes.set(value.subarray(0, count), length)
+      length += count
+      if (truncated) break
     }
   } finally {
     reader.releaseLock()
   }
-  const bytes = new Uint8Array(length)
-  let offset = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset)
-    offset += chunk.byteLength
+  return {
+    bytes: length === bytes.length ? bytes.buffer : bytes.buffer.slice(0, length),
+    truncated,
+    mime,
   }
-  return { bytes: bytes.buffer, truncated, mime }
 }

@@ -41,6 +41,7 @@ export interface DocumentViewerProps {
   onError?: (reason: DocumentPreviewReason) => void
   mime?: string | null
   truncated?: boolean
+  notices?: { truncated?: string; rawMarkdown?: string }
   colorScheme?: 'light' | 'dark' | 'auto'
 }
 
@@ -196,10 +197,13 @@ export function DocumentViewer(props: DocumentViewerProps): ReactNode {
       tabIndex={0}
       className={props.className}
     >
-      {truncated && <p role="status">Preview truncated to the first 2 MiB.</p>}
+      {truncated && (
+        <p role="status">{props.notices?.truncated ?? 'Preview truncated to the first 2 MiB.'}</p>
+      )}
       {rawMarkdown && (
         <p role="status">
-          Showing Markdown as plain text because this document exceeds the rich preview limit.
+          {props.notices?.rawMarkdown ??
+            'Showing Markdown as plain text because this document exceeds the rich preview limit.'}
         </p>
       )}
       {props.format === 'markdown' && !rawMarkdown ? (

@@ -135,6 +135,7 @@ test.each([
   'javascript:bad',
 ])('rejects unsafe PDF location %s', async (src) => {
   vi.stubGlobal('location', new URL('https://app.invalid/'))
+  vi.spyOn(document, 'baseURI', 'get').mockReturnValue('https://app.invalid/reports/')
   await show(<Viewer kind="pdf" src={src} title="Report" errorFallback={<p>Unavailable</p>} />)
   expect(container.querySelector('iframe')).toBeNull()
   expect(container.textContent).toBe('Unavailable')
@@ -142,7 +143,9 @@ test.each([
 
 test('allows an explicitly trusted same-origin PDF route', async () => {
   await show(<Viewer kind="pdf" src="/trusted-pdf" title="Report" allowSameOrigin />)
-  expect(container.querySelector('iframe')?.getAttribute('src')).toBe('/trusted-pdf')
+  expect(container.querySelector('iframe')?.getAttribute('src')).toBe(
+    new URL('/trusted-pdf', document.baseURI).href,
+  )
 })
 
 test('reports an oversized RTF once per bytes identity', async () => {
@@ -300,4 +303,9 @@ test('offers the caller fallback when native inline PDFs are unavailable', async
     />,
   )
   expect(container.textContent).toBe('Download PDF')
+})
+
+test('keeps rejected frame URLs empty without a fallback', async () => {
+  await show(<Viewer kind="pdf" src="/untrusted" title="Report" />)
+  expect(container.childNodes).toHaveLength(0)
 })

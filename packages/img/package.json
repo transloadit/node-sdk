@@ -84,10 +84,10 @@
       "default": "./dist/document.js"
     },
     "./viewer.css": "./viewer.css",
-    "./pdf.worker.mjs": "./dist/pdf.worker.min.mjs"
+    "./pdf.worker.mjs": "./dist/pdf-assets/pdf.worker.min.mjs"
   },
   "scripts": {
-    "build": "../../node_modules/.bin/tsc --build tsconfig.build.json && node ./scripts/copy-pdf-worker.ts",
+    "build": "../../node_modules/.bin/tsc --build tsconfig.build.json && node ./scripts/prepare-pdf-assets.ts",
     "check": "yarn lint:ts && yarn test:unit",
     "lint:ts": "../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.json",
     "prepack": "yarn build",
@@ -99,7 +99,6 @@
     "@transloadit/utils": "^4.10.1",
     "hast-util-to-jsx-runtime": "^2.3.0",
     "hls.js": "^1.6.16",
-    "pdfjs-dist": "6.5.438",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.0",
@@ -131,7 +130,14 @@
     "esbuild": "^0.28.2",
     "happy-dom": "^20.9.0",
     "next": "16.3.4",
+    "pdfjs-dist": "6.5.438",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
+  },
+  "imports": {
+    "#pdfjs": {
+      "types": "pdfjs-dist/legacy/build/pdf.mjs",
+      "default": "./dist/pdf.min.mjs"
+    }
   }
 }

@@ -200,7 +200,7 @@ function PdfDocument({
   if (origin === null) return null
   let url: URL | undefined
   try {
-    url = new URL(props.src, origin)
+    url = new URL(props.src, document.baseURI)
   } catch {
     /* Handled alongside disallowed origins. */
   }
@@ -209,12 +209,9 @@ function PdfDocument({
     !['https:', 'http:'].includes(url.protocol) ||
     (!allowSameOrigin && url.origin === origin)
   ) {
+    if (props.mode !== 'pdfjs') return props.errorFallback
     return (
-      <PdfFailure
-        key={props.src}
-        reason="unsupported"
-        onError={props.mode === 'pdfjs' ? props.onError : undefined}
-      >
+      <PdfFailure key={props.src} reason="unsupported" onError={props.onError}>
         {props.unsupportedFallback ?? props.errorFallback}
       </PdfFailure>
     )
@@ -230,7 +227,7 @@ function PdfDocument({
   const { kind: _kind, mode: _mode, errorFallback: _error, unsupportedFallback, ...frame } = props
   if (navigator.pdfViewerEnabled === false && unsupportedFallback !== undefined)
     return unsupportedFallback
-  return <iframe {...frame} referrerPolicy="no-referrer" />
+  return <iframe {...frame} src={url.href} referrerPolicy="no-referrer" />
 }
 
 /**

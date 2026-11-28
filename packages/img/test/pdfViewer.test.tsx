@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { Viewer } from '../src/viewer.tsx'
 
 const { getDocument } = vi.hoisted(() => ({ getDocument: vi.fn() }))
-vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({ getDocument, GlobalWorkerOptions: {} }))
+vi.mock('#pdfjs', () => ({ getDocument, PDFWorker: { create: () => ({ destroy: vi.fn() }) } }))
 const fetchMock = vi.fn<typeof fetch>()
 const onError = vi.fn()
 const container = document.createElement('div')
@@ -15,6 +15,12 @@ let root: ReturnType<typeof createRoot>
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   vi.stubGlobal('fetch', fetchMock.mockReset())
+  vi.stubGlobal(
+    'Worker',
+    class extends EventTarget {
+      terminate() {}
+    },
+  )
   onError.mockReset()
   getDocument.mockReset()
   root = createRoot(container)
@@ -74,8 +80,8 @@ test('enforces the separate-origin policy in PDF.js mode', async () => {
   expect(fetchMock).not.toHaveBeenCalled()
 })
 
-test('reports a parser failure and destroys the loading task on close', async () => {
-  const destroy = vi.fn()
+test('reports a parser failure and releases the loading task before close', async () => {
+  const destroy = vi.fn().mockResolvedValue(undefined)
   let respond: (value: Response) => void = () => {}
   const response = new Promise<Response>((resolve) => {
     respond = resolve
@@ -101,6 +107,30 @@ test('reports a parser failure and destroys the loading task on close', async ()
       referrerPolicy: 'no-referrer',
     }),
   )
+  expect(destroy).toHaveBeenCalledOnce()
   await act(() => root.render(null))
   expect(destroy).toHaveBeenCalledOnce()
+})
+
+test('fetches document-relative sources against the page base URI', async () => {
+  vi.spyOn(document, 'baseURI', 'get').mockReturnValue(new URL('/reports/', location.href).href)
+  fetchMock.mockResolvedValue(new Response(null, { status: 403 }))
+  await act(() =>
+    root.render(
+      <Viewer
+        kind="pdf"
+        mode="pdfjs"
+        allowSameOrigin
+        src="slides.pdf"
+        title="Slides"
+        onError={onError}
+      />,
+    ),
+  )
+  await vi.waitFor(() => expect(onError).toHaveBeenCalledWith('forbidden'))
+  expect(fetchMock).toHaveBeenCalledWith(
+    new URL('/reports/slides.pdf', location.href).href,
+    expect.anything(),
+  )
+  vi.restoreAllMocks()
 })

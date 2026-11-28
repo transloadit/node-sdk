@@ -14,8 +14,8 @@ afterEach(() => vi.unstubAllGlobals())
 
 test.each([
   ['application/pdf', 'report.pdf', 'pdf'],
-  ['application/octet-stream', 'report.pdf', 'pdf'],
-  [null, 'report.pdf', 'pdf'],
+  ['application/octet-stream', 'report.pdf', null],
+  [null, 'report.pdf', null],
   ['text/markdown', 'README', 'markdown'],
   ['text/x-markdown; charset=utf-8', 'README', 'markdown'],
   ['text/plain', 'NOTES.MD', 'markdown'],

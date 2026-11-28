@@ -131,3 +131,28 @@ test('rejects a known oversized RTF before download', async () => {
   expect(preview.current?.reason).toBe('too-large')
   expect(fetchMock).not.toHaveBeenCalled()
 })
+
+test('never returns old bytes during the first render of a different version', async () => {
+  fetchMock.mockResolvedValueOnce(new Response('old version'))
+  const seen: Array<[string, string]> = []
+  function Observed({ version }: { version: string }) {
+    const state = useDocumentPreview({ source: { ...source, version_id: version }, format: 'text' })
+    useImperativeHandle(preview, () => state)
+    seen.push([version, state.status])
+    return null
+  }
+  await act(() => root.render(<Observed version="v1" />))
+  await act(() => preview.current?.open())
+  expect(seen).toContainEqual(['v1', 'ready'])
+  await act(() => root.render(<Observed version="v2" />))
+  expect(
+    seen.filter(([version]) => version === 'v2').every(([, status]) => status === 'idle'),
+  ).toBe(true)
+})
+
+test('reports forbidden when renewal cannot replace a denied grant', async () => {
+  fetchMock.mockResolvedValueOnce(new Response(null, { status: 403 }))
+  await mount({ renew: () => Promise.resolve(undefined) })
+  await act(() => preview.current?.open())
+  expect(preview.current?.reason).toBe('forbidden')
+})

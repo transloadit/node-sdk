@@ -519,24 +519,43 @@ import '@transloadit/viewer/viewer.css'
 import { Viewer } from '@transloadit/viewer/react/viewer'
 
 <Viewer kind="pdf" mode="pdfjs" src={authorizedPdfUrl} title="Lecture slides"
-  workerSrc="/assets/pdf.worker.min.mjs"
   onLoad={onFirstPageRendered} onError={onPreviewError} />
 ```
 
-Serve the worker exported at `@transloadit/viewer/pdf.worker.mjs` as a JavaScript module on the application's own origin. Copy it at build time and update it together with the package. Bundlers that emit assets for `new URL('./pdf.worker.min.mjs', import.meta.url)` can omit `workerSrc`. Other bundlers need the explicit public path above. For example, run in your ESM build script after creating the destination directory:
+Deploy the matching browser assets from the Viewer package to the application’s own origin. Copy the whole directory so scanned slides can load their JavaScript image decoders and text can use PDF character maps and fallback fonts. For a site that serves `public/` at its root, run this ESM build step:
 
 ```ts
-import { copyFile } from 'node:fs/promises'
+import { cp } from 'node:fs/promises'
 
-await copyFile(new URL(import.meta.resolve('@transloadit/viewer/pdf.worker.mjs')), 'public/assets/pdf.worker.min.mjs')
+await cp(
+  new URL('.', import.meta.resolve('@transloadit/viewer/pdf.worker.mjs')),
+  'public/assets/transloadit-viewer',
+  { recursive: true },
+)
 ```
 
-The document must be served directly from the authorized, separate HTTP(S) origin with CORS and a verified PDF MIME. PDF.js mode checks the GET response, rejects redirects, and omits credentials and the referrer. A trusted PDF-only application endpoint may explicitly set `allowSameOrigin`. Downloads are capped at 64 MiB. One page canvas is fitted to the container and limited to four million backing pixels. The previous canvas is released on navigation or resize. Tab to the reader or its buttons. Left/Right move one page, Home/End jump to the ends, and Escape bubbles to the host dialog. Supply `loadingFallback`, `errorFallback` or `unsupportedFallback` to customize feedback. Remount the reader to retry the same URL.
+Serve the `.mjs` and `.js` files as JavaScript modules. The default worker URL is `/assets/transloadit-viewer/pdf.worker.min.mjs`. Set `workerSrc` if you serve the directory under a different public path. Character maps, fonts and image decoders resolve relative to the worker. Set `assetBaseUrl` if those subdirectories live elsewhere on the app origin. Deploy the assets together with each Viewer update.
 
-A strict CSP can allow `script-src 'self'`, `worker-src 'self'`, `style-src 'self'` and `connect-src 'self' https://your-file-origin.example`. Serve chunks and the worker directly on the app origin. The canvas reader requires neither a blob worker nor unsafe evaluation. For PDFs using predefined CMaps, standard font files, ICC profiles, or supplementary image decoders, serve the matching `pdfjs-dist` directories (`cmaps/`, `standard_fonts/`, `iccs/`, `wasm/`) under a same-origin public directory and set `assetBaseUrl="/assets/pdfjs/"`. The reader selects the JavaScript decoder fallback when available.
+The document must be served directly from the authorized, separate HTTP(S) origin with CORS and a verified PDF MIME. PDF.js mode checks the GET response, rejects redirects, and omits credentials and the referrer. A trusted PDF-only application endpoint may explicitly set `allowSameOrigin`. The SDK’s `createStorageRoute` returns a redirect. For PDF.js, pass the final authorized file URL from your data layer. Downloads are capped at 64 MiB. One page canvas is fitted to the container and limited to four million backing pixels. The previous canvas is released on navigation or resize. Tab to the reader or its buttons. Left/Right move one page, Home/End jump to the ends, and Escape bubbles to the host dialog. The reader also links to the original PDF for readers who use its accessible text. Supply `loadingFallback`, `errorFallback` or `unsupportedFallback` to customize feedback. Remount the reader to retry the same URL.
+
+A strict CSP can allow `script-src 'self'`, `worker-src 'self'`, `style-src 'self'` and `connect-src 'self' https://your-file-origin.example`. Serve chunks and the worker directly on the app origin. The canvas reader requires neither a blob worker nor unsafe evaluation. Scans can load the bundled JavaScript decoders from the worker’s origin. This configuration uses PDF.js fallback colors for ICC profiles.
 
 `mode="frame"` remains the default and uses the browser's inline PDF reader. It passes native iframe attributes, including `onLoad`, through to the frame. Provide `unsupportedFallback` (for example a download link) for browsers that report no inline PDF support. For this mode allow your verified file host in `frame-src`. The host must enforce PDF MIME and origin isolation for the entire navigation. Browser frame load events cannot identify HTTP authorization failures. Office documents require conversion to PDF upstream.
 
+For receipt-backed Storage, resolve the authorization route on demand in the browser. Both the signed target and its HEAD response must support CORS:
+
+```ts
+import { getStorageAssetHref } from '@transloadit/viewer/react'
+
+const grant = await fetch(getStorageAssetHref(receipt, { action: 'original' }), {
+  method: 'HEAD', credentials: 'same-origin', referrerPolicy: 'no-referrer', signal,
+})
+if (!grant.ok || grant.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'application/pdf') {
+  throw new Error('PDF preview unavailable')
+}
+const authorizedPdfUrl = grant.url
+```
+
 ### Document styles
 
-Import `@transloadit/viewer/viewer.css` to opt into default document typography, link colors, wrapping, and page controls. Override `--tl-viewer-font`, `--tl-viewer-color`, `--tl-viewer-background`, `--tl-viewer-padding`, and `--tl-viewer-link` on an ancestor. `className` styles the Markdown/text article or RTF iframe, `richClassName` styles rendered Markdown, and `textClassName` styles literal text. RTF frame content uses its own color scheme.
+Import `@transloadit/viewer/viewer.css` to opt into default document typography, link colors, wrapping, and page controls. Override `--tl-viewer-font`, `--tl-viewer-color`, `--tl-viewer-background`, `--tl-viewer-padding`, and `--tl-viewer-link` on an ancestor. `className` styles the Markdown/text article or RTF iframe, `richClassName` styles rendered Markdown, and `textClassName` styles literal text. RTF frame content uses its own color scheme. For localized controls, pass PDF.js `labels` with strings for `previous`, `next`, `original`, and `navigation` and formatters for `page(number)` and `position(number, count)`. Set document `notices.truncated` and `notices.rawMarkdown` to translate the visible notices.

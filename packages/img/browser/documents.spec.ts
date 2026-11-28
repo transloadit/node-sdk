@@ -10,17 +10,19 @@ import { build } from 'esbuild'
 
 // Paint solid colors so the test can distinguish rasterized pages from blank or stale canvases.
 function slideDeck(): Buffer {
+  const scan = '36FFFF001001>'
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
     ...[5, 6].map(
       (stream) =>
-        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Resources << >> /Contents ${stream} 0 R >>`,
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Resources << /XObject << /Scan 7 0 R >> >> /Contents ${stream} 0 R >>`,
     ),
-    ...['1 0 0', '0 0 1'].map((rgb) => {
-      const content = `${rgb} rg 0 0 200 100 re f\n`
+    ...['1 0 0 rg 0 0 200 100 re f\n', 'q 200 0 0 100 0 0 cm /Scan Do Q\n'].map((content) => {
       return `<< /Length ${content.length} >>\nstream\n${content}endstream`
     }),
+    // An 8×8 Group 4 fax strip containing a black half and a white half.
+    `<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter [/ASCIIHexDecode /CCITTFaxDecode] /DecodeParms [null << /K -1 /Columns 8 /Rows 8 >>] /Length ${scan.length} >>\nstream\n${scan}\nendstream`,
   ]
   let pdf = '%PDF-1.4\n'
   const offsets: number[] = []
@@ -29,9 +31,9 @@ function slideDeck(): Buffer {
     pdf += `${i + 1} 0 obj\n${object}\nendobj\n`
   }
   const xref = pdf.length
-  pdf += 'xref\n0 7\n0000000000 65535 f \n'
+  pdf += 'xref\n0 8\n0000000000 65535 f \n'
   for (const offset of offsets) pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
-  return Buffer.from(`${pdf}trailer\n<< /Root 1 0 R /Size 7 >>\nstartxref\n${xref}\n%%EOF\n`)
+  return Buffer.from(`${pdf}trailer\n<< /Root 1 0 R /Size 8 >>\nstartxref\n${xref}\n%%EOF\n`)
 }
 
 async function listen(server: Server): Promise<string> {
@@ -77,11 +79,20 @@ const test = base.extend({
       outputFiles.map((file) => [basename(file.path), Buffer.from(file.contents)]),
     )
     assets.set(
-      'pdf.worker.min.mjs',
+      'assets/transloadit-viewer/pdf.worker.min.mjs',
       await readFile(new URL(import.meta.resolve('@transloadit/viewer/pdf.worker.mjs'))),
     )
+    assets.set(
+      'assets/transloadit-viewer/wasm/jbig2_nowasm_fallback.js',
+      await readFile(
+        new URL(
+          './wasm/jbig2_nowasm_fallback.js',
+          import.meta.resolve('@transloadit/viewer/pdf.worker.mjs'),
+        ),
+      ),
+    )
     await using app = createServer((req, res) => {
-      if (req.url === '/') {
+      if (req.url?.split('?')[0] === '/') {
         res
           .writeHead(200, {
             'Content-Type': 'text/html',
@@ -100,6 +111,7 @@ const test = base.extend({
       }
       res
         .writeHead(200, {
+          'Content-Security-Policy': "default-src 'none'; script-src 'self'; connect-src 'self'",
           'Content-Type': path.endsWith('.css') ? 'text/css' : 'application/javascript',
         })
         .end(bytes)
@@ -121,22 +133,27 @@ test('mobile-sized PDF pages render in a same-origin worker and oversized notes 
   await page.goto('/')
   const first = page.getByRole('img', { name: 'PDF page 1' })
   await expect(first).toBeVisible()
-  expect((await worker).url()).toBe(`${baseURL}/pdf.worker.min.mjs`)
-  function pixel(element: Element): number[] {
+  expect((await worker).url()).toBe(`${baseURL}/assets/transloadit-viewer/pdf.worker.min.mjs`)
+  function pixel(element: Element, fraction: number): number[] {
     if (!(element instanceof HTMLCanvasElement)) throw new Error('Expected PDF page canvas')
     const ctx = element.getContext('2d')
     if (!ctx) throw new Error('Missing canvas context')
-    return [...ctx.getImageData(5, 5, 1, 1).data]
+    return [...ctx.getImageData(Math.floor(element.width * fraction), 5, 1, 1).data]
   }
-  expect(await first.evaluate(pixel)).toEqual([255, 0, 0, 255])
+  expect(await first.evaluate(pixel, 0.25)).toEqual([255, 0, 0, 255])
   const reader = page.getByRole('region', { name: 'Lecture slides' })
   await reader.focus()
   await reader.press('ArrowRight')
   const second = page.getByRole('img', { name: 'PDF page 2' })
   await expect(second).toBeVisible()
-  expect(await second.evaluate(pixel)).toEqual([0, 0, 255, 255])
+  expect([await second.evaluate(pixel, 0.25), await second.evaluate(pixel, 0.75)].sort()).toEqual([
+    [0, 0, 0, 255],
+    [255, 255, 255, 255],
+  ])
   await expect(reader.getByRole('img')).toHaveCount(1)
   await expect(reader).toBeFocused()
+  await expect(reader.getByRole('link', { name: 'Open original PDF' })).toBeVisible()
+  await expect(page.getByLabel('PDF loads')).toHaveText('1')
   await page.setViewportSize({ width: 320, height: 600 })
   await expect
     .poll(() =>
@@ -155,4 +172,11 @@ test('mobile-sized PDF pages render in a same-origin worker and oversized notes 
   expect(literal?.length).toBe(2 * 1024 * 1024)
   expect(literal?.at(0)).toBe('é')
   expect(errors).toEqual([])
+})
+
+test('recovers from a missing worker on the same document', async ({ page }) => {
+  await page.goto('/?missingWorker')
+  await page.getByRole('button', { name: 'Retry PDF' }).click()
+  await expect(page.getByRole('img', { name: 'PDF page 1' })).toBeVisible()
+  await expect(page.getByLabel('PDF loads')).toHaveText('1')
 })

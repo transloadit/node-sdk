@@ -47,6 +47,10 @@ const idle: PreviewState = {
   mime: null,
 }
 
+function selectionKey({ source, format }: DocumentPreviewOptions): string {
+  return JSON.stringify([source.asset_id, source.version_id, format])
+}
+
 function readSource(
   source: DocumentSource,
   signal: AbortSignal,
@@ -68,12 +72,14 @@ export function useDocumentPreview(options: DocumentPreviewOptions): DocumentPre
       latest.current = null
     }
   }, [options])
-  const [state, setState] = useState(idle)
+  const selection = selectionKey(options)
+  const [result, setResult] = useState<{ selection: string; state: PreviewState } | null>(null)
+  const state = result?.selection === selection ? result.state : idle
   const active = useRef<AbortController | null>(null)
   const close = useCallback(() => {
     active.current?.abort()
     active.current = null
-    setState(idle)
+    setResult(null)
   }, [])
   const {
     source: { asset_id, version_id },
@@ -81,7 +87,7 @@ export function useDocumentPreview(options: DocumentPreviewOptions): DocumentPre
   } = options
   // biome-ignore lint/correctness/useExhaustiveDependencies: Selection changes end the previous preview, while rotating a grant for the same version preserves it.
   useLayoutEffect(() => {
-    setState(idle)
+    setResult(null)
     return () => {
       active.current?.abort()
       active.current = null
@@ -90,17 +96,21 @@ export function useDocumentPreview(options: DocumentPreviewOptions): DocumentPre
 
   const open = useCallback(async (): Promise<void> => {
     if (!latest.current) return
+    const selection = selectionKey(latest.current)
     const { source, renew, size, format } = latest.current
     active.current?.abort()
     const controller = new AbortController()
     active.current = controller
     const { signal } = controller
+    function setState(state: PreviewState): void {
+      setResult({ selection, state })
+    }
     setState({ ...idle, status: 'loading' })
-    async function fresh(): Promise<DocumentSource> {
+    async function fresh(missing: DocumentPreviewReason = 'expired'): Promise<DocumentSource> {
       const answer = await renew?.()
       signal.throwIfAborted()
-      if (!answer || answer.expiresAt <= Date.now() + 5_000)
-        throw new DocumentPreviewError('expired')
+      if (!answer) throw new DocumentPreviewError(missing)
+      if (answer.expiresAt <= Date.now() + 5_000) throw new DocumentPreviewError('expired')
       if (answer.asset_id !== source.asset_id || answer.version_id !== source.version_id)
         throw new DocumentPreviewError('forbidden')
       return answer
@@ -123,7 +133,7 @@ export function useDocumentPreview(options: DocumentPreviewOptions): DocumentPre
           (error.reason !== 'expired' && error.reason !== 'forbidden')
         )
           throw error
-        const replacement = await fresh()
+        const replacement = await fresh(error.reason)
         if (replacement.mediaUrl === grant.mediaUrl) throw error
         content = await readSource(replacement, signal, rtf)
       }
