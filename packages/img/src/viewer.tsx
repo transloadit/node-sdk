@@ -11,12 +11,13 @@ import type {
 
 import type { DocumentPreviewReason } from './document.ts'
 import type { DocumentViewerProps } from './documentViewer.tsx'
-import type { PdfViewerProps } from './pdfViewer.tsx'
+import type { PdfReaderProps, PdfViewerProps } from './pdfViewer.tsx'
 import type { TransloaditPictureProps } from './picture.tsx'
 
 import {
   lazy,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -54,12 +55,17 @@ export type ViewerProps =
   | ({
       kind: 'pdf'
       mode?: 'frame'
+      mime?: string
+      onError?: (reason: DocumentPreviewReason) => void
       unsupportedFallback?: ReactNode
       src: string
       title: string
       allowSameOrigin?: boolean
       errorFallback?: ReactNode
-    } & Omit<IframeHTMLAttributes<HTMLIFrameElement>, 'sandbox' | 'src' | 'srcDoc' | 'title'>)
+    } & Omit<
+      IframeHTMLAttributes<HTMLIFrameElement>,
+      'sandbox' | 'src' | 'srcDoc' | 'title' | 'onError'
+    >)
   | ({ kind: 'pdf'; mode: 'pdfjs'; allowSameOrigin?: boolean } & PdfViewerProps)
   | ({ kind: 'document' } & DocumentViewerProps)
 
@@ -164,10 +170,10 @@ function PdfFailure({
     if (!reported.current) onError?.(reason)
     reported.current = true
   }, [onError, reason])
-  return children ?? <p role="alert">PDF preview unavailable.</p>
+  return children
 }
 
-function LazyPdf(props: PdfViewerProps): ReactNode {
+function PdfAttempt(props: PdfReaderProps): ReactNode {
   const [Renderer] = useState(() =>
     lazy(async () => {
       try {
@@ -178,16 +184,42 @@ function LazyPdf(props: PdfViewerProps): ReactNode {
     }),
   )
   return (
-    <Suspense fallback={props.loadingFallback ?? <p role="status">Loading PDF…</p>}>
+    <Suspense fallback={props.loadingFallback}>
       <Renderer {...props} />
     </Suspense>
   )
 }
 
-function PdfChunkFailure({ onError, errorFallback }: PdfViewerProps): ReactNode {
+function PdfChunkFailure({ fail }: PdfReaderProps): ReactNode {
+  return <PdfFailure reason="network" onError={fail} />
+}
+
+function LazyPdf({ invalidUrl, ...props }: PdfViewerProps & { invalidUrl: boolean }): ReactNode {
+  const [failure, setFailure] = useState<DocumentPreviewReason>()
+  const [renewFirst, setRenewFirst] = useState<'expired' | 'forbidden'>()
+  const fail = useCallback(
+    (error: DocumentPreviewReason) => setFailure((current) => current ?? error),
+    [],
+  )
+  const reason = invalidUrl ? 'invalid-url' : failure
+  if (!reason) return <PdfAttempt {...props} fail={fail} renewFirst={renewFirst} />
+  const retry = (): void => {
+    setRenewFirst(
+      props.renew && (reason === 'expired' || reason === 'forbidden') ? reason : undefined,
+    )
+    setFailure(undefined)
+  }
+  const fallback = reason === 'unsupported' ? props.unsupportedFallback : undefined
   return (
-    <PdfFailure reason="network" onError={onError}>
-      {errorFallback}
+    <PdfFailure key={reason} reason={reason} onError={props.onError}>
+      {fallback ?? props.renderError?.(reason, retry) ?? props.errorFallback ?? (
+        <div>
+          <p role="alert">Could not display this PDF.</p>
+          <button type="button" onClick={retry}>
+            {props.labels?.retry ?? 'Retry PDF'}
+          </button>
+        </div>
+      )}
     </PdfFailure>
   )
 }
@@ -204,30 +236,58 @@ function PdfDocument({
   } catch {
     /* Handled alongside disallowed origins. */
   }
-  if (
+  const invalidUrl =
     !url ||
     !['https:', 'http:'].includes(url.protocol) ||
     (!allowSameOrigin && url.origin === origin)
-  ) {
-    if (props.mode !== 'pdfjs') return props.errorFallback
+  if (props.mode === 'pdfjs') {
+    const src = url?.href ?? props.src
     return (
-      <PdfFailure key={props.src} reason="unsupported" onError={props.onError}>
-        {props.unsupportedFallback ?? props.errorFallback}
+      <LazyPdf
+        key={JSON.stringify([src, props.workerSrc, props.assetBaseUrl])}
+        {...props}
+        src={src}
+        invalidUrl={invalidUrl}
+      />
+    )
+  }
+  if (!url || invalidUrl) {
+    return (
+      <PdfFailure key={props.src} reason="invalid-url" onError={props.onError}>
+        {props.errorFallback}
       </PdfFailure>
     )
   }
-  if (props.mode === 'pdfjs')
+  const {
+    kind: _kind,
+    mode: _mode,
+    errorFallback,
+    unsupportedFallback,
+    onError,
+    mime,
+    ...frame
+  } = props
+  if (mime !== undefined && mime.split(';')[0]?.trim().toLowerCase() !== 'application/pdf') {
     return (
-      <LazyPdf
-        key={JSON.stringify([url.href, props.workerSrc, props.assetBaseUrl])}
-        {...props}
-        src={url.href}
-      />
+      <PdfFailure key={mime} reason="invalid-mime" onError={onError}>
+        {errorFallback}
+      </PdfFailure>
     )
-  const { kind: _kind, mode: _mode, errorFallback: _error, unsupportedFallback, ...frame } = props
+  }
   if (navigator.pdfViewerEnabled === false && unsupportedFallback !== undefined)
-    return unsupportedFallback
-  return <iframe {...frame} src={url.href} referrerPolicy="no-referrer" />
+    return (
+      <PdfFailure reason="unsupported" onError={onError}>
+        {unsupportedFallback}
+      </PdfFailure>
+    )
+  return (
+    <iframe
+      {...frame}
+      src={url.href}
+      onError={() => onError?.('network')}
+      referrerPolicy="no-referrer"
+    />
+  )
 }
 
 /**

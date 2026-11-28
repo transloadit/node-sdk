@@ -42,6 +42,7 @@ export interface DocumentViewerProps {
   mime?: string | null
   truncated?: boolean
   notices?: { truncated?: string; rawMarkdown?: string }
+  rtfColors?: { text?: string; background?: string }
   colorScheme?: 'light' | 'dark' | 'auto'
 }
 
@@ -66,6 +67,7 @@ function RichText({
   title,
   className,
   colorScheme,
+  rtfColors,
   loadingFallback,
   errorFallback,
   onError,
@@ -83,7 +85,9 @@ function RichText({
     let active = true
     // RTF's parser is loaded only when a rich-text document is actually opened.
     void import('./renderRtfPreview.ts')
-      .then(({ renderRtfPreview }) => renderRtfPreview(bytes, colorScheme))
+      .then(({ renderRtfPreview }) =>
+        renderRtfPreview(bytes, colorScheme, rtfColors?.text, rtfColors?.background),
+      )
       .then(
         (html) => {
           if (active) setResult({ bytes, html })
@@ -97,7 +101,7 @@ function RichText({
     return () => {
       active = false
     }
-  }, [bytes, colorScheme])
+  }, [bytes, colorScheme, rtfColors?.text, rtfColors?.background])
   if (result?.bytes !== bytes) return loadingFallback
   if (result.failed || result.html === undefined) return errorFallback
   return (
@@ -146,7 +150,11 @@ function MarkdownDocument({ bytes, mime, richClassName }: DocumentViewerProps): 
       ),
     [bytes, mime],
   )
-  return <div className={richClassName}>{content}</div>
+  return (
+    <div data-tl-markdown="" className={richClassName}>
+      {content}
+    </div>
+  )
 }
 
 interface MarkdownState {

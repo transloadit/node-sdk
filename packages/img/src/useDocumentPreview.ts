@@ -4,23 +4,24 @@ import type { DocumentPreviewKind, DocumentPreviewReason } from './document.ts'
 import type { PreviewContent } from './readPreviewContent.ts'
 import type { PlaybackSource } from './useMediaPlayback.ts'
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import {
   DocumentPreviewError,
   MAX_DOCUMENT_PREVIEW_BYTES,
   MAX_RICH_DOCUMENT_PREVIEW_BYTES,
 } from './document.ts'
+import { previewDeadline } from './previewDeadline.ts'
 import { readPreviewContent } from './readPreviewContent.ts'
 
-export type DocumentSource = Pick<
-  PlaybackSource,
-  'asset_id' | 'version_id' | 'mediaUrl' | 'expiresAt'
->
+export type DocumentSource = Pick<PlaybackSource, 'asset_id' | 'mediaUrl'> &
+  Partial<Pick<PlaybackSource, 'version_id' | 'expiresAt'>>
 
 export interface DocumentPreviewOptions {
   source: DocumentSource
-  renew?: () => Promise<DocumentSource | undefined>
+  autoOpen?: boolean
+  timeoutMs?: number
+  renew?: (signal: AbortSignal) => Promise<DocumentSource | undefined>
   size?: number | null
   format: Exclude<DocumentPreviewKind, 'pdf'>
 }
@@ -55,11 +56,13 @@ function readSource(
   source: DocumentSource,
   signal: AbortSignal,
   rtf: boolean,
+  onProgress: () => void,
 ): Promise<PreviewContent> {
   if (!source.mediaUrl) throw new DocumentPreviewError('forbidden')
   return readPreviewContent(source.mediaUrl, signal, {
     limit: rtf ? MAX_RICH_DOCUMENT_PREVIEW_BYTES : MAX_DOCUMENT_PREVIEW_BYTES,
     truncate: !rtf,
+    onProgress,
   })
 }
 
@@ -94,24 +97,29 @@ export function useDocumentPreview(options: DocumentPreviewOptions): DocumentPre
     }
   }, [asset_id, version_id, format])
 
-  const open = useCallback(async (): Promise<void> => {
+  const read = useCallback(async (refresh?: 'expired' | 'forbidden'): Promise<void> => {
     if (!latest.current) return
     const selection = selectionKey(latest.current)
-    const { source, renew, size, format } = latest.current
+    const { source, renew, size, format, timeoutMs } = latest.current
     active.current?.abort()
     const controller = new AbortController()
     active.current = controller
-    const { signal } = controller
+    const deadline = previewDeadline(controller.signal, timeoutMs)
+    const { signal } = deadline
     function setState(state: PreviewState): void {
       setResult({ selection, state })
     }
     setState({ ...idle, status: 'loading' })
     async function fresh(missing: DocumentPreviewReason = 'expired'): Promise<DocumentSource> {
-      const answer = await renew?.()
+      const answer = renew && (await deadline.wait(renew(signal)))
       signal.throwIfAborted()
       if (!answer) throw new DocumentPreviewError(missing)
-      if (answer.expiresAt <= Date.now() + 5_000) throw new DocumentPreviewError('expired')
-      if (answer.asset_id !== source.asset_id || answer.version_id !== source.version_id)
+      if (answer.expiresAt !== undefined && answer.expiresAt <= Date.now() + 5_000)
+        throw new DocumentPreviewError('expired')
+      if (
+        answer.asset_id !== source.asset_id ||
+        (source.version_id !== undefined && answer.version_id !== source.version_id)
+      )
         throw new DocumentPreviewError('forbidden')
       return answer
     }
@@ -119,11 +127,16 @@ export function useDocumentPreview(options: DocumentPreviewOptions): DocumentPre
       const rtf = format === 'rtf'
       if (rtf && size != null && size > MAX_RICH_DOCUMENT_PREVIEW_BYTES)
         throw new DocumentPreviewError('too-large')
-      const expired = source.expiresAt <= Date.now() + 5_000
-      const grant = expired ? await fresh() : source
+      const expired =
+        (refresh && !!renew) ||
+        !source.mediaUrl ||
+        (source.expiresAt !== undefined && source.expiresAt <= Date.now() + 5_000)
+      const grant = expired
+        ? await fresh(refresh ?? (source.mediaUrl ? 'expired' : 'forbidden'))
+        : source
       let content: PreviewContent
       try {
-        content = await readSource(grant, signal, rtf)
+        content = await deadline.wait(readSource(grant, signal, rtf, deadline.reset))
       } catch (error) {
         if (
           signal.aborted ||
@@ -134,18 +147,30 @@ export function useDocumentPreview(options: DocumentPreviewOptions): DocumentPre
         )
           throw error
         const replacement = await fresh(error.reason)
-        if (replacement.mediaUrl === grant.mediaUrl) throw error
-        content = await readSource(replacement, signal, rtf)
+        content = await deadline.wait(readSource(replacement, signal, rtf, deadline.reset))
       }
       if (!signal.aborted) setState({ ...content, status: 'ready', reason: null })
     } catch (error) {
-      if (signal.aborted) return
+      if (controller.signal.aborted) return
       const reason =
         error instanceof DocumentPreviewError && error.reason !== 'unavailable'
           ? error.reason
           : 'network'
       setState({ ...idle, status: 'error', reason })
+    } finally {
+      deadline.dispose()
     }
   }, [])
-  return { ...state, open, close, retry: open }
+  const open = useCallback(() => read(), [read])
+  const retry = useCallback(
+    () =>
+      read(state.reason === 'forbidden' || state.reason === 'expired' ? state.reason : undefined),
+    [read, state.reason],
+  )
+  const { autoOpen } = options
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A new selection opens even when autoOpen stays true.
+  useEffect(() => {
+    if (autoOpen) void open()
+  }, [autoOpen, selection, open])
+  return { ...state, open, close, retry }
 }

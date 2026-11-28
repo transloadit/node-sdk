@@ -18,20 +18,37 @@ function Fixture() {
   )
   const [loaded, setLoaded] = useState(0)
   const preview = useDocumentPreview({ source, format: 'markdown' })
+  const stalled = new URLSearchParams(location.search).has('stalled')
+  const ranged = new URLSearchParams(location.search).has('ranges')
   return (
     <>
       <Viewer
         kind="pdf"
         mode="pdfjs"
-        src={`${fileOrigin}/report`}
+        src={`${fileOrigin}/${ranged ? 'ranges/old' : stalled ? 'stalled' : 'report'}`}
+        timeoutMs={stalled ? 150 : undefined}
+        filename="slides.pdf"
+        renew={(signal) => {
+          signal.throwIfAborted()
+          return Promise.resolve({ mediaUrl: `${fileOrigin}/ranges/fresh` })
+        }}
         title="Lecture slides"
         workerSrc={missingWorker ? '/missing-worker.mjs' : undefined}
         onLoad={() => setLoaded((count) => count + 1)}
-        errorFallback={
-          <button type="button" onClick={() => setMissingWorker(false)}>
-            Retry PDF
-          </button>
-        }
+        renderError={(reason, retry) => (
+          <div>
+            <p>{reason}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setMissingWorker(false)
+                retry()
+              }}
+            >
+              Retry PDF
+            </button>
+          </div>
+        )}
       />
       <output aria-label="PDF loads">{loaded}</output>
       <button type="button" onClick={preview.open}>

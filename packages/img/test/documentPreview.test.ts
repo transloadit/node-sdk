@@ -129,7 +129,8 @@ test.each([
   ['audio/mpeg', 'audio'],
   ['video/mp4', 'video'],
   ['text/markdown', 'markdown'],
-  ['application/octet-stream', 'pdf'],
+  ['application/octet-stream', null],
+  ['image/svg+xml', null],
   ['text/html', null],
 ])('viewerKind handles %s', (mime, kind) => expect(viewerKind(mime, 'slides.pdf')).toBe(kind))
 
@@ -143,4 +144,10 @@ test('decodes a quoted MIME charset and prefers an explicit Unicode BOM', () => 
   expect(
     decodeDocumentText(new TextEncoder().encode('é').buffer, 'text/plain; charset=unknown'),
   ).toBe('é')
+})
+
+test('only admits an octet-stream PDF candidate to the parser', () => {
+  expect(viewerKind('application/octet-stream', 'Slides.PDF', 'pdfjs')).toBe('pdf')
+  expect(viewerKind('application/octet-stream', 'Slides.PDF', 'frame')).toBeNull()
+  expect(viewerKind('image/svg+xml', 'Slides.pdf', 'pdfjs')).toBeNull()
 })

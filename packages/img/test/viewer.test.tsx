@@ -91,9 +91,14 @@ test('renders RTF locally into an inert sandboxed frame and rejects malformed RT
     <Viewer
       kind="document"
       format="rtf"
-      bytes={new TextEncoder().encode(String.raw`{\rtf1\ansi A letter\par\b Important\b0}`).buffer}
+      bytes={
+        new TextEncoder().encode(
+          String.raw`{\rtf1\ansi{\colortbl;\red255\green0\blue0;}A letter\par\cf1\b Important\b0}`,
+        ).buffer
+      }
       title="Letter"
       colorScheme="dark"
+      rtfColors={{ text: 'silver', background: 'navy' }}
       className="document"
       richClassName="markdown"
     />,
@@ -102,6 +107,16 @@ test('renders RTF locally into an inert sandboxed frame and rejects malformed RT
   expect(container.querySelector('iframe')?.getAttribute('sandbox')).toBe('')
   expect(container.querySelector('iframe')?.className).toBe('document')
   expect(container.querySelector('iframe')?.srcdoc).toContain('color-scheme:dark')
+  const frame = new DOMParser().parseFromString(
+    container.querySelector('iframe')?.srcdoc ?? '',
+    'text/html',
+  )
+  expect(frame.body.style.color).toBe('silver')
+  expect(frame.body.style.backgroundColor).toBe('navy')
+  expect(
+    Array.from(frame.querySelectorAll('span')).find((span) => span.textContent === 'Important')
+      ?.style.color,
+  ).toMatch(/rgb\(255,\s*0,\s*0\)/)
   expect(container.querySelector('iframe')?.srcdoc).toContain("default-src 'none'")
   const onError = vi.fn()
   await show(
@@ -308,4 +323,23 @@ test('offers the caller fallback when native inline PDFs are unavailable', async
 test('keeps rejected frame URLs empty without a fallback', async () => {
   await show(<Viewer kind="pdf" src="/untrusted" title="Report" />)
   expect(container.childNodes).toHaveLength(0)
+})
+
+test('routes unverified frame MIME to the typed error fallback', async () => {
+  vi.stubGlobal('navigator', { pdfViewerEnabled: false })
+  const onError = vi.fn()
+  await show(
+    <Viewer
+      kind="pdf"
+      mode="frame"
+      src="https://files.example/slides.pdf"
+      mime="application/octet-stream"
+      title="Slides"
+      onError={onError}
+      errorFallback="Invalid PDF"
+      unsupportedFallback="No inline reader"
+    />,
+  )
+  expect(container.textContent).toBe('Invalid PDF')
+  expect(onError).toHaveBeenCalledWith('invalid-mime')
 })

@@ -29,6 +29,8 @@ const permittedStyles = [
 export async function renderRtfPreview(
   bytes: ArrayBuffer,
   colorScheme: 'light' | 'dark' | 'auto' = 'light',
+  color?: string,
+  background?: string,
 ): Promise<string> {
   const { RTFJS } = await import('rtf.js')
   RTFJS.loggingEnabled(false)
@@ -58,12 +60,8 @@ export async function renderRtfPreview(
   }
   for (const node of await rtf.render()) inert.body.append(copy(node))
   const scheme = colorScheme === 'auto' ? 'light dark' : colorScheme === 'dark' ? 'dark' : 'light'
-  const darkColors = 'body *{color:CanvasText!important;background-color:transparent!important}'
-  const overrides =
-    scheme === 'dark'
-      ? darkColors
-      : scheme === 'light dark'
-        ? `@media(prefers-color-scheme:dark){${darkColors}}`
-        : ''
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>:root{color-scheme:${scheme}}body{background:Canvas;color:CanvasText;font:16px/1.6 system-ui,sans-serif;margin:24px;overflow-wrap:anywhere}${overrides}</style></head><body>${inert.body.innerHTML}</body></html>`
+  // Serialize caller colors as DOM style properties, keeping them outside the style element.
+  inert.body.style.color = color ?? ''
+  inert.body.style.backgroundColor = background ?? ''
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>:root{color-scheme:${scheme}}body{background:Canvas;color:CanvasText;font:16px/1.6 system-ui,sans-serif;margin:24px;overflow-wrap:anywhere}</style></head>${inert.body.outerHTML}</html>`
 }

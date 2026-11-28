@@ -5,6 +5,8 @@ export type DocumentPreviewReason =
   | 'network'
   | 'parse'
   | 'unsupported'
+  | 'invalid-url'
+  | 'invalid-mime'
 
 /** Safe to display or report without leaking a signed URL or response body. */
 export class DocumentPreviewError extends Error {
@@ -26,21 +28,18 @@ export interface PreviewContent {
 export async function readPreviewContent(
   url: string,
   signal: AbortSignal,
-  options: { limit: number; truncate?: boolean; pdf?: boolean },
+  options: { limit: number; truncate?: boolean; onProgress?: () => void },
 ): Promise<PreviewContent> {
   const response = await fetch(url, {
     signal,
     credentials: 'omit',
     referrerPolicy: 'no-referrer',
-    ...(options.pdf && { redirect: 'error' }),
   })
   const mime = response.headers.get('content-type')
   const advertised = Number(response.headers.get('content-length'))
   let reason: DocumentPreviewReason | undefined
   if (!response.ok)
     reason = response.status === 403 ? 'forbidden' : response.status === 401 ? 'expired' : 'network'
-  else if (options.pdf && mime?.split(';', 1)[0]?.trim().toLowerCase() !== 'application/pdf')
-    reason = 'unsupported'
   else if (!options.truncate && advertised > options.limit) reason = 'too-large'
   if (reason) {
     await response.body?.cancel()
@@ -48,7 +47,6 @@ export async function readPreviewContent(
   }
   if (!response.body) throw new DocumentPreviewError('network')
   const reader = response.body.getReader()
-  // An accurate Content-Length lets a large PDF go straight from one input buffer to the worker.
   const capacity =
     Number.isSafeInteger(advertised) && advertised > 0 ? Math.min(advertised, options.limit) : 0
   let bytes = new Uint8Array(capacity)
@@ -57,6 +55,7 @@ export async function readPreviewContent(
   try {
     while (true) {
       signal.throwIfAborted()
+      options.onProgress?.()
       const { done, value } = await reader.read()
       if (done) break
       const count = Math.min(value.byteLength, options.limit - length)

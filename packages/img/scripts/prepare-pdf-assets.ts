@@ -1,4 +1,4 @@
-import { copyFile, cp, mkdir } from 'node:fs/promises'
+import { copyFile, cp, mkdir, readFile, writeFile } from 'node:fs/promises'
 
 const root = new URL('.', import.meta.resolve('pdfjs-dist/package.json'))
 const dist = new URL('../dist/', import.meta.url)
@@ -7,7 +7,13 @@ await mkdir(new URL('wasm/', assets), { recursive: true })
 
 // Ship the browser build so the Node-only engine and native canvas dependency do not apply to SDK consumers.
 await Promise.all([
-  copyFile(new URL('legacy/build/pdf.min.mjs', root), new URL('pdf.min.mjs', dist)),
+  writeFile(
+    new URL('pdf.min.mjs', dist),
+    [
+      "import { fetchPdfResource as fetch } from './pdfNetwork.js'",
+      await readFile(new URL('legacy/build/pdf.min.mjs', root), 'utf8'),
+    ].join('\n'),
+  ),
   copyFile(new URL('legacy/build/pdf.worker.min.mjs', root), new URL('pdf.worker.min.mjs', assets)),
   copyFile(new URL('LICENSE', root), new URL('LICENSE.pdfjs', assets)),
   cp(new URL('cmaps/', root), new URL('cmaps/', assets), { recursive: true }),

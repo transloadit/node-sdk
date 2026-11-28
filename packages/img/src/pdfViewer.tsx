@@ -4,30 +4,44 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, RenderTask
 import type { ReactNode } from 'react'
 
 import type { DocumentPreviewReason } from './document.ts'
+import type { RenewPdf } from './pdfNetwork.ts'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { getDocument, PDFWorker } from '#pdfjs'
+import { getDocument, PDFWorker, TextLayer } from '#pdfjs'
 
-import { DocumentPreviewError, readPreviewContent } from './readPreviewContent.ts'
+import { openPdfNetwork } from './pdfNetwork.ts'
+import { previewDeadline } from './previewDeadline.ts'
+import { DocumentPreviewError } from './readPreviewContent.ts'
 
 export interface PdfViewerProps {
   src: string
   title: string
+  filename?: string
+  expiresAt?: number
+  renew?: RenewPdf
+  timeoutMs?: number
+  originalLink?: ReactNode
   labels?: {
     navigation?: string
     previous?: string
     next?: string
-    original?: string
+    pageInput?: string
+    zoomIn?: string
+    zoomOut?: string
+    fitWidth?: string
+    fitPage?: string
+    retry?: string
     page?: (number: number) => string
-    position?: (number: number, count: number) => string
+    position?: (number: number, count: number, percent: number) => string
   }
   workerSrc?: string
   assetBaseUrl?: string
   className?: string
   loadingFallback?: ReactNode
-  errorFallback?: ReactNode
   unsupportedFallback?: ReactNode
+  errorFallback?: ReactNode
+  renderError?: (reason: DocumentPreviewReason, retry: () => void) => ReactNode
   onLoad?: () => void
   onError?: (reason: DocumentPreviewReason) => void
 }
@@ -36,197 +50,240 @@ interface PageProps {
   pdf: PDFDocumentProxy
   number: number
   width: number
-  loaded: () => void
-  failed: () => void
+  height: number
+  fitPage: boolean
+  zoom: number
+  loaded: (page: number, percent: number) => void
+  failed: (reason: DocumentPreviewReason) => void
   label: string
-  loading: ReactNode
 }
 
-function PdfPage({ pdf, number, width, loaded, failed, loading, label }: PageProps): ReactNode {
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const [ready, setReady] = useState(false)
+function PdfPage({
+  pdf,
+  number,
+  width,
+  height,
+  fitPage,
+  zoom,
+  loaded,
+  failed,
+  label,
+}: PageProps): ReactNode {
+  const host = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const surface = canvas.current
-    if (!surface || width <= 0) return
+    const target = host.current
+    if (!target || width <= 0) return
     let active = true
-    let render: RenderTask | undefined
+    let raster: RenderTask | undefined
+    let text: TextLayer | undefined
     let page: PDFPageProxy | undefined
-    async function draw(surface: HTMLCanvasElement): Promise<void> {
+    async function draw(target: HTMLDivElement): Promise<void> {
       page = await pdf.getPage(number)
       if (!active) return
       const original = page.getViewport({ scale: 1 })
-      const scale = Math.min(
-        (width * (window.devicePixelRatio || 1)) / original.width,
-        Math.sqrt(4_000_000 / (original.width * original.height)),
-        8192 / Math.max(original.width, original.height),
+      const fit = Math.min(
+        width / original.width,
+        fitPage ? height / original.height : Number.POSITIVE_INFINITY,
       )
-      const viewport = page.getViewport({ scale })
-      surface.width = Math.max(1, Math.floor(viewport.width))
-      surface.height = Math.max(1, Math.floor(viewport.height))
-      render = page.render({ canvas: surface, viewport })
-      await render.promise
-      if (active) {
-        setReady(true)
-        loaded()
-      }
+      const viewport = page.getViewport({ scale: fit * zoom })
+      const resolution = Math.min(
+        window.devicePixelRatio || 1,
+        Math.sqrt(4_000_000 / (viewport.width * viewport.height)),
+        8192 / Math.max(viewport.width, viewport.height),
+      )
+      const sheet = document.createElement('div')
+      sheet.style.position = 'relative'
+      sheet.style.width = `${viewport.width}px`
+      sheet.style.height = `${viewport.height}px`
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.floor(viewport.width * resolution))
+      canvas.height = Math.max(1, Math.floor(viewport.height * resolution))
+      canvas.style.width = '100%'
+      canvas.style.height = '100%'
+      canvas.role = 'img'
+      canvas.ariaLabel = label
+      const layer = document.createElement('div')
+      layer.className = 'tl-pdf-text'
+      layer.style.setProperty('--total-scale-factor', String(viewport.scale))
+      text = new TextLayer({
+        container: layer,
+        viewport,
+        textContentSource: page.streamTextContent(),
+      })
+      raster = page.render({ canvas, viewport, transform: [resolution, 0, 0, resolution, 0, 0] })
+      await Promise.all([text.render(), raster.promise])
+      if (!active) return
+      sheet.append(canvas, layer)
+      target.replaceChildren(sheet)
+      loaded(number, Math.round(viewport.scale * 100))
     }
-    void draw(surface).catch(() => {
-      if (active) failed()
+    void draw(target).catch(() => {
+      if (active) failed('parse')
     })
     return () => {
       active = false
-      render?.cancel()
+      raster?.cancel()
+      text?.cancel()
       page?.cleanup()
-      surface.width = 0
-      surface.height = 0
     }
-  }, [pdf, number, width, loaded, failed])
-  return (
-    <>
-      {!ready && loading}
-      <canvas
-        ref={canvas}
-        role="img"
-        aria-label={label}
-        style={{ width: '100%', height: 'auto', display: ready ? 'block' : 'none' }}
-      />
-    </>
-  )
+  }, [pdf, number, width, height, fitPage, zoom, label, loaded, failed])
+  return <div ref={host} />
 }
 
-/** Single-page reader. Page changes and resizes release the old canvas backing store. */
+export interface PdfReaderProps extends PdfViewerProps {
+  renewFirst?: 'expired' | 'forbidden'
+  fail: (reason: DocumentPreviewReason) => void
+}
+
+/** Render a single PDF with its own worker and swap the raster and selectable text together. */
 export function PdfViewer({
   src,
   title,
+  filename,
   workerSrc,
   assetBaseUrl,
+  renew,
+  renewFirst,
+  expiresAt,
+  timeoutMs,
   labels,
   className,
   loadingFallback,
-  errorFallback,
-  unsupportedFallback,
-  onError,
+  originalLink,
   onLoad,
-}: PdfViewerProps): ReactNode {
+  fail,
+}: PdfReaderProps): ReactNode {
   const [pdf, setPdf] = useState<PDFDocumentProxy>()
-  const [reason, setReason] = useState<DocumentPreviewReason>()
   const [number, setNumber] = useState(1)
-  const [width, setWidth] = useState(0)
+  const [input, setInput] = useState('1')
+  const [visible, setVisible] = useState<{ page: number; percent: number }>()
+  const [fitPage, setFitPage] = useState(false)
+  const [zoom, setZoom] = useState(1)
+  const [size, setSize] = useState({ width: 0, height: 0 })
   const container = useRef<HTMLDivElement>(null)
-  const callbacks = useRef({ onError, onLoad })
+  const callbacks = useRef({ onLoad, renew })
   useLayoutEffect(() => {
-    callbacks.current = { onError, onLoad }
-  }, [onError, onLoad])
+    callbacks.current = { onLoad, renew }
+  }, [onLoad, renew])
   const firstPageLoaded = useRef(false)
-  const loaded = useCallback(() => {
+  const loaded = useCallback((page: number, percent: number) => {
+    setVisible({ page, percent })
     if (!firstPageLoaded.current) {
       firstPageLoaded.current = true
       callbacks.current.onLoad?.()
     }
   }, [])
-  const failed = useCallback(() => setReason('parse'), [])
+  const canRenew = !!renew
   useEffect(() => {
-    if (reason) {
-      setPdf(undefined)
-      callbacks.current.onError?.(reason)
-    }
-  }, [reason])
-  useEffect(() => {
-    if (reason) return
     const controller = new AbortController()
+    const startup = previewDeadline(controller.signal, timeoutMs)
+    let initialized = false
     let port: Worker | undefined
-    let workerHandle: PDFWorker | undefined
-    function releaseWorker(): void {
-      workerHandle?.destroy()
+    let worker: PDFWorker | undefined
+    let task: PDFDocumentLoadingTask | undefined
+    function release(): void {
+      worker?.destroy()
       port?.terminate()
       port = undefined
-      workerHandle = undefined
+      worker = undefined
     }
-    let task: PDFDocumentLoadingTask | undefined
+    function failed(reason: DocumentPreviewReason): void {
+      if (controller.signal.aborted) return
+      controller.abort()
+      fail(reason)
+    }
     async function load(): Promise<void> {
-      const worker =
-        workerSrc === undefined
-          ? new URL('/assets/transloadit-viewer/pdf.worker.min.mjs', location.origin)
-          : new URL(workerSrc, location.href)
-      if (!['https:', 'http:'].includes(worker.protocol) || worker.origin !== location.origin) {
-        throw new DocumentPreviewError('unsupported')
-      }
+      if (typeof Worker === 'undefined') throw new DocumentPreviewError('unsupported')
+      const workerUrl = URL.parse(
+        workerSrc ?? '/assets/transloadit-viewer/pdf.worker.min.mjs',
+        location.href,
+      )
+      if (!workerUrl) throw new DocumentPreviewError('invalid-url')
       const assets = assetBaseUrl
-        ? new URL(assetBaseUrl.endsWith('/') ? assetBaseUrl : `${assetBaseUrl}/`, location.href)
-        : new URL('.', worker)
-      if (assets.origin !== location.origin || !['https:', 'http:'].includes(assets.protocol))
-        throw new DocumentPreviewError('unsupported')
-      const content = await readPreviewContent(src, controller.signal, {
-        limit: 64 * 1024 * 1024,
-        pdf: true,
-      })
-      controller.signal.throwIfAborted()
-      // Owning the module worker avoids PDF.js's process-wide fallback after a worker startup failure.
-      port = new Worker(worker, { type: 'module' })
+        ? URL.parse(assetBaseUrl.endsWith('/') ? assetBaseUrl : `${assetBaseUrl}/`, location.href)
+        : new URL('.', workerUrl)
+      if (
+        !assets ||
+        [workerUrl, assets].some(
+          (url) => url.origin !== location.origin || !['https:', 'http:'].includes(url.protocol),
+        )
+      )
+        throw new DocumentPreviewError('invalid-url')
+      port = new Worker(workerUrl, { type: 'module' })
       port.addEventListener(
         'error',
         () => {
-          releaseWorker()
-          if (!controller.signal.aborted) setReason('network')
+          failed('network')
+          release()
         },
         { once: true },
       )
-      workerHandle = PDFWorker.create({ port })
+      worker = PDFWorker.create({ port })
       task = getDocument({
-        worker: workerHandle,
+        url: src,
+        worker,
+        httpHeaders: openPdfNetwork({
+          src,
+          filename,
+          expiresAt,
+          renewFirst,
+          timeoutMs,
+          renew: canRenew ? async (signal) => callbacks.current.renew?.(signal) : undefined,
+          signal: controller.signal,
+          fail: failed,
+        }),
+        rangeChunkSize: 64 * 1024,
+        disableAutoFetch: true,
+        // Range-capable servers serve requested chunks on demand. Other servers stream the initial GET.
+        disableStream: true,
         cMapUrl: new URL('cmaps/', assets).href,
         standardFontDataUrl: new URL('standard_fonts/', assets).href,
         wasmUrl: new URL('wasm/', assets).href,
         useWorkerFetch: true,
-        data: content.bytes,
         useWasm: false,
         disableWorkerRendering: true,
         canvasMaxAreaInBytes: 16_000_000,
       })
-      const document = await task.promise
+      task.onProgress = startup.reset
+      const document = await startup.wait(task.promise)
+      initialized = true
+      startup.dispose()
       if (!controller.signal.aborted) setPdf(document)
     }
-    void load().catch((error: unknown) => {
-      if (controller.signal.aborted) return
-      setReason(
+    void load().catch((error: unknown) =>
+      failed(
         error instanceof DocumentPreviewError && error.reason !== 'unavailable'
           ? error.reason
-          : task
-            ? 'parse'
-            : 'network',
-      )
-    })
+          : startup.signal.aborted || !task
+            ? 'network'
+            : 'parse',
+      ),
+    )
     return () => {
       controller.abort()
-      if (task) void task.destroy().then(releaseWorker, releaseWorker)
-      else releaseWorker()
+      startup.dispose()
+      if (task) void task.destroy().then(release, release)
+      if (!initialized) release()
     }
-  }, [src, workerSrc, assetBaseUrl, reason])
+  }, [src, filename, workerSrc, assetBaseUrl, canRenew, expiresAt, renewFirst, timeoutMs, fail])
   useLayoutEffect(() => {
     const element = container.current
     if (!element) return
-    let resize: ReturnType<typeof setTimeout>
     const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return
-      clearTimeout(resize)
-      // CSS fits the existing canvas immediately. Re-rasterize once the container settles.
-      resize = setTimeout(() => setWidth(Math.floor(entry.contentRect.width)), 80)
+      if (entry)
+        setSize({
+          width: Math.floor(entry.contentRect.width),
+          height: Math.floor(entry.contentRect.height),
+        })
     })
     observer.observe(element)
-    return () => {
-      clearTimeout(resize)
-      observer.disconnect()
-    }
+    return () => observer.disconnect()
   }, [])
-  const loading = loadingFallback ?? <p role="status">Loading PDF…</p>
   const count = pdf?.numPages ?? 1
   function go(page: number): void {
-    setNumber(Math.max(1, Math.min(count, page)))
-  }
-  if (reason) {
-    const fallback =
-      reason === 'unsupported' ? (unsupportedFallback ?? errorFallback) : errorFallback
-    return fallback ?? <p role="alert">Could not display this PDF.</p>
+    const next = Math.max(1, Math.min(count, Number.isInteger(page) ? page : number))
+    setNumber(next)
+    setInput(String(next))
   }
   return (
     <section
@@ -236,11 +293,20 @@ export function PdfViewer({
       // biome-ignore lint/a11y/noNoninteractiveTabindex: Focus the reader to navigate pages with the keyboard.
       tabIndex={0}
       onKeyDown={(event) => {
-        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+        if (
+          event.target instanceof HTMLInputElement ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.shiftKey
+        )
+          return
         switch (event.key) {
+          case 'PageDown':
           case 'ArrowRight':
             go(number + 1)
             break
+          case 'PageUp':
           case 'ArrowLeft':
             go(number - 1)
             break
@@ -256,35 +322,75 @@ export function PdfViewer({
         event.preventDefault()
       }}
     >
-      {pdf ? (
+      {pdf && (
         <nav aria-label={labels?.navigation ?? 'PDF pages'}>
           <button type="button" aria-disabled={number === 1} onClick={() => go(number - 1)}>
             {labels?.previous ?? 'Previous page'}
           </button>
-          <span aria-live="polite">
-            {labels?.position?.(number, count) ?? `Page ${number} of ${count}`}
-          </span>
+          <input
+            aria-label={labels?.pageInput ?? 'Page number'}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={count}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onBlur={() => go(Number(input || number))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') go(Number(input || number))
+            }}
+          />
           <button type="button" aria-disabled={number === count} onClick={() => go(number + 1)}>
             {labels?.next ?? 'Next page'}
           </button>
-          <a href={src} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">
-            {labels?.original ?? 'Open original PDF'}
-          </a>
+          <button type="button" onClick={() => setZoom((value) => Math.max(0.25, value / 1.25))}>
+            {labels?.zoomOut ?? 'Zoom out'}
+          </button>
+          <button type="button" onClick={() => setZoom((value) => Math.min(4, value * 1.25))}>
+            {labels?.zoomIn ?? 'Zoom in'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFitPage(false)
+              setZoom(1)
+            }}
+          >
+            {labels?.fitWidth ?? 'Fit width'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFitPage(true)
+              setZoom(1)
+            }}
+          >
+            {labels?.fitPage ?? 'Fit page'}
+          </button>
+          {originalLink}
         </nav>
-      ) : (
-        loading
       )}
-      <div ref={container}>
+      <div role="status">
+        {visible
+          ? (labels?.position?.(visible.page, count, visible.percent) ??
+            `Page ${visible.page} of ${count}, ${visible.percent}%`)
+          : (loadingFallback ?? 'Loading PDF…')}
+      </div>
+      <div
+        ref={container}
+        style={{ overflow: 'auto', height: 'var(--tl-viewer-pdf-height, 70dvh)' }}
+      >
         {pdf && (
           <PdfPage
-            key={`${number}/${width}`}
             pdf={pdf}
             number={number}
-            width={width}
+            width={size.width}
+            height={size.height}
+            fitPage={fitPage}
+            zoom={zoom}
             label={labels?.page?.(number) ?? `PDF page ${number}`}
             loaded={loaded}
-            failed={failed}
-            loading={loading}
+            failed={fail}
           />
         )}
       </div>

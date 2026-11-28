@@ -33,10 +33,16 @@ export function documentPreviewKind(
 }
 
 /** Classify media and documents consistently across lists and detail views. */
-export function viewerKind(mime: string | null | undefined, filename: string): ViewerKind | null {
+export function viewerKind(
+  mime: string | null | undefined,
+  filename: string,
+  mode: 'frame' | 'pdfjs' = 'frame',
+): ViewerKind | null {
   const type = mime?.split(';', 1)[0]?.trim().toLowerCase()
-  // Only the new classifier treats a generic-MIME PDF as a candidate. The legacy frame gate remains MIME-only.
-  if ((!type || type === 'application/octet-stream') && /\.pdf$/i.test(filename)) return 'pdf'
+  // SVG can contain active content when opened directly.
+  if (type === 'image/svg+xml') return null
+  if (mode === 'pdfjs' && type === 'application/octet-stream' && /\.pdf$/i.test(filename))
+    return 'pdf'
   const family = type?.split('/')[0]
   if (mime?.includes('/') && (family === 'image' || family === 'video' || family === 'audio'))
     return family

@@ -156,3 +156,40 @@ test('reports forbidden when renewal cannot replace a denied grant', async () =>
   await act(() => preview.current?.open())
   expect(preview.current?.reason).toBe('forbidden')
 })
+
+test('auto-opens a lazy grant by asset identity and cancels renewal on close', async () => {
+  const renew = vi.fn((_signal: AbortSignal) => new Promise<typeof source>(() => {}))
+  await mount({ autoOpen: true, source: { asset_id: 'notes' }, renew })
+  expect(renew).toHaveBeenCalledOnce()
+  const signal = renew.mock.calls[0]?.[0]
+  expect(signal?.aborted).toBe(false)
+  await act(() => preview.current?.close())
+  expect(signal?.aborted).toBe(true)
+  expect(preview.current?.status).toBe('idle')
+})
+
+test('times out a stalled fetch even when the provider ignores cancellation', async () => {
+  fetchMock.mockReturnValue(new Promise(() => {}))
+  await mount({ timeoutMs: 20 })
+  await act(() => preview.current?.open())
+  expect(preview.current).toMatchObject({ status: 'error', reason: 'network' })
+  expect(fetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true)
+})
+
+test('retry renews before contacting a URL already denied', async () => {
+  fetchMock
+    .mockResolvedValueOnce(new Response(null, { status: 401 }))
+    .mockResolvedValueOnce(new Response('new text'))
+  const renew = vi
+    .fn()
+    .mockResolvedValueOnce(undefined)
+    .mockResolvedValueOnce({ asset_id: 'notes', mediaUrl: 'https://files.example/new' })
+  await mount({ source: { asset_id: 'notes', mediaUrl: source.mediaUrl }, renew })
+  await act(() => preview.current?.open())
+  await act(() => preview.current?.retry())
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+    source.mediaUrl,
+    'https://files.example/new',
+  ])
+  expect(preview.current?.status).toBe('ready')
+})
